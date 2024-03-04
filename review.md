@@ -19,3 +19,17 @@
 3. 확장 프로그램의 console.log 확인
 이는 확장프로그램이 열린 상태에서 우클릭 -> 검사 를 통해 들어갈 수 있는 이 창의 개발자 도구에서 따로 확인해야 한다.
 
+# 참고 자료
+
+https://developer.chrome.com/docs/extensions?hl=ko  
+
+https://github.com/GENYF/Ajou-Swift/blob/main/popup/popup.css  
+
+https://github.com/chhs2131/induck-guide-me/blob/main/chrome/manifest.json
+
+https://github.com/chani017/kurogagi
+
+https://www.figma.com/file/2ZCN04paCE0Gzwr88KiE9g/konkuk-extension?type=design&node-id=0-1&mode=design&t=PNTWw9TER7AhNH4w-0
+
+https://support.flaticon.com/s/article/Attribution-How-when-and-where-FI?language=en_US
+
