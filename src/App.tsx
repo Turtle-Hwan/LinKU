@@ -1,8 +1,5 @@
 import { useState, useEffect } from "react";
 
-declare const chrome: any;
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
 import "./App.css";
 
 async function getCurrentTab() {
@@ -31,13 +28,14 @@ function App() {
       console.log("currenttab id", currentTab.id);
       chrome.scripting
         .executeScript({
-          target: { tabId: currentTab.id, allFrames: true },
+          target: { tabId: currentTab.id ?? 0, allFrames: true },
           files: ["getSource.js"],
         })
         .then((result) => {
           console.log("Injection Success", result);
         })
-        .catch((err) => {
+        .catch((err: Error) => {
+          // 명시적 타입 지정
           console.log("err", err);
         });
 
@@ -46,7 +44,7 @@ function App() {
         console.log(currentTab.id);
         chrome.scripting
           .executeScript({
-            target: { tabId: currentTab.id, allFrames: true },
+            target: { tabId: currentTab.id ?? 0, allFrames: true },
             func: sugangRefreshBtn,
           })
           .then((result) => {
@@ -63,14 +61,6 @@ function App() {
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
       <h1>Vite + React</h1>
       <div className="card">
         <button onClick={() => setCount((count) => count + 1)}>

@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/updateVersion.js && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "watch": "vite build --watch"
+    "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch"
   },
   "dependencies": {
+    "@types/chrome": "^0.0.304",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
