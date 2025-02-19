@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 body {
   background-color: white;
   font-family: "Nanum Gothic", sans-serif;

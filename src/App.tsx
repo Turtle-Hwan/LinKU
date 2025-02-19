@@ -6,6 +6,7 @@ import {
 } from "./utils/chrome";
 import { sugangRefreshBtn } from "./utils/sugang";
 import "./App.css";
+import Link from "./components/Link";
 
 function App() {
   useEffect(() => {
@@ -27,6 +28,7 @@ function App() {
   return (
     <>
       <button id="refresh-btn">Refresh</button>
+      <Link />
     </>
   );
 }
