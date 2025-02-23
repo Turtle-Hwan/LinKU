@@ -2,11 +2,11 @@ import { useEffect } from "react";
 import {
   getCurrentTab,
   executeScript,
-  executeScriptFile,
+  // executeScriptFile,
 } from "./utils/chrome";
 import { sugangRefreshBtn } from "./utils/sugang";
 import "./App.css";
-import Link from "./components/Link";
+import LinkGroup from "./components/LinkGroup";
 
 function App() {
   useEffect(() => {
@@ -14,7 +14,7 @@ function App() {
       const currentTab = await getCurrentTab();
       if (!currentTab.id) return;
 
-      await executeScriptFile(currentTab.id, ["getSource.js"]);
+      // await executeScriptFile(currentTab.id, ["getSource.js"]);
 
       const refreshButton = document.getElementById("refresh-btn");
       refreshButton?.addEventListener("click", async () => {
@@ -28,7 +28,7 @@ function App() {
   return (
     <>
       <button id="refresh-btn">Refresh</button>
-      <Link />
+      <LinkGroup />
     </>
   );
 }
