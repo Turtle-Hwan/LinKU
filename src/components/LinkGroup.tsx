@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { GitHubSvg, HelloLmsPng, KonkukLogo } from "@/assets";
 import React from "react";
+import ImageCarousel from "./ImageCarousel";
 
 const LinkList = [
   {
@@ -134,7 +135,14 @@ const Grid = () => {
 };
 
 const Banner = () => {
-  return <></>;
+  return (
+    <>
+      {/* Image Carousel */}
+      <div className="mt-auto group">
+        <ImageCarousel />
+      </div>
+    </>
+  );
 };
 
 const Footer = () => {

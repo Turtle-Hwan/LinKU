@@ -13,5 +13,6 @@
     "48": "assets/icon48.png",
     "64": "assets/icon64.png",
     "128": "assets/icon128.png"
-  }
+  },
+  "content_security_policy": "script-src 'self' https://www.google-analytics.com; https://www.googletagmanager.com; object-src 'self'"
 }
