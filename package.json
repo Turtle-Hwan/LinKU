@@ -8,7 +8,8 @@
     "build": "node scripts/updateVersion.js && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch"
+    "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch",
+    "deploy": "git subtree push --prefix dist origin gh-pages"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.7",
