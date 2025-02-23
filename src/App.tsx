@@ -27,7 +27,7 @@ function App() {
 
   return (
     <>
-      <button id="refresh-btn">Refresh</button>
+      {/* <button id="refresh-btn">Refresh</button> */}
       <LinkGroup />
     </>
   );

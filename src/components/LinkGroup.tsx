@@ -55,14 +55,17 @@ const LinkList = [
     link: "https://account.everytime.kr/login",
   },
   // { icon: GraduationCap, label: "나의 학과" },
-  // { icon: Book, label: "전자출석부" },
 ];
 
 const LinkGroup = () => {
+  // const [nowLink, setNowLink] = React.useState<string>("");
+
   return (
-    <div className="w-[400px] h-[500px] bg-white overflow-hidden">
+    <div className="w-[400px] h-[550px] bg-white overflow-hidden">
       <LinkGroup.Header />
       <LinkGroup.Grid />
+      <LinkGroup.Banner />
+      <LinkGroup.Footer />
     </div>
   );
 };
@@ -70,6 +73,7 @@ const LinkGroup = () => {
 const Header = () => {
   return (
     <header className="p-4 border-b">
+      {/* <header className="p-4 border-b border-[#00913A]/80"> */}
       <div className="flex items-center justify-between gap-4">
         <img
           src={KonkukLogo}
@@ -129,7 +133,17 @@ const Grid = () => {
   );
 };
 
+const Banner = () => {
+  return <></>;
+};
+
+const Footer = () => {
+  return <></>;
+};
+
 LinkGroup.Header = React.memo(Header);
 LinkGroup.Grid = React.memo(Grid);
+LinkGroup.Banner = React.memo(Banner);
+LinkGroup.Footer = React.memo(Footer);
 
 export default React.memo(LinkGroup);
