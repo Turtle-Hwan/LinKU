@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "LinKU",
+  "description": "건국대학교 학생들을 위한 교내외 관련 페이지 모음 확장 프로그램 LinKU",
+  "version": "1.0.16",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "scripting"
+  ],
+  "icons": {
+    "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
+    "48": "assets/icon48.png",
+    "64": "assets/icon64.png",
+    "128": "assets/icon128.png"
+  },
+  "content_security_policy": "script-src 'self' https://www.google-analytics.com; https://www.googletagmanager.com; object-src 'self'"
+}
