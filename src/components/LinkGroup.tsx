@@ -14,7 +14,6 @@ import {
   Building,
   ScrollText,
   UsersRound,
-  Link,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { GitHubSvg, HelloLmsPng, LinkuLogoSvg } from "@/assets";

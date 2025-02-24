@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { KuitBannerPng } from "@/assets";
+import { KuitBannerPng2, MakersBanner } from "@/assets";
 
-const ImageList = [KuitBannerPng, KuitBannerPng, KuitBannerPng];
+const ImageList = [KuitBannerPng2, MakersBanner];
 
 const ImageCarousel = () => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);
@@ -40,7 +40,7 @@ const ImageCarousel = () => {
   }, [emblaApi, onSelect]);
 
   return (
-    <div className="embla relative h-[70px]">
+    <div className="embla relative h-[86px]">
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="embla__container flex">
           {ImageList.map((src, idx) => (
