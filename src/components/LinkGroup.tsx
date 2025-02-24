@@ -14,6 +14,7 @@ import {
   Building,
   ScrollText,
   UsersRound,
+  Link,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { GitHubSvg, HelloLmsPng, LinkuLogoSvg } from "@/assets";
@@ -139,7 +140,6 @@ const Grid = () => {
       {LinkList.map((item, idx) => {
         return (
           <>
-            {" "}
             {idx === 6 &&
               LinkList_long.map((item, idx) => (
                 <button
@@ -149,7 +149,7 @@ const Grid = () => {
                     window.open(item.link);
                   }}
                 >
-                  <div className="w-9 h-9 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
                     <item.icon
                       className={`Icon__Animation w-5 h-5 text-[#00913A]`}
                     />
@@ -159,34 +159,37 @@ const Grid = () => {
                   </span>
                 </button>
               ))}
-            <button
-              key={idx}
-              className="col-span-2 flex flex-row items-center justify-start p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
-              onClick={() => {
-                window.open(item.link);
-              }}
-            >
-              <div className="w-9 h-9 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
-                {item.type === "png" ? (
-                  <img
-                    src={item.icon}
-                    alt={item.label}
-                    className="Icon__Animation w-5 h-5 text-[#00913A]"
-                  />
-                ) : (
-                  <item.icon
-                    className={`Icon__Animation w-5 h-5 text-[#00913A]`}
-                  />
-                )}
-              </div>
-              <span className="w-full text-base text-black text-center break-keep">
-                {item.label}
-              </span>
-            </button>
+            <LinkGroup.GridItem key={idx} item={item} />
           </>
         );
       })}
     </div>
+  );
+};
+
+const GridItem = ({ item }) => {
+  return (
+    <button
+      className="col-span-2 flex flex-row items-center justify-start p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
+      onClick={() => {
+        window.open(item.link);
+      }}
+    >
+      <div className="w-9 h-9 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
+        {item.type === "png" ? (
+          <img
+            src={item.icon}
+            alt={item.label}
+            className="Icon__Animation w-5 h-5 text-[#00913A]"
+          />
+        ) : (
+          <item.icon className={`Icon__Animation w-5 h-5 text-[#00913A]`} />
+        )}
+      </div>
+      <span className="w-full text-base text-black text-center break-keep">
+        {item.label}
+      </span>
+    </button>
   );
 };
 
@@ -204,6 +207,7 @@ const Footer = () => {
 
 LinkGroup.Header = React.memo(Header);
 LinkGroup.Grid = React.memo(Grid);
+LinkGroup.GridItem = React.memo(GridItem);
 LinkGroup.Banner = React.memo(Banner);
 LinkGroup.Footer = React.memo(Footer);
 
