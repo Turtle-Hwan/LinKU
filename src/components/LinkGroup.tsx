@@ -16,8 +16,8 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { GitHubSvg, HelloLmsPng, LinkuLogoSvg } from "@/assets";
-import React from "react";
+import { HelloLmsPng, LinkuLogoSvg } from "@/assets";
+import React, { useEffect } from "react";
 import ImageCarousel from "./ImageCarousel";
 
 const LinkList = [
@@ -107,26 +107,50 @@ const LinkGroup = () => {
 };
 
 const Header = () => {
+  const [text, setText] = React.useState<string>("");
+
+  useEffect(() => {
+    console.log(text);
+  }, [text]);
+
   return (
     <header className="p-4 border-b">
       <div className="flex items-center justify-between gap-4">
-        <LinkuLogoSvg />
+        <LinkuLogoSvg
+          className="cursor-pointer"
+          onClick={() => {
+            window.open(`https://github.com/Turtle-Hwan/LinKU`);
+          }}
+        />
         <div className="relative flex-1">
           <Input
             type="text"
             placeholder="검색어 입력"
             className="w-full pl-10 pr-4 py-2 border rounded-lg"
+            onChange={(e) => setText((e.target as HTMLInputElement).value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                window.open(
+                  `https://search.konkuk.ac.kr/main.do?keyword=${text}`
+                );
+              }
+            }}
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Settings className="w-5 h-5 text-gray-600 cursor-pointer" />
-          <GitHubSvg
+          <Settings
+            className="w-5 h-5 text-gray-600 cursor-pointer"
+            onClick={() => {
+              alert("아직 기능이 준비 중이에요.");
+            }}
+          />
+          {/* <GitHubSvg
             className="w-5 h-5 text-gray-600 cursor-pointer"
             onClick={() => {
               window.open("https://github.com/Turtle-Hwan/LinKU");
             }}
-          />
+          /> */}
         </div>
       </div>
     </header>
