@@ -9,6 +9,9 @@ import {
   Trophy,
   GraduationCap,
   AlarmClock,
+  MapPinned,
+  Utensils,
+  Building,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { GitHubSvg, HelloLmsPng, LinkuLogoSvg } from "@/assets";
@@ -33,15 +36,23 @@ const LinkList = [
     link: "https://ecampus.konkuk.ac.kr",
   },
   { icon: Trophy, label: "위인전", link: "https://wein.konkuk.ac.kr" },
+
+  { icon: Clock, label: "수강신청", link: "https://sugang.konkuk.ac.kr" },
+  {
+    icon: MapPinned,
+    label: "캠퍼스맵",
+    link: "https://research.konkuk.ac.kr/campusMap/konkuk/view.do#this",
+  },
   {
     icon: GraduationCap,
     label: "학사정보시스템",
+    labelLength: "long",
     link: "https://kuis.konkuk.ac.kr/index.do",
   },
-  { icon: Clock, label: "수강신청", link: "https://sugang.konkuk.ac.kr" },
   {
     icon: BookCopy,
     label: "상허기념도서관",
+    labelLength: "long",
     link: "https://library.konkuk.ac.kr/",
   },
   {
@@ -55,14 +66,25 @@ const LinkList = [
     label: "에브리타임",
     link: "https://account.everytime.kr/login",
   },
-  // { icon: GraduationCap, label: "나의 학과" },
+
+  {
+    icon: Utensils,
+    label: "학식 메뉴",
+    link: "https://grad.konkuk.ac.kr/general/18211/subview.do",
+  },
+  {
+    icon: Building,
+    label: "현장실습",
+    link: "https://field.konkuk.ac.kr/index.do",
+  },
 ];
 
 const LinkGroup = () => {
   // const [nowLink, setNowLink] = React.useState<string>("");
+  console.log(window.history);
 
   return (
-    <div className="w-[400px] h-[550px] bg-white overflow-hidden">
+    <div className="w-[500px] h-[600px] bg-white overflow-hidden">
       <LinkGroup.Header />
       <LinkGroup.Grid />
       <LinkGroup.Banner />
@@ -104,23 +126,23 @@ const Grid = () => {
       {LinkList.map((item, index) => (
         <button
           key={index}
-          className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
+          className="flex flex-row items-center justify-start p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
           onClick={() => {
             window.open(item.link);
           }}
         >
-          <div className="w-12 h-12 rounded-full bg-[#00913A]/10 flex items-center justify-center mb-2">
+          <div className="w-9 h-9 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
             {item.type === "png" ? (
               <img
                 src={item.icon}
                 alt={item.label}
-                className="w-6 h-6 text-[#00913A]"
+                className="w-5 h-5 text-[#00913A]"
               />
             ) : (
-              <item.icon className={`w-6 h-6 text-[#00913A]`} />
+              <item.icon className={`w-5 h-5 text-[#00913A]`} />
             )}
           </div>
-          <span className="text-sm text-gray-700 text-center break-keep">
+          <span className="w-full text-base text-black text-center break-keep">
             {item.label}
           </span>
         </button>
@@ -131,12 +153,9 @@ const Grid = () => {
 
 const Banner = () => {
   return (
-    <>
-      {/* Image Carousel */}
-      <div className="mt-auto group">
-        <ImageCarousel />
-      </div>
-    </>
+    <div className="mt-auto group">
+      <ImageCarousel />
+    </div>
   );
 };
 
