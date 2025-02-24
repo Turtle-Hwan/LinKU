@@ -11,7 +11,7 @@ import {
   AlarmClock,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { GitHubSvg, HelloLmsPng, KonkukLogo } from "@/assets";
+import { GitHubSvg, HelloLmsPng, LinkuLogoSvg } from "@/assets";
 import React from "react";
 import ImageCarousel from "./ImageCarousel";
 
@@ -74,13 +74,8 @@ const LinkGroup = () => {
 const Header = () => {
   return (
     <header className="p-4 border-b">
-      {/* <header className="p-4 border-b border-[#00913A]/80"> */}
       <div className="flex items-center justify-between gap-4">
-        <img
-          src={KonkukLogo}
-          alt="Konkuk University"
-          className="h-8 flex-shrink-0"
-        />
+        <LinkuLogoSvg />
         <div className="relative flex-1">
           <Input
             type="text"

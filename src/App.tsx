@@ -1,10 +1,10 @@
-import { useEffect } from "react";
-import {
-  getCurrentTab,
-  executeScript,
-  // executeScriptFile,
-} from "./utils/chrome";
-import { sugangRefreshBtn } from "./utils/sugang";
+// import { useEffect } from "react";
+// import {
+//   getCurrentTab,
+//   executeScript,
+//   // executeScriptFile,
+// } from "./utils/chrome";
+// import { sugangRefreshBtn } from "./utils/sugang";
 import "./App.css";
 import LinkGroup from "./components/LinkGroup";
 
