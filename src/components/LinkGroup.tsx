@@ -2,7 +2,7 @@ import {
   Search,
   Settings,
   BellRing,
-  Home,
+  University,
   CalendarDays,
   BookCopy,
   Clock,
@@ -12,6 +12,8 @@ import {
   MapPinned,
   Utensils,
   Building,
+  ScrollText,
+  UsersRound,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { GitHubSvg, HelloLmsPng, LinkuLogoSvg } from "@/assets";
@@ -20,7 +22,7 @@ import ImageCarousel from "./ImageCarousel";
 
 const LinkList = [
   {
-    icon: Home,
+    icon: University,
     label: "홈페이지",
     link: "https://www.konkuk.ac.kr/konkuk/index.do",
   },
@@ -43,22 +45,16 @@ const LinkList = [
     label: "캠퍼스맵",
     link: "https://research.konkuk.ac.kr/campusMap/konkuk/view.do#this",
   },
-  {
-    icon: GraduationCap,
-    label: "학사정보시스템",
-    labelLength: "long",
-    link: "https://kuis.konkuk.ac.kr/index.do",
-  },
-  {
-    icon: BookCopy,
-    label: "상허기념도서관",
-    labelLength: "long",
-    link: "https://library.konkuk.ac.kr/",
-  },
+
   {
     icon: CalendarDays,
     label: "학사일정",
     link: "https://korea.konkuk.ac.kr/konkuk/2161/subview.do",
+  },
+  {
+    icon: Utensils,
+    label: "학식 메뉴",
+    link: "https://grad.konkuk.ac.kr/general/18211/subview.do",
   },
   {
     icon: AlarmClock,
@@ -66,16 +62,33 @@ const LinkList = [
     label: "에브리타임",
     link: "https://account.everytime.kr/login",
   },
-
   {
-    icon: Utensils,
-    label: "학식 메뉴",
-    link: "https://grad.konkuk.ac.kr/general/18211/subview.do",
+    icon: UsersRound,
+    label: "학과 정보",
+    link: "https://www.konkuk.ac.kr/konkuk/2143/subview.do",
+  },
+  {
+    icon: ScrollText,
+    label: "2025 요람",
+    link: "https://grad.konkuk.ac.kr/sites/bulletins25/index.do",
   },
   {
     icon: Building,
     label: "현장실습",
     link: "https://field.konkuk.ac.kr/index.do",
+  },
+];
+
+const LinkList_long = [
+  {
+    icon: GraduationCap,
+    label: "학사정보시스템",
+    link: "https://kuis.konkuk.ac.kr/index.do",
+  },
+  {
+    icon: BookCopy,
+    label: "상허기념도서관",
+    link: "https://library.konkuk.ac.kr/",
   },
 ];
 
@@ -122,31 +135,57 @@ const Header = () => {
 
 const Grid = () => {
   return (
-    <div className="grid grid-cols-3 gap-4 p-4">
-      {LinkList.map((item, index) => (
-        <button
-          key={index}
-          className="flex flex-row items-center justify-start p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
-          onClick={() => {
-            window.open(item.link);
-          }}
-        >
-          <div className="w-9 h-9 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
-            {item.type === "png" ? (
-              <img
-                src={item.icon}
-                alt={item.label}
-                className="w-5 h-5 text-[#00913A]"
-              />
-            ) : (
-              <item.icon className={`w-5 h-5 text-[#00913A]`} />
-            )}
-          </div>
-          <span className="w-full text-base text-black text-center break-keep">
-            {item.label}
-          </span>
-        </button>
-      ))}
+    <div className="Link__Grid grid grid-cols-6 gap-4 p-4">
+      {LinkList.map((item, idx) => {
+        return (
+          <>
+            {" "}
+            {idx === 6 &&
+              LinkList_long.map((item, idx) => (
+                <button
+                  key={idx}
+                  className="col-span-3 flex flex-row items-center justify-start p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
+                  onClick={() => {
+                    window.open(item.link);
+                  }}
+                >
+                  <div className="w-9 h-9 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
+                    <item.icon
+                      className={`Icon__Animation w-5 h-5 text-[#00913A]`}
+                    />
+                  </div>
+                  <span className="w-full text-base text-black text-center break-keep">
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            <button
+              key={idx}
+              className="col-span-2 flex flex-row items-center justify-start p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
+              onClick={() => {
+                window.open(item.link);
+              }}
+            >
+              <div className="w-9 h-9 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
+                {item.type === "png" ? (
+                  <img
+                    src={item.icon}
+                    alt={item.label}
+                    className="Icon__Animation w-5 h-5 text-[#00913A]"
+                  />
+                ) : (
+                  <item.icon
+                    className={`Icon__Animation w-5 h-5 text-[#00913A]`}
+                  />
+                )}
+              </div>
+              <span className="w-full text-base text-black text-center break-keep">
+                {item.label}
+              </span>
+            </button>
+          </>
+        );
+      })}
     </div>
   );
 };
