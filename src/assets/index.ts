@@ -5,21 +5,21 @@ import LinkuLogoSvg from "./linku_logo.svg?react";
 import LinkuLogoWhiteSvg from "./linku_logo_white.svg?react";
 import LinkuLogoMainSvg from "./linku_logo_main.svg?react";
 
-//banners
-import KuitBannerPng from "./banners/kuit_banner.png";
-import KuitBannerPng2 from "./banners/kuit_banner2.png";
-import MakersBanner from "./banners/makers_banner.png";
+// //banners
+// import KuitBannerPng from "./banners/kuit_banner.png";
+// import KuitBannerPng2 from "./banners/kuit_banner2.png";
+// import MakersBanner from "./banners/makers_banner.png";
 
 export {
   GitHubSvg,
   HelloLmsPng,
-  KuitBannerPng,
+  KonkukLogoPng,
   LinkuLogoSvg,
   LinkuLogoWhiteSvg,
   LinkuLogoMainSvg,
 
-  //banners
-  KonkukLogoPng,
-  KuitBannerPng2,
-  MakersBanner,
+  // //banners
+  // KuitBannerPng,
+  // KuitBannerPng2,
+  // MakersBanner,
 };
