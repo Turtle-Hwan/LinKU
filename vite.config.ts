@@ -3,10 +3,16 @@ import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import svgr from "vite-plugin-svgr";
+import fs from "fs";
 
 export default defineConfig(({ mode }) => {
   return {
-    plugins: [react(), tailwindcss(), svgr()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      svgr(),
+      mode === "gh-pages" && copyBannersForGhPages(),
+    ],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
@@ -27,12 +33,25 @@ export default defineConfig(({ mode }) => {
           chunkFileNames: "[name].js",
           entryFileNames: "[name].js",
         },
-        ...(mode === "gh-pages"
-          ? {}
-          : {
-              external: (id) => id.includes("src/assets/banners"),
-            }),
       },
     },
   };
 });
+
+function copyBannersForGhPages() {
+  return {
+    name: "copy-banners-gh-pages", // 플러그인 이름
+    writeBundle() {
+      const sourceDir = path.resolve(__dirname, "src/assets/banners"); // 복사할 폴더 경로
+      const targetDir = path.resolve(__dirname, "gh-pages/banners"); // 대상 경로
+
+      if (fs.existsSync(sourceDir)) {
+        fs.mkdirSync(targetDir, { recursive: true }); // 대상 디렉토리 생성
+        fs.cpSync(sourceDir, targetDir, { recursive: true }); // 파일 복사
+        console.log(`Copied banners from ${sourceDir} to ${targetDir}`);
+      } else {
+        console.warn(`Source directory ${sourceDir} does not exist.`);
+      }
+    },
+  };
+}

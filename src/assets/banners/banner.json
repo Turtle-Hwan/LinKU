@@ -1,0 +1,19 @@
+{
+  "banners": [
+    {
+      "img": "kuit_banner.png",
+      "alt": "KUIT Banner",
+      "link": "https://www.google.com"
+    },
+    {
+      "img": "kuit_banner2.png",
+      "alt": "KUIT Banner2",
+      "link": "https://www.google.com"
+    },
+    {
+      "img": "makers_banner.png",
+      "alt": "Makers Banner3",
+      "link": "https://www.google.com"
+    }
+  ]
+}
