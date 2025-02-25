@@ -2,17 +2,12 @@
 * width: 800px
 * height: 600px
 */
-@font-face {
-  font-family: "Pretendard-Regular";
-  src: url("https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff")
-    format("woff");
-  font-weight: 400;
-  font-style: normal;
-}
+
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css");
 
 body {
   background-color: white;
-  font-family: "Pretendard-Regular", "Nanum Gothic", sans-serif;
+  font-family: "Pretendard", "Nanum Gothic", sans-serif;
   /* font-size: 18px; */
 }
 
