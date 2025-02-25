@@ -1,13 +1,14 @@
 import { Search, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LinkuLogoSvg } from "@/assets";
-import React, { useEffect } from "react";
+import React from "react";
 import ImageCarousel from "./ImageCarousel";
 import { LinkList, LinkList_long } from "@/constants/LinkList";
 
 const LinkGroup = () => {
   // const [nowLink, setNowLink] = React.useState<string>("");
   console.log(window.history);
+  console.log(window.location);
 
   return (
     <div className="w-[500px] h-[600px] bg-white overflow-hidden">
@@ -21,10 +22,6 @@ const LinkGroup = () => {
 
 const Header = () => {
   const [text, setText] = React.useState<string>("");
-
-  useEffect(() => {
-    console.log(text);
-  }, [text]);
 
   return (
     <header className="p-4 border-b">
@@ -75,7 +72,7 @@ const Grid = () => {
     <div className="Link__Grid grid grid-cols-6 gap-4 p-4">
       {LinkList.map((item, idx) => {
         return (
-          <>
+          <React.Fragment key={idx}>
             {idx === 6 &&
               LinkList_long.map((item, idx) => (
                 <button
@@ -96,7 +93,7 @@ const Grid = () => {
                 </button>
               ))}
             <LinkGroup.GridItem key={idx} item={item} />
-          </>
+          </React.Fragment>
         );
       })}
     </div>

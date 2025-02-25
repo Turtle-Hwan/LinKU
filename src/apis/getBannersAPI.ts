@@ -13,6 +13,5 @@ export interface BannerItemType {
 export const getBannersAPI = async () => {
   const response = await fetch(`${IMAGE_URL}banners/banner.json`);
   const data: BannersResponseType = await response.json();
-  console.log(data);
   return data;
 };
