@@ -2,12 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-// import { KuitBannerPng2, MakersBanner } from "@/assets";
-
-// const ImageList = [KuitBannerPng2, MakersBanner];
-const ImageList = [];
+import { BannerItemType, getBannersAPI } from "@/apis/getBannersAPI";
+import { IMAGE_URL } from "@/constants/URL";
 
 const ImageCarousel = () => {
+  const [imageList, setImageList] = useState<BannerItemType[]>([]);
+  useEffect(() => {
+    getBannersAPI().then((data) => {
+      setImageList(data.banners);
+    });
+  }, []);
+
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
@@ -44,19 +49,19 @@ const ImageCarousel = () => {
     <div className="embla relative h-[86px]">
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="embla__container flex">
-          {ImageList.map((src, idx) => (
-            <Image key={idx} src={src} idx={idx} />
+          {imageList.map((item, idx) => (
+            <Image key={idx} item={item} />
           ))}
         </div>
       </div>
       <button
-        className="absolute top-1/2 left-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100"
+        className="absolute top-1/2 left-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
         onClick={scrollPrev}
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
       <button
-        className="absolute top-1/2 right-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100"
+        className="absolute top-1/2 right-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
         onClick={scrollNext}
       >
         <ChevronRight className="w-6 h-6" />
@@ -67,7 +72,7 @@ const ImageCarousel = () => {
             key={index}
             className={`w-2 h-2 rounded-full transition-colors duration-300 ${
               index === selectedIndex ? "bg-white" : "bg-white/50"
-            }`}
+            } cursor-pointer`}
             onClick={() => scrollTo(index)}
           />
         ))}
@@ -76,13 +81,14 @@ const ImageCarousel = () => {
   );
 };
 
-const Image = ({ src, idx }: { src: string; idx: number }) => {
+const Image = ({ item }: { item: BannerItemType }) => {
   return (
     <div className="embla__slide flex-[0_0_100%] min-w-0">
       <img
-        src={src}
-        alt={`Banner ${idx}`}
-        className="w-full h-full object-cover"
+        src={`${IMAGE_URL}/banners/${item.img}`}
+        alt={item.alt}
+        onClick={() => window.open(item.link)}
+        className="w-full h-full object-cover cursor-pointer"
       />
     </div>
   );
