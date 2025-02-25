@@ -5,6 +5,8 @@
 
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css");
 
+@import "tailwindcss";
+
 body {
   background-color: white;
   font-family: "Pretendard", "Nanum Gothic", sans-serif;

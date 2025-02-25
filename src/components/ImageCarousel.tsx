@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { KuitBannerPng2, MakersBanner } from "@/assets";
+// import { KuitBannerPng2, MakersBanner } from "@/assets";
 
-const ImageList = [KuitBannerPng2, MakersBanner];
+// const ImageList = [KuitBannerPng2, MakersBanner];
+const ImageList = [];
 
 const ImageCarousel = () => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);
