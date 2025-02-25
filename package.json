@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/updateVersion.js && tsc -b && vite build",
+    "build": "node scripts/updateVersion.js && tsc -b && vite build --mode production",
+    "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch --mode production",
+    "build:gh-pages": "tsc -b && vite build --mode gh-pages",
     "lint": "eslint .",
     "preview": "vite preview",
-    "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch",
     "deploy": "git subtree push --prefix dist origin gh-pages"
   },
   "dependencies": {

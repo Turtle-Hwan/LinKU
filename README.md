@@ -13,6 +13,22 @@
 - Vite + React + TypeScript
 - tailwindcss + shad/cn
 
+### How to Contribute
+
+```shell
+pnpm install
+pnpm run dev
+```
+
+- build 후 dist 폴더를 chrome extension에서 불러오면 확인 가능합니다.
+
+- "build": "node scripts/updateVersion.js && tsc -b && vite build --mode production",
+  - dist 폴더에 배너 이미지 제외하고 빌드
+- "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch --mode production",
+  - 지속 재빌드
+- "build:gh-pages": "tsc -b && vite build --mode gh-pages",
+  - gh-pages 폴더에 배너 이미지 포함하여 빌드
+
 ### Special Thanks
 
 - Logos designed by [pm_doyoo](https://www.instagram.com/pm_doyoo/)
