@@ -43,7 +43,7 @@ const ImageCarousel = () => {
     return () => {
       emblaApi.off("select", onSelect);
     };
-  }, [emblaApi, onSelect]);
+  }, [emblaApi, onSelect, imageList]);
 
   return (
     <div className="embla relative h-[86px]">
