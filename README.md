@@ -1,11 +1,12 @@
-# LinKU
-
-> 건국대학교 학생들을 위한 교내외 관련 페이지 모음 크롬 확장 프로그램 LinKU
-
-- 자주 접속하는 학교 관련 여러 사이트들을 검색하기도 힘들고, 일일이 찾기도 힘들어 한 번에 모아주는 확장 프로그램을 만들어 봤어요.
-
-- 부족한 점이나 이런 기능 추가되면 좋겠다는 의견이 있다면 Issue에 남겨주세요!  
+# LinKU :: 건국대학교 학생들을 위한 교내외 관련 페이지 모음 크롬 확장 프로그램
+> [!note]
+> 자주 접속하는 학교 관련 여러 사이트들을 검색하기도 힘들고, 일일이 찾기도 힘들어 한 번에 모아주는 확장 프로그램을 만들어 봤어요.
+> 
+> 부족한 점이나 이런 기능 추가되면 좋겠다는 의견이 있다면 Issue에 남겨주세요!  
   시간 날 때마다 추가해볼게요.
+
+## Preview
+![image](https://github.com/user-attachments/assets/75e0d47d-e8bf-4473-8b2d-83cbc1505077)
 
 ## Skills
 
@@ -13,22 +14,31 @@
 - Vite + React + TypeScript
 - tailwindcss + shad/cn
 
-### How to Contribute
+## How to Contribute
 
 ```shell
 pnpm install
 pnpm run dev
 ```
+- react 환경으로 구성되어 있어 dev로 실행되는 화면이 그대로 적용됩니다.
+- 로컬에서 extension에 적용하려면, build 후 dist 폴더를 chrome extension에서 불러오면 확인할 수 있습니다.
 
-- build 후 dist 폴더를 chrome extension에서 불러오면 확인 가능합니다.
+- 현재 dist 폴더는 extension 배포 용도로 배너 이미지를 제외하고 빌드합니다.
+  - gh-pages는 extension에서 배너 이미지를 불러오기 위해 /banners 경로에 배너 이미지들과 정보가 담긴 banners.json을 함께 빌드합니다.
+  - 코드 수정 시 auto rebuild를 원한다면, --watch 옵션을 붙이거나 `pnpm run watch` 를 사용하면 됩니다.
 
-- "build": "node scripts/updateVersion.js && tsc -b && vite build --mode production",
-  - dist 폴더에 배너 이미지 제외하고 빌드
-- "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch --mode production",
-  - 지속 재빌드
-- "build:gh-pages": "tsc -b && vite build --mode gh-pages",
-  - gh-pages 폴더에 배너 이미지 포함하여 빌드
+```js
+//dist 폴더에 배너 이미지 제외하고 빌드
+"build": "node scripts/updateVersion.js && tsc -b && vite build --mode production",
 
-### Special Thanks
+//지속 재빌드
+"watch": "node scripts/updateVersion.js && tsc -b && vite build --watch --mode production",
+
+//gh-pages 폴더에 배너 이미지 포함하여 빌드
+"build:gh-pages": "tsc -b && vite build --mode gh-pages",
+```
+
+## Special Thanks
 
 - Logos designed by [pm_doyoo](https://www.instagram.com/pm_doyoo/)
+- Cozy coding zone provided by [makers farm](https://www.instagram.com/makersfarm_konkuk) aka [lion](https://www.instagram.com/00_minwooky)
