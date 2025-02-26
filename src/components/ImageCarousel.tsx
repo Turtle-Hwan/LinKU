@@ -7,15 +7,18 @@ import { IMAGE_URL } from "@/constants/URL";
 
 const ImageCarousel = () => {
   const [imageList, setImageList] = useState<BannerItemType[]>([]);
-  useEffect(() => {
-    getBannersAPI().then((data) => {
-      setImageList(data.banners);
-    });
-  }, []);
-
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
+
+  useEffect(() => {
+    getBannersAPI().then((data) => {
+      setImageList(data.banners);
+      if (emblaApi) {
+        setScrollSnaps(emblaApi.scrollSnapList());
+      }
+    });
+  }, [emblaApi]);
 
   const scrollPrev = useCallback(
     () => emblaApi && emblaApi.scrollPrev(),
@@ -43,7 +46,7 @@ const ImageCarousel = () => {
     return () => {
       emblaApi.off("select", onSelect);
     };
-  }, [emblaApi, onSelect, imageList]);
+  }, [emblaApi, onSelect]);
 
   return (
     <div className="embla relative h-[86px]">
