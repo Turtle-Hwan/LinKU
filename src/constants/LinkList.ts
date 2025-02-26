@@ -13,6 +13,8 @@ import {
   Building,
   ScrollText,
   UsersRound,
+  Bed,
+  Lightbulb,
 } from "lucide-react";
 
 export const LinkList = [
@@ -58,6 +60,14 @@ export const LinkList = [
     link: "https://account.everytime.kr/login",
   },
   {
+    icon: Bed,
+    label: "쿨하우스",
+    link: "https://kulhouse.konkuk.ac.kr",
+  },
+];
+
+export const LinkList_col1 = [
+  {
     icon: UsersRound,
     label: "학과 정보",
     link: "https://www.konkuk.ac.kr/konkuk/2143/subview.do",
@@ -67,10 +77,18 @@ export const LinkList = [
     label: "2025 요람",
     link: "https://grad.konkuk.ac.kr/sites/bulletins25/index.do",
   },
+];
+
+export const LinkList_col2 = [
   {
     icon: Building,
     label: "현장실습",
     link: "https://field.konkuk.ac.kr/index.do",
+  },
+  {
+    icon: Lightbulb,
+    label: "창업지원단",
+    link: "https://startup.konkuk.ac.kr",
   },
 ];
 
