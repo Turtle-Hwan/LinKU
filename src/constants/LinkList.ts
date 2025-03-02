@@ -44,6 +44,7 @@ export const LinkList = [
     icon: MapPinned,
     label: "캠퍼스맵",
     link: "https://research.konkuk.ac.kr/campusMap/konkuk/view.do#this",
+    samehost: "종강 == 법학관",
   },
 
   //

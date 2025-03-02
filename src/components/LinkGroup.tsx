@@ -1,14 +1,12 @@
 import { Search, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LinkuLogoSvg } from "@/assets";
-import React from "react";
+import React, { Suspense } from "react";
 import ImageCarousel from "./ImageCarousel";
 import { LinkList, LinkList_long } from "@/constants/LinkList";
+// import { getCurrentTab } from "@/utils/chrome";
 
 const LinkGroup = () => {
-  // const [nowLink, setNowLink] = React.useState<string>("");
-  console.log(window.location.hostname);
-
   return (
     <div className="w-[500px] h-[600px] bg-white overflow-hidden">
       <LinkGroup.Header />
@@ -67,6 +65,12 @@ const Header = () => {
 };
 
 const Grid = () => {
+  // const HOSTNAME = "localhost";
+  // console.log(window.location.hostname);
+  // getCurrentTab().then((tab) => {
+  //   console.log(tab);
+  // });
+
   return (
     <div className="Link__Grid grid grid-cols-6 gap-4 p-4">
       {LinkList.map((item, idx) => (
@@ -76,7 +80,15 @@ const Grid = () => {
               <LinkGroup.GridItemLong key={idx} item={item} />
             ))}
 
-          <LinkGroup.GridItem key={idx} item={item} />
+          {/* {idx === 7 && <LinkGroup.GridItemSameHost key={idx} item={item} />}
+          <LinkGroup.GridItem key={idx} item={item} /> */}
+
+          {new URL(item.link).hostname === window.location.hostname &&
+          item.samehost ? (
+            <LinkGroup.GridItemSameHost key={idx} item={item} />
+          ) : (
+            <LinkGroup.GridItem key={idx} item={item} />
+          )}
         </React.Fragment>
       ))}
     </div>
@@ -130,25 +142,19 @@ const GridItem = ({ item }) => {
 const GridItemSameHost = ({ item }) => {
   console.log(item);
   return (
-    <div className="col-span-2 flex flex-col items-center justify-start rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer gap-2">
-      {/* 첫 번째 버튼 */}
-      <button
-        className="w-full py-2 px-4 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors"
-        onClick={() => {
-          alert("첫 번째 버튼 동작");
-        }}
-      >
-        첫 번째 버튼
+    <div className="col-span-2 flex flex-row items-center justify-start rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+      <button className="w-full h-full py-2 px-4 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors cursor-pointer">
+        {item.samehost}
       </button>
-      {/* 두 번째 버튼 */}
-      <button
+
+      {/* <button
         className="w-full py-2 px-4 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition-colors"
         onClick={() => {
           alert("두 번째 버튼 동작");
         }}
       >
-        두 번째 버튼
-      </button>
+        버튼2
+      </button> */}
     </div>
   );
 };
@@ -156,7 +162,19 @@ const GridItemSameHost = ({ item }) => {
 const Banner = () => {
   return (
     <div className="mt-auto group">
-      <ImageCarousel />
+      <Suspense fallback={<BannerImgSkeleton />}>
+        <ImageCarousel />
+      </Suspense>
+    </div>
+  );
+};
+
+const BannerImgSkeleton = () => {
+  return (
+    <div className="w-[500px] h-[87px] bg-[#00913A]/10 animate-pulse rounded-md overflow-hidden flex items-center justify-between">
+      <div className="flex-1 h-full flex items-center justify-center">
+        <div className="w-[450px] h-[67px] bg-[#00913A]/15 rounded-md"></div>
+      </div>
     </div>
   );
 };

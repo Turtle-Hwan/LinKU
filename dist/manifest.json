@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LinKU",
   "description": "건국대학교 학생들을 위한 건국대, 건대 교내외 페이지 모음 링쿠, LinKU",
-  "version": "1.1.41",
+  "version": "1.1.45",
   "action": {
     "default_popup": "index.html"
   },
