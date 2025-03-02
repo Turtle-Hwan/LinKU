@@ -7,6 +7,7 @@
 
 > [!tip]
 > Link + KU 라는 이름에 알맞게 건국대 공식 사이트들 뿐만 아니라, 건대 학생들이 직접 만들거나 창업한 서비스도 연결해보려 생각 중이에요.  
+>
 > 추가로 아시는 정보가 있다면 언제든 기여 부탁드려요!
 
 ### Unofficial services of Konkuk University
