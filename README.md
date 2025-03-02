@@ -5,6 +5,18 @@
 > 부족한 점이나 이런 기능 추가되면 좋겠다는 의견이 있다면 Issue에 남겨주세요!  
   시간 날 때마다 추가해볼게요.
 
+> [!tip]
+> Link + KU 라는 이름에 알맞게 건국대 공식 사이트들 뿐만 아니라, 건대 학생들이 직접 만들거나 창업한 서비스도 연결해보려 생각 중이에요.  
+> 추가로 아시는 정보가 있다면 언제든 기여 부탁드려요!
+
+### Unofficial services of Konkuk University
+- **[ku-ring :: 건국대학교 공지 알리미, 쿠링]** [링크](https://github.com/ku-ring)
+  - Android, IOS 앱 제공
+- **[PlayKUround :: 캠퍼스 안의 작은 놀이터, 플레이쿠라운드]** [링크](https://github.com/playkuround)
+  - Android, IOS 앱 제공
+- **[KUstaurant :: 건대 맛집 탐색 쿠스토랑]** [링크](https://kustaurant.com/)
+  - Web, App 제공
+
 ## Preview
 ![image](https://github.com/user-attachments/assets/75e0d47d-e8bf-4473-8b2d-83cbc1505077)
 
