@@ -54,3 +54,5 @@ pnpm run dev
 
 - Logos designed by [pm_doyoo](https://www.instagram.com/pm_doyoo/)
 - Cozy coding zone provided by [makers farm](https://www.instagram.com/makersfarm_konkuk) aka [lion](https://www.instagram.com/00_minwooky)
+
+[![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2FTurtle-Hwan%2FLinKU&count_bg=%2379C83D&title_bg=%230A2F01&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
