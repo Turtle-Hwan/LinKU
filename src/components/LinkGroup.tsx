@@ -1,7 +1,7 @@
 import { Search, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LinkuLogoSvg } from "@/assets";
-import React, { Suspense, useEffect } from "react";
+import React, { Suspense, use } from "react";
 import ImageCarousel from "./ImageCarousel";
 import { LinkList, LinkList_long } from "@/constants/LinkList";
 import { getCurrentTab } from "@/utils/chrome";
@@ -64,19 +64,11 @@ const Header = () => {
   );
 };
 
-const Grid = () => {
-  // const HOSTNAME = "localhost";
-  // console.log(window.location.hostname);
-  const [tabHostname, setTabHostname] = React.useState<string>("");
+const tabPromise = getCurrentTab();
 
-  useEffect(() => {
-    getCurrentTab().then((tab) => {
-      console.log(tab);
-      console.log(tab.url);
-      console.log(new URL(tab.url ?? "").hostname);
-      setTabHostname(new URL(tab.url ?? "").hostname);
-    });
-  }, []);
+const Grid = () => {
+  const tab = use(tabPromise);
+  const tabHostname = new URL(tab.url ?? "").hostname;
 
   return (
     <div className="Link__Grid grid grid-cols-6 gap-4 p-4">
@@ -86,9 +78,6 @@ const Grid = () => {
             LinkList_long.map((item, idx) => (
               <LinkGroup.GridItemLong key={idx} item={item} />
             ))}
-
-          {/* {idx === 7 && <LinkGroup.GridItemSameHost key={idx} item={item} />}
-          <LinkGroup.GridItem key={idx} item={item} /> */}
 
           {new URL(item.link).hostname === tabHostname && item.samehost ? (
             <LinkGroup.GridItemSameHost key={idx} item={item} />

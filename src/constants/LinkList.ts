@@ -1,5 +1,6 @@
 import { HelloLmsPng } from "@/assets";
-import { updateTabUrl } from "@/utils/chrome";
+import { executeScript, getCurrentTab, updateTabUrl } from "@/utils/chrome";
+import { sugangRefreshBtn } from "@/utils/sugang";
 import {
   BellRing,
   University,
@@ -58,7 +59,19 @@ export const LinkList = [
     },
   },
 
-  { icon: Clock, label: "수강신청", link: "https://sugang.konkuk.ac.kr" },
+  {
+    icon: Clock,
+    label: "수강신청",
+    link: "https://sugang.konkuk.ac.kr",
+    samehost: {
+      content: "수강인원 새로고침",
+      onClick: () => {
+        getCurrentTab().then((tab) => {
+          executeScript(tab.id ?? 0, sugangRefreshBtn);
+        });
+      },
+    },
+  },
   {
     icon: MapPinned,
     label: "캠퍼스맵",

@@ -13,9 +13,9 @@ export const executeScript = async (tabId: number, func: () => void) => {
   try {
     const result = await chrome.scripting.executeScript({
       target: { tabId, allFrames: true },
-      func,
+      func: func,
     });
-    console.log("Injection Success", result);
+    // console.log("Injection Success", result);
     return result;
   } catch (err) {
     console.log("err", err);
@@ -29,7 +29,7 @@ export const executeScriptFile = async (tabId: number, files: string[]) => {
       target: { tabId, allFrames: true },
       files,
     });
-    console.log("Injection Success", result);
+    // console.log("Injection Success", result);
     return result;
   } catch (err) {
     console.log("err", err);
