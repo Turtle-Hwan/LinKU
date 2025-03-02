@@ -15,6 +15,7 @@ import {
   UsersRound,
   Bed,
   Lightbulb,
+  MessageCircleMore,
 } from "lucide-react";
 
 export const LinkList = [
@@ -34,6 +35,8 @@ export const LinkList = [
     label: "eCampus",
     link: "https://ecampus.konkuk.ac.kr",
   },
+
+  //
   { icon: Trophy, label: "위인전", link: "https://wein.konkuk.ac.kr" },
 
   { icon: Clock, label: "수강신청", link: "https://sugang.konkuk.ac.kr" },
@@ -43,6 +46,7 @@ export const LinkList = [
     link: "https://research.konkuk.ac.kr/campusMap/konkuk/view.do#this",
   },
 
+  //
   {
     icon: CalendarDays,
     label: "학사일정",
@@ -59,27 +63,30 @@ export const LinkList = [
     label: "에브리타임",
     link: "https://account.everytime.kr/login",
   },
-  {
-    icon: Bed,
-    label: "쿨하우스",
-    link: "https://kulhouse.konkuk.ac.kr",
-  },
-];
 
-export const LinkList_col1 = [
+  //
   {
     icon: UsersRound,
     label: "학과 정보",
     link: "https://www.konkuk.ac.kr/konkuk/2143/subview.do",
   },
   {
+    icon: Bed,
+    label: "쿨하우스",
+    link: "https://kulhouse.konkuk.ac.kr",
+  },
+  {
+    icon: MessageCircleMore,
+    label: "KUNG",
+    link: "https://kung.kr/",
+  },
+
+  //
+  {
     icon: ScrollText,
     label: "2025 요람",
     link: "https://grad.konkuk.ac.kr/sites/bulletins25/index.do",
   },
-];
-
-export const LinkList_col2 = [
   {
     icon: Building,
     label: "현장실습",
@@ -87,7 +94,7 @@ export const LinkList_col2 = [
   },
   {
     icon: Lightbulb,
-    label: "창업지원단",
+    label: "창업지원",
     link: "https://startup.konkuk.ac.kr",
   },
 ];
@@ -104,3 +111,5 @@ export const LinkList_long = [
     link: "https://library.konkuk.ac.kr/",
   },
 ];
+
+// 정보통신처 상용 소프트웨어 무료 대여 https://grad.konkuk.ac.kr/kuinc/15905/subview.do

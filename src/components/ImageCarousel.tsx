@@ -7,6 +7,7 @@ import { IMAGE_URL } from "@/constants/URL";
 
 const ImageCarousel = () => {
   const [imageList, setImageList] = useState<BannerItemType[]>([]);
+
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
@@ -49,7 +50,7 @@ const ImageCarousel = () => {
   }, [emblaApi, onSelect]);
 
   return (
-    <div className="embla relative h-[86px]">
+    <div className="embla relative h-[87px]">
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="embla__container flex">
           {imageList.map((item, idx) => (
@@ -57,18 +58,21 @@ const ImageCarousel = () => {
           ))}
         </div>
       </div>
+
       <button
         className="absolute top-1/2 left-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
         onClick={scrollPrev}
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
+
       <button
         className="absolute top-1/2 right-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
         onClick={scrollNext}
       >
         <ChevronRight className="w-6 h-6" />
       </button>
+
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2">
         {scrollSnaps.map((_, index) => (
           <button

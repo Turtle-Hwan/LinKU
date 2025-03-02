@@ -81,33 +81,8 @@ const Grid = () => {
               <LinkGroup.GridItemLong key={idx} item={item} />
             ))}
 
-          {idx === 9 && <LinkGroup.GridItemCol itemList={LinkList_col1} />}
           <LinkGroup.GridItem key={idx} item={item} />
-          {idx === 9 && <LinkGroup.GridItemCol itemList={LinkList_col2} />}
         </React.Fragment>
-      ))}
-    </div>
-  );
-};
-
-const GridItemCol = ({ itemList }) => {
-  return (
-    <div className="col-span-2 flex flex-col items-center justify-start rounded-lg cursor-pointer gap-2">
-      {itemList.map((item, idx) => (
-        <button
-          key={idx}
-          className="w-full col-span-2 flex flex-row items-center justify-start px-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
-          onClick={() => {
-            window.open(item.link);
-          }}
-        >
-          <div className="w-10 h-10 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
-            <item.icon className={`Icon__Animation w-5 h-5 text-[#00913A]`} />
-          </div>
-          <span className="w-full text-base text-black text-center break-keep">
-            {item.label}
-          </span>
-        </button>
       ))}
     </div>
   );
@@ -116,7 +91,7 @@ const GridItemCol = ({ itemList }) => {
 const GridItemLong = ({ item }) => {
   return (
     <button
-      className="col-span-3 flex flex-row items-center justify-start px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
+      className="col-span-3 flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
       onClick={() => {
         window.open(item.link);
       }}
@@ -134,7 +109,7 @@ const GridItemLong = ({ item }) => {
 const GridItem = ({ item }) => {
   return (
     <button
-      className="col-span-2 flex flex-row items-center justify-start px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
+      className="col-span-2 flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
       onClick={() => {
         window.open(item.link);
       }}
@@ -199,7 +174,6 @@ LinkGroup.Header = React.memo(Header);
 LinkGroup.Grid = React.memo(Grid);
 LinkGroup.GridItem = React.memo(GridItem);
 LinkGroup.GridItemLong = React.memo(GridItemLong);
-LinkGroup.GridItemCol = React.memo(GridItemCol);
 LinkGroup.GridItemSameHost = React.memo(GridItemSameHost);
 LinkGroup.Banner = React.memo(Banner);
 LinkGroup.Footer = React.memo(Footer);
