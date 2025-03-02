@@ -1,10 +1,10 @@
 import { Search, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LinkuLogoSvg } from "@/assets";
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import ImageCarousel from "./ImageCarousel";
 import { LinkList, LinkList_long } from "@/constants/LinkList";
-// import { getCurrentTab } from "@/utils/chrome";
+import { getCurrentTab } from "@/utils/chrome";
 
 const LinkGroup = () => {
   return (
@@ -67,9 +67,16 @@ const Header = () => {
 const Grid = () => {
   // const HOSTNAME = "localhost";
   // console.log(window.location.hostname);
-  // getCurrentTab().then((tab) => {
-  //   console.log(tab);
-  // });
+  const [tabHostname, setTabHostname] = React.useState<string>("");
+
+  useEffect(() => {
+    getCurrentTab().then((tab) => {
+      console.log(tab);
+      console.log(tab.url);
+      console.log(new URL(tab.url ?? "").hostname);
+      setTabHostname(new URL(tab.url ?? "").hostname);
+    });
+  }, []);
 
   return (
     <div className="Link__Grid grid grid-cols-6 gap-4 p-4">
@@ -83,8 +90,7 @@ const Grid = () => {
           {/* {idx === 7 && <LinkGroup.GridItemSameHost key={idx} item={item} />}
           <LinkGroup.GridItem key={idx} item={item} /> */}
 
-          {new URL(item.link).hostname === window.location.hostname &&
-          item.samehost ? (
+          {new URL(item.link).hostname === tabHostname && item.samehost ? (
             <LinkGroup.GridItemSameHost key={idx} item={item} />
           ) : (
             <LinkGroup.GridItem key={idx} item={item} />
@@ -143,8 +149,11 @@ const GridItemSameHost = ({ item }) => {
   console.log(item);
   return (
     <div className="col-span-2 flex flex-row items-center justify-start rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
-      <button className="w-full h-full py-2 px-4 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors cursor-pointer">
-        {item.samehost}
+      <button
+        className="w-full h-full py-2 px-4 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors cursor-pointer text-sm"
+        onClick={item.samehost.onClick}
+      >
+        {item.samehost.content}
       </button>
 
       {/* <button
