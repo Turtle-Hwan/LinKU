@@ -8,23 +8,12 @@ import { IMAGE_URL } from "@/constants/URL";
 const bannerPromise = getBannersAPI();
 
 const ImageCarousel = () => {
-  // const [imageList, setImageList] = useState<BannerItemType[]>([]);
-
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
 
   const data = use(bannerPromise);
   const imageList = data.banners;
-
-  // useEffect(() => {
-  //   getBannersAPI().then((data) => {
-  //     setImageList(data.banners);
-  //     if (emblaApi) {
-  //       setScrollSnaps(emblaApi.scrollSnapList());
-  //     }
-  //   });
-  // }, [emblaApi]);
 
   const scrollPrev = useCallback(
     () => emblaApi && emblaApi.scrollPrev(),
