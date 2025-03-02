@@ -1,4 +1,6 @@
 import { HelloLmsPng } from "@/assets";
+import { executeScript, getCurrentTab, updateTabUrl } from "@/utils/chrome";
+import { sugangRefreshBtn } from "@/utils/sugang";
 import {
   BellRing,
   University,
@@ -23,6 +25,12 @@ export const LinkList = [
     icon: University,
     label: "홈페이지",
     link: "https://www.konkuk.ac.kr/konkuk/index.do",
+    samehost: {
+      content: "상용 SW 대여",
+      onClick: () => {
+        updateTabUrl("https://grad.konkuk.ac.kr/kuinc/15905/subview.do");
+      },
+    },
   },
   {
     icon: BellRing,
@@ -37,14 +45,40 @@ export const LinkList = [
   },
 
   //
-  { icon: Trophy, label: "위인전", link: "https://wein.konkuk.ac.kr" },
+  {
+    icon: Trophy,
+    label: "위인전",
+    link: "https://wein.konkuk.ac.kr",
+    samehost: {
+      content: "K-Cube 대여",
+      onClick: () => {
+        updateTabUrl(
+          "https://wein.konkuk.ac.kr/ptfol/cmnt/cube/findCubeResveStep1.do"
+        );
+      },
+    },
+  },
 
-  { icon: Clock, label: "수강신청", link: "https://sugang.konkuk.ac.kr" },
+  {
+    icon: Clock,
+    label: "수강신청",
+    link: "https://sugang.konkuk.ac.kr",
+    samehost: {
+      content: "수강인원 새로고침",
+      onClick: () => {
+        getCurrentTab().then((tab) => {
+          executeScript(tab.id ?? 0, sugangRefreshBtn);
+        });
+      },
+    },
+  },
   {
     icon: MapPinned,
     label: "캠퍼스맵",
     link: "https://research.konkuk.ac.kr/campusMap/konkuk/view.do#this",
-    samehost: "종강 == 법학관",
+    samehost: {
+      content: "종강 == 법학관",
+    },
   },
 
   //
@@ -112,5 +146,3 @@ export const LinkList_long = [
     link: "https://library.konkuk.ac.kr/",
   },
 ];
-
-// 정보통신처 상용 소프트웨어 무료 대여 https://grad.konkuk.ac.kr/kuinc/15905/subview.do
