@@ -73,7 +73,7 @@ const ImageCarousel = () => {
         <ChevronRight className="w-6 h-6" />
       </button>
 
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2">
+      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-2">
         {scrollSnaps.map((_, index) => (
           <button
             key={index}

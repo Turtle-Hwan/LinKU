@@ -3,12 +3,7 @@ import { Input } from "@/components/ui/input";
 import { LinkuLogoSvg } from "@/assets";
 import React from "react";
 import ImageCarousel from "./ImageCarousel";
-import {
-  LinkList,
-  LinkList_col1,
-  LinkList_col2,
-  LinkList_long,
-} from "@/constants/LinkList";
+import { LinkList, LinkList_long } from "@/constants/LinkList";
 
 const LinkGroup = () => {
   // const [nowLink, setNowLink] = React.useState<string>("");
