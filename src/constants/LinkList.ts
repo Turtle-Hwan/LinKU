@@ -1,6 +1,10 @@
 import { HelloLmsPng } from "@/assets";
 import { executeScript, getCurrentTab, updateTabUrl } from "@/utils/chrome";
-import { sugangRefreshBtn } from "@/utils/sugang";
+import {
+  sugangRefreshBtn,
+  수강시뮬Btn,
+  취득학점확인원Btn,
+} from "@/utils/sugang";
 import {
   BellRing,
   University,
@@ -21,12 +25,13 @@ import {
 } from "lucide-react";
 
 export const LinkList = [
+  // row1
   {
     icon: University,
     label: "홈페이지",
     link: "https://www.konkuk.ac.kr/konkuk/index.do",
     samehost: {
-      content: "상용 SW 대여",
+      content: "상용 SW 무료 대여",
       onClick: () => {
         updateTabUrl("https://grad.konkuk.ac.kr/kuinc/15905/subview.do");
       },
@@ -44,7 +49,7 @@ export const LinkList = [
     link: "https://ecampus.konkuk.ac.kr",
   },
 
-  //
+  // row2
   {
     icon: Trophy,
     label: "위인전",
@@ -71,6 +76,13 @@ export const LinkList = [
         });
       },
     },
+    samehost2: {
+      content: "추가 신청서",
+      onClick: () =>
+        window.open(
+          "https://www.konkuk.ac.kr/konkuk/2088/subview.do?enc=Zm5jdDF8QEB8JTJGYmJzJTJGa29ua3VrJTJGMjQ3JTJGOTM0OTIyJTJGYXJ0Y2xWaWV3LmRvJTNGcGFnZSUzRDElMjZzcmNoQ29sdW1uJTNEc2olMjZzcmNoV3JkJTNEJUVDJUI0JTg4JUVBJUIzJUJDKyVFQSVCNSU5MCVFQSVCMyVCQyVFQiVBQSVBOSslRUMlQjYlOTQlRUElQjAlODAlMjZiYnNDbFNlcSUzRDEzOTQlMjZiYnNPcGVuV3JkU2VxJTNEJTI2cmdzQmduZGVTdHIlM0QlMjZyZ3NFbmRkZVN0ciUzRCUyNmlzVmlld01pbmUlM0RmYWxzZSUyNnBhc3N3b3JkJTNEJTI2"
+        ),
+    },
   },
   {
     icon: MapPinned,
@@ -81,7 +93,37 @@ export const LinkList = [
     },
   },
 
-  //
+  // row3
+  {
+    icon: GraduationCap,
+    label: "학사정보시스템",
+    link: "https://kuis.konkuk.ac.kr/index.do",
+    islong: true,
+    samehost: {
+      content: "취득학점확인원",
+      onClick: () => {
+        getCurrentTab().then((tab) => {
+          executeScript(tab.id ?? 0, 취득학점확인원Btn);
+        });
+      },
+    },
+    samehost2: {
+      content: "수강시뮬레이션",
+      onClick: () => {
+        getCurrentTab().then((tab) => {
+          executeScript(tab.id ?? 0, 수강시뮬Btn);
+        });
+      },
+    },
+  },
+  {
+    icon: BookCopy,
+    label: "상허기념도서관",
+    link: "https://library.konkuk.ac.kr/",
+    islong: true,
+  },
+
+  // row4
   {
     icon: CalendarDays,
     label: "학사일정",
@@ -99,7 +141,7 @@ export const LinkList = [
     link: "https://account.everytime.kr/login",
   },
 
-  //
+  // row5
   {
     icon: UsersRound,
     label: "학과 정보",
@@ -116,7 +158,7 @@ export const LinkList = [
     link: "https://kung.kr/",
   },
 
-  //
+  // row6
   {
     icon: ScrollText,
     label: "2025 요람",
@@ -131,18 +173,5 @@ export const LinkList = [
     icon: Lightbulb,
     label: "창업지원",
     link: "https://startup.konkuk.ac.kr",
-  },
-];
-
-export const LinkList_long = [
-  {
-    icon: GraduationCap,
-    label: "학사정보시스템",
-    link: "https://kuis.konkuk.ac.kr/index.do",
-  },
-  {
-    icon: BookCopy,
-    label: "상허기념도서관",
-    link: "https://library.konkuk.ac.kr/",
   },
 ];
