@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { LinkuLogoSvg } from "@/assets";
 import React, { Suspense, use } from "react";
 import ImageCarousel from "./ImageCarousel";
-import { LinkList, LinkList_long } from "@/constants/LinkList";
+import { LinkList } from "@/constants/LinkList";
 import { getCurrentTab } from "@/utils/chrome";
 
 const LinkGroup = () => {
@@ -72,46 +72,24 @@ const Grid = () => {
 
   return (
     <div className="Link__Grid grid grid-cols-6 gap-4 p-4">
-      {LinkList.map((item, idx) => (
-        <React.Fragment key={idx}>
-          {idx === 6 &&
-            LinkList_long.map((item, idx) => (
-              <LinkGroup.GridItemLong key={idx} item={item} />
-            ))}
+      {LinkList.map((item, idx) => {
+        const isSameHost =
+          new URL(item.link).hostname === tabHostname && item.samehost;
+        const colNum = item.islong ? 3 : 2;
+        const GridItem = isSameHost
+          ? LinkGroup.GridItemSameHost
+          : LinkGroup.GridItem;
 
-          {new URL(item.link).hostname === tabHostname && item.samehost ? (
-            <LinkGroup.GridItemSameHost key={idx} item={item} />
-          ) : (
-            <LinkGroup.GridItem key={idx} item={item} />
-          )}
-        </React.Fragment>
-      ))}
+        return <GridItem key={idx} item={item} colNum={colNum} />;
+      })}
     </div>
   );
 };
 
-const GridItemLong = ({ item }) => {
+const GridItem = ({ item, colNum }) => {
   return (
     <button
-      className="col-span-3 flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
-      onClick={() => {
-        window.open(item.link);
-      }}
-    >
-      <div className="w-10 h-10 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
-        <item.icon className={`Icon__Animation w-5 h-5 text-[#00913A]`} />
-      </div>
-      <span className="w-full text-base text-black text-center break-keep">
-        {item.label}
-      </span>
-    </button>
-  );
-};
-
-const GridItem = ({ item }) => {
-  return (
-    <button
-      className="col-span-2 flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
+      className={`col-span-${colNum} flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer`}
       onClick={() => {
         window.open(item.link);
       }}
@@ -134,10 +112,11 @@ const GridItem = ({ item }) => {
   );
 };
 
-const GridItemSameHost = ({ item }) => {
-  console.log(item);
+const GridItemSameHost = ({ item, colNum }) => {
   return (
-    <div className="col-span-2 flex flex-row items-center justify-between gap-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+    <div
+      className={`col-span-${colNum} flex flex-row items-center justify-between gap-1.5 rounded-lg hover:bg-gray-100 transition-colors`}
+    >
       <button
         className="w-full h-full px-1 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors cursor-pointer text-sm/[normal] break-keep"
         onClick={item.samehost.onClick}
@@ -184,7 +163,6 @@ const Footer = () => {
 LinkGroup.Header = React.memo(Header);
 LinkGroup.Grid = React.memo(Grid);
 LinkGroup.GridItem = React.memo(GridItem);
-LinkGroup.GridItemLong = React.memo(GridItemLong);
 LinkGroup.GridItemSameHost = React.memo(GridItemSameHost);
 LinkGroup.Banner = React.memo(Banner);
 LinkGroup.Footer = React.memo(Footer);
