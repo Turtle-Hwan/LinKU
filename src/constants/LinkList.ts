@@ -26,7 +26,7 @@ export const LinkList = [
     label: "홈페이지",
     link: "https://www.konkuk.ac.kr/konkuk/index.do",
     samehost: {
-      content: "상용 SW 대여",
+      content: "상용 SW 무료 대여",
       onClick: () => {
         updateTabUrl("https://grad.konkuk.ac.kr/kuinc/15905/subview.do");
       },
@@ -70,6 +70,13 @@ export const LinkList = [
           executeScript(tab.id ?? 0, sugangRefreshBtn);
         });
       },
+    },
+    samehost2: {
+      content: "추가 신청서",
+      onClick: () =>
+        window.open(
+          "https://www.konkuk.ac.kr/konkuk/2088/subview.do?enc=Zm5jdDF8QEB8JTJGYmJzJTJGa29ua3VrJTJGMjQ3JTJGOTM0OTIyJTJGYXJ0Y2xWaWV3LmRvJTNGcGFnZSUzRDElMjZzcmNoQ29sdW1uJTNEc2olMjZzcmNoV3JkJTNEJUVDJUI0JTg4JUVBJUIzJUJDKyVFQSVCNSU5MCVFQSVCMyVCQyVFQiVBQSVBOSslRUMlQjYlOTQlRUElQjAlODAlMjZiYnNDbFNlcSUzRDEzOTQlMjZiYnNPcGVuV3JkU2VxJTNEJTI2cmdzQmduZGVTdHIlM0QlMjZyZ3NFbmRkZVN0ciUzRCUyNmlzVmlld01pbmUlM0RmYWxzZSUyNnBhc3N3b3JkJTNEJTI2"
+        ),
     },
   },
   {

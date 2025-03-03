@@ -137,22 +137,22 @@ const GridItem = ({ item }) => {
 const GridItemSameHost = ({ item }) => {
   console.log(item);
   return (
-    <div className="col-span-2 flex flex-row items-center justify-start rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+    <div className="col-span-2 flex flex-row items-center justify-between gap-1.5 rounded-lg hover:bg-gray-100 transition-colors">
       <button
-        className="w-full h-full py-2 px-4 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors cursor-pointer text-sm"
+        className="w-full h-full px-1 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors cursor-pointer text-sm/[normal] break-keep"
         onClick={item.samehost.onClick}
       >
         {item.samehost.content}
       </button>
 
-      {/* <button
-        className="w-full py-2 px-4 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition-colors"
-        onClick={() => {
-          alert("두 번째 버튼 동작");
-        }}
-      >
-        버튼2
-      </button> */}
+      {item.samehost2 && (
+        <button
+          className="w-full h-full px-1 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition-colors cursor-pointer text-sm/[normal] break-keep"
+          onClick={item.samehost2.onClick}
+        >
+          {item.samehost2.content}
+        </button>
+      )}
     </div>
   );
 };
