@@ -1,3 +1,4 @@
+// 수강신청
 export const sugangRefreshBtn = () => {
   const refreshBtn = document.querySelectorAll<HTMLButtonElement>(
     "#btnRefresh.btn-sm.btn-sub.btn-mode"
@@ -7,6 +8,7 @@ export const sugangRefreshBtn = () => {
   });
 };
 
+// 학정시
 export const 취득학점확인원Btn = () => {
   document
     .querySelector<HTMLDivElement>(

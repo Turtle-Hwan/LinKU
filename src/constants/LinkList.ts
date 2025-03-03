@@ -1,6 +1,10 @@
 import { HelloLmsPng } from "@/assets";
 import { executeScript, getCurrentTab, updateTabUrl } from "@/utils/chrome";
-import { sugangRefreshBtn } from "@/utils/sugang";
+import {
+  sugangRefreshBtn,
+  수강시뮬Btn,
+  취득학점확인원Btn,
+} from "@/utils/sugang";
 import {
   BellRing,
   University,
@@ -21,6 +25,7 @@ import {
 } from "lucide-react";
 
 export const LinkList = [
+  // row1
   {
     icon: University,
     label: "홈페이지",
@@ -44,7 +49,7 @@ export const LinkList = [
     link: "https://ecampus.konkuk.ac.kr",
   },
 
-  //
+  // row2
   {
     icon: Trophy,
     label: "위인전",
@@ -88,7 +93,37 @@ export const LinkList = [
     },
   },
 
-  //
+  // row3
+  {
+    icon: GraduationCap,
+    label: "학사정보시스템",
+    link: "https://kuis.konkuk.ac.kr/index.do",
+    islong: true,
+    samehost: {
+      content: "취득학점확인원",
+      onClick: () => {
+        getCurrentTab().then((tab) => {
+          executeScript(tab.id ?? 0, 취득학점확인원Btn);
+        });
+      },
+    },
+    samehost2: {
+      content: "수강시뮬레이션",
+      onClick: () => {
+        getCurrentTab().then((tab) => {
+          executeScript(tab.id ?? 0, 수강시뮬Btn);
+        });
+      },
+    },
+  },
+  {
+    icon: BookCopy,
+    label: "상허기념도서관",
+    link: "https://library.konkuk.ac.kr/",
+    islong: true,
+  },
+
+  // row4
   {
     icon: CalendarDays,
     label: "학사일정",
@@ -106,7 +141,7 @@ export const LinkList = [
     link: "https://account.everytime.kr/login",
   },
 
-  //
+  // row5
   {
     icon: UsersRound,
     label: "학과 정보",
@@ -123,7 +158,7 @@ export const LinkList = [
     link: "https://kung.kr/",
   },
 
-  //
+  // row6
   {
     icon: ScrollText,
     label: "2025 요람",
@@ -138,18 +173,5 @@ export const LinkList = [
     icon: Lightbulb,
     label: "창업지원",
     link: "https://startup.konkuk.ac.kr",
-  },
-];
-
-export const LinkList_long = [
-  {
-    icon: GraduationCap,
-    label: "학사정보시스템",
-    link: "https://kuis.konkuk.ac.kr/index.do",
-  },
-  {
-    icon: BookCopy,
-    label: "상허기념도서관",
-    link: "https://library.konkuk.ac.kr/",
   },
 ];
