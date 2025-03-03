@@ -78,7 +78,7 @@ const Grid = () => {
         const GridItem = isSameHost
           ? LinkGroup.GridItemSameHost
           : LinkGroup.GridItem;
-        const colNum = item.islong ? 3 : 2;
+        const colNum = item.islong ? "col-span-3" : "col-span-2";
 
         return <GridItem key={idx} item={item} colNum={colNum} />;
       })}
@@ -89,7 +89,7 @@ const Grid = () => {
 const GridItem = ({ item, colNum }) => {
   return (
     <button
-      className={`col-span-${colNum} flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer`}
+      className={`${colNum} flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer`}
       onClick={() => {
         window.open(item.link);
       }}
@@ -115,7 +115,7 @@ const GridItem = ({ item, colNum }) => {
 const GridItemSameHost = ({ item, colNum }) => {
   return (
     <div
-      className={`col-span-${colNum} flex flex-row items-center justify-between gap-1.5 rounded-lg hover:bg-gray-100 transition-colors`}
+      className={`${colNum} flex flex-row items-center justify-between gap-1.5 rounded-lg hover:bg-gray-100 transition-colors`}
     >
       <button
         className="w-full h-full px-1 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors cursor-pointer text-sm/[normal] break-keep"
