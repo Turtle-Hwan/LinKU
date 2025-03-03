@@ -75,10 +75,10 @@ const Grid = () => {
       {LinkList.map((item, idx) => {
         const isSameHost =
           new URL(item.link).hostname === tabHostname && item.samehost;
-        const colNum = item.islong ? 3 : 2;
         const GridItem = isSameHost
           ? LinkGroup.GridItemSameHost
           : LinkGroup.GridItem;
+        const colNum = item.islong ? 3 : 2;
 
         return <GridItem key={idx} item={item} colNum={colNum} />;
       })}
