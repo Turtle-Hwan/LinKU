@@ -22,9 +22,26 @@ import {
   Bed,
   Lightbulb,
   MessageCircleMore,
+  LucideIcon,
 } from "lucide-react";
 
-export const LinkList = [
+export interface SameHost {
+  content: string;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
+}
+
+export interface LinkListElement {
+  icon: LucideIcon | string;
+  label: string;
+  link: string;
+  samehost?: SameHost;
+  samehost2?: SameHost;
+  islong?: boolean;
+  color?: string;
+  type?: "png" | "svg";
+}
+
+export const LinkList: LinkListElement[] = [
   // row1
   {
     icon: University,
