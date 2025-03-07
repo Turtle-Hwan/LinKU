@@ -56,6 +56,7 @@ const ImageCarousel = () => {
       <button
         className="absolute top-1/2 left-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
         onClick={scrollPrev}
+        name="이전 이미지"
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
@@ -63,6 +64,7 @@ const ImageCarousel = () => {
       <button
         className="absolute top-1/2 right-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
         onClick={scrollNext}
+        name="다음 이미지"
       >
         <ChevronRight className="w-6 h-6" />
       </button>
