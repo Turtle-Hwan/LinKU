@@ -98,7 +98,7 @@ const GridItem = ({ item, colNum }) => {
         {item.type === "png" ? (
           <img
             src={item.icon}
-            alt={item.label + ` 이미지`}
+            alt={`${item.label} 이미지`}
             className="Icon__Animation w-5 h-5 text-[#00913A]"
           />
         ) : (
