@@ -1,0 +1,14 @@
+{
+  "banners": [
+    {
+      "img": "kuit_banner2.png",
+      "alt": "KUIT Banner2",
+      "link": "https://docs.google.com/forms/d/e/1FAIpQLSfhYPuMSegtaou6TYj1mfRqYx4-AOTtT_2uhLta85UwWzieag/viewform"
+    },
+    {
+      "img": "makers_banner.png",
+      "alt": "Makers Banner3",
+      "link": "https://forms.gle/cptip6AeNUuSajgK9"
+    }
+  ]
+}
