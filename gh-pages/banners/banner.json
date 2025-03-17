@@ -2,7 +2,13 @@
   "banners": [
     {
       "img": "giveme_banner.png",
+      "link": "https://github.com/Turtle-Hwan/LinKU",
       "alt": "giveme_banner"
+    },
+    {
+      "img": "mogakco.png",
+      "link": "https://open.kakao.com/o/gkPwoXDf",
+      "alt": "mogakco_banner"
     }
   ]
 }
