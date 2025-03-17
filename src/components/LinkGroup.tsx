@@ -68,7 +68,7 @@ const tabPromise = getCurrentTab();
 
 const Grid = () => {
   const tab = use(tabPromise);
-  const tabHostname = new URL(tab.url ?? "").hostname;
+  const tabHostname = tab?.url ? new URL(tab.url).hostname : "";
 
   return (
     <div className="Link__Grid grid grid-cols-6 gap-4 p-4">

@@ -1,9 +1,9 @@
 import GitHubSvg from "./github.svg?react";
 import HelloLmsPng from "./hello_lms.png";
-import KonkukLogoPng from "./konkuk_logo.png";
 import LinkuLogoSvg from "./linku_logo.svg?react";
 import LinkuLogoWhiteSvg from "./linku_logo_white.svg?react";
 import LinkuLogoMainSvg from "./linku_logo_main.svg?react";
+// import KonkukLogoPng from "./konkuk_logo.png";
 
 // //banners
 // import KuitBannerPng from "./banners/kuit_banner.png";
@@ -13,11 +13,11 @@ import LinkuLogoMainSvg from "./linku_logo_main.svg?react";
 export {
   GitHubSvg,
   HelloLmsPng,
-  KonkukLogoPng,
   LinkuLogoSvg,
   LinkuLogoWhiteSvg,
   LinkuLogoMainSvg,
 
+  // KonkukLogoPng,
   // //banners
   // KuitBannerPng,
   // KuitBannerPng2,

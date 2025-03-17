@@ -1,7 +1,11 @@
 // activeTab permission
 export const getCurrentTab = async () => {
   const queryOptions = { active: true, currentWindow: true };
-  const [tab] = await chrome.tabs.query(queryOptions);
+  const tabs = await chrome.tabs?.query(queryOptions);
+  if (!tabs) {
+    return null;
+  }
+  const [tab] = tabs;
   return tab;
 };
 

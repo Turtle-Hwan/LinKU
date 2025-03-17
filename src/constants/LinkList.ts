@@ -89,7 +89,7 @@ export const LinkList: LinkListElement[] = [
       content: "수강인원 새로고침",
       onClick: () => {
         getCurrentTab().then((tab) => {
-          executeScript(tab.id ?? 0, sugangRefreshBtn);
+          executeScript(tab?.id ?? 0, sugangRefreshBtn);
         });
       },
     },
@@ -120,7 +120,7 @@ export const LinkList: LinkListElement[] = [
       content: "취득학점확인원",
       onClick: () => {
         getCurrentTab().then((tab) => {
-          executeScript(tab.id ?? 0, 취득학점확인원Btn);
+          executeScript(tab?.id ?? 0, 취득학점확인원Btn);
         });
       },
     },
@@ -128,7 +128,7 @@ export const LinkList: LinkListElement[] = [
       content: "수강시뮬레이션",
       onClick: () => {
         getCurrentTab().then((tab) => {
-          executeScript(tab.id ?? 0, 수강시뮬Btn);
+          executeScript(tab?.id ?? 0, 수강시뮬Btn);
         });
       },
     },
