@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import ImageCarousel from "./ImageCarousel";
+import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
 import { Search, Settings } from "lucide-react";
@@ -63,7 +63,7 @@ const Header = () => {
 
 const Banner = () => {
   return (
-    <div className="group">
+    <div className="group mt-auto">
       <Suspense fallback={<BannerImgSkeleton />}>
         <ImageCarousel />
       </Suspense>
