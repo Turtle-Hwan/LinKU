@@ -44,7 +44,7 @@ const ImageCarousel = () => {
   }, [emblaApi, onSelect]);
 
   return (
-    <div className="embla relative h-[87px]">
+    <div className="embla relative h-[85px]">
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="embla__container flex">
           {imageList.map((item, idx) => (
@@ -69,7 +69,7 @@ const ImageCarousel = () => {
         <ChevronRight className="w-6 h-6" />
       </button>
 
-      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-2">
+      <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-2">
         {scrollSnaps.map((_, index) => (
           <button
             key={index}

@@ -1,67 +1,9 @@
-import { Search, Settings } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { LinkuLogoSvg } from "@/assets";
-import React, { Suspense, use } from "react";
-import ImageCarousel from "./ImageCarousel";
 import { LinkList } from "@/constants/LinkList";
 import { getCurrentTab } from "@/utils/chrome";
+import React, { use } from "react";
 
 const LinkGroup = () => {
-  return (
-    <div className="w-[500px] h-[600px] bg-white overflow-hidden">
-      <LinkGroup.Header />
-      <LinkGroup.Grid />
-      <LinkGroup.Banner />
-      <LinkGroup.Footer />
-    </div>
-  );
-};
-
-const Header = () => {
-  const [text, setText] = React.useState<string>("");
-
-  return (
-    <header className="p-4 border-b">
-      <div className="flex items-center justify-between gap-4">
-        <LinkuLogoSvg
-          className="cursor-pointer"
-          onClick={() => {
-            window.open(`https://github.com/Turtle-Hwan/LinKU`);
-          }}
-        />
-        <div className="relative flex-1">
-          <Input
-            type="text"
-            placeholder="검색어 입력"
-            className="w-full pl-10 pr-4 py-2 border rounded-lg"
-            onChange={(e) => setText((e.target as HTMLInputElement).value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                window.open(
-                  `https://search.konkuk.ac.kr/main.do?keyword=${text}`
-                );
-              }
-            }}
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Settings
-            className="w-5 h-5 text-gray-600 cursor-pointer"
-            onClick={() => {
-              alert("아직 기능이 준비 중이에요.");
-            }}
-          />
-          {/* <GitHubSvg
-            className="w-5 h-5 text-gray-600 cursor-pointer"
-            onClick={() => {
-              window.open("https://github.com/Turtle-Hwan/LinKU");
-            }}
-          /> */}
-        </div>
-      </div>
-    </header>
-  );
+  return <LinkGroup.Grid />;
 };
 
 const tabPromise = getCurrentTab();
@@ -71,7 +13,7 @@ const Grid = () => {
   const tabHostname = tab?.url ? new URL(tab.url).hostname : "";
 
   return (
-    <div className="Link__Grid grid grid-cols-6 gap-4 p-4">
+    <div className="Link__Grid grid grid-cols-6 gap-3 p-3 mt-auto border-t">
       {LinkList.map((item, idx) => {
         const isSameHost =
           new URL(item.link).hostname === tabHostname && item.samehost;
@@ -136,35 +78,8 @@ const GridItemSameHost = ({ item, colNum }) => {
   );
 };
 
-const Banner = () => {
-  return (
-    <div className="mt-auto group">
-      <Suspense fallback={<BannerImgSkeleton />}>
-        <ImageCarousel />
-      </Suspense>
-    </div>
-  );
-};
-
-const BannerImgSkeleton = () => {
-  return (
-    <div className="w-[500px] h-[87px] bg-[#00913A]/10 animate-pulse rounded-md overflow-hidden flex items-center justify-between">
-      <div className="flex-1 h-full flex items-center justify-center">
-        <div className="w-[450px] h-[67px] bg-[#00913A]/15 rounded-md"></div>
-      </div>
-    </div>
-  );
-};
-
-const Footer = () => {
-  return <></>;
-};
-
-LinkGroup.Header = React.memo(Header);
 LinkGroup.Grid = React.memo(Grid);
 LinkGroup.GridItem = React.memo(GridItem);
 LinkGroup.GridItemSameHost = React.memo(GridItemSameHost);
-LinkGroup.Banner = React.memo(Banner);
-LinkGroup.Footer = React.memo(Footer);
 
 export default React.memo(LinkGroup);
