@@ -1,6 +1,7 @@
 import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LinkGroup from "./Tabs/LinkGroup";
+import TodoList from "./Tabs/TodoList";
 
 const TabsLayout = () => {
   return (
@@ -17,10 +18,12 @@ const TabsLayout = () => {
         <LinkGroup />
       </TabsContent>
       <TabsContent value="TimeTable">
-        <div className="size-full border-t">시간표</div>
+        <div className="size-full border-t text-center">
+          시간표는 준비 중입니다
+        </div>
       </TabsContent>
       <TabsContent value="TodoList">
-        <div className="size-full border-t">Todo List</div>
+        <TodoList />
       </TabsContent>
     </Tabs>
   );

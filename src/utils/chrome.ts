@@ -40,3 +40,21 @@ export const executeScriptFile = async (tabId: number, files: string[]) => {
     throw err;
   }
 };
+
+// 사용자 인증 정보를 chrome.storage.local에 저장하는 함수
+export const saveUserCredentials = (userId, userPw) => {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(
+      {
+        credentials: { id: userId, password: userPw },
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(undefined);
+        }
+      }
+    );
+  });
+};
