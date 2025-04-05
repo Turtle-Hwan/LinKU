@@ -9,6 +9,11 @@
       "img": "mogakco.png",
       "link": "https://open.kakao.com/o/gkPwoXDf",
       "alt": "mogakco_banner"
+    },
+    {
+      "img": "whenwillmeet_banner.png",
+      "link": "https://when-will-we-meet.com/",
+      "alt": "whenwillmeet_banner"
     }
   ]
 }
