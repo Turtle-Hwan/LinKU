@@ -50,7 +50,7 @@ export const LinkList: LinkListElement[] = [
     samehost: {
       content: "상용 SW 무료 대여",
       onClick: () => {
-        updateTabUrl("https://grad.konkuk.ac.kr/kuinc/15905/subview.do");
+        updateTabUrl("https://www.konkuk.ac.kr/kuinc/15905/subview.do");
       },
     },
   },
@@ -144,12 +144,12 @@ export const LinkList: LinkListElement[] = [
   {
     icon: CalendarDays,
     label: "학사일정",
-    link: "https://korea.konkuk.ac.kr/konkuk/2161/subview.do",
+    link: "https://www.konkuk.ac.kr/konkuk/2161/subview.do",
   },
   {
     icon: Utensils,
     label: "학식 메뉴",
-    link: "https://grad.konkuk.ac.kr/general/18211/subview.do",
+    link: "https://www.konkuk.ac.kr/general/18211/subview.do",
   },
   {
     icon: AlarmClock,
@@ -179,7 +179,7 @@ export const LinkList: LinkListElement[] = [
   {
     icon: ScrollText,
     label: "2025 요람",
-    link: "https://grad.konkuk.ac.kr/sites/bulletins25/index.do",
+    link: "https://www.konkuk.ac.kr/sites/bulletins25/index.do",
   },
   {
     icon: Building,
