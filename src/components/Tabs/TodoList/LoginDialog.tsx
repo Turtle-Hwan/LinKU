@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { eCampusLoginAPI, ECampusLoginResponse } from "@/apis/eCampusAPI";
@@ -64,7 +65,6 @@ const LoginDialog = ({
         // Todo 목록 다시 로드
         await onLoginSuccess();
       } else {
-        // 실패 메시지 표시 - 서버 메시지 사용
         const errorMsg =
           loginResult.data?.message ||
           "로그인에 실패했습니다. 인증 정보를 확인해주세요.";
@@ -82,19 +82,22 @@ const LoginDialog = ({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>이캠퍼스 로그인</DialogTitle>
+          <DialogTitle>eCampus 로그인</DialogTitle>
+          <DialogDescription>
+            아이디와 비밀번호를 입력하여 eCampus에 로그인하세요.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <label htmlFor="userId" className="text-sm font-medium">
-              학번/아이디
+              아이디
             </label>
             <Input
               id="userId"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              placeholder="학번 또는 아이디 입력"
+              placeholder="아이디 입력"
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
             />
           </div>
@@ -117,7 +120,7 @@ const LoginDialog = ({
             <input
               id="rememberLogin"
               type="checkbox"
-              className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+              className="h-4 w-4 mr-2 text-primary border-gray-300 rounded focus:ring-primary"
               checked={rememberLogin}
               onChange={(e) => setRememberLogin(e.target.checked)}
             />

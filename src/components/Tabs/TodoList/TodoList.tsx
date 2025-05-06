@@ -108,34 +108,21 @@ const TodoList = () => {
 
   // Todo 항목 클릭 처리
   const handleTodoItemClick = async (
-    courseId: string,
-    gubun: string,
-    seq: string
+    seq: string,
+    kj: string,
+    gubun: string
   ) => {
     try {
       setIsLoading(true);
-      const result = await eCampusGoLectureAPI(courseId, seq, gubun);
+      const result = await eCampusGoLectureAPI(seq, kj, gubun);
 
       if (result.success) {
         // 성공 시 해당 URL로 이동 (이캠퍼스 페이지 열기)
         const lectureUrl = `https://ecampus.konkuk.ac.kr${result.message}`;
         window.open(lectureUrl, "_blank");
-      } else {
-        // 실패 시 오류 메시지 표시
-        if (result.message) {
-          alert(result.message);
-        } else {
-          alert("강의실 접속에 실패했습니다.");
-        }
-
-        // 로그인 필요 시 로그인 모달 표시
-        if (result.message === "로그인이 필요합니다.") {
-          setShowLoginModal(true);
-        }
       }
     } catch (error) {
       console.error("Failed to navigate to lecture:", error);
-      alert("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsLoading(false);
     }
@@ -144,12 +131,8 @@ const TodoList = () => {
   return (
     <div
       id="todolist"
-      className="p-4 border-t"
-      style={{
-        overflowY: "auto",
-        height: "500px",
-        scrollbarWidth: "thin",
-      }}
+      className="p-4 border-t overflow-y-auto h-[500px]"
+      style={{ scrollbarWidth: "thin" }}
     >
       {isLoading ? (
         <div className="flex justify-center p-8">
@@ -163,7 +146,7 @@ const TodoList = () => {
                 key={item.id}
                 className="p-3 border rounded-md hover:bg-gray-50 cursor-pointer"
                 onClick={() =>
-                  handleTodoItemClick(item.courseId, item.gubun, item.id)
+                  handleTodoItemClick(item.kj, item.seq, item.gubun)
                 }
               >
                 <div className="flex items-center justify-between mb-1">

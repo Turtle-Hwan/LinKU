@@ -18,8 +18,9 @@ export interface TodoItem {
   subject: string;
   dDay: string;
   dueDate: string;
-  courseId: string;
+  kj: string;
   gubun: string;
+  seq: string;
 }
 
 export interface ECampusTodoResponse {
@@ -59,9 +60,9 @@ export async function eCampusLoginAPI(
     // 응답 텍스트 가져오기 - jsonLogin () 형식으로 오기 때문에 파싱 필요
     const responseText = await response.text();
 
-    // "jsonLogin (" 과 ")" 제거하고 JSON 파싱
+    // "jsonLogin (" 과 ");" 제거하고 JSON 파싱
     const jsonText = responseText
-      .replace(/^jsonLogin\s*\(\s*/, "")
+      .replace(/\s*jsonLogin\s*\(\s*/, "")
       .replace(/\s*\)\s*;?\s*$/, "");
     const data = JSON.parse(jsonText);
 
@@ -95,7 +96,6 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
         credentials: "include",
       }
     );
-
     const htmlText = await response.text();
 
     // HTML 파싱: DOM 파서 사용
@@ -112,11 +112,15 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
     const todoWraps = doc.querySelectorAll(".todo_wrap:not(.no_data)");
 
     todoWraps.forEach((item, index) => {
-      const courseId =
+      const kj =
         (item.querySelector(`#kj_${index}`) as HTMLInputElement)?.value || "";
       const gubun =
         (item.querySelector(`#gubun_${index}`) as HTMLInputElement)?.value ||
         "";
+      const seq =
+        (item as HTMLElement)
+          .getAttribute("onclick")
+          ?.match(/goLecture\('.*?','(.*?)','.*?'\)/)?.[1] || "";
       const title =
         item.querySelector(".todo_title")?.textContent?.trim() || "";
       const subject =
@@ -133,8 +137,9 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
         subject,
         dDay,
         dueDate,
-        courseId,
+        kj,
         gubun,
+        seq,
       });
     });
 
@@ -152,8 +157,8 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
 
 /**
  * 이캠퍼스 강의실로 이동하기 위한 인증 및 URL 생성 함수
- * @param kj 강의 키
  * @param seq 시퀀스 번호
+ * @param kj 강의 키
  * @param gubun 구분 (lecture_weeks, report 등)
  * @returns 인증 결과 및 성공 시 이동할 URL
  */
@@ -163,44 +168,6 @@ export async function eCampusGoLectureAPI(
   gubun: string
 ): Promise<ECampusGoLectureResponse> {
   try {
-    // 1. 먼저, 접근 권한 검사 요청
-    const authResponse = await fetch(
-      "https://ecampus.konkuk.ac.kr/ilos/lo/st_room_auth_check2.acl",
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        },
-        body: `returnData=json&ky=${kj}&encoding=utf-8`,
-        credentials: "include",
-      }
-    );
-
-    const authText = await authResponse.text();
-    let authData;
-
-    try {
-      // 응답이 JSON 형태인지 확인
-      authData = JSON.parse(authText);
-    } catch (error) {
-      // 로그인 세션이 만료되었거나 응답이 JSON이 아닌 경우
-      return {
-        success: false,
-        isError: true,
-        message: `로그인이 필요합니다. ${error}`,
-      };
-    }
-
-    // 2. 인증 실패 시
-    if (authData.isError) {
-      return {
-        success: false,
-        isError: true,
-        message: "해당 과목에 접근 권한이 없습니다.",
-      };
-    }
-
-    // 3. 인증 성공 시 이동할 URL 생성
     const lectureUrl = `/ilos/mp/todo_list_connect.acl?SEQ=${seq}&gubun=${gubun}&KJKEY=${kj}`;
 
     return {
