@@ -152,3 +152,14 @@ body {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+
+@layer base {
+  [role="button"],
+  button {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+}

@@ -13,12 +13,6 @@
     "64": "assets/icon64.png",
     "128": "assets/icon128.png"
   },
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage"
-  ],
-  "host_permissions": [
-    "*://ecampus.konkuk.ac.kr/*"
-  ]
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["*://ecampus.konkuk.ac.kr/*"]
 }

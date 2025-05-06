@@ -10,7 +10,7 @@
     "build:gh-pages": "tsc -b && vite build --mode gh-pages",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "git subtree push --prefix gh-pages origin gh-pages2"
+    "deploy": "git subtree push --prefix gh-pages origin gh-pages"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.13",

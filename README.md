@@ -20,6 +20,8 @@
   - Android, IOS 앱 제공
 - **[KUstaurant :: 건대 맛집 탐색 쿠스토랑]** [링크](https://kustaurant.com/)
   - Web, App 제공
+- **[언제볼까 :: 빠른 모임 날짜 약속]** [링크](https://when-will-we-meet.com/)
+  - Web 제공
 
 ## Preview
 ![image](https://github.com/user-attachments/assets/75e0d47d-e8bf-4473-8b2d-83cbc1505077)
