@@ -88,13 +88,13 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
           <div className="space-y-2">
             <label htmlFor="savedId" className="text-sm font-medium">
-              학번/아이디
+              아이디
             </label>
             <Input
               id="savedId"
               value={savedId}
               onChange={(e) => setSavedId(e.target.value)}
-              placeholder="학번 또는 아이디 입력"
+              placeholder="아이디 입력"
             />
           </div>
 
@@ -121,7 +121,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           </div>
         </div>
 
-        <DialogFooter className="flex justify-between">
+        <DialogFooter className="flex justify-end">
           <Button
             variant="destructive"
             onClick={deleteCredentials}

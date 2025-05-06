@@ -149,9 +149,9 @@ const TodoList = () => {
                   handleTodoItemClick(item.kj, item.seq, item.gubun)
                 }
               >
-                <div className="text-sm mb-1 flex items-center justify-between">
-                  <p className="font-semibold">{item.title}</p>
-                  <span className="font-extrabold px-2 py-1 bg-main/10 text-main rounded-full">
+                <div className="text-sm font-semibold mb-1 flex items-center justify-between">
+                  <p className="">{item.title}</p>
+                  <span className="px-2 py-1 bg-main/10 text-main rounded-full">
                     {item.dDay}
                   </span>
                 </div>
