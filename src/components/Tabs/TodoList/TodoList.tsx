@@ -159,7 +159,11 @@ const TodoList = () => {
                 <div className="text-sm font-semibold mb-1 flex items-center justify-between">
                   <p className="">{item.title}</p>
                   <span className="px-2 py-1 bg-main/10 text-main rounded-full">
-                    {item.dDay}
+                    {item.dDay === "D-1" || item.dDay === "D-Day" ? (
+                      <CountdownTimer dueDate={item.dueDate} />
+                    ) : (
+                      item.dDay
+                    )}
                   </span>
                 </div>
                 <p className="text-sm text-gray-700">{item.subject}</p>
@@ -186,6 +190,91 @@ const TodoList = () => {
       />
     </div>
   );
+};
+
+// 마감 시간 카운트다운 컴포넌트
+const CountdownTimer = ({ dueDate }: { dueDate: string }) => {
+  const [remainingTime, setRemainingTime] = useState<string>("");
+
+  useEffect(() => {
+    // 마감일 문자열 파싱
+    const parseDueDate = (dueDateStr: string): Date => {
+      // "2025.05.07 오후 1:00" 형식 파싱
+      const parts = dueDateStr.split(" ");
+      const datePart = parts[0]; // "2025.05.07"
+      const amPm = parts[1]; // "오후"
+      const timePart = parts[2]; // "1:00"
+
+      const [year, month, day] = datePart
+        .split(".")
+        .map((num) => parseInt(num));
+
+      console.log(datePart, amPm, timePart); // 디버깅용
+
+      const [hourStr, minuteStr] = timePart.split(":");
+      let hour = parseInt(hourStr);
+      const minute = parseInt(minuteStr);
+
+      // 오후인 경우 12를 더함 (단, 오후 12시는 제외)
+      if (amPm === "오후" && hour < 12) {
+        hour += 12;
+      }
+      // 오전 12시는 0시로 변환
+      if (amPm === "오전" && hour === 12) {
+        hour = 0;
+      }
+
+      return new Date(year, month - 1, day, hour, minute);
+    };
+
+    // 남은 시간 계산 함수
+    const calculateTimeRemaining = () => {
+      const targetDate = parseDueDate(dueDate);
+      const now = new Date();
+
+      // 남은 시간 (밀리초)
+      const diff = targetDate.getTime() - now.getTime();
+      console.log("남은 시간:", diff); // 디버깅용
+
+      if (diff <= 0) {
+        setRemainingTime("마감");
+        return false; // 타이머 중지
+      }
+
+      // 시, 분, 초 계산
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      // HH:MM:SS 포맷
+      setRemainingTime(
+        `${hours.toString().padStart(2, "0")}:${minutes
+          .toString()
+          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+      );
+
+      return true; // 타이머 계속 실행
+    };
+
+    // 초기 계산
+    const shouldContinue = calculateTimeRemaining();
+    console.log("shouldContinue:", shouldContinue); // 디버깅용
+
+    // 1초마다 업데이트
+    let intervalId: number | null = null;
+    if (shouldContinue) {
+      intervalId = window.setInterval(calculateTimeRemaining, 1000);
+    }
+
+    // 컴포넌트 언마운트 시 타이머 정리
+    return () => {
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [dueDate]);
+
+  return <span className="text-rose-600 font-mono">{remainingTime}</span>;
 };
 
 export default TodoList;
