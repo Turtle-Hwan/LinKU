@@ -149,18 +149,18 @@ const TodoList = () => {
                   handleTodoItemClick(item.kj, item.seq, item.gubun)
                 }
               >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-medium">{item.title}</p>
-                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                <div className="text-sm mb-1 flex items-center justify-between">
+                  <p className="font-semibold">{item.title}</p>
+                  <span className="font-extrabold px-2 py-1 bg-main/10 text-main rounded-full">
                     {item.dDay}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600">{item.subject}</p>
-                <p className="text-xs text-gray-500 mt-1">{item.dueDate}</p>
+                <p className="text-sm text-gray-700">{item.subject}</p>
+                <p className="text-xs text-gray-600 mt-1">{item.dueDate}</p>
               </div>
             ))
           ) : (
-            <p className="text-center text-muted-foreground">
+            <p className="text-base text-center text-muted-foreground">
               할 일이 없습니다.
             </p>
           )}

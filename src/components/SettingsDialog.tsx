@@ -8,6 +8,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DialogDescription } from "@radix-ui/react-dialog";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -72,6 +73,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>설정</DialogTitle>
+          <DialogDescription className="hidden">설정</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
