@@ -143,3 +143,7 @@ body {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+
+*::-webkit-scrollbar-button {
+  display: none !important;
+}

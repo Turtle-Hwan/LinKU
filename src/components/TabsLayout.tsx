@@ -1,7 +1,7 @@
 import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LinkGroup from "./Tabs/LinkGroup";
-import TodoList from "./Tabs/TodoList";
+import TodoList from "./Tabs/TodoList/TodoList";
 
 const TabsLayout = () => {
   return (
