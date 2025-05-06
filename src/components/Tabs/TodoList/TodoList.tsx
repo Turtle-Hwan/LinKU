@@ -14,6 +14,11 @@ const TodoList = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [error, setError] = useState("");
 
+  // Save todo count to Chrome storage
+  const saveTodoCount = useCallback((count: number) => {
+    chrome.storage.local.set({ todoCount: count });
+  }, []);
+
   // Todo 목록을 가져오는 함수
   const fetchTodoList = useCallback(async (): Promise<boolean> => {
     try {
@@ -21,6 +26,8 @@ const TodoList = () => {
 
       if (result.success && result.data?.todoList) {
         setTodoItems(result.data.todoList);
+        // Save todo count to storage
+        saveTodoCount(result.data.todoList.length);
         return true;
       }
 
@@ -36,7 +43,7 @@ const TodoList = () => {
       setError("Todo 목록을 불러오는 중 오류가 발생했습니다.");
       return false;
     }
-  }, []);
+  }, [saveTodoCount]);
 
   // 저장된 인증 정보로 로그인 시도
   const tryLoginWithSavedCredentials =

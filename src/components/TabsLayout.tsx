@@ -2,6 +2,7 @@ import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LinkGroup from "./Tabs/LinkGroup";
 import TodoList from "./Tabs/TodoList/TodoList";
+import TodoCountBadge from "./Tabs/TodoList/TodoCountBadge";
 
 const TabsLayout = () => {
   return (
@@ -10,7 +11,10 @@ const TabsLayout = () => {
         <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="LinkGroup">링크모음</TabsTrigger>
           <TabsTrigger value="TimeTable">시간표</TabsTrigger>
-          <TabsTrigger value="TodoList">Todo List</TabsTrigger>
+          <TabsTrigger value="TodoList">
+            <span>Todo List</span>
+            <TodoCountBadge />
+          </TabsTrigger>
         </TabsList>
       </div>
 
