@@ -36,15 +36,15 @@ const GridItem = ({ item, colNum }) => {
         window.open(item.link);
       }}
     >
-      <div className="w-9 h-9 rounded-full bg-[#00913A]/10 flex items-center justify-center shrink-0">
+      <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
         {item.type === "png" ? (
           <img
             src={item.icon}
             alt={`${item.label} 이미지`}
-            className="Icon__Animation w-5 h-5 text-[#00913A]"
+            className="Icon__Animation w-5 h-5 text-main"
           />
         ) : (
-          <item.icon className={`Icon__Animation w-5 h-5 text-[#00913A]`} />
+          <item.icon className={`Icon__Animation w-5 h-5 text-main`} />
         )}
       </div>
       <span className="w-full text-base text-black text-center break-keep">
@@ -60,7 +60,7 @@ const GridItemSameHost = ({ item, colNum }) => {
       className={`${colNum} flex flex-row items-center justify-between gap-1.5 rounded-lg hover:bg-gray-100 transition-colors`}
     >
       <button
-        className="w-full h-full px-1 bg-[#00913A] text-white rounded-lg hover:bg-[#007a30] transition-colors cursor-pointer text-sm/[normal] break-keep"
+        className="w-full h-full px-1 bg-main text-white rounded-lg hover:bg-hover transition-colors cursor-pointer text-sm/[normal] break-keep"
         onClick={item.samehost.onClick}
       >
         {item.samehost.content}

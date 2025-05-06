@@ -25,6 +25,15 @@ body {
   }
 }
 
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+@theme {
+  --color-main: #00913a;
+  --color-hover: #007a30;
+}
+
 /* tailwind css */
 :root {
   /* Light Theme HSL 변수 (hsl() 래핑) */

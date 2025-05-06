@@ -1,8 +1,9 @@
-import React, { Suspense } from "react";
+import React, { Suspense, useState } from "react";
 import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
 import { Search, Settings } from "lucide-react";
+import SettingsDialog from "./SettingsDialog";
 
 const MainLayout = ({ children }) => {
   return (
@@ -16,6 +17,7 @@ const MainLayout = ({ children }) => {
 
 const Header = () => {
   const [text, setText] = React.useState<string>("");
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <header className="px-4 py-3">
@@ -45,9 +47,7 @@ const Header = () => {
         <div className="flex items-center gap-2 flex-shrink-0">
           <Settings
             className="w-5 h-5 text-gray-600 cursor-pointer"
-            onClick={() => {
-              alert("아직 기능이 준비 중이에요.");
-            }}
+            onClick={() => setShowSettings(true)}
           />
           <GitHubSvg
             className="w-5 h-5 text-gray-600 cursor-pointer"
@@ -57,6 +57,9 @@ const Header = () => {
           />
         </div>
       </div>
+
+      {/* 설정 다이얼로그 */}
+      <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
     </header>
   );
 };
