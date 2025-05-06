@@ -8,11 +8,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { eCampusLoginAPI, eCampusTodoListAPI } from "@/apis/eCampusAPI";
+import {
+  eCampusLoginAPI,
+  eCampusTodoListAPI,
+  ECampusLoginResponse,
+  ECampusTodoResponse,
+  TodoItem,
+} from "@/apis/eCampusAPI";
 
 const TodoList = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [todoItems, setTodoItems] = useState([]);
+  const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [userId, setUserId] = useState("");
   const [userPw, setUserPw] = useState("");
@@ -29,11 +35,11 @@ const TodoList = () => {
 
     try {
       // 먼저 Todo 목록 요청 시도
-      const result = await eCampusTodoListAPI();
+      const result: ECampusTodoResponse = await eCampusTodoListAPI();
 
-      if (result.success) {
+      if (result.success && result.data?.todoList) {
         console.log(result);
-        setTodoItems(result.data.todoList || []);
+        setTodoItems(result.data.todoList);
       } else if (result.needLogin) {
         // 로그인이 필요한 경우, 저장된 인증 정보 확인
         chrome.storage.local.get("credentials", async (data) => {
@@ -41,16 +47,17 @@ const TodoList = () => {
 
           if (credentials?.id && credentials?.password) {
             // 저장된 인증 정보로 로그인 시도
-            const loginResult = await eCampusLoginAPI(
+            const loginResult: ECampusLoginResponse = await eCampusLoginAPI(
               credentials.id,
               credentials.password
             );
 
             if (loginResult.success) {
               // 로그인 성공 후 다시 Todo 목록 요청
-              const todoResult = await eCampusTodoListAPI();
-              if (todoResult.success) {
-                setTodoItems(todoResult.data.todoList || []);
+              const todoResult: ECampusTodoResponse =
+                await eCampusTodoListAPI();
+              if (todoResult.success && todoResult.data?.todoList) {
+                setTodoItems(todoResult.data.todoList);
               } else {
                 // 인증 실패 시 모달 표시
                 setShowLoginModal(true);
@@ -87,7 +94,10 @@ const TodoList = () => {
 
     try {
       // 로그인 시도
-      const loginResult = await eCampusLoginAPI(userId, userPw);
+      const loginResult: ECampusLoginResponse = await eCampusLoginAPI(
+        userId,
+        userPw
+      );
 
       if (loginResult.success) {
         // 인증 정보 저장
@@ -99,9 +109,9 @@ const TodoList = () => {
         setShowLoginModal(false);
 
         // Todo 목록 다시 로드
-        const todoResult = await eCampusTodoListAPI();
-        if (todoResult.success) {
-          setTodoItems(todoResult.data.todoList || []);
+        const todoResult: ECampusTodoResponse = await eCampusTodoListAPI();
+        if (todoResult.success && todoResult.data?.todoList) {
+          setTodoItems(todoResult.data.todoList);
         }
       } else {
         setError("로그인에 실패했습니다. 인증 정보를 확인해주세요.");
@@ -115,7 +125,7 @@ const TodoList = () => {
   }
 
   return (
-    <div className="p-4">
+    <div id="todolist" className="p-4 overflow-y-scroll h-[400px]">
       <h2 className="text-xl font-bold mb-4">Todo List</h2>
 
       {isLoading ? (
@@ -125,11 +135,23 @@ const TodoList = () => {
       ) : (
         <div className="space-y-4">
           {todoItems.length > 0 ? (
-            todoItems.map((item, index) => (
-              <div key={index} className="p-3 border rounded-md">
-                {/* <p className="font-medium">{item.title}</p>
-                <p className="text-sm text-muted-foreground">{item.dueDate}</p> */}
-                <p>{item}</p>
+            todoItems.map((item) => (
+              <div
+                key={item.id}
+                className="p-3 border rounded-md hover:bg-gray-50 cursor-pointer"
+                onClick={() => {
+                  // todo: 이캠퍼스 항목으로 이동 로직 추가
+                  console.log(`이동: ${item.courseId}, ${item.gubun}`);
+                }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-medium">{item.title}</p>
+                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    {item.dDay}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600">{item.subject}</p>
+                <p className="text-xs text-gray-500 mt-1">{item.dueDate}</p>
               </div>
             ))
           ) : (
