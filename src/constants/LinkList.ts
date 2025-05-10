@@ -1,28 +1,25 @@
 import { HelloLmsPng } from "@/assets";
 import { executeScript, getCurrentTab, updateTabUrl } from "@/utils/chrome";
+import { sugangRefreshBtn, 수강시뮬Btn, 취득학점확인원Btn } from "@/utils/sugang";
+
 import {
-  sugangRefreshBtn,
-  수강시뮬Btn,
-  취득학점확인원Btn,
-} from "@/utils/sugang";
-import {
-  BellRing,
-  University,
-  CalendarDays,
-  BookCopy,
-  Clock,
-  Trophy,
-  GraduationCap,
   AlarmClock,
-  MapPinned,
-  Utensils,
-  Building,
-  ScrollText,
-  UsersRound,
   Bed,
+  BellRing,
+  BookCopy,
+  Building,
+  CalendarDays,
+  Clock,
+  GraduationCap,
   Lightbulb,
-  MessageCircleMore,
   LucideIcon,
+  MapPinned,
+  MessageCircleMore,
+  ScrollText,
+  Trophy,
+  University,
+  UsersRound,
+  Utensils,
 } from "lucide-react";
 
 export interface SameHost {
@@ -74,9 +71,7 @@ export const LinkList: LinkListElement[] = [
     samehost: {
       content: "K-Cube 대여",
       onClick: () => {
-        updateTabUrl(
-          "https://wein.konkuk.ac.kr/ptfol/cmnt/cube/findCubeResveStep1.do"
-        );
+        updateTabUrl("https://wein.konkuk.ac.kr/ptfol/cmnt/cube/findCubeResveStep1.do");
       },
     },
   },

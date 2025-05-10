@@ -73,9 +73,8 @@ const ImageCarousel = () => {
         {scrollSnaps.map((_, index) => (
           <button
             key={index}
-            className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-              index === selectedIndex ? "bg-white" : "bg-white/50"
-            } cursor-pointer`}
+            className={`w-2 h-2 rounded-full transition-colors duration-300 ${index === selectedIndex ? "bg-white" : "bg-white/50"
+              } cursor-pointer`}
             onClick={() => scrollTo(index)}
           />
         ))}
