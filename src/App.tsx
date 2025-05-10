@@ -1,6 +1,6 @@
 import "./App.css";
-import MainLayout from "./components/MainLayout";
-import TabsLayout from "./components/TabsLayout";
+import MainLayout from "./pages/MainLayout";
+import TabsLayout from "./pages/TabsLayout";
 
 function App() {
   console.log(

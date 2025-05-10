@@ -1,7 +1,7 @@
 import React, { Suspense, useState } from "react";
-import ImageCarousel from "./Tabs/ImageCarousel";
+import ImageCarousel from "./Tabs/LinkGroup/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
-import { Input } from "./ui/input";
+import { Input } from "../components/ui/input";
 import { Search, Settings } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 
