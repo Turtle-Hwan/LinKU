@@ -10,11 +10,9 @@ function App() {
   console.log("https://github.com/Turtle-Hwan/LinKU");
 
   return (
-    <>
-      <MainLayout>
-        <TabsLayout />
-      </MainLayout>
-    </>
+    <MainLayout>
+      <TabsLayout />
+    </MainLayout>
   );
 }
 
