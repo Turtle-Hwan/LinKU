@@ -1,11 +1,44 @@
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import ImageCarousel from "./Tabs/LinkGroup/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "../components/ui/input";
 import { Search, Settings } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
+import { mousePet } from "./mouse-pet/mousePetfunc";
+import { executeScript, getCurrentTab } from "@/utils/chrome";
 
 const MainLayout = ({ children }) => {
+  const [mousePetEnabled, setMousePetEnabled] = useState(false);
+
+  useEffect(() => {
+    // Initialize mouse pet if enabled
+    if (mousePetEnabled) {
+      getCurrentTab().then((tab) => {
+        executeScript(tab?.id ?? 0, mousePet);
+      });
+      mousePet();
+    }
+  }, [mousePetEnabled]);
+
+  useEffect(() => {
+    // Load mouse pet setting
+    chrome.storage.local.get("mousePetEnabled", (data) => {
+      setMousePetEnabled(data.mousePetEnabled || false);
+    });
+
+    // Listen for changes to mouse pet setting
+    const handleStorageChange = (changes, namespace) => {
+      if (namespace === "local" && changes.mousePetEnabled) {
+        setMousePetEnabled(changes.mousePetEnabled.newValue);
+      }
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
+  }, []);
+
   return (
     <div className="w-[500px] h-[600px] flex flex-col bg-white overflow-hidden">
       <MainLayout.Header />

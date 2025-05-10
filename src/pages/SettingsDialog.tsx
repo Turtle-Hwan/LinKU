@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -20,11 +22,13 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const [savedPassword, setSavedPassword] = useState<string>("");
   const [hasCredentials, setHasCredentials] = useState<boolean>(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
+  const [mousePetEnabled, setMousePetEnabled] = useState<boolean>(false);
 
   // 설정 페이지 열릴 때 저장된 계정 정보 불러오기
   useEffect(() => {
     if (open) {
       loadSavedCredentials();
+      loadMousePetSetting();
     }
   }, [open]);
 
@@ -41,6 +45,13 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         setSavedPassword("");
         setHasCredentials(false);
       }
+    });
+  };
+
+  // Mouse Pet 설정 불러오기
+  const loadMousePetSetting = () => {
+    chrome.storage.local.get("mousePetEnabled", (data) => {
+      setMousePetEnabled(data.mousePetEnabled || false);
     });
   };
 
@@ -68,6 +79,12 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     }
   };
 
+  // Mouse Pet 설정 변경
+  const handleMousePetToggle = (enabled: boolean) => {
+    setMousePetEnabled(enabled);
+    chrome.storage.local.set({ mousePetEnabled: enabled });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -77,6 +94,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* 이캠퍼스 계정 관리 섹션 */}
           <div className="space-y-2">
             <h3 className="text-md font-medium">이캠퍼스 계정 관리</h3>
             <p className="text-sm text-muted-foreground">
@@ -117,6 +135,26 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               >
                 {isPasswordVisible ? "숨기기" : "보기"}
               </button>
+            </div>
+          </div>
+
+          {/* Mouse Pet 설정 섹션 */}
+          <div className="border-t pt-4 mt-4">
+            <div className="space-y-2">
+              <h3 className="text-md font-medium">UI 설정</h3>
+            </div>
+            <div className="flex items-center justify-between mt-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="mouse-pet">마우스 펫</Label>
+                <p className="text-sm text-muted-foreground">
+                  {mousePetEnabled ? "활성화됨" : "비활성화됨"}
+                </p>
+              </div>
+              <Switch
+                id="mouse-pet"
+                checked={mousePetEnabled}
+                onCheckedChange={handleMousePetToggle}
+              />
             </div>
           </div>
         </div>
