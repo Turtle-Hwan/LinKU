@@ -158,7 +158,7 @@ const TodoList = () => {
               >
                 <div className="text-sm font-semibold mb-1 flex items-center justify-between">
                   <p className="">{item.title}</p>
-                  <span className="px-2 py-1 bg-main/10 text-main rounded-full">
+                  <span className="shrink-0 px-2 py-1 bg-main/10 text-main rounded-full">
                     {item.dDay}
                   </span>
                 </div>
