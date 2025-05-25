@@ -1,5 +1,5 @@
 # LinKU :: 건국대학교 학생들을 위한 교내외 관련 페이지 모음 크롬 확장 프로그램
-> [Chrome extension Link](https://chromewebstore.google.com/detail/linku/fmfbhmifnohhfiblebbdjlioppfppbgh?hl=ko&utm_source=ext_sidebar)
+> [Chrome extension Link](https://chromewebstore.google.com/detail/linku/fmfbhmifnohhfiblebbdjlioppfppbgh?hl=ko&utm_source=ext_sidebar)  
 > [GitHub Pages](https://turtle-hwan.github.io/LinKU)
 
 > [!note]
