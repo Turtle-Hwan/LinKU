@@ -24,7 +24,8 @@
   - Web 제공
 
 ## Preview
-![image](https://github.com/user-attachments/assets/75e0d47d-e8bf-4473-8b2d-83cbc1505077)
+![image](https://github.com/user-attachments/assets/86e3cc34-4aac-4d04-8ce9-053afa0232d8)
+
 
 ## Skills
 
