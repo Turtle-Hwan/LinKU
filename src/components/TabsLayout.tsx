@@ -1,12 +1,17 @@
 import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { trackTabChange } from "@/utils/analytics";
 import LinkGroup from "./Tabs/LinkGroup";
 import TodoList from "./Tabs/TodoList/TodoList";
 import TodoCountBadge from "./Tabs/TodoList/TodoCountBadge";
 
 const TabsLayout = () => {
+  const handleTabChange = (value: string) => {
+    trackTabChange(value);
+  };
+
   return (
-    <Tabs defaultValue="LinkGroup" className="w-full">
+    <Tabs defaultValue="LinkGroup" className="w-full" onValueChange={handleTabChange}>
       <div className="px-3">
         <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="LinkGroup">링크모음</TabsTrigger>

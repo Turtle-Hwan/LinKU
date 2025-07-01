@@ -19,6 +19,11 @@
     "storage"
   ],
   "host_permissions": [
-    "*://ecampus.konkuk.ac.kr/*"
-  ]
+    "*://ecampus.konkuk.ac.kr/*",
+    "*://www.googletagmanager.com/*",
+    "*://www.google-analytics.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' https://www.googletagmanager.com; object-src 'self'"
+  }
 }

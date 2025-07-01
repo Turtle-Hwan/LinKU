@@ -1,5 +1,6 @@
 import { LinkList } from "@/constants/LinkList";
 import { getCurrentTab } from "@/utils/chrome";
+import { trackLinkClick, trackButtonClick } from "@/utils/analytics";
 import React, { use } from "react";
 
 const LinkGroup = () => {
@@ -29,12 +30,16 @@ const Grid = () => {
 };
 
 const GridItem = ({ item, colNum }) => {
+  const handleClick = () => {
+    // 링크 클릭 추적
+    trackLinkClick(item.label, item.link);
+    window.open(item.link);
+  };
+
   return (
     <button
       className={`${colNum} flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer`}
-      onClick={() => {
-        window.open(item.link);
-      }}
+      onClick={handleClick}
     >
       <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
         {item.type === "png" ? (
@@ -55,13 +60,25 @@ const GridItem = ({ item, colNum }) => {
 };
 
 const GridItemSameHost = ({ item, colNum }) => {
+  const handleMainClick = () => {
+    trackButtonClick(item.samehost.content, item.label);
+    item.samehost.onClick();
+  };
+
+  const handleSecondClick = () => {
+    if (item.samehost2) {
+      trackButtonClick(item.samehost2.content, item.label);
+      item.samehost2.onClick();
+    }
+  };
+
   return (
     <div
       className={`${colNum} flex flex-row items-center justify-between gap-1.5 rounded-lg hover:bg-gray-100 transition-colors`}
     >
       <button
         className="w-full h-full px-1 bg-main text-white rounded-lg hover:bg-hover transition-colors cursor-pointer text-sm/[normal] break-keep"
-        onClick={item.samehost.onClick}
+        onClick={handleMainClick}
       >
         {item.samehost.content}
       </button>
@@ -69,7 +86,7 @@ const GridItemSameHost = ({ item, colNum }) => {
       {item.samehost2 && (
         <button
           className="w-full h-full px-1 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition-colors cursor-pointer text-sm/[normal] break-keep"
-          onClick={item.samehost2.onClick}
+          onClick={handleSecondClick}
         >
           {item.samehost2.content}
         </button>
