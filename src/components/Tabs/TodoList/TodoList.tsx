@@ -7,6 +7,7 @@ import {
   TodoItem,
 } from "@/apis/eCampusAPI";
 import LoginDialog from "./LoginDialog";
+import KUGoodjob from "@/assets/KU_goodjob.png";
 
 const TodoList = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -167,9 +168,36 @@ const TodoList = () => {
               </div>
             ))
           ) : (
-            <p className="text-base text-center text-muted-foreground">
-              할 일이 없습니다.
-            </p>
+            <div className="text-base text-center text-muted-foreground space-y-4">
+              <p>할 일이 없습니다</p>
+              <div className="flex justify-center">
+                <div className="relative">
+                  <img
+                    src={KUGoodjob}
+                    alt="KU Good Job"
+                    width={160}
+                    height={160}
+                  />
+
+                  {/* TODO : 둥근 텍스트 - 위쪽 부채꼴 영역에만 // 넣어보려 했으나 생각보다 시간이 많이 걸리는 관계로 다음 기회에.. */}
+                  {/* <div className="absolute inset-0 flex items-center justify-center">
+                    <svg width="200" height="200" viewBox="0 0 200 200">
+                      <defs>
+                        <path
+                          d="M 5,90 A 90,90 0 0,1 190,95"
+                          id="text-circle-top"
+                        />
+                      </defs>
+                      <text fontFamily="BMJUA" className="fill-main text-base">
+                        <textPath href="#text-circle-top" startOffset="30%">
+                          참 잘 했 다 KU !
+                        </textPath>
+                      </text>
+                    </svg>
+                  </div> */}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}
