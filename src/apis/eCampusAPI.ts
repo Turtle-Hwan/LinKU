@@ -131,6 +131,8 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
           .querySelector(".todo_date span:not(.todo_d_day)")
           ?.textContent?.trim() || "";
 
+      if (!title) return;
+
       todoItems.push({
         id: `${index}`,
         title,
