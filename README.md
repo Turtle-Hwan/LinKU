@@ -1,19 +1,21 @@
 # LinKU :: 건국대학교 학생들을 위한 교내외 관련 페이지 모음 크롬 확장 프로그램
+
 > [Chrome extension Link](https://chromewebstore.google.com/detail/linku/fmfbhmifnohhfiblebbdjlioppfppbgh?hl=ko&utm_source=ext_sidebar)  
 > [GitHub Pages](https://turtle-hwan.github.io/LinKU)
 
 > [!note]
 > 자주 접속하는 학교 관련 여러 사이트들을 검색하기도 힘들고, 일일이 찾기도 힘들어 한 번에 모아주는 확장 프로그램을 만들어 봤어요.
-> 
+>
 > 부족한 점이나 이런 기능 추가되면 좋겠다는 의견이 있다면 Issue에 남겨주세요!  
-  시간 날 때마다 추가해볼게요.
+>  시간 날 때마다 추가해볼게요.
 
 > [!tip]
-> Link + KU 라는 이름에 알맞게 건국대 공식 사이트들 뿐만 아니라, 건대 학생들이 직접 만들거나 창업한 서비스도 연결해보려 생각 중이에요.  
+> Link + KU 라는 이름에 알맞게 건국대 공식 사이트들 뿐만 아니라, 건대 학생들이 직접 만들거나 창업한 서비스도 연결해보려 생각 중이에요.
 >
 > 추가로 아시는 정보가 있다면 언제든 기여 부탁드려요!
 
-### Unofficial services of Konkuk University
+### Students Made Services of Konkuk University
+
 - **[ku-ring :: 건국대학교 공지 알리미, 쿠링]** [링크](https://github.com/ku-ring)
   - Android, IOS 앱 제공
 - **[PlayKUround :: 캠퍼스 안의 작은 놀이터, 플레이쿠라운드]** [링크](https://github.com/playkuround)
@@ -24,8 +26,8 @@
   - Web 제공
 
 ## Preview
-![image](https://github.com/user-attachments/assets/86e3cc34-4aac-4d04-8ce9-053afa0232d8)
 
+![image](https://github.com/user-attachments/assets/86e3cc34-4aac-4d04-8ce9-053afa0232d8)
 
 ## Skills
 
@@ -35,10 +37,13 @@
 
 ## How to Contribute
 
-```shell
+```bash
+git clone https://github.com/Turtle-Hwan/LinKU.git
+cd LinKU
 pnpm install
 pnpm run dev
 ```
+
 - react 환경으로 구성되어 있어 dev로 실행되는 화면이 그대로 적용됩니다.
 - 로컬에서 extension에 적용하려면, build 후 dist 폴더를 chrome extension에서 불러오면 확인할 수 있습니다.
 
@@ -61,5 +66,3 @@ pnpm run dev
 
 - Logos designed by [pm_doyoo](https://www.instagram.com/pm_doyoo/)
 - Cozy coding zone provided by [makers farm](https://www.instagram.com/makersfarm_konkuk) aka [lion](https://www.instagram.com/00_minwooky)
-
-[![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2FTurtle-Hwan%2FLinKU&count_bg=%2379C83D&title_bg=%230A2F01&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
