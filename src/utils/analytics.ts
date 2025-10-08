@@ -17,8 +17,11 @@ const API_SECRET = import.meta.env.VITE_GA_API_SECRET;
 // 세션 타임아웃: 30분
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
-// 디버그 모드 (개발 환경에서만 활성화)
-const DEBUG_MODE = import.meta.env.DEV;
+// 환경 구분: development (개발/로컬 빌드) / production (배포)
+const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || "production";
+
+// 디버그 모드 (development 환경에서만 활성화)
+const DEBUG_MODE = ENVIRONMENT === "development";
 
 /**
  * Client ID 생성 및 가져오기
@@ -98,13 +101,16 @@ export async function sendGAEvent(
 ): Promise<void> {
   // API Secret이 없으면 전송하지 않음
   if (!API_SECRET) {
-    if (DEBUG_MODE) {
-      console.warn(
-        "[GA] API Secret not configured. Event not sent:",
-        eventName
-      );
-    }
+    console.warn(
+      "[GA] API Secret not configured. Event not sent:",
+      eventName
+    );
     return;
+  }
+
+  if (DEBUG_MODE) {
+    console.log("[GA] API Secret configured:", API_SECRET?.substring(0, 4) + "...");
+    console.log("[GA] Environment:", ENVIRONMENT);
   }
 
   try {
@@ -119,6 +125,7 @@ export async function sendGAEvent(
           params: {
             session_id: sessionId,
             engagement_time_msec: 100, // GA4에서 권장하는 최소값
+            ...(DEBUG_MODE && { debug_mode: 1 }), // DebugView 활성화
             ...eventParams,
           },
         },
@@ -132,21 +139,32 @@ export async function sendGAEvent(
       `${endpoint}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
       {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       }
     );
 
     if (DEBUG_MODE) {
       console.log("[GA] Event sent:", eventName, eventParams);
+      console.log("[GA] Payload:", JSON.stringify(payload, null, 2));
+      console.log("[GA] Response status:", response.status, response.statusText);
 
       // Debug endpoint의 응답 확인
       if (response.ok) {
         const debugResponse = await response.json();
         console.log("[GA] Debug response:", debugResponse);
+      } else {
+        const errorText = await response.text();
+        console.error("[GA] Response error:", errorText);
       }
     }
   } catch (error) {
     console.error("[GA] Error sending event:", error);
+    if (DEBUG_MODE && error instanceof Error) {
+      console.error("[GA] Error details:", error.message, error.stack);
+    }
   }
 }
 

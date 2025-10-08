@@ -4,8 +4,9 @@
   "version": "1.4.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode development",
     "build": "node scripts/updateVersion.js && tsc -b && vite build --mode production",
+    "build:local": "tsc -b && vite build --mode development",
     "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch --mode production",
     "build:gh-pages": "tsc -b && vite build --mode gh-pages",
     "lint": "eslint .",

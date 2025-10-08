@@ -41,7 +41,20 @@
 git clone https://github.com/Turtle-Hwan/LinKU.git
 cd LinKU
 pnpm install
+```
+
+### 실행 방법
+
+```bash
+# 개발 서버 (Hot reload, console 로그 O, 버전 고정)
 pnpm run dev
+
+# 로컬 빌드 테스트 (console 로그 O, 버전 고정)
+pnpm run build:local
+# → dist 폴더를 chrome://extensions에 로드
+
+# 프로덕션 빌드 (console 로그 X, 버전 자동 증가)
+pnpm run build
 ```
 
 - react 환경으로 구성되어 있어 dev로 실행되는 화면이 그대로 적용됩니다.
@@ -63,6 +76,27 @@ pnpm run dev
 ```
 
 <details>
+<summary><b>환경 변수 설정 (Google Analytics)</b></summary>
+
+Google Analytics를 사용하기 위해 환경 변수를 설정해야 합니다:
+
+```bash
+# .env.development 파일 생성
+cp .env.development.example .env.development
+
+# .env.development 파일을 열어서 VITE_GA_API_SECRET 값을 입력
+```
+
+**Google Analytics API Secret 발급 방법:**
+
+1. [Google Analytics](https://analytics.google.com/) 접속
+2. Admin → Data Streams → 해당 스트림 선택
+3. Measurement Protocol API secrets → Create
+4. 생성된 Secret value를 복사하여 `.env.development` 파일에 입력
+
+</details>
+
+<details>
 <summary><b>Chrome Extension 자동 배포 설정 (For Maintainers)</b></summary>
 
 이 프로젝트는 `main` 브랜치에 push/merge 시 Chrome Web Store에 자동으로 draft를 업로드하는 GitHub Actions workflow를 사용합니다.
@@ -76,6 +110,7 @@ pnpm run dev
 ### 1단계: Google Cloud Console 설정
 
 #### 1.1 프로젝트 생성
+
 1. [Google Cloud Console](https://console.cloud.google.com/)에 접속
 2. 상단의 프로젝트 선택 드롭다운 클릭
 3. "새 프로젝트" 선택
@@ -83,6 +118,7 @@ pnpm run dev
 5. "만들기" 클릭
 
 #### 1.2 Chrome Web Store API 활성화
+
 1. 좌측 메뉴에서 **"API 및 서비스" > "라이브러리"** 선택
 2. 검색창에 `Chrome Web Store API` 입력
 3. "Chrome Web Store API" 클릭
@@ -90,6 +126,7 @@ pnpm run dev
    - ⚠️ 이 단계를 건너뛰면 나중에 API 호출 시 오류 발생!
 
 #### 1.3 OAuth 동의 화면 설정
+
 1. 좌측 메뉴에서 **"API 및 서비스" > "OAuth 동의 화면"** 선택
 2. **User Type: "External"** 선택 후 "만들기" 클릭
 3. **앱 정보** 입력:
@@ -106,6 +143,7 @@ pnpm run dev
 7. "저장 후 계속" 클릭
 
 #### 1.4 OAuth 클라이언트 ID 생성
+
 1. 좌측 메뉴에서 **"API 및 서비스" > "사용자 인증 정보"** 선택
 2. 상단의 **"+ 사용자 인증 정보 만들기"** 클릭
 3. **"OAuth 클라이언트 ID"** 선택
@@ -118,24 +156,30 @@ pnpm run dev
 ### 2단계: OAuth Refresh Token 발급
 
 #### 2.1 CLI 도구 실행
+
 터미널에서 다음 명령어 실행:
+
 ```bash
 npx chrome-webstore-upload-keys
 ```
 
 #### 2.2 인증 정보 입력
+
 CLI가 다음을 차례로 요청합니다:
+
 1. **Client ID** 입력 (1.4 단계에서 복사한 값 붙여넣기)
 2. **Client Secret** 입력 (1.4 단계에서 복사한 값 붙여넣기)
 3. **Extension ID** 입력 (아래 참고)
 
 **Extension ID 찾는 방법:**
+
 - [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)에서 확장 프로그램 선택
 - URL의 마지막 부분이 Extension ID입니다
 - 예: `https://chrome.google.com/webstore/devconsole/.../fmfbhmifnohhfiblebbdjlioppfppbgh`
   → Extension ID: `fmfbhmifnohhfiblebbdjlioppfppbgh`
 
 #### 2.3 브라우저 OAuth 인증
+
 1. CLI가 자동으로 브라우저를 열고 Google 인증 페이지로 이동
 2. **Google 계정 선택** (1.3.6에서 추가한 테스트 사용자 계정)
 3. **"앱이 확인되지 않음"** 경고가 나타날 수 있음:
@@ -148,6 +192,7 @@ CLI가 다음을 차례로 요청합니다:
 5. 인증 완료 후 터미널로 돌아가서 **Refresh Token** 확인 및 복사
 
 **⚠️ "액세스 차단됨: 앱이 테스트 중" 오류 발생 시:**
+
 - 1.3.6 단계에서 테스트 사용자를 추가하지 않았거나
 - 다른 Google 계정으로 로그인한 경우
 - → Google Cloud Console로 돌아가서 테스트 사용자 추가 후 다시 시도
@@ -155,21 +200,24 @@ CLI가 다음을 차례로 요청합니다:
 ### 3단계: GitHub Secrets 설정
 
 #### 3.1 GitHub Repository Settings 접속
+
 1. GitHub 저장소 페이지 접속
 2. 상단 메뉴에서 **"Settings"** 클릭
 3. 좌측 메뉴에서 **"Secrets and variables" > "Actions"** 선택
 
 #### 3.2 Secrets 추가
+
 **"New repository secret"** 버튼을 클릭하여 다음 4개의 secret을 차례로 추가:
 
-| Name | Value |
-|------|-------|
-| `CHROME_EXTENSION_ID` | Extension ID (2.2에서 확인한 값) |
-| `CHROME_CLIENT_ID` | OAuth Client ID (1.4에서 복사한 값) |
+| Name                   | Value                                   |
+| ---------------------- | --------------------------------------- |
+| `CHROME_EXTENSION_ID`  | Extension ID (2.2에서 확인한 값)        |
+| `CHROME_CLIENT_ID`     | OAuth Client ID (1.4에서 복사한 값)     |
 | `CHROME_CLIENT_SECRET` | OAuth Client Secret (1.4에서 복사한 값) |
-| `CHROME_REFRESH_TOKEN` | Refresh Token (2.3에서 복사한 값) |
+| `CHROME_REFRESH_TOKEN` | Refresh Token (2.3에서 복사한 값)       |
 
 **각 secret 추가 방법:**
+
 1. **Name** 필드에 위 표의 이름 입력 (대소문자 정확히)
 2. **Secret** 필드에 해당 값 붙여넣기
 3. **"Add secret"** 클릭
@@ -178,11 +226,13 @@ CLI가 다음을 차례로 요청합니다:
 ### 4단계: 배포 확인 및 심사 제출
 
 #### 4.1 자동 배포 확인
+
 1. `main` 브랜치에 코드 push/merge
 2. GitHub 저장소의 **"Actions"** 탭에서 workflow 실행 확인
 3. "Upload Chrome Extension Draft" workflow가 성공적으로 완료되면 ✅
 
 #### 4.2 수동 심사 제출
+
 1. [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) 접속
 2. 확장 프로그램 선택
 3. 좌측 메뉴에서 **"패키지"** 탭 확인
@@ -191,6 +241,7 @@ CLI가 다음을 차례로 요청합니다:
 6. 심사 완료까지 대기 (보통 24시간~3일 소요)
 
 **💡 Tip:**
+
 - 심사 중일 때 새 커밋이 발생해도 draft만 업데이트되므로 안전
 - 심사 완료 후 Developer Dashboard에서 수동으로 배포 가능
 
