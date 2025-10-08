@@ -1,0 +1,55 @@
+name: Upload Chrome Extension Draft
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  upload-draft:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build extension
+        run: pnpm run build
+
+      - name: Create extension zip
+        run: |
+          cd dist
+          zip -r ../extension.zip .
+          cd ..
+
+      - name: Install chrome-webstore-upload-cli
+        run: npm install -g chrome-webstore-upload-cli
+
+      - name: Upload to Chrome Web Store (Draft only)
+        run: |
+          chrome-webstore-upload upload \
+            --source extension.zip \
+            --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
+            --client-id ${{ secrets.CHROME_CLIENT_ID }} \
+            --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
+            --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }}
+
+      - name: Upload successful
+        run: echo "✅ Extension draft uploaded successfully! Visit Chrome Web Store Developer Dashboard to submit for review."
