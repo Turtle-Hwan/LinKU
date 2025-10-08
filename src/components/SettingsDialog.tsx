@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
+import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -51,6 +52,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         credentials: { id: savedId, password: savedPassword },
       });
       setHasCredentials(true);
+      sendSettingChange("credentials", "saved");
       alert("인증 정보가 저장되었습니다.");
     } else {
       alert("ID와 비밀번호를 모두 입력해주세요.");
@@ -64,6 +66,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);
+      sendSettingChange("credentials", "deleted");
       alert("인증 정보가 삭제되었습니다.");
     }
   };
@@ -113,7 +116,10 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               <button
                 type="button"
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-muted-foreground"
-                onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                onClick={() => {
+                  sendButtonClick("password_toggle", "settings_dialog");
+                  setIsPasswordVisible(!isPasswordVisible);
+                }}
               >
                 {isPasswordVisible ? "숨기기" : "보기"}
               </button>

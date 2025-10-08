@@ -4,6 +4,7 @@ import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
 import { Search, Settings } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
+import { sendButtonClick, sendGAEvent } from "@/utils/analytics";
 
 const MainLayout = ({ children }) => {
   return (
@@ -25,6 +26,7 @@ const Header = () => {
         <LinkuLogoSvg
           className="cursor-pointer"
           onClick={() => {
+            sendButtonClick("logo_github", "header");
             window.open(`https://github.com/Turtle-Hwan/LinKU`);
           }}
         />
@@ -36,6 +38,10 @@ const Header = () => {
             onChange={(e) => setText((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
+                sendGAEvent("search", {
+                  search_term: text,
+                  search_location: "header"
+                });
                 window.open(
                   `https://search.konkuk.ac.kr/main.do?keyword=${text}`
                 );
@@ -47,11 +53,15 @@ const Header = () => {
         <div className="flex items-center gap-2 flex-shrink-0">
           <Settings
             className="w-5 h-5 text-gray-600 cursor-pointer"
-            onClick={() => setShowSettings(true)}
+            onClick={() => {
+              sendButtonClick("settings_icon", "header");
+              setShowSettings(true);
+            }}
           />
           <GitHubSvg
             className="w-5 h-5 text-gray-600 cursor-pointer"
             onClick={() => {
+              sendButtonClick("github_icon", "header");
               window.open("https://github.com/Turtle-Hwan/LinKU");
             }}
           />

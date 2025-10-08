@@ -3,6 +3,9 @@
  * Manifest V3 호환 - CSP 제약 없이 Analytics 사용
  */
 
+// GA4 이벤트 파라미터 타입 (string, number, boolean만 허용)
+type GAEventParam = string | number | boolean;
+
 const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
 const GA_DEBUG_ENDPOINT = 'https://www.google-analytics.com/debug/mp/collect';
 const MEASUREMENT_ID = 'G-GX1NFBMFTW';
@@ -88,7 +91,7 @@ async function getOrCreateSessionId(): Promise<string> {
  */
 export async function sendGAEvent(
   eventName: string,
-  eventParams: Record<string, any> = {}
+  eventParams: Record<string, GAEventParam> = {}
 ): Promise<void> {
   // API Secret이 없으면 전송하지 않음
   if (!API_SECRET) {
@@ -150,7 +153,7 @@ export async function sendPageView(
 ): Promise<void> {
   await sendGAEvent('page_view', {
     page_title: pageTitle,
-    page_location: pageLocation || window.location.href,
+    page_location: pageLocation || window.location.href || 'unknown',
     page_referrer: document.referrer || 'direct'
   });
 }
@@ -191,7 +194,7 @@ export async function sendButtonClick(
 ): Promise<void> {
   await sendGAEvent('button_click', {
     button_name: buttonName,
-    button_location: buttonLocation
+    ...(buttonLocation && { button_location: buttonLocation })
   });
 }
 

@@ -3,10 +3,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LinkGroup from "./Tabs/LinkGroup";
 import TodoList from "./Tabs/TodoList/TodoList";
 import TodoCountBadge from "./Tabs/TodoList/TodoCountBadge";
+import { sendTabChange } from "@/utils/analytics";
 
 const TabsLayout = () => {
+  const handleTabChange = (value: string) => {
+    const tabNames = {
+      LinkGroup: "링크모음",
+      TimeTable: "시간표",
+      TodoList: "Todo List"
+    };
+    sendTabChange(tabNames[value] || value);
+  };
+
   return (
-    <Tabs defaultValue="LinkGroup" className="w-full">
+    <Tabs defaultValue="LinkGroup" className="w-full" onValueChange={handleTabChange}>
       <div className="px-3">
         <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="LinkGroup">링크모음</TabsTrigger>
