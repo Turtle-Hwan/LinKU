@@ -31,6 +31,8 @@ jobs:
         run: pnpm install
 
       - name: Build extension
+        env:
+          VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
         run: pnpm run build
 
       - name: Create extension zip

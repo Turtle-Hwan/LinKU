@@ -6,13 +6,13 @@
 // GA4 이벤트 파라미터 타입 (string, number, boolean만 허용)
 type GAEventParam = string | number | boolean;
 
-const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
-const GA_DEBUG_ENDPOINT = 'https://www.google-analytics.com/debug/mp/collect';
-const MEASUREMENT_ID = 'G-GX1NFBMFTW';
+const GA_ENDPOINT = "https://www.google-analytics.com/mp/collect";
+const GA_DEBUG_ENDPOINT = "https://www.google-analytics.com/debug/mp/collect";
+const MEASUREMENT_ID = "G-ECMY8N9FX4";
 
 // 환경변수에서 API Secret 가져오기
 // 빌드 시 .env에서 주입됨
-const API_SECRET = import.meta.env.VITE_GA_API_SECRET || '';
+const API_SECRET = import.meta.env.VITE_GA_API_SECRET;
 
 // 세션 타임아웃: 30분
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -26,7 +26,7 @@ const DEBUG_MODE = import.meta.env.DEV;
  */
 async function getOrCreateClientId(): Promise<string> {
   try {
-    const result = await chrome.storage.local.get('clientId');
+    const result = await chrome.storage.local.get("clientId");
     let clientId = result.clientId;
 
     if (!clientId) {
@@ -35,15 +35,15 @@ async function getOrCreateClientId(): Promise<string> {
       await chrome.storage.local.set({ clientId });
 
       if (DEBUG_MODE) {
-        console.log('[GA] New Client ID created:', clientId);
+        console.log("[GA] New Client ID created:", clientId);
       }
     }
 
     return clientId;
   } catch (error) {
-    console.error('[GA] Error getting/creating client ID:', error);
+    console.error("[GA] Error getting/creating client ID:", error);
     // 에러 시 임시 ID 반환
-    return 'error-' + Date.now();
+    return "error-" + Date.now();
   }
 }
 
@@ -53,7 +53,10 @@ async function getOrCreateClientId(): Promise<string> {
  */
 async function getOrCreateSessionId(): Promise<string> {
   try {
-    const result = await chrome.storage.local.get(['sessionId', 'sessionTimestamp']);
+    const result = await chrome.storage.local.get([
+      "sessionId",
+      "sessionTimestamp",
+    ]);
     const now = Date.now();
 
     if (result.sessionId && result.sessionTimestamp) {
@@ -70,16 +73,16 @@ async function getOrCreateSessionId(): Promise<string> {
     const newSessionId = now.toString();
     await chrome.storage.local.set({
       sessionId: newSessionId,
-      sessionTimestamp: now
+      sessionTimestamp: now,
     });
 
     if (DEBUG_MODE) {
-      console.log('[GA] New Session ID created:', newSessionId);
+      console.log("[GA] New Session ID created:", newSessionId);
     }
 
     return newSessionId;
   } catch (error) {
-    console.error('[GA] Error getting/creating session ID:', error);
+    console.error("[GA] Error getting/creating session ID:", error);
     return Date.now().toString();
   }
 }
@@ -96,7 +99,10 @@ export async function sendGAEvent(
   // API Secret이 없으면 전송하지 않음
   if (!API_SECRET) {
     if (DEBUG_MODE) {
-      console.warn('[GA] API Secret not configured. Event not sent:', eventName);
+      console.warn(
+        "[GA] API Secret not configured. Event not sent:",
+        eventName
+      );
     }
     return;
   }
@@ -107,14 +113,16 @@ export async function sendGAEvent(
 
     const payload = {
       client_id: clientId,
-      events: [{
-        name: eventName,
-        params: {
-          session_id: sessionId,
-          engagement_time_msec: 100, // GA4에서 권장하는 최소값
-          ...eventParams
-        }
-      }]
+      events: [
+        {
+          name: eventName,
+          params: {
+            session_id: sessionId,
+            engagement_time_msec: 100, // GA4에서 권장하는 최소값
+            ...eventParams,
+          },
+        },
+      ],
     };
 
     // 디버그 모드일 경우 debug endpoint 사용
@@ -123,22 +131,22 @@ export async function sendGAEvent(
     const response = await fetch(
       `${endpoint}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
       {
-        method: 'POST',
-        body: JSON.stringify(payload)
+        method: "POST",
+        body: JSON.stringify(payload),
       }
     );
 
     if (DEBUG_MODE) {
-      console.log('[GA] Event sent:', eventName, eventParams);
+      console.log("[GA] Event sent:", eventName, eventParams);
 
       // Debug endpoint의 응답 확인
       if (response.ok) {
         const debugResponse = await response.json();
-        console.log('[GA] Debug response:', debugResponse);
+        console.log("[GA] Debug response:", debugResponse);
       }
     }
   } catch (error) {
-    console.error('[GA] Error sending event:', error);
+    console.error("[GA] Error sending event:", error);
   }
 }
 
@@ -151,10 +159,10 @@ export async function sendPageView(
   pageTitle: string,
   pageLocation?: string
 ): Promise<void> {
-  await sendGAEvent('page_view', {
+  await sendGAEvent("page_view", {
     page_title: pageTitle,
-    page_location: pageLocation || window.location.href || 'unknown',
-    page_referrer: document.referrer || 'direct'
+    page_location: pageLocation || window.location.href || "unknown",
+    page_referrer: document.referrer || "direct",
   });
 }
 
@@ -167,9 +175,9 @@ export async function sendLinkClick(
   linkName: string,
   linkUrl: string
 ): Promise<void> {
-  await sendGAEvent('link_click', {
+  await sendGAEvent("link_click", {
     link_name: linkName,
-    link_url: linkUrl
+    link_url: linkUrl,
   });
 }
 
@@ -178,8 +186,8 @@ export async function sendLinkClick(
  * @param tabName 전환한 탭 이름
  */
 export async function sendTabChange(tabName: string): Promise<void> {
-  await sendGAEvent('tab_change', {
-    tab_name: tabName
+  await sendGAEvent("tab_change", {
+    tab_name: tabName,
   });
 }
 
@@ -192,9 +200,9 @@ export async function sendButtonClick(
   buttonName: string,
   buttonLocation?: string
 ): Promise<void> {
-  await sendGAEvent('button_click', {
+  await sendGAEvent("button_click", {
     button_name: buttonName,
-    ...(buttonLocation && { button_location: buttonLocation })
+    ...(buttonLocation && { button_location: buttonLocation }),
   });
 }
 
@@ -207,9 +215,9 @@ export async function sendSettingChange(
   settingName: string,
   settingValue: string
 ): Promise<void> {
-  await sendGAEvent('setting_change', {
+  await sendGAEvent("setting_change", {
     setting_name: settingName,
-    setting_value: settingValue
+    setting_value: settingValue,
   });
 }
 
@@ -222,8 +230,8 @@ export async function sendError(
   errorMessage: string,
   errorLocation: string
 ): Promise<void> {
-  await sendGAEvent('error', {
+  await sendGAEvent("error", {
     error_message: errorMessage,
-    error_location: errorLocation
+    error_location: errorLocation,
   });
 }
