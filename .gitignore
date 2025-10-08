@@ -24,4 +24,4 @@ gh-pages
 *.sln
 *.sw?
 
-.claude/*
+.claude
