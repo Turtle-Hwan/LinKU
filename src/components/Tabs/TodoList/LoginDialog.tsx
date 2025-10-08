@@ -54,7 +54,7 @@ const LoginDialog = ({
       if (loginResult.success) {
         // 인증 정보 저장 (rememberLogin이 true일 때만)
         if (rememberLogin) {
-          chrome.storage.local.set({
+          chrome?.storage?.local?.set({
             credentials: { id: userId, password: userPw },
           });
         }

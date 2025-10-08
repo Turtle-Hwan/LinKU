@@ -17,7 +17,7 @@ const TodoList = () => {
 
   // Save todo count to Chrome storage
   const saveTodoCount = useCallback((count: number) => {
-    chrome.storage.local.set({ todoCount: count });
+    chrome?.storage?.local?.set({ todoCount: count });
   }, []);
 
   // Todo 목록을 가져오는 함수
@@ -50,7 +50,7 @@ const TodoList = () => {
   const tryLoginWithSavedCredentials =
     useCallback(async (): Promise<boolean> => {
       return new Promise((resolve) => {
-        chrome.storage.local.get("credentials", async (data) => {
+        chrome?.storage?.local?.get("credentials", async (data) => {
           const credentials = data.credentials;
 
           if (!credentials?.id || !credentials?.password) {

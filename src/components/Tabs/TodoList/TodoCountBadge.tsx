@@ -6,7 +6,7 @@ const TodoCountBadge = () => {
 
   useEffect(() => {
     // Initial load of count from storage
-    chrome.storage.local.get("todoCount", (data) => {
+    chrome?.storage?.local?.get("todoCount", (data) => {
       if (data.todoCount !== undefined) {
         setTodoCount(data.todoCount);
       }
@@ -22,10 +22,10 @@ const TodoCountBadge = () => {
       }
     };
 
-    chrome.storage.onChanged.addListener(handleStorageChange);
+    chrome?.storage?.onChanged?.addListener(handleStorageChange);
 
     return () => {
-      chrome.storage.onChanged.removeListener(handleStorageChange);
+      chrome?.storage?.onChanged?.removeListener(handleStorageChange);
     };
   }, []);
 

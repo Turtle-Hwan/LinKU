@@ -1,5 +1,6 @@
 import { LinkList } from "@/constants/LinkList";
 import { getCurrentTab } from "@/utils/chrome";
+import { sendLinkClick } from "@/utils/analytics";
 import React, { use } from "react";
 
 const LinkGroup = () => {
@@ -33,6 +34,7 @@ const GridItem = ({ item, colNum }) => {
     <button
       className={`${colNum} flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer`}
       onClick={() => {
+        sendLinkClick(item.label, item.link);
         window.open(item.link);
       }}
     >
@@ -61,7 +63,10 @@ const GridItemSameHost = ({ item, colNum }) => {
     >
       <button
         className="w-full h-full px-1 bg-main text-white rounded-lg hover:bg-hover transition-colors cursor-pointer text-sm/[normal] break-keep"
-        onClick={item.samehost.onClick}
+        onClick={() => {
+          sendLinkClick(`${item.label} - ${item.samehost.content}`, item.link);
+          item.samehost.onClick();
+        }}
       >
         {item.samehost.content}
       </button>
@@ -69,7 +74,10 @@ const GridItemSameHost = ({ item, colNum }) => {
       {item.samehost2 && (
         <button
           className="w-full h-full px-1 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition-colors cursor-pointer text-sm/[normal] break-keep"
-          onClick={item.samehost2.onClick}
+          onClick={() => {
+            sendLinkClick(`${item.label} - ${item.samehost2.content}`, item.link);
+            item.samehost2.onClick();
+          }}
         >
           {item.samehost2.content}
         </button>

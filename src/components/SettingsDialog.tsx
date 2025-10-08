@@ -30,7 +30,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   // 저장된 인증 정보 불러오기
   const loadSavedCredentials = () => {
-    chrome.storage.local.get("credentials", (data) => {
+    chrome?.storage?.local?.get("credentials", (data) => {
       const credentials = data.credentials;
       if (credentials?.id && credentials?.password) {
         setSavedId(credentials.id);
@@ -47,7 +47,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   // 인증 정보 저장하기
   const saveCredentials = () => {
     if (savedId && savedPassword) {
-      chrome.storage.local.set({
+      chrome?.storage?.local?.set({
         credentials: { id: savedId, password: savedPassword },
       });
       setHasCredentials(true);
@@ -60,7 +60,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   // 인증 정보 삭제하기
   const deleteCredentials = () => {
     if (confirm("저장된 인증 정보를 삭제하시겠습니까?")) {
-      chrome.storage.local.remove("credentials");
+      chrome?.storage?.local?.remove("credentials");
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);
