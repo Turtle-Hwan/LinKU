@@ -7,6 +7,7 @@ import {
   TodoItem,
 } from "@/apis/eCampusAPI";
 import LoginDialog from "./LoginDialog";
+import TodoExportButton from "./TodoExportButton";
 import KUGoodjob from "@/assets/KU_goodjob.png";
 
 const TodoList = () => {
@@ -149,7 +150,11 @@ const TodoList = () => {
       ) : (
         <div className="space-y-4">
           {todoItems.length > 0 ? (
-            todoItems.map((item) => (
+            <>
+              <div className="flex justify-end">
+                <TodoExportButton todoItems={todoItems} />
+              </div>
+              {todoItems.map((item) => (
               <div
                 key={item.id}
                 className="p-3 border rounded-md hover:bg-gray-50 cursor-pointer"
@@ -166,7 +171,8 @@ const TodoList = () => {
                 <p className="text-sm text-gray-700">{item.subject}</p>
                 <p className="text-xs text-gray-600 mt-1">{item.dueDate}</p>
               </div>
-            ))
+            ))}
+            </>
           ) : (
             <div className="text-base text-center text-muted-foreground space-y-4">
               <p>할 일이 없습니다</p>
