@@ -1,4 +1,4 @@
-import { TodoItem } from "@/apis/eCampusAPI";
+import { TodoItem } from "@/types/todo";
 
 /**
  * Todo 항목들을 마크다운 체크리스트 형식으로 변환합니다.
@@ -9,11 +9,12 @@ import { TodoItem } from "@/apis/eCampusAPI";
  * @example
  * ```typescript
  * const todos = [
- *   { title: "과제 제출", subject: "프로그래밍", dueDate: "2024-03-20", dDay: "D-3" }
+ *   { type: 'ecampus', title: "과제 제출", subject: "프로그래밍", dueDate: "2024-03-20", dDay: "D-3" },
+ *   { type: 'custom', title: "책 읽기", dueDate: "2024-03-25", completed: false }
  * ];
  *
  * convertTodosToMarkdown(todos);
- * // "- [ ] 과제 제출  |  프로그래밍 - 2024-03-20"
+ * // "## 이캠퍼스 Todo\n- [ ] 과제 제출  |  프로그래밍 - 2024-03-20\n\n## 나의 Todo\n- [ ] 책 읽기 - 2024-03-25"
  * ```
  */
 export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
@@ -21,7 +22,27 @@ export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
     return "할 일이 없습니다.";
   }
 
-  return todos
-    .map((item) => `- [ ] ${item.title}  |  ${item.subject} - ${item.dueDate}`)
-    .join("\n");
+  // 이캠퍼스 Todo와 사용자 정의 Todo 분리
+  const ecampusTodos = todos.filter((todo) => todo.type === 'ecampus');
+  const customTodos = todos.filter((todo) => todo.type === 'custom');
+
+  const sections: string[] = [];
+
+  // 이캠퍼스 Todo 섹션
+  if (ecampusTodos.length > 0) {
+    const ecampusMarkdown = ecampusTodos
+      .map((item) => `- [ ] ${item.title}  |  ${item.subject} - ${item.dueDate}`)
+      .join("\n");
+    sections.push(`## 이캠퍼스 Todo\n${ecampusMarkdown}`);
+  }
+
+  // 사용자 정의 Todo 섹션
+  if (customTodos.length > 0) {
+    const customMarkdown = customTodos
+      .map((item) => `- [${item.completed ? 'x' : ' '}] ${item.title} - ${item.dueDate}`)
+      .join("\n");
+    sections.push(`## 나의 Todo\n${customMarkdown}`);
+  }
+
+  return sections.join("\n\n");
 };

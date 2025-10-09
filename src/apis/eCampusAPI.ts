@@ -1,4 +1,6 @@
 // eCampusAPI.js
+import { ECampusTodoItem } from "@/types/todo";
+
 export interface ECampusLoginResponse {
   success: boolean;
   data?: {
@@ -12,22 +14,11 @@ export interface ECampusLoginResponse {
   error?: string;
 }
 
-export interface TodoItem {
-  id: string;
-  title: string;
-  subject: string;
-  dDay: string;
-  dueDate: string;
-  kj: string;
-  gubun: string;
-  seq: string;
-}
-
 export interface ECampusTodoResponse {
   success: boolean;
   needLogin?: boolean;
   data?: {
-    todoList?: TodoItem[];
+    todoList?: ECampusTodoItem[];
     [key: string]: unknown;
   };
   error?: unknown;
@@ -108,7 +99,7 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
     }
 
     // TodoList 항목 파싱
-    const todoItems: TodoItem[] = [];
+    const todoItems: ECampusTodoItem[] = [];
     const todoWraps = doc.querySelectorAll(".todo_wrap:not(.no_data)");
 
     todoWraps.forEach((item, index) => {
@@ -134,7 +125,8 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
       if (!title) return;
 
       todoItems.push({
-        id: `${index}`,
+        type: 'ecampus',
+        id: `ecampus-${index}`,
         title,
         subject,
         dDay,

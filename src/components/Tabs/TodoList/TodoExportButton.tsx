@@ -1,4 +1,4 @@
-import { TodoItem } from "@/apis/eCampusAPI";
+import { TodoItem } from "@/types/todo";
 import { Button } from "@/components/ui/button";
 import { useClipboardCopy } from "@/hooks/useClipboardCopy";
 import { convertTodosToMarkdown } from "@/utils/todoMarkdown";
