@@ -111,13 +111,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <h3 className="text-md font-medium">이캠퍼스 계정 관리</h3>
-
-            <p className="text-sm text-muted-foreground">
-              {hasCredentials
-                ? "저장된 계정 정보가 있습니다."
-                : "저장된 계정 정보가 없습니다."}
-            </p>
+            <h2 className="text-lg font-medium">이캠퍼스 계정 관리</h2>
           </div>
 
           <div className="space-y-2">
