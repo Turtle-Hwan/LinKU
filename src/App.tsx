@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import "./App.css";
 import MainLayout from "./components/MainLayout";
 import TabsLayout from "./components/TabsLayout";
+import { Toaster } from "./components/ui/sonner";
 import { sendPageView } from "./utils/analytics";
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
       <MainLayout>
         <TabsLayout />
       </MainLayout>
+      <Toaster />
     </>
   );
 }
