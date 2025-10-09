@@ -3,6 +3,8 @@
  * Manifest V3 호환 - CSP 제약 없이 Analytics 사용
  */
 
+import { getOrCreateClientId } from "./clientId";
+
 // GA4 이벤트 파라미터 타입 (string, number, boolean만 허용)
 type GAEventParam = string | number | boolean;
 
@@ -22,33 +24,6 @@ const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || "production";
 
 // 디버그 모드 (development 환경에서만 활성화)
 const DEBUG_MODE = ENVIRONMENT === "development";
-
-/**
- * Client ID 생성 및 가져오기
- * 사용자별 고유 ID로 chrome.storage에 저장됨
- */
-async function getOrCreateClientId(): Promise<string> {
-  try {
-    const result = await chrome.storage.local.get("clientId");
-    let clientId = result.clientId;
-
-    if (!clientId) {
-      // UUID v4 생성
-      clientId = self.crypto.randomUUID();
-      await chrome.storage.local.set({ clientId });
-
-      if (DEBUG_MODE) {
-        console.log("[GA] New Client ID created:", clientId);
-      }
-    }
-
-    return clientId;
-  } catch (error) {
-    console.error("[GA] Error getting/creating client ID:", error);
-    // 에러 시 임시 ID 반환
-    return "error-" + Date.now();
-  }
-}
 
 /**
  * Session ID 생성 및 관리

@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
+import { encryptPassword, decryptPassword } from "@/utils/crypto";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,30 +33,53 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   }, [open]);
 
   // 저장된 인증 정보 불러오기
-  const loadSavedCredentials = () => {
-    chrome?.storage?.local?.get("credentials", (data) => {
-      const credentials = data.credentials;
-      if (credentials?.id && credentials?.password) {
-        setSavedId(credentials.id);
-        setSavedPassword(credentials.password);
-        setHasCredentials(true);
-      } else {
-        setSavedId("");
-        setSavedPassword("");
-        setHasCredentials(false);
-      }
-    });
+  const loadSavedCredentials = async () => {
+    try {
+      chrome?.storage?.local?.get("credentials", async (data) => {
+        const credentials = data.credentials;
+        if (credentials?.id && credentials?.password) {
+          setSavedId(credentials.id);
+
+          // 비밀번호 복호화
+          try {
+            const decryptedPassword = await decryptPassword(credentials.password);
+            setSavedPassword(decryptedPassword);
+            setHasCredentials(true);
+          } catch (error) {
+            console.error("[Settings] Decryption failed:", error);
+            // 복호화 실패 시 (이전 평문 데이터일 수 있음)
+            setSavedPassword(credentials.password);
+            setHasCredentials(true);
+          }
+        } else {
+          setSavedId("");
+          setSavedPassword("");
+          setHasCredentials(false);
+        }
+      });
+    } catch (error) {
+      console.error("[Settings] Load credentials error:", error);
+      toast.error("인증 정보를 불러오는데 실패했습니다.");
+    }
   };
 
   // 인증 정보 저장하기
-  const saveCredentials = () => {
+  const saveCredentials = async () => {
     if (savedId && savedPassword) {
-      chrome?.storage?.local?.set({
-        credentials: { id: savedId, password: savedPassword },
-      });
-      setHasCredentials(true);
-      sendSettingChange("credentials", "saved");
-      toast.success("인증 정보가 저장되었습니다.");
+      try {
+        // 비밀번호 암호화
+        const encryptedPassword = await encryptPassword(savedPassword);
+
+        chrome?.storage?.local?.set({
+          credentials: { id: savedId, password: encryptedPassword },
+        });
+        setHasCredentials(true);
+        sendSettingChange("credentials", "saved");
+        toast.success("인증 정보가 저장되었습니다.");
+      } catch (error) {
+        console.error("[Settings] Encryption failed:", error);
+        toast.error("인증 정보 암호화에 실패했습니다.");
+      }
     } else {
       toast.error("ID와 비밀번호를 모두 입력해주세요.");
     }
@@ -84,12 +108,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <h3 className="text-md font-medium">이캠퍼스 계정 관리</h3>
-            <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3">
-              <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                사용자의 ID/PW는 외부 서버에 저장되지 않으며, 브라우저의 Storage에만 보관됩니다.
-              </p>
-            </div>
+
             <p className="text-sm text-muted-foreground">
               {hasCredentials
                 ? "저장된 계정 정보가 있습니다."
@@ -121,6 +140,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 onChange={(e) => setSavedPassword(e.target.value)}
                 placeholder="비밀번호 입력"
               />
+
               <button
                 type="button"
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-muted-foreground"
@@ -131,6 +151,12 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               >
                 {isPasswordVisible ? "숨기기" : "보기"}
               </button>
+            </div>
+            <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3">
+              <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                사용자의 ID/PW는 외부 서버에 저장되지 않으며, AES-GCM 256으로 암호화되어 브라우저에만 보관됩니다.
+              </p>
             </div>
           </div>
         </div>
