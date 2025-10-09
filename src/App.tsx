@@ -22,7 +22,7 @@ function App() {
       <MainLayout>
         <TabsLayout />
       </MainLayout>
-      <Toaster />
+      <Toaster duration={2000} />
     </>
   );
 }
