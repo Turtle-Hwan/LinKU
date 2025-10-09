@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
+import { Info } from "lucide-react";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -82,6 +83,12 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <h3 className="text-md font-medium">이캠퍼스 계정 관리</h3>
+            <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3">
+              <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                사용자의 ID/PW는 외부 서버에 저장되지 않으며, 브라우저의 Storage에만 보관됩니다.
+              </p>
+            </div>
             <p className="text-sm text-muted-foreground">
               {hasCredentials
                 ? "저장된 계정 정보가 있습니다."
