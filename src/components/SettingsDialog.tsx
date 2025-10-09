@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
 import { Info } from "lucide-react";
+import { toast } from "sonner";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -54,9 +55,9 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       });
       setHasCredentials(true);
       sendSettingChange("credentials", "saved");
-      alert("인증 정보가 저장되었습니다.");
+      toast.success("인증 정보가 저장되었습니다.");
     } else {
-      alert("ID와 비밀번호를 모두 입력해주세요.");
+      toast.error("ID와 비밀번호를 모두 입력해주세요.");
     }
   };
 
@@ -68,7 +69,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       setSavedPassword("");
       setHasCredentials(false);
       sendSettingChange("credentials", "deleted");
-      alert("인증 정보가 삭제되었습니다.");
+      toast.success("인증 정보가 삭제되었습니다.");
     }
   };
 
