@@ -32,12 +32,12 @@ const TodoExportButton = ({ todoItems }: TodoExportButtonProps) => {
       {isCopied ? (
         <>
           <Check className="h-4 w-4" />
-          복사됨
+          Copied
         </>
       ) : (
         <>
           <Copy className="h-4 w-4" />
-          복사
+          Copy
         </>
       )}
     </Button>
