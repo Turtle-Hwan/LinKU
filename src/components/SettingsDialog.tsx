@@ -21,7 +21,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
+const ECampusCredential = () => {
   const [savedId, setSavedId] = useState<string>("");
   const [savedPassword, setSavedPassword] = useState<string>("");
   const [hasCredentials, setHasCredentials] = useState<boolean>(false);
@@ -29,10 +29,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   // 설정 페이지 열릴 때 저장된 계정 정보 불러오기
   useEffect(() => {
-    if (open) {
-      loadSavedCredentials();
-    }
-  }, [open]);
+    loadSavedCredentials();
+  }, []);
 
   // 저장된 인증 정보 불러오기
   const loadSavedCredentials = async () => {
@@ -114,6 +112,74 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   };
 
   return (
+    <>
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold">이캠퍼스 계정 관리</h2>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label htmlFor="savedId" className="text-sm font-medium">
+              아이디
+            </label>
+            <Input
+              id="savedId"
+              value={savedId}
+              onChange={(e) => setSavedId(e.target.value)}
+              placeholder="아이디 입력"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="savedPassword" className="text-sm font-medium">
+              비밀번호
+            </label>
+            <div className="relative">
+              <Input
+                id="savedPassword"
+                type={isPasswordVisible ? "text" : "password"}
+                value={savedPassword}
+                onChange={(e) => setSavedPassword(e.target.value)}
+                placeholder="비밀번호 입력"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => {
+                  sendButtonClick("password_toggle", "settings_dialog");
+                  setIsPasswordVisible(!isPasswordVisible);
+                }}
+              >
+                {isPasswordVisible ? "숨기기" : "보기"}
+              </button>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
+            <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              ID/PW는 외부 서버에 저장되지 않으며, AES-GCM 256으로 암호화되어 브라우저에만 보관됩니다.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-row gap-2 space-x-0">
+        <Button
+          variant="outline"
+          onClick={deleteCredentials}
+          disabled={!hasCredentials}
+          className="flex-1"
+        >
+          삭제
+        </Button>
+        <Button onClick={saveCredentials} className="flex-1">
+          저장
+        </Button>
+      </div>
+    </>
+  );
+};
+
+const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
+  return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
@@ -121,74 +187,14 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           <DialogDescription className="hidden">설정</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold">이캠퍼스 계정 관리</h2>
+        <SettingsDialog.ECampusCredential />
 
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <label htmlFor="savedId" className="text-sm font-medium">
-                아이디
-              </label>
-              <Input
-                id="savedId"
-                value={savedId}
-                onChange={(e) => setSavedId(e.target.value)}
-                placeholder="아이디 입력"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="savedPassword" className="text-sm font-medium">
-                비밀번호
-              </label>
-              <div className="relative">
-                <Input
-                  id="savedPassword"
-                  type={isPasswordVisible ? "text" : "password"}
-                  value={savedPassword}
-                  onChange={(e) => setSavedPassword(e.target.value)}
-                  placeholder="비밀번호 입력"
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => {
-                    sendButtonClick("password_toggle", "settings_dialog");
-                    setIsPasswordVisible(!isPasswordVisible);
-                  }}
-                >
-                  {isPasswordVisible ? "숨기기" : "보기"}
-                </button>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
-              <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                ID/PW는 외부 서버에 저장되지 않으며, AES-GCM 256으로 암호화되어 브라우저에만 보관됩니다.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-row gap-2 space-x-0">
-          <Button
-            variant="outline"
-            onClick={deleteCredentials}
-            disabled={!hasCredentials}
-            className="flex-1"
-          >
-            삭제
-          </Button>
-          <Button onClick={saveCredentials} className="flex-1">
-            저장
-          </Button>
-        </div>
-
-
-        <DialogFooter className="flex flex-row gap-2 space-x-0">
-        </DialogFooter>
+        <DialogFooter className="flex flex-row gap-2 space-x-0" />
       </DialogContent>
     </Dialog>
   );
 };
+
+SettingsDialog.ECampusCredential = ECampusCredential;
 
 export default SettingsDialog;
