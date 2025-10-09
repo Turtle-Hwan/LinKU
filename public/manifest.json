@@ -19,6 +19,7 @@
     "storage"
   ],
   "host_permissions": [
+    "<all_urls>",
     "*://ecampus.konkuk.ac.kr/*",
     "https://www.google-analytics.com/*"
   ]
