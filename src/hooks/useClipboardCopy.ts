@@ -24,7 +24,7 @@ export const useClipboardCopy = () => {
       setIsCopied(true);
       toast.success("클립보드에 복사되었습니다!");
 
-      // 2초 후 복사 상태 초기화
+      //복사 상태 초기화
       setTimeout(() => {
         setIsCopied(false);
       }, 1000);

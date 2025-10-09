@@ -22,12 +22,6 @@ export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
   }
 
   return todos
-    .map((item) => {
-      const title = `${item.title}`;
-      const subject = `${item.subject}`;
-      const deadline = `${item.dueDate}`;
-
-      return `- [ ] ${title}  |  ${subject} - ${deadline}`;
-    })
+    .map((item) => `- [ ] ${item.title}  |  ${item.subject} - ${item.dueDate}`)
     .join("\n");
 };
