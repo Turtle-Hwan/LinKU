@@ -86,9 +86,9 @@ const Banner = () => {
 
 const BannerImgSkeleton = () => {
   return (
-    <div className="w-[500px] h-[85px] bg-[#00913A]/10 animate-pulse rounded-md overflow-hidden flex items-center justify-between">
+    <div className="w-[500px] h-[85px] bg-main/10 animate-pulse rounded-md overflow-hidden flex items-center justify-between">
       <div className="flex-1 h-full flex items-center justify-center">
-        <div className="w-[450px] h-[65px] bg-[#00913A]/15 rounded-md"></div>
+        <div className="w-[450px] h-[65px] bg-main/15 rounded-md"></div>
       </div>
     </div>
   );
