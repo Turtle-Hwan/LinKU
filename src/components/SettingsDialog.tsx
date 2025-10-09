@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
 import { encryptPassword, decryptPassword } from "@/utils/crypto";
+import { getStorage, setStorage, removeStorage } from "@/utils/chrome";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,28 +36,26 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   // 저장된 인증 정보 불러오기
   const loadSavedCredentials = async () => {
     try {
-      chrome?.storage?.local?.get("credentials", async (data) => {
-        const credentials = data.credentials;
-        if (credentials?.id && credentials?.password) {
-          setSavedId(credentials.id);
+      const credentials = await getStorage<{ id: string; password: string }>("credentials");
 
-          // 비밀번호 복호화
-          try {
-            const decryptedPassword = await decryptPassword(credentials.password);
-            setSavedPassword(decryptedPassword);
-            setHasCredentials(true);
-          } catch (error) {
-            console.error("[Settings] Decryption failed:", error);
-            // 복호화 실패 시 (이전 평문 데이터일 수 있음)
-            setSavedPassword(credentials.password);
-            setHasCredentials(true);
-          }
-        } else {
-          setSavedId("");
-          setSavedPassword("");
-          setHasCredentials(false);
-        }
-      });
+      if (!credentials?.id || !credentials?.password) {
+        setSavedId("");
+        setSavedPassword("");
+        setHasCredentials(false);
+        return;
+      }
+
+      setSavedId(credentials.id);
+
+      // 복호화 시도 (실패 시 평문으로 처리 - 이전 데이터 호환성)
+      try {
+        const decryptedPassword = await decryptPassword(credentials.password);
+        setSavedPassword(decryptedPassword);
+      } catch {
+        setSavedPassword(credentials.password);
+      }
+
+      setHasCredentials(true);
     } catch (error) {
       console.error("[Settings] Load credentials error:", error);
       toast.error("인증 정보를 불러오는데 실패했습니다.");
@@ -65,35 +64,40 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   // 인증 정보 저장하기
   const saveCredentials = async () => {
-    if (savedId && savedPassword) {
-      try {
-        // 비밀번호 암호화
-        const encryptedPassword = await encryptPassword(savedPassword);
-
-        chrome?.storage?.local?.set({
-          credentials: { id: savedId, password: encryptedPassword },
-        });
-        setHasCredentials(true);
-        sendSettingChange("credentials", "saved");
-        toast.success("인증 정보가 저장되었습니다.");
-      } catch (error) {
-        console.error("[Settings] Encryption failed:", error);
-        toast.error("인증 정보 암호화에 실패했습니다.");
-      }
-    } else {
+    if (!savedId || !savedPassword) {
       toast.error("ID와 비밀번호를 모두 입력해주세요.");
+      return;
+    }
+
+    try {
+      const encryptedPassword = await encryptPassword(savedPassword);
+      await setStorage({
+        credentials: { id: savedId, password: encryptedPassword },
+      });
+
+      setHasCredentials(true);
+      sendSettingChange("credentials", "saved");
+      toast.success("인증 정보가 저장되었습니다.");
+    } catch (error) {
+      console.error("[Settings] Save credentials error:", error);
+      toast.error("인증 정보 저장에 실패했습니다.");
     }
   };
 
   // 인증 정보 삭제하기
-  const deleteCredentials = () => {
-    if (confirm("저장된 인증 정보를 삭제하시겠습니까?")) {
-      chrome?.storage?.local?.remove("credentials");
+  const deleteCredentials = async () => {
+    if (!confirm("저장된 인증 정보를 삭제하시겠습니까?")) return;
+
+    try {
+      await removeStorage("credentials");
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);
       sendSettingChange("credentials", "deleted");
       toast.success("인증 정보가 삭제되었습니다.");
+    } catch (error) {
+      console.error("[Settings] Delete credentials error:", error);
+      toast.error("인증 정보 삭제에 실패했습니다.");
     }
   };
 
