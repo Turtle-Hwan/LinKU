@@ -10,8 +10,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
-import { encryptPassword, decryptPassword } from "@/utils/crypto";
-import { getStorage, setStorage, removeStorage } from "@/utils/chrome";
+import {
+  saveECampusCredentials,
+  loadECampusCredentials,
+  clearECampusCredentials,
+} from "@/utils/credentials";
 import { eCampusLoginAPI } from "@/apis/eCampusAPI";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
@@ -35,9 +38,9 @@ const ECampusCredential = () => {
   // 저장된 인증 정보 불러오기
   const loadSavedCredentials = async () => {
     try {
-      const credentials = await getStorage<{ id: string; password: string }>("credentials");
+      const credentials = await loadECampusCredentials();
 
-      if (!credentials?.id || !credentials?.password) {
+      if (!credentials) {
         setSavedId("");
         setSavedPassword("");
         setHasCredentials(false);
@@ -45,15 +48,7 @@ const ECampusCredential = () => {
       }
 
       setSavedId(credentials.id);
-
-      // 복호화 시도 (실패 시 평문으로 처리 - 이전 데이터 호환성)
-      try {
-        const decryptedPassword = await decryptPassword(credentials.password);
-        setSavedPassword(decryptedPassword);
-      } catch {
-        setSavedPassword(credentials.password);
-      }
-
+      setSavedPassword(credentials.password);
       setHasCredentials(true);
     } catch (error) {
       console.error("[Settings] Load credentials error:", error);
@@ -70,10 +65,7 @@ const ECampusCredential = () => {
 
     try {
       // 1. 암호화 및 저장
-      const encryptedPassword = await encryptPassword(savedPassword);
-      await setStorage({
-        credentials: { id: savedId, password: encryptedPassword },
-      });
+      await saveECampusCredentials(savedId, savedPassword);
 
       setHasCredentials(true);
       sendSettingChange("credentials", "saved");
@@ -99,7 +91,7 @@ const ECampusCredential = () => {
     if (!confirm("저장된 인증 정보를 삭제하시겠습니까?")) return;
 
     try {
-      await removeStorage("credentials");
+      await clearECampusCredentials();
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);

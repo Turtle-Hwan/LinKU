@@ -4,6 +4,7 @@
  */
 
 import { getOrCreateClientId } from "./clientId";
+import { getStorage, setStorage } from "./chrome";
 
 // GA4 이벤트 파라미터 타입 (string, number, boolean만 허용)
 type GAEventParam = string | number | boolean;
@@ -31,25 +32,23 @@ const DEBUG_MODE = ENVIRONMENT === "development";
  */
 async function getOrCreateSessionId(): Promise<string> {
   try {
-    const result = await chrome.storage.local.get([
-      "sessionId",
-      "sessionTimestamp",
-    ]);
+    const sessionId = await getStorage<string>("sessionId");
+    const sessionTimestamp = await getStorage<number>("sessionTimestamp");
     const now = Date.now();
 
-    if (result.sessionId && result.sessionTimestamp) {
-      const timeSinceLastActivity = now - result.sessionTimestamp;
+    if (sessionId && sessionTimestamp) {
+      const timeSinceLastActivity = now - sessionTimestamp;
 
       if (timeSinceLastActivity < SESSION_TIMEOUT_MS) {
         // 세션 유지, 타임스탬프 업데이트
-        await chrome.storage.local.set({ sessionTimestamp: now });
-        return result.sessionId;
+        await setStorage({ sessionTimestamp: now });
+        return sessionId;
       }
     }
 
     // 새 세션 생성 (timestamp 사용)
     const newSessionId = now.toString();
-    await chrome.storage.local.set({
+    await setStorage({
       sessionId: newSessionId,
       sessionTimestamp: now,
     });

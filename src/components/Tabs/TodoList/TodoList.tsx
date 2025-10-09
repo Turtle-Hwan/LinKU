@@ -6,6 +6,8 @@ import {
   ECampusTodoResponse,
   TodoItem,
 } from "@/apis/eCampusAPI";
+import { setStorage } from "@/utils/chrome";
+import { loadECampusCredentials } from "@/utils/credentials";
 import LoginDialog from "./LoginDialog";
 import TodoExportButton from "./TodoExportButton";
 import KUGoodjob from "@/assets/KU_goodjob.png";
@@ -17,8 +19,8 @@ const TodoList = () => {
   const [error, setError] = useState("");
 
   // Save todo count to Chrome storage
-  const saveTodoCount = useCallback((count: number) => {
-    chrome?.storage?.local?.set({ todoCount: count });
+  const saveTodoCount = useCallback(async (count: number) => {
+    await setStorage({ todoCount: count });
   }, []);
 
   // Todo 목록을 가져오는 함수
@@ -48,36 +50,30 @@ const TodoList = () => {
   }, [saveTodoCount]);
 
   // 저장된 인증 정보로 로그인 시도
-  const tryLoginWithSavedCredentials =
-    useCallback(async (): Promise<boolean> => {
-      return new Promise((resolve) => {
-        chrome?.storage?.local?.get("credentials", async (data) => {
-          const credentials = data.credentials;
+  const tryLoginWithSavedCredentials = useCallback(async (): Promise<boolean> => {
+    try {
+      const credentials = await loadECampusCredentials();
 
-          if (!credentials?.id || !credentials?.password) {
-            resolve(false);
-            return;
-          }
+      if (!credentials) {
+        return false;
+      }
 
-          try {
-            const loginResult = await eCampusLoginAPI(
-              credentials.id,
-              credentials.password
-            );
+      const loginResult = await eCampusLoginAPI(
+        credentials.id,
+        credentials.password
+      );
 
-            if (loginResult.success) {
-              const todoFetched = await fetchTodoList();
-              resolve(todoFetched);
-            } else {
-              resolve(false);
-            }
-          } catch (error) {
-            console.error("Error with saved credentials:", error);
-            resolve(false);
-          }
-        });
-      });
-    }, [fetchTodoList]);
+      if (loginResult.success) {
+        const todoFetched = await fetchTodoList();
+        return todoFetched;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error with saved credentials:", error);
+      return false;
+    }
+  }, [fetchTodoList]);
 
   // 전체 Todo 로드 프로세스
   const loadTodoList = useCallback(async () => {
