@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   upload-draft:
@@ -24,16 +24,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
 
+      - name: Update version
+        run: node scripts/updateVersion.js
+
       - name: Build extension
         env:
           VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
-        run: pnpm run build
+        run: tsc -b && pnpm exec vite build --mode production
 
       - name: Create extension zip
         run: |
@@ -53,5 +56,16 @@ jobs:
             --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
             --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }}
 
-      - name: Upload successful
-        run: echo "✅ Extension draft uploaded successfully! Visit Chrome Web Store Developer Dashboard to submit for review."
+      - name: Commit and push version update
+        run: |
+          # Git 설정
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "Turtle-Hwan"
+
+          # 현재 버전 읽기
+          VERSION=$(node -p "require('./public/manifest.json').version")
+
+          # 변경사항 커밋 및 푸시
+          git add public/manifest.json
+          git commit -m "chore: bump version to ${VERSION} [skip ci]"
+          git push
