@@ -12,6 +12,7 @@ import { DialogDescription } from "@radix-ui/react-dialog";
 import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
 import { encryptPassword, decryptPassword } from "@/utils/crypto";
 import { getStorage, setStorage, removeStorage } from "@/utils/chrome";
+import { eCampusLoginAPI } from "@/apis/eCampusAPI";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,6 +71,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     }
 
     try {
+      // 1. 암호화 및 저장
       const encryptedPassword = await encryptPassword(savedPassword);
       await setStorage({
         credentials: { id: savedId, password: encryptedPassword },
@@ -78,6 +80,16 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       setHasCredentials(true);
       sendSettingChange("credentials", "saved");
       toast.success("인증 정보가 저장되었습니다.");
+
+      // 2. 로그인 검증 (백그라운드)
+      const loginResult = await eCampusLoginAPI(savedId, savedPassword);
+
+      // 2-1. 검증 결과 별도 toast
+      if (loginResult.success) {
+        toast.success("eCampus 로그인 성공");
+      } else {
+        toast.error("eCampus 로그인 실패");
+      }
     } catch (error) {
       console.error("[Settings] Save credentials error:", error);
       toast.error("인증 정보 저장에 실패했습니다.");
