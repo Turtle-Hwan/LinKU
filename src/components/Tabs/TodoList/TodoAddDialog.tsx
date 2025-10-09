@@ -20,7 +20,9 @@ interface TodoAddDialogProps {
 
 const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) => {
   const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,15 +38,30 @@ const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) =>
       return;
     }
 
+    if (!dueTime) {
+      toast.error("마감 시간을 선택해주세요.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await addCustomTodo(title.trim(), dueDate);
+      // YYYY-MM-DD → YYYY.MM.DD 변환
+      const formattedDate = dueDate.replace(/-/g, '.');
+
+      await addCustomTodo(
+        title.trim(),
+        formattedDate,
+        dueTime,
+        subject.trim() || undefined
+      );
       toast.success("할 일이 추가되었습니다.");
 
       // 폼 초기화
       setTitle("");
+      setSubject("");
       setDueDate("");
+      setDueTime("");
 
       // 다이얼로그 닫기
       onOpenChange(false);
@@ -85,16 +102,44 @@ const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) =>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="dueDate" className="text-sm font-medium">
-              마감일 <span className="text-red-500">*</span>
+            <label htmlFor="subject" className="text-sm font-medium">
+              과목명
             </label>
             <Input
-              id="dueDate"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              id="subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="과목명 (선택사항)"
               disabled={isSubmitting}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label htmlFor="dueDate" className="text-sm font-medium">
+                마감일 <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="dueTime" className="text-sm font-medium">
+                마감 시간 <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="dueTime"
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
 
           <DialogFooter className="!flex !flex-row gap-2 !space-x-0">
