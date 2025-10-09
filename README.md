@@ -29,6 +29,16 @@
 
 ![image](https://github.com/user-attachments/assets/86e3cc34-4aac-4d04-8ce9-053afa0232d8)
 
+### 키보드 단축키
+
+LinKU 확장 프로그램을 빠르게 열 수 있는 단축키:
+
+- **Windows/Linux**: `Ctrl + Shift + L`
+- **Mac**: `Command + Shift + L`
+
+> [!tip]
+> 단축키는 `chrome://extensions/shortcuts`에서 사용자 정의할 수 있습니다.
+
 ## Skills
 
 - Chrome extension

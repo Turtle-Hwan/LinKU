@@ -22,5 +22,14 @@
     "<all_urls>",
     "*://ecampus.konkuk.ac.kr/*",
     "https://www.google-analytics.com/*"
-  ]
+  ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Open LinKU extension"
+    }
+  }
 }
