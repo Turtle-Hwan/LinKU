@@ -1,4 +1,5 @@
 import { TodoItem } from "@/types/todo";
+import { formatTodoDateTime } from "./dateFormat";
 
 /**
  * Todo 항목들을 마크다운 체크리스트 형식으로 변환합니다.
@@ -9,12 +10,12 @@ import { TodoItem } from "@/types/todo";
  * @example
  * ```typescript
  * const todos = [
- *   { type: 'ecampus', title: "과제 제출", subject: "프로그래밍", dueDate: "2024-03-20", dDay: "D-3" },
- *   { type: 'custom', title: "책 읽기", dueDate: "2024-03-25", completed: false }
+ *   { type: 'ecampus', title: "과제 제출", subject: "프로그래밍", dueDate: "2024.03.20 오후 11:59", dDay: "D-3" },
+ *   { type: 'custom', title: "책 읽기", dueDate: "2024.03.25", dueTime: "23:59", completed: false }
  * ];
  *
  * convertTodosToMarkdown(todos);
- * // "## 이캠퍼스 Todo\n- [ ] 과제 제출  |  프로그래밍 - 2024-03-20\n\n## 나의 Todo\n- [ ] 책 읽기 - 2024-03-25"
+ * // "## 이캠퍼스 Todo\n- [ ] 과제 제출  |  프로그래밍 - 2024.03.20 오후 11:59\n\n## 나의 Todo\n- [ ] 책 읽기 - 2024.03.25 오후 11:59"
  * ```
  */
 export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
@@ -39,7 +40,12 @@ export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
   // 사용자 정의 Todo 섹션
   if (customTodos.length > 0) {
     const customMarkdown = customTodos
-      .map((item) => `- [${item.completed ? 'x' : ' '}] ${item.title} - ${item.dueDate}`)
+      .map((item) => {
+        const formattedDateTime = formatTodoDateTime(item.dueDate, item.dueTime);
+        const checkbox = item.completed ? 'x' : ' ';
+        const subjectPart = item.subject ? `  |  ${item.subject}` : '';
+        return `- [${checkbox}] ${item.title}${subjectPart} - ${formattedDateTime}`;
+      })
       .join("\n");
     sections.push(`## 나의 Todo\n${customMarkdown}`);
   }
