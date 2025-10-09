@@ -59,7 +59,7 @@ jobs:
       - name: Commit and push version update
         run: |
           # Git 설정
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.email ${{ secrets.GIT_USER_EMAIL }}
           git config --local user.name "Turtle-Hwan"
 
           # 현재 버전 읽기
