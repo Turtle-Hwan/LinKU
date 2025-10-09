@@ -1,37 +1,99 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   eCampusTodoListAPI,
   eCampusGoLectureAPI,
   eCampusLoginAPI,
   ECampusTodoResponse,
-  TodoItem,
 } from "@/apis/eCampusAPI";
-import { setStorage } from "@/utils/chrome";
+import { TodoItem as TodoItemType, ECampusTodoItem } from "@/types/todo";
+import { getStorage, setStorage } from "@/utils/chrome";
 import { loadECampusCredentials } from "@/utils/credentials";
+import {
+  getCustomTodos,
+  deleteCustomTodo,
+  toggleCustomTodo,
+} from "@/utils/customTodo";
+import TodoItem from "./TodoItem";
+import TodoAddButton from "./TodoAddButton";
 import LoginDialog from "./LoginDialog";
 import TodoExportButton from "./TodoExportButton";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown } from "lucide-react";
+import { toast } from "sonner";
 import KUGoodjob from "@/assets/KU_goodjob.png";
+
+type SortMethod = 'dday-asc' | 'dday-desc' | 'created';
+
+const SORT_METHOD_KEY = "todoSortMethod";
+
+/**
+ * D-Day 문자열을 숫자로 변환
+ * "D-3" → -3, "D-Day" → 0, "D+2" → 2
+ */
+function parseDDay(dDay: string): number {
+  if (dDay === "D-Day") return 0;
+
+  const match = dDay.match(/D([+-])(\d+)/);
+  if (!match) return 0;
+
+  const sign = match[1] === '+' ? 1 : -1;
+  const value = parseInt(match[2], 10);
+
+  return sign * value;
+}
 
 const TodoList = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
+  const [ecampusTodos, setECampusTodos] = useState<ECampusTodoItem[]>([]);
+  const [customTodos, setCustomTodos] = useState<TodoItemType[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [error, setError] = useState("");
+  const [sortMethod, setSortMethod] = useState<SortMethod>('dday-asc');
+
+  // 정렬 방식에 따라 전체 Todo 목록 정렬
+  const allTodos: TodoItemType[] = useMemo(() => {
+    const combined = [...ecampusTodos, ...customTodos];
+
+    return combined.sort((a, b) => {
+      if (sortMethod === 'dday-asc') {
+        // D-Day 오름차순: 가장 적게 남은 것부터
+        return parseDDay(a.dDay) - parseDDay(b.dDay);
+      } else if (sortMethod === 'dday-desc') {
+        // D-Day 내림차순: 가장 많이 남은 것부터
+        return parseDDay(b.dDay) - parseDDay(a.dDay);
+      } else {
+        // 생성일순: createdAt 기준 (최신순)
+        const aCreated = a.type === 'custom' ? a.createdAt : 0;
+        const bCreated = b.type === 'custom' ? b.createdAt : 0;
+        return bCreated - aCreated;
+      }
+    });
+  }, [ecampusTodos, customTodos, sortMethod]);
 
   // Save todo count to Chrome storage
   const saveTodoCount = useCallback(async (count: number) => {
     await setStorage({ todoCount: count });
   }, []);
 
-  // Todo 목록을 가져오는 함수
+  // 사용자 정의 Todo 불러오기
+  const loadCustomTodos = useCallback(async () => {
+    try {
+      const todos = await getCustomTodos();
+      setCustomTodos(todos);
+    } catch (error) {
+      console.error("Error loading custom todos:", error);
+    }
+  }, []);
+
+  // 이캠퍼스 Todo 목록을 가져오는 함수
   const fetchTodoList = useCallback(async (): Promise<boolean> => {
     try {
       const result: ECampusTodoResponse = await eCampusTodoListAPI();
 
       if (result.success && result.data?.todoList) {
-        setTodoItems(result.data.todoList);
-        // Save todo count to storage
-        saveTodoCount(result.data.todoList.length);
+        setECampusTodos(result.data.todoList);
+        // Save todo count to storage (이캠퍼스 + 사용자 정의)
+        saveTodoCount(result.data.todoList.length + customTodos.length);
         return true;
       }
 
@@ -47,7 +109,7 @@ const TodoList = () => {
       setError("Todo 목록을 불러오는 중 오류가 발생했습니다.");
       return false;
     }
-  }, [saveTodoCount]);
+  }, [saveTodoCount, customTodos.length]);
 
   // 저장된 인증 정보로 로그인 시도
   const tryLoginWithSavedCredentials = useCallback(async (): Promise<boolean> => {
@@ -81,19 +143,22 @@ const TodoList = () => {
     setError("");
 
     try {
-      // 1. 먼저 Todo 목록 요청 시도
+      // 1. 사용자 정의 Todo 먼저 불러오기 (로그인 불필요)
+      await loadCustomTodos();
+
+      // 2. 이캠퍼스 Todo 목록 요청 시도
       const todoFetched = await fetchTodoList();
 
-      // 2. 성공하면 완료
+      // 3. 성공하면 완료
       if (todoFetched) {
         setIsLoading(false);
         return;
       }
 
-      // 3. 실패하면 저장된 인증 정보로 로그인 시도
+      // 4. 실패하면 저장된 인증 정보로 로그인 시도
       const loggedInWithSaved = await tryLoginWithSavedCredentials();
 
-      // 4. 저장된 인증으로도 실패하면 로그인 모달 표시
+      // 5. 저장된 인증으로도 실패하면 로그인 모달 표시
       if (!loggedInWithSaved) {
         setShowLoginModal(true);
       }
@@ -104,12 +169,71 @@ const TodoList = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTodoList, tryLoginWithSavedCredentials]);
+  }, [fetchTodoList, tryLoginWithSavedCredentials, loadCustomTodos]);
 
   // 초기 로드 시 Todo 목록 가져오기
   useEffect(() => {
     loadTodoList();
   }, [loadTodoList]);
+
+  // 정렬 방식 불러오기
+  useEffect(() => {
+    const loadSortMethod = async () => {
+      const savedMethod = await getStorage<SortMethod>(SORT_METHOD_KEY);
+      if (savedMethod) {
+        setSortMethod(savedMethod);
+      }
+    };
+    loadSortMethod();
+  }, []);
+
+  // 정렬 방식 변경 및 저장
+  const handleSortMethodChange = async () => {
+    const nextMethod: SortMethod =
+      sortMethod === 'dday-asc'
+        ? 'dday-desc'
+        : sortMethod === 'dday-desc'
+        ? 'created'
+        : 'dday-asc';
+
+    setSortMethod(nextMethod);
+    await setStorage({ [SORT_METHOD_KEY]: nextMethod });
+
+    const labels = {
+      'dday-asc': 'D-Day 오름차순',
+      'dday-desc': 'D-Day 내림차순',
+      'created': '생성일순',
+    };
+    toast.success(`정렬: ${labels[nextMethod]}`);
+  };
+
+  // 사용자 정의 Todo 완료 상태 토글
+  const handleToggleTodo = async (id: string) => {
+    try {
+      await toggleCustomTodo(id);
+      await loadCustomTodos();
+    } catch (error) {
+      console.error("Failed to toggle todo:", error);
+      toast.error("상태 변경에 실패했습니다.");
+    }
+  };
+
+  // 사용자 정의 Todo 삭제
+  const handleDeleteTodo = async (id: string) => {
+    try {
+      await deleteCustomTodo(id);
+      await loadCustomTodos();
+      toast.success("할 일이 삭제되었습니다.");
+    } catch (error) {
+      console.error("Failed to delete todo:", error);
+      toast.error("삭제에 실패했습니다.");
+    }
+  };
+
+  // Todo 추가 성공 시 목록 새로고침
+  const handleTodoAdded = () => {
+    loadCustomTodos();
+  };
 
   // Todo 항목 클릭 처리
   const handleTodoItemClick = async (
@@ -145,29 +269,36 @@ const TodoList = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {todoItems.length > 0 ? (
+          {allTodos.length > 0 ? (
             <>
-              <div className="flex justify-end">
-                <TodoExportButton todoItems={todoItems} />
-              </div>
-              {todoItems.map((item) => (
-              <div
-                key={item.id}
-                className="p-3 border rounded-md hover:bg-gray-50 cursor-pointer"
-                onClick={() =>
-                  handleTodoItemClick(item.kj, item.seq, item.gubun)
-                }
-              >
-                <div className="text-sm font-semibold mb-1 flex items-center justify-between">
-                  <p className="">{item.title}</p>
-                  <span className="px-2 py-1 bg-main/10 text-main rounded-full">
-                    {item.dDay}
-                  </span>
+              <div className="flex justify-between items-center gap-2">
+                <TodoAddButton onSuccess={handleTodoAdded} />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSortMethodChange}
+                    className="gap-1.5"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                    Sort
+                  </Button>
+                  <TodoExportButton todoItems={allTodos} />
                 </div>
-                <p className="text-sm text-gray-700">{item.subject}</p>
-                <p className="text-xs text-gray-600 mt-1">{item.dueDate}</p>
               </div>
-            ))}
+              {allTodos.map((item) => (
+                <TodoItem
+                  key={item.id}
+                  todo={item}
+                  onToggle={item.type === 'custom' ? handleToggleTodo : undefined}
+                  onDelete={item.type === 'custom' ? handleDeleteTodo : undefined}
+                  onClick={
+                    item.type === 'ecampus'
+                      ? () => handleTodoItemClick(item.kj, item.seq, item.gubun)
+                      : undefined
+                  }
+                />
+              ))}
             </>
           ) : (
             <div className="text-base text-center text-muted-foreground space-y-4">
