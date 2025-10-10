@@ -1,7 +1,7 @@
 import { TodoItem } from "@/types/todo";
 import { Button } from "@/components/ui/button";
 import { useClipboardCopy } from "@/hooks/useClipboardCopy";
-import { convertTodosToMarkdown } from "@/utils/todoMarkdown";
+import { convertTodosToMarkdown } from "@/utils/todo/todoMarkdown";
 import { Copy, Check } from "lucide-react";
 
 interface TodoExportButtonProps {

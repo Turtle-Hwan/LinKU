@@ -1,5 +1,5 @@
 import { TodoItem } from "@/types/todo";
-import { formatTodoDateTime } from "./todo/dateFormat";
+import { formatTodoDateTime } from "./dateFormat";
 
 /**
  * Todo 항목들을 마크다운 체크리스트 형식으로 변환합니다.
@@ -24,17 +24,15 @@ export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
   }
 
   // 이캠퍼스 Todo와 사용자 정의 Todo 분리
-  const ecampusTodos = todos.filter((todo) => todo.type === "ecampus");
-  const customTodos = todos.filter((todo) => todo.type === "custom");
+  const ecampusTodos = todos.filter((todo) => todo.type === 'ecampus');
+  const customTodos = todos.filter((todo) => todo.type === 'custom');
 
   const sections: string[] = [];
 
   // 이캠퍼스 Todo 섹션
   if (ecampusTodos.length > 0) {
     const ecampusMarkdown = ecampusTodos
-      .map(
-        (item) => `- [ ] ${item.title}  |  ${item.subject} - ${item.dueDate}`
-      )
+      .map((item) => `- [ ] ${item.title}  |  ${item.subject} - ${item.dueDate}`)
       .join("\n");
     sections.push(`## 이캠퍼스 Todo\n${ecampusMarkdown}`);
   }
@@ -43,12 +41,9 @@ export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
   if (customTodos.length > 0) {
     const customMarkdown = customTodos
       .map((item) => {
-        const formattedDateTime = formatTodoDateTime(
-          item.dueDate,
-          item.dueTime
-        );
-        const checkbox = item.completed ? "x" : " ";
-        const subjectPart = item.subject ? `  |  ${item.subject}` : "";
+        const formattedDateTime = formatTodoDateTime(item.dueDate, item.dueTime);
+        const checkbox = item.completed ? 'x' : ' ';
+        const subjectPart = item.subject ? `  |  ${item.subject}` : '';
         return `- [${checkbox}] ${item.title}${subjectPart} - ${formattedDateTime}`;
       })
       .join("\n");

@@ -1,6 +1,6 @@
 import { TodoItem as TodoItemType } from "@/types/todo";
 import { Trash2 } from "lucide-react";
-import { formatTodoDateTime } from "@/utils/dateFormat";
+import { formatTodoDateTime } from "@/utils/todo/dateFormat";
 
 interface TodoItemProps {
   todo: TodoItemType;

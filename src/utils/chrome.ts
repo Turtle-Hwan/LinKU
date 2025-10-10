@@ -79,10 +79,3 @@ export const removeStorage = (key: string): Promise<void> => {
     });
   });
 };
-
-// 사용자 인증 정보를 chrome.storage.local에 저장하는 함수
-export const saveUserCredentials = (userId: string, userPw: string) => {
-  return setStorage({
-    credentials: { id: userId, password: userPw },
-  });
-};

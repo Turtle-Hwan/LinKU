@@ -12,7 +12,7 @@ import {
   getCustomTodos,
   deleteCustomTodo,
   toggleCustomTodo,
-} from "@/utils/customTodo";
+} from "@/utils/todo/customTodo";
 import TodoItem from "./TodoItem";
 import TodoAddButton from "./TodoAddButton";
 import LoginDialog from "./LoginDialog";
@@ -193,8 +193,8 @@ const TodoList = () => {
       sortMethod === 'dday-asc'
         ? 'dday-desc'
         : sortMethod === 'dday-desc'
-        ? 'created'
-        : 'dday-asc';
+          ? 'created'
+          : 'dday-asc';
 
     setSortMethod(nextMethod);
     await setStorage({ [SORT_METHOD_KEY]: nextMethod });

@@ -3,7 +3,7 @@
  * chrome.storage.local에 사용자 정의 Todo 저장/불러오기/수정/삭제
  */
 
-import { getStorage, setStorage } from "./chrome";
+import { getStorage, setStorage } from "../chrome";
 import { CustomTodoItem } from "@/types/todo";
 
 const CUSTOM_TODOS_KEY = "customTodos";

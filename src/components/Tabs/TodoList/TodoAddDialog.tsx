@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
-import { addCustomTodo } from "@/utils/customTodo";
+import { addCustomTodo } from "@/utils/todo/customTodo";
 import { toast } from "sonner";
 
 interface TodoAddDialogProps {
