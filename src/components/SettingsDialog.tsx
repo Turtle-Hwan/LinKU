@@ -10,14 +10,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
+import {
+  saveECampusCredentials,
+  loadECampusCredentials,
+  clearECampusCredentials,
+} from "@/utils/credentials";
+import { eCampusLoginAPI } from "@/apis/eCampusAPI";
 import { Info } from "lucide-react";
+import { toast } from "sonner";
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
+const ECampusCredential = () => {
   const [savedId, setSavedId] = useState<string>("");
   const [savedPassword, setSavedPassword] = useState<string>("");
   const [hasCredentials, setHasCredentials] = useState<boolean>(false);
@@ -25,78 +32,84 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   // 설정 페이지 열릴 때 저장된 계정 정보 불러오기
   useEffect(() => {
-    if (open) {
-      loadSavedCredentials();
-    }
-  }, [open]);
+    loadSavedCredentials();
+  }, []);
 
   // 저장된 인증 정보 불러오기
-  const loadSavedCredentials = () => {
-    chrome?.storage?.local?.get("credentials", (data) => {
-      const credentials = data.credentials;
-      if (credentials?.id && credentials?.password) {
-        setSavedId(credentials.id);
-        setSavedPassword(credentials.password);
-        setHasCredentials(true);
-      } else {
+  const loadSavedCredentials = async () => {
+    try {
+      const credentials = await loadECampusCredentials();
+
+      if (!credentials) {
         setSavedId("");
         setSavedPassword("");
         setHasCredentials(false);
+        return;
       }
-    });
+
+      setSavedId(credentials.id);
+      setSavedPassword(credentials.password);
+      setHasCredentials(true);
+    } catch (error) {
+      console.error("[Settings] Load credentials error:", error);
+      toast.error("인증 정보를 불러오는데 실패했습니다.");
+    }
   };
 
   // 인증 정보 저장하기
-  const saveCredentials = () => {
-    if (savedId && savedPassword) {
-      chrome?.storage?.local?.set({
-        credentials: { id: savedId, password: savedPassword },
-      });
+  const saveCredentials = async () => {
+    if (!savedId || !savedPassword) {
+      toast.error("ID와 비밀번호를 모두 입력해주세요.");
+      return;
+    }
+
+    try {
+      // 1. 암호화 및 저장
+      await saveECampusCredentials(savedId, savedPassword);
+
       setHasCredentials(true);
       sendSettingChange("credentials", "saved");
-      alert("인증 정보가 저장되었습니다.");
-    } else {
-      alert("ID와 비밀번호를 모두 입력해주세요.");
+      toast.success("인증 정보가 저장되었습니다.");
+
+      // 2. 로그인 검증 (백그라운드)
+      const loginResult = await eCampusLoginAPI(savedId, savedPassword);
+
+      // 2-1. 검증 결과 별도 toast
+      if (loginResult.success) {
+        toast.success("eCampus 로그인 성공");
+      } else {
+        toast.error("eCampus 로그인 실패");
+      }
+    } catch (error) {
+      console.error("[Settings] Save credentials error:", error);
+      toast.error("인증 정보 저장에 실패했습니다.");
     }
   };
 
   // 인증 정보 삭제하기
-  const deleteCredentials = () => {
-    if (confirm("저장된 인증 정보를 삭제하시겠습니까?")) {
-      chrome?.storage?.local?.remove("credentials");
+  const deleteCredentials = async () => {
+    if (!confirm("저장된 인증 정보를 삭제하시겠습니까?")) return;
+
+    try {
+      await clearECampusCredentials();
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);
       sendSettingChange("credentials", "deleted");
-      alert("인증 정보가 삭제되었습니다.");
+      toast.success("인증 정보가 삭제되었습니다.");
+    } catch (error) {
+      console.error("[Settings] Delete credentials error:", error);
+      toast.error("인증 정보 삭제에 실패했습니다.");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>설정</DialogTitle>
-          <DialogDescription className="hidden">설정</DialogDescription>
-        </DialogHeader>
+    <>
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold">이캠퍼스 계정 관리</h2>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <h3 className="text-md font-medium">이캠퍼스 계정 관리</h3>
-            <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3">
-              <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                사용자의 ID/PW는 외부 서버에 저장되지 않으며, 브라우저의 Storage에만 보관됩니다.
-              </p>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {hasCredentials
-                ? "저장된 계정 정보가 있습니다."
-                : "저장된 계정 정보가 없습니다."}
-            </p>
-          </div>
-
-          <div className="space-y-2">
+        <div className="space-y-3">
+          <div className="space-y-1.5">
             <label htmlFor="savedId" className="text-sm font-medium">
               아이디
             </label>
@@ -122,7 +135,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-muted-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => {
                   sendButtonClick("password_toggle", "settings_dialog");
                   setIsPasswordVisible(!isPasswordVisible);
@@ -132,21 +145,48 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               </button>
             </div>
           </div>
+          <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
+            <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              ID/PW는 외부 서버에 저장되지 않으며, AES-GCM 256으로 암호화되어 브라우저에만 보관됩니다.
+            </p>
+          </div>
         </div>
+      </div>
+      <div className="flex flex-row gap-2 space-x-0">
+        <Button
+          variant="outline"
+          onClick={deleteCredentials}
+          disabled={!hasCredentials}
+          className="flex-1"
+        >
+          삭제
+        </Button>
+        <Button onClick={saveCredentials} className="flex-1">
+          저장
+        </Button>
+      </div>
+    </>
+  );
+};
 
-        <DialogFooter className="flex justify-end">
-          <Button
-            variant="destructive"
-            onClick={deleteCredentials}
-            disabled={!hasCredentials}
-          >
-            삭제
-          </Button>
-          <Button onClick={saveCredentials}>저장</Button>
-        </DialogFooter>
+const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>설정</DialogTitle>
+          <DialogDescription className="hidden">설정</DialogDescription>
+        </DialogHeader>
+
+        <SettingsDialog.ECampusCredential />
+
+        <DialogFooter className="flex flex-row gap-2 space-x-0" />
       </DialogContent>
     </Dialog>
   );
 };
+
+SettingsDialog.ECampusCredential = ECampusCredential;
 
 export default SettingsDialog;

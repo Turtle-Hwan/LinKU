@@ -41,20 +41,41 @@ export const executeScriptFile = async (tabId: number, files: string[]) => {
   }
 };
 
-// 사용자 인증 정보를 chrome.storage.local에 저장하는 함수
-export const saveUserCredentials = (userId, userPw) => {
+// Chrome Storage API Promise 래퍼
+export const getStorage = <T>(key: string): Promise<T | undefined> => {
   return new Promise((resolve, reject) => {
-    chrome.storage.local.set(
-      {
-        credentials: { id: userId, password: userPw },
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(undefined);
-        }
+    chrome?.storage?.local?.get(key, (data) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve(data[key]);
       }
-    );
+    });
+  });
+};
+
+export const setStorage = <T extends Record<string, unknown>>(
+  data: T
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    chrome?.storage?.local?.set(data, () => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve();
+      }
+    });
+  });
+};
+
+export const removeStorage = (key: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    chrome?.storage?.local?.remove(key, () => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve();
+      }
+    });
   });
 };

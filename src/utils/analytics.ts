@@ -3,6 +3,9 @@
  * Manifest V3 호환 - CSP 제약 없이 Analytics 사용
  */
 
+import { getOrCreateClientId } from "./clientId";
+import { getStorage, setStorage } from "./chrome";
+
 // GA4 이벤트 파라미터 타입 (string, number, boolean만 허용)
 type GAEventParam = string | number | boolean;
 
@@ -24,57 +27,28 @@ const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || "production";
 const DEBUG_MODE = ENVIRONMENT === "development";
 
 /**
- * Client ID 생성 및 가져오기
- * 사용자별 고유 ID로 chrome.storage에 저장됨
- */
-async function getOrCreateClientId(): Promise<string> {
-  try {
-    const result = await chrome.storage.local.get("clientId");
-    let clientId = result.clientId;
-
-    if (!clientId) {
-      // UUID v4 생성
-      clientId = self.crypto.randomUUID();
-      await chrome.storage.local.set({ clientId });
-
-      if (DEBUG_MODE) {
-        console.log("[GA] New Client ID created:", clientId);
-      }
-    }
-
-    return clientId;
-  } catch (error) {
-    console.error("[GA] Error getting/creating client ID:", error);
-    // 에러 시 임시 ID 반환
-    return "error-" + Date.now();
-  }
-}
-
-/**
  * Session ID 생성 및 관리
  * 30분 동안 활동이 없으면 새 세션 시작
  */
 async function getOrCreateSessionId(): Promise<string> {
   try {
-    const result = await chrome.storage.local.get([
-      "sessionId",
-      "sessionTimestamp",
-    ]);
+    const sessionId = await getStorage<string>("sessionId");
+    const sessionTimestamp = await getStorage<number>("sessionTimestamp");
     const now = Date.now();
 
-    if (result.sessionId && result.sessionTimestamp) {
-      const timeSinceLastActivity = now - result.sessionTimestamp;
+    if (sessionId && sessionTimestamp) {
+      const timeSinceLastActivity = now - sessionTimestamp;
 
       if (timeSinceLastActivity < SESSION_TIMEOUT_MS) {
         // 세션 유지, 타임스탬프 업데이트
-        await chrome.storage.local.set({ sessionTimestamp: now });
-        return result.sessionId;
+        await setStorage({ sessionTimestamp: now });
+        return sessionId;
       }
     }
 
     // 새 세션 생성 (timestamp 사용)
     const newSessionId = now.toString();
-    await chrome.storage.local.set({
+    await setStorage({
       sessionId: newSessionId,
       sessionTimestamp: now,
     });

@@ -37,7 +37,7 @@ export interface LinkListElement {
   samehost?: SameHost;
   samehost2?: SameHost;
   islong?: boolean;
-  color?: string;
+  iconColor?: string;
   type?: "png" | "svg";
 }
 
@@ -153,7 +153,7 @@ export const LinkList: LinkListElement[] = [
   },
   {
     icon: AlarmClock,
-    color: "#E01216",
+    iconColor: "text-red-600",
     label: "에브리타임",
     link: "https://account.everytime.kr/login",
   },

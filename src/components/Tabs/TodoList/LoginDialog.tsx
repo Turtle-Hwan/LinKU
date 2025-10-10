@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { eCampusLoginAPI, ECampusLoginResponse } from "@/apis/eCampusAPI";
+import { saveECampusCredentials } from "@/utils/credentials";
 
 interface LoginDialogProps {
   isOpen: boolean;
@@ -54,9 +55,11 @@ const LoginDialog = ({
       if (loginResult.success) {
         // 인증 정보 저장 (rememberLogin이 true일 때만)
         if (rememberLogin) {
-          chrome?.storage?.local?.set({
-            credentials: { id: userId, password: userPw },
-          });
+          try {
+            await saveECampusCredentials(userId, userPw);
+          } catch (error) {
+            console.error("Failed to save credentials:", error);
+          }
         }
 
         // 로그인 모달 닫기

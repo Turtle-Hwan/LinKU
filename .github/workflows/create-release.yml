@@ -1,0 +1,85 @@
+name: Create Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get current version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./public/manifest.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if release exists
+        id: check_release
+        run: |
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ steps.version.outputs.tag }}"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release ${{ steps.version.outputs.tag }} already exists, skipping..."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Creating new release ${{ steps.version.outputs.tag }}..."
+          fi
+
+      - name: Setup pnpm
+        if: steps.check_release.outputs.exists == 'false'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        if: steps.check_release.outputs.exists == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        if: steps.check_release.outputs.exists == 'false'
+        run: pnpm install
+
+      - name: Build extension
+        if: steps.check_release.outputs.exists == 'false'
+        env:
+          VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
+        run: tsc -b && pnpm exec vite build --mode production
+
+      - name: Create dist.zip
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          cd dist
+          zip -r ../dist.zip .
+          cd ..
+
+      - name: Create Release
+        if: steps.check_release.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## LinKU ${{ steps.version.outputs.version }}
+
+            자동 생성된 릴리스입니다.
+
+            ### 설치 방법
+            1. dist.zip 파일을 다운로드하고 압축을 풉니다
+            2. Chrome 확장 프로그램 페이지에서 "개발자 모드"를 활성화합니다
+            3. "압축해제된 확장 프로그램을 로드합니다"를 클릭하고 압축 해제한 폴더를 선택합니다
+          files: |
+            dist.zip
+          draft: false
+          prerelease: false

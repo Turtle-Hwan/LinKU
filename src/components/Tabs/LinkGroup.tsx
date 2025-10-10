@@ -43,10 +43,10 @@ const GridItem = ({ item, colNum }) => {
           <img
             src={item.icon}
             alt={`${item.label} 이미지`}
-            className="Icon__Animation w-5 h-5 text-main"
+            className={`Icon__Animation w-5 h-5 ${item.iconColor || 'text-main'}`}
           />
         ) : (
-          <item.icon className={`Icon__Animation w-5 h-5 text-main`} />
+          <item.icon className={`Icon__Animation w-5 h-5 ${item.iconColor || 'text-main'}`} />
         )}
       </div>
       <span className="w-full text-base text-black text-center break-keep">

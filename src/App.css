@@ -113,6 +113,8 @@ body {
 
 @theme inline {
   /* 색상 매핑 */
+  --color-main: #00913a;
+  --color-hover: #007a30;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
