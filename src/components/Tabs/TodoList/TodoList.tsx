@@ -22,7 +22,7 @@ import { ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import KUGoodjob from "@/assets/KU_goodjob.png";
 
-type SortMethod = 'dday-asc' | 'dday-desc' | 'created';
+type SortMethod = 'dday-asc' | 'dday-desc';
 
 const SORT_METHOD_KEY = "todoSortMethod";
 
@@ -48,7 +48,7 @@ const TodoList = () => {
   const [customTodos, setCustomTodos] = useState<TodoItemType[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [error, setError] = useState("");
-  const [sortMethod, setSortMethod] = useState<SortMethod>('dday-asc');
+  const [sortMethod, setSortMethod] = useState<SortMethod>('dday-desc');
 
   // 정렬 방식에 따라 전체 Todo 목록 정렬
   const allTodos: TodoItemType[] = useMemo(() => {
@@ -58,14 +58,9 @@ const TodoList = () => {
       if (sortMethod === 'dday-asc') {
         // D-Day 오름차순: 가장 적게 남은 것부터
         return parseDDay(a.dDay) - parseDDay(b.dDay);
-      } else if (sortMethod === 'dday-desc') {
+      } else {
         // D-Day 내림차순: 가장 많이 남은 것부터
         return parseDDay(b.dDay) - parseDDay(a.dDay);
-      } else {
-        // 생성일순: createdAt 기준 (최신순)
-        const aCreated = a.type === 'custom' ? a.createdAt : 0;
-        const bCreated = b.type === 'custom' ? b.createdAt : 0;
-        return bCreated - aCreated;
       }
     });
   }, [ecampusTodos, customTodos, sortMethod]);
@@ -190,21 +185,10 @@ const TodoList = () => {
   // 정렬 방식 변경 및 저장
   const handleSortMethodChange = async () => {
     const nextMethod: SortMethod =
-      sortMethod === 'dday-asc'
-        ? 'dday-desc'
-        : sortMethod === 'dday-desc'
-          ? 'created'
-          : 'dday-asc';
+      sortMethod === 'dday-asc' ? 'dday-desc' : 'dday-asc';
 
     setSortMethod(nextMethod);
     await setStorage({ [SORT_METHOD_KEY]: nextMethod });
-
-    const labels = {
-      'dday-asc': 'D-Day 오름차순',
-      'dday-desc': 'D-Day 내림차순',
-      'created': '생성일순',
-    };
-    toast.success(`정렬: ${labels[nextMethod]}`);
   };
 
   // 사용자 정의 Todo 완료 상태 토글
@@ -281,7 +265,7 @@ const TodoList = () => {
                     className="gap-1.5"
                   >
                     <ArrowUpDown className="h-4 w-4" />
-                    Sort
+                    {sortMethod === 'dday-asc' ? '오름차순' : '내림차순'}
                   </Button>
                   <TodoExportButton todoItems={allTodos} />
                 </div>
