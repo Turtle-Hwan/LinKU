@@ -21,8 +21,8 @@ interface TodoAddDialogProps {
 const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) => {
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [dueTime, setDueTime] = useState("");
+  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueTime, setDueTime] = useState(new Date().toTimeString().slice(0, 5));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,8 +60,8 @@ const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) =>
       // 폼 초기화
       setTitle("");
       setSubject("");
-      setDueDate("");
-      setDueTime("");
+      setDueDate(new Date().toISOString().split('T')[0]);
+      setDueTime(new Date().toTimeString().slice(0, 5));
 
       // 다이얼로그 닫기
       onOpenChange(false);
