@@ -68,12 +68,12 @@ jobs:
         if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
+          # 실제 사용자 계정으로 릴리스를 생성하려면 아래 주석을 해제하고 GH_PAT secret을 추가하세요
+          # token: ${{ secrets.GH_PAT }}
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.version }}
           body: |
             ## LinKU ${{ steps.version.outputs.version }}
-
-            자동 생성된 릴리스입니다.
 
             ### 설치 방법
             1. dist.zip 파일을 다운로드하고 압축을 풉니다
@@ -83,3 +83,4 @@ jobs:
             dist.zip
           draft: false
           prerelease: false
+          generate_release_notes: true
