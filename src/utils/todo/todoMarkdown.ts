@@ -24,15 +24,15 @@ export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
   }
 
   // 이캠퍼스 Todo와 사용자 정의 Todo 분리
-  const ecampusTodos = todos.filter((todo) => todo.type === 'ecampus');
-  const customTodos = todos.filter((todo) => todo.type === 'custom');
+  const ecampusTodos = todos.filter((todo) => todo.type === "ecampus");
+  const customTodos = todos.filter((todo) => todo.type === "custom");
 
   const sections: string[] = [];
 
   // 이캠퍼스 Todo 섹션
   if (ecampusTodos.length > 0) {
     const ecampusMarkdown = ecampusTodos
-      .map((item) => `- [ ] ${item.title}  |  ${item.subject} - ${item.dueDate}`)
+      .map((item) => `- [ ] ${item.subject} ${item.title}  |  ${item.dueDate}`)
       .join("\n");
     sections.push(`## 이캠퍼스 Todo\n${ecampusMarkdown}`);
   }
@@ -41,10 +41,13 @@ export const convertTodosToMarkdown = (todos: TodoItem[]): string => {
   if (customTodos.length > 0) {
     const customMarkdown = customTodos
       .map((item) => {
-        const formattedDateTime = formatTodoDateTime(item.dueDate, item.dueTime);
-        const checkbox = item.completed ? 'x' : ' ';
-        const subjectPart = item.subject ? `  |  ${item.subject}` : '';
-        return `- [${checkbox}] ${item.title}${subjectPart} - ${formattedDateTime}`;
+        const formattedDateTime = formatTodoDateTime(
+          item.dueDate,
+          item.dueTime
+        );
+        const checkbox = item.completed ? "x" : " ";
+        const subjectPart = item.subject || "";
+        return `- [${checkbox}] ${subjectPart} ${item.title}  |  ${formattedDateTime}`;
       })
       .join("\n");
     sections.push(`## 나의 Todo\n${customMarkdown}`);
