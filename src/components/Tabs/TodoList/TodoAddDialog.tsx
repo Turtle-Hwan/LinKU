@@ -11,14 +11,16 @@ import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { addCustomTodo } from "@/utils/todo/customTodo";
 import { toast } from "sonner";
+import SubjectInput from "./SubjectInput";
 
 interface TodoAddDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  eCampusSubjects?: string[]; // eCampus에서 가져온 과목 리스트
 }
 
-const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) => {
+const TodoAddDialog = ({ open, onOpenChange, onSuccess, eCampusSubjects = [] }: TodoAddDialogProps) => {
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -105,12 +107,11 @@ const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) =>
             <label htmlFor="subject" className="text-sm font-medium">
               과목명
             </label>
-            <Input
-              id="subject"
+            <SubjectInput
               value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="과목명 (선택사항)"
+              onChange={setSubject}
               disabled={isSubmitting}
+              eCampusSubjects={eCampusSubjects}
             />
           </div>
 

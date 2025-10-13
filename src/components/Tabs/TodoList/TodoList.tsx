@@ -65,6 +65,15 @@ const TodoList = () => {
     });
   }, [ecampusTodos, customTodos, sortMethod]);
 
+  // eCampus에서 가져온 고유 과목 리스트 추출
+  const eCampusSubjects = useMemo(() => {
+    const subjects = ecampusTodos
+      .map((todo) => todo.subject)
+      .filter((subject) => subject && subject.trim() !== "");
+    // 중복 제거
+    return Array.from(new Set(subjects));
+  }, [ecampusTodos]);
+
   // Save todo count to Chrome storage
   const saveTodoCount = useCallback(async (count: number) => {
     await setStorage({ todoCount: count });
@@ -256,7 +265,7 @@ const TodoList = () => {
           {allTodos.length > 0 ? (
             <>
               <div className="flex justify-between items-center gap-2">
-                <TodoAddButton onSuccess={handleTodoAdded} />
+                <TodoAddButton onSuccess={handleTodoAdded} eCampusSubjects={eCampusSubjects} />
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

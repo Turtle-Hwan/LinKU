@@ -1,6 +1,9 @@
 import { TodoItem as TodoItemType } from "@/types/todo";
 import { Trash2 } from "lucide-react";
 import { formatTodoDateTime } from "@/utils/todo/dateFormat";
+import { useState, useEffect } from "react";
+import { getSubjectLabelByName } from "@/utils/subjectLabel";
+import { SubjectLabel } from "@/types/subjectLabel";
 
 interface TodoItemProps {
   todo: TodoItemType;
@@ -10,6 +13,18 @@ interface TodoItemProps {
 }
 
 const TodoItem = ({ todo, onToggle, onDelete, onClick }: TodoItemProps) => {
+  const [subjectLabel, setSubjectLabel] = useState<SubjectLabel | null>(null);
+
+  useEffect(() => {
+    const loadSubjectLabel = async () => {
+      if (todo.subject) {
+        const label = await getSubjectLabelByName(todo.subject);
+        setSubjectLabel(label || null);
+      }
+    };
+    loadSubjectLabel();
+  }, [todo.subject]);
+
   if (todo.type === 'ecampus') {
     // 이캠퍼스 Todo - 진초록색 테두리
     return (
@@ -23,7 +38,17 @@ const TodoItem = ({ todo, onToggle, onDelete, onClick }: TodoItemProps) => {
             {todo.dDay}
           </span>
         </div>
-        <p className="text-sm text-gray-700">{todo.subject}</p>
+        {todo.subject && (
+          <div className="flex items-center gap-2 mt-1">
+            {subjectLabel && (
+              <div
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: subjectLabel.color }}
+              />
+            )}
+            <p className="text-sm text-gray-700">{todo.subject}</p>
+          </div>
+        )}
         <p className="text-xs text-gray-600 mt-1">{todo.dueDate}</p>
       </div>
     );
@@ -48,9 +73,17 @@ const TodoItem = ({ todo, onToggle, onDelete, onClick }: TodoItemProps) => {
             </span>
           </div>
           {todo.subject && (
-            <p className={`text-sm text-gray-700 ${todo.completed ? 'line-through text-gray-500' : ''}`}>
-              {todo.subject}
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              {subjectLabel && (
+                <div
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: subjectLabel.color }}
+                />
+              )}
+              <p className={`text-sm text-gray-700 ${todo.completed ? 'line-through text-gray-500' : ''}`}>
+                {todo.subject}
+              </p>
+            </div>
           )}
           <p className={`text-xs text-gray-600 mt-1 ${todo.completed ? 'line-through' : ''}`}>
             {formattedDateTime}
