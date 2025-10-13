@@ -29,6 +29,20 @@
 
 ![image](https://github.com/user-attachments/assets/86e3cc34-4aac-4d04-8ce9-053afa0232d8)
 
+## Features
+
+### Todo 관리
+- **eCampus 연동**: eCampus에서 수강 중인 과목의 할 일을 자동으로 가져옵니다
+- **사용자 정의 Todo**: 직접 할 일을 추가하고 관리할 수 있습니다
+- **과목 라벨 시스템**: 과목명을 색상과 함께 라벨로 저장하여 관리할 수 있습니다
+  - eCampus 과목 자동 제안
+  - 인라인 라벨 생성 (GitHub 이슈 라벨과 유사)
+  - 8가지 색상 팔레트 제공
+  - 사용 빈도 기반 자동 정렬
+- **정렬 및 내보내기**: D-Day 기준 정렬, 마크다운 형식으로 내보내기
+
+자세한 내용은 [Subject Label Feature Documentation](./docs/SUBJECT_LABEL_FEATURE.md)를 참고하세요.
+
 ### 키보드 단축키
 
 LinKU 확장 프로그램을 빠르게 열 수 있는 단축키:
