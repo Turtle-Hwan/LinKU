@@ -5,9 +5,10 @@ import TodoAddDialog from "./TodoAddDialog";
 
 interface TodoAddButtonProps {
   onSuccess: () => void;
+  eCampusSubjects?: string[];
 }
 
-const TodoAddButton = ({ onSuccess }: TodoAddButtonProps) => {
+const TodoAddButton = ({ onSuccess, eCampusSubjects = [] }: TodoAddButtonProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
@@ -25,6 +26,7 @@ const TodoAddButton = ({ onSuccess }: TodoAddButtonProps) => {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSuccess={onSuccess}
+        eCampusSubjects={eCampusSubjects}
       />
     </>
   );
