@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,11 +19,37 @@ interface TodoAddDialogProps {
 }
 
 const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) => {
+  // 로컬 날짜와 시간으로 초기화
+  const getLocalDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getLocalTime = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
-  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueTime, setDueTime] = useState(new Date().toTimeString().slice(0, 5));
+  const [dueDate, setDueDate] = useState(getLocalDate());
+  const [dueTime, setDueTime] = useState(getLocalTime());
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 모달이 열릴 때마다 현재 날짜와 시간으로 초기화
+  useEffect(() => {
+    if (open) {
+      setDueDate(getLocalDate());
+      setDueTime(getLocalTime());
+      setTitle("");
+      setSubject("");
+    }
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,13 +83,7 @@ const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) =>
       );
       toast.success("할 일이 추가되었습니다.");
 
-      // 폼 초기화
-      setTitle("");
-      setSubject("");
-      setDueDate(new Date().toISOString().split('T')[0]);
-      setDueTime(new Date().toTimeString().slice(0, 5));
-
-      // 다이얼로그 닫기
+      // 다이얼로그 닫기 (폼 초기화는 useEffect에서 처리)
       onOpenChange(false);
 
       // 부모 컴포넌트에 성공 알림
