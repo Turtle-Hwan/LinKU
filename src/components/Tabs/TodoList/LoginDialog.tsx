@@ -33,7 +33,7 @@ const LoginDialog = ({
 }: LoginDialogProps) => {
   const [userId, setUserId] = useState("");
   const [userPw, setUserPw] = useState("");
-  const [rememberLogin, setRememberLogin] = useState(false);
+  const [rememberLogin, setRememberLogin] = useState(true);
 
   // 사용자 입력으로 로그인 처리
   const handleLogin = async () => {
