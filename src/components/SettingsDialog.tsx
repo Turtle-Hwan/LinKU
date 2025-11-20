@@ -15,7 +15,7 @@ import {
   loadECampusCredentials,
   clearECampusCredentials,
 } from "@/utils/credentials";
-import { eCampusLoginAPI } from "@/apis/eCampusAPI";
+import { eCampusLoginAPI } from "@/apis";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
 
