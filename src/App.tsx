@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import "./App.css";
+import { ErrorBoundary } from "react-error-boundary";
 import MainLayout from "./components/MainLayout";
 import TabsLayout from "./components/TabsLayout";
 import { Toaster } from "./components/ui/sonner";
@@ -18,12 +19,28 @@ function App() {
   }, []);
 
   return (
-    <>
+    <ErrorBoundary
+      fallback={
+        <div className="w-[500px] h-[600px] flex items-center justify-center p-8">
+          <div className="text-center space-y-4">
+            <h2 className="text-xl font-semibold text-destructive">
+              오류가 발생했습니다
+            </h2>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+            >
+              새로고침
+            </button>
+          </div>
+        </div>
+      }
+    >
       <MainLayout>
         <TabsLayout />
       </MainLayout>
       <Toaster duration={2000} />
-    </>
+    </ErrorBoundary>
   );
 }
 

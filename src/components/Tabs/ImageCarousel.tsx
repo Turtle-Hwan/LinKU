@@ -2,7 +2,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { BannerItemType, getBannersAPI } from "@/apis/getBannersAPI";
+import { BannerItemType, getBannersAPI } from "@/apis";
 import { IMAGE_URL } from "@/constants/URL";
 
 const bannerPromise = getBannersAPI();
@@ -73,9 +73,8 @@ const ImageCarousel = () => {
         {scrollSnaps.map((_, index) => (
           <button
             key={index}
-            className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-              index === selectedIndex ? "bg-white" : "bg-white/50"
-            } cursor-pointer`}
+            className={`w-2 h-2 rounded-full transition-colors duration-300 ${index === selectedIndex ? "bg-white" : "bg-white/50"
+              } cursor-pointer`}
             onClick={() => scrollTo(index)}
           />
         ))}
