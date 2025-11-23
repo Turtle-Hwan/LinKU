@@ -6,7 +6,7 @@
 import { get, post, del, ENDPOINTS } from './client';
 import type {
   ApiResponse,
-  Alert,
+  GeneralAlert,
   AlertFilterParams,
   Department,
   Subscription,
@@ -20,9 +20,9 @@ import { getAlertsFromRSS } from './external/rss-parser';
  */
 export async function getAlerts(
   params?: AlertFilterParams
-): Promise<ApiResponse<Alert[]>> {
+): Promise<ApiResponse<GeneralAlert[]>> {
   try {
-    const result = await get<Alert[]>(ENDPOINTS.ALERTS.BASE, { params });
+    const result = await get<GeneralAlert[]>(ENDPOINTS.ALERTS.BASE, { params });
 
     // If API call succeeded, return the result
     if (result.success && result.status === 200) {
@@ -60,8 +60,8 @@ export async function getAlerts(
  * Get my alerts
  * Fetch alerts from subscribed departments
  */
-export async function getMyAlerts(): Promise<ApiResponse<Alert[]>> {
-  return get<Alert[]>(ENDPOINTS.ALERTS.MY);
+export async function getMyAlerts(): Promise<ApiResponse<GeneralAlert[]>> {
+  return get<GeneralAlert[]>(ENDPOINTS.ALERTS.MY);
 }
 
 /**
