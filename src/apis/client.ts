@@ -62,21 +62,23 @@ export const ENDPOINTS = {
 
 /**
  * Token Management
+ * Using chrome.storage.local for persistent token storage
  */
-function getAccessToken(): string | null {
-  return localStorage.getItem("accessToken");
+async function getAccessToken(): Promise<string | null> {
+  const result = await chrome.storage.local.get(["accessToken"]);
+  return result.accessToken || null;
 }
 
-function clearAccessToken(): void {
-  localStorage.removeItem("accessToken");
+async function clearAccessToken(): Promise<void> {
+  await chrome.storage.local.remove(["accessToken", "refreshToken", "guestToken"]);
 }
 
 /**
  * Request Interceptors
  */
-function applyRequestInterceptors(options: RequestInit): RequestInit {
+async function applyRequestInterceptors(options: RequestInit): Promise<RequestInit> {
   const headers = new Headers(options.headers);
-  const token = getAccessToken();
+  const token = await getAccessToken();
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -166,7 +168,7 @@ async function request<T = unknown>(
     }
 
     // Apply interceptors
-    requestOptions = applyRequestInterceptors(requestOptions);
+    requestOptions = await applyRequestInterceptors(requestOptions);
 
     // Fetch
     const response = await fetch(fullUrl, requestOptions);
@@ -192,6 +194,12 @@ async function request<T = unknown>(
         },
         status: response.status,
       };
+    }
+
+    // Extract data from backend 'result' field if present
+    if (data && typeof data === 'object' && 'result' in data) {
+      const backendResponse = data as { result: T };
+      data = backendResponse.result;
     }
 
     // Build API response

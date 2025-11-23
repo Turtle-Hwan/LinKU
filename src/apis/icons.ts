@@ -41,7 +41,7 @@ export async function renameIcon(
   iconId: number,
   newName: string
 ): Promise<ApiResponse<Icon>> {
-  return put<Icon>(ENDPOINTS.ICONS.RENAME(iconId), { iconName: newName });
+  return put<Icon>(ENDPOINTS.ICONS.RENAME(iconId), { name: newName });
 }
 
 /**
