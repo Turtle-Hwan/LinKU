@@ -74,10 +74,7 @@ function clearAccessToken(): void {
 /**
  * Request Interceptors
  */
-function applyRequestInterceptors(
-  url: string,
-  options: RequestInit
-): RequestInit {
+function applyRequestInterceptors(options: RequestInit): RequestInit {
   const headers = new Headers(options.headers);
   const token = getAccessToken();
 
@@ -169,7 +166,7 @@ async function request<T = unknown>(
     }
 
     // Apply interceptors
-    requestOptions = applyRequestInterceptors(fullUrl, requestOptions);
+    requestOptions = applyRequestInterceptors(requestOptions);
 
     // Fetch
     const response = await fetch(fullUrl, requestOptions);
