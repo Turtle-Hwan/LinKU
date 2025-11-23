@@ -19,13 +19,8 @@ export const BackButton = () => {
       if (!confirmed) return;
     }
 
-    // Try to close the tab first (for new tab editor)
-    // If that fails, navigate back
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      window.close();
-    }
+    // Navigate to template list page
+    navigate('/templates');
   };
 
   return (

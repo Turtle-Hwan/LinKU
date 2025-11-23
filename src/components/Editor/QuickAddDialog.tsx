@@ -1,6 +1,7 @@
 /**
  * Quick Add Dialog
  * Allows quick addition of links to the template with icon selection
+ * Includes both default and user-uploaded icons
  */
 
 import { useState, useEffect } from 'react';
@@ -15,8 +16,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getDefaultIcons } from '@/apis/icons';
-import type { Icon } from '@/types/api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useEditorContext } from '@/contexts/EditorContext';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -27,41 +28,25 @@ interface QuickAddDialogProps {
 }
 
 export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProps) => {
+  const { state } = useEditorContext();
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [selectedIconId, setSelectedIconId] = useState<number | null>(null);
-  const [icons, setIcons] = useState<Icon[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  // Load icons when dialog opens
+  // Reset form when dialog opens
   useEffect(() => {
     if (open) {
-      loadIcons();
-      // Reset form
       setName('');
       setUrl('');
-      setSelectedIconId(null);
-    }
-  }, [open]);
-
-  const loadIcons = async () => {
-    setLoading(true);
-    try {
-      const result = await getDefaultIcons();
-      if (result.success && result.data) {
-        setIcons(result.data);
-        // Auto-select first icon
-        if (result.data.length > 0) {
-          setSelectedIconId(result.data[0].iconId);
-        }
+      // Auto-select first available icon
+      const firstIcon = state.defaultIcons[0] || state.userIcons[0];
+      if (firstIcon) {
+        setSelectedIconId(firstIcon.id);
+      } else {
+        setSelectedIconId(null);
       }
-    } catch (error) {
-      console.error('Failed to load icons:', error);
-      toast.error('아이콘을 불러오는데 실패했습니다.');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [open, state.defaultIcons, state.userIcons]);
 
   const handleAdd = () => {
     // Validation
@@ -88,7 +73,7 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
       return;
     }
 
-    // Add link
+    // Add link with iconId
     onAdd({
       name: name.trim(),
       url: url.trim(),
@@ -99,13 +84,46 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
     onOpenChange(false);
   };
 
+  const renderIconGrid = (icons: typeof state.defaultIcons) => (
+    <div className="grid grid-cols-8 gap-2 max-h-64 overflow-y-auto p-2 border rounded-md">
+      {icons.length === 0 ? (
+        <div className="col-span-8 flex items-center justify-center py-8">
+          <p className="text-sm text-muted-foreground">아이콘이 없습니다</p>
+        </div>
+      ) : (
+        icons.map((icon) => (
+          <button
+            key={icon.id}
+            onClick={() => setSelectedIconId(icon.id)}
+            className={`
+              p-2 rounded-md border-2 transition-all
+              ${
+                selectedIconId === icon.id
+                  ? 'border-primary bg-primary/10'
+                  : 'border-transparent hover:border-gray-300'
+              }
+            `}
+            title={icon.name}
+            type="button"
+          >
+            <img
+              src={icon.imageUrl}
+              alt={icon.name}
+              className="w-full h-full object-contain"
+            />
+          </button>
+        ))
+      )}
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>빠른 링크 추가</DialogTitle>
           <DialogDescription>
-            링크 정보를 입력하고 아이콘을 선택하면 자동으로 캔버스에 추가됩니다.
+            링크 정보를 입력하고 아이콘을 선택하면 임시 저장 공간에 추가됩니다.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,39 +153,27 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
             />
           </div>
 
-          {/* Icon Selection */}
+          {/* Icon Selection with Tabs */}
           <div className="space-y-2">
             <Label>아이콘 선택</Label>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <p className="text-sm text-muted-foreground">아이콘 로딩 중...</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-8 gap-2 max-h-64 overflow-y-auto p-2 border rounded-md">
-                {icons.map((icon) => (
-                  <button
-                    key={icon.iconId}
-                    onClick={() => setSelectedIconId(icon.iconId)}
-                    className={`
-                      p-2 rounded-md border-2 transition-all
-                      ${
-                        selectedIconId === icon.iconId
-                          ? 'border-primary bg-primary/10'
-                          : 'border-transparent hover:border-gray-300'
-                      }
-                    `}
-                    title={icon.iconName}
-                    type="button"
-                  >
-                    <img
-                      src={icon.iconUrl}
-                      alt={icon.iconName}
-                      className="w-full h-full object-contain"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
+            <Tabs defaultValue="default" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="default">
+                  기본 아이콘 ({state.defaultIcons.length})
+                </TabsTrigger>
+                <TabsTrigger value="user">
+                  내 아이콘 ({state.userIcons.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="default" className="mt-2">
+                {renderIconGrid(state.defaultIcons)}
+              </TabsContent>
+
+              <TabsContent value="user" className="mt-2">
+                {renderIconGrid(state.userIcons)}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
@@ -175,7 +181,7 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             취소
           </Button>
-          <Button onClick={handleAdd} disabled={loading}>
+          <Button onClick={handleAdd}>
             <Plus className="h-4 w-4 mr-2" />
             추가
           </Button>

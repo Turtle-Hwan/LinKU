@@ -30,7 +30,7 @@ export const EditorHeader = () => {
         items: state.template.items.map((item) => ({
           name: item.name,
           siteUrl: item.siteUrl,
-          iconId: item.icon.iconId,
+          id: item.icon.id,
           position: item.position,
           size: item.size,
         })),

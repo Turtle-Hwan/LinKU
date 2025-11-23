@@ -25,7 +25,7 @@ export const TemplateCard = ({ template, onClick, className }: TemplateCardProps
         <h4 className="font-medium text-sm truncate">{template.name}</h4>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{template.itemCount || 0} items</span>
-          <span>{template.height}px</span>
+          <span>{template.height}행</span>
         </div>
       </div>
     </div>
