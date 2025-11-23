@@ -7,6 +7,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
@@ -15,8 +17,15 @@ import {
   loadECampusCredentials,
   clearECampusCredentials,
 } from "@/utils/credentials";
+import {
+  startGoogleLogin,
+  logout,
+  isLoggedIn,
+  getUserProfile,
+  UserProfile,
+} from "@/utils/oauth";
 import { eCampusLoginAPI } from "@/apis";
-import { Info } from "lucide-react";
+import { Info, Palette, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 interface SettingsDialogProps {
@@ -170,16 +179,237 @@ const ECampusCredential = () => {
   );
 };
 
+const GoogleOAuthSection = () => {
+  const [loggedIn, setLoggedIn] = useState<boolean>(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Check login status on mount
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  // Listen for auth events
+  useEffect(() => {
+    const handleLogout = () => {
+      setLoggedIn(false);
+      setUserProfile(null);
+    };
+
+    const handleUnauthorized = () => {
+      setLoggedIn(false);
+      setUserProfile(null);
+    };
+
+    window.addEventListener('auth:logout', handleLogout);
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+
+    return () => {
+      window.removeEventListener('auth:logout', handleLogout);
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, []);
+
+  const checkLoginStatus = async () => {
+    const loggedIn = await isLoggedIn();
+    setLoggedIn(loggedIn);
+
+    if (loggedIn) {
+      const profile = await getUserProfile();
+      setUserProfile(profile);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    sendButtonClick("google_login", "settings_dialog");
+
+    try {
+      const result = await startGoogleLogin();
+
+      if (result.success) {
+        setLoggedIn(true);
+        setUserProfile(result.response.profile);
+        toast.success("로그인 성공", {
+          description: `${result.response.profile.name}님 환영합니다!`,
+        });
+      } else {
+        toast.error("로그인 실패", {
+          description: result.error,
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("오류", {
+        description: "로그인 중 오류가 발생했습니다.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    sendButtonClick("google_logout", "settings_dialog");
+
+    await logout();
+    setLoggedIn(false);
+    setUserProfile(null);
+
+    toast.success("로그아웃 완료");
+  };
+
+  // Get initials for avatar fallback
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (!loggedIn) {
+    // Not logged in - show login button
+    return (
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold">Google 계정</h2>
+
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
+            <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Google 계정으로 로그인하면 템플릿을 서버에 저장하고 여러 기기에서 동기화할 수 있습니다.
+            </p>
+          </div>
+
+          <Button
+            onClick={handleGoogleLogin}
+            className="w-full"
+            disabled={isLoading}
+          >
+            {isLoading ? "로그인 중..." : "Google 로그인"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Logged in - show user profile
+  return (
+    <div className="space-y-4">
+      <h2 className="text-base font-semibold">Google 계정</h2>
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 rounded-lg border p-4">
+          <Avatar className="h-12 w-12">
+            <AvatarImage src={userProfile?.picture} alt={userProfile?.name} />
+            <AvatarFallback>
+              {userProfile ? getInitials(userProfile.name) : "??"}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="flex-1 min-w-0">
+            <p className="font-medium truncate">{userProfile?.name}</p>
+            <p className="text-sm text-muted-foreground truncate">
+              {userProfile?.email}
+            </p>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            title="로그아웃"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TemplateEditorSection = () => {
+  const handleOpenEditor = () => {
+    sendButtonClick("open_template_editor", "settings_dialog");
+
+    // 새 탭에서 템플릿 에디터 열기
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('index.html#/editor')
+    });
+
+    toast.success("템플릿 에디터를 새 탭에서 열었습니다.");
+  };
+
+  const handleOpenTemplateList = () => {
+    sendButtonClick("open_template_list", "settings_dialog");
+
+    // 새 탭에서 템플릿 목록 열기
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('index.html#/templates')
+    });
+
+    toast.success("템플릿 목록을 새 탭에서 열었습니다.");
+  };
+
+  return (
+    <div className="space-y-4 pt-4 border-t">
+      <h2 className="text-base font-semibold">템플릿 관리</h2>
+
+      <div className="space-y-3">
+        <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
+          <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            템플릿 에디터에서 나만의 홈페이지 바로가기 레이아웃을 만들고 편집할 수 있습니다.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            onClick={handleOpenTemplateList}
+            variant="outline"
+          >
+            내 템플릿 보기
+          </Button>
+          <Button
+            onClick={handleOpenEditor}
+            variant="outline"
+          >
+            <Palette className="h-4 w-4 mr-2" />
+            새 템플릿 만들기
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>설정</DialogTitle>
           <DialogDescription className="hidden">설정</DialogDescription>
         </DialogHeader>
 
-        <SettingsDialog.ECampusCredential />
+        <Tabs defaultValue="google" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="google">Google 계정</TabsTrigger>
+            <TabsTrigger value="ecampus">eCampus 계정</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="google" className="space-y-4 mt-4">
+            <SettingsDialog.GoogleOAuth />
+            <div className="pt-4">
+              <SettingsDialog.TemplateEditor />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ecampus" className="space-y-4 mt-4">
+            <SettingsDialog.ECampusCredential />
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter className="flex flex-row gap-2 space-x-0" />
       </DialogContent>
@@ -187,6 +417,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   );
 };
 
+SettingsDialog.GoogleOAuth = GoogleOAuthSection;
 SettingsDialog.ECampusCredential = ECampusCredential;
+SettingsDialog.TemplateEditor = TemplateEditorSection;
 
 export default SettingsDialog;
