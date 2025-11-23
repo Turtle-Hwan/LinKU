@@ -5,7 +5,8 @@
  */
 
 import { useParams } from 'react-router-dom';
-import { DndContext, DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { useState } from 'react';
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { EditorProvider, useEditorContext } from '@/contexts/EditorContext';
 import { EditorHeader } from '@/components/Editor/EditorHeader/EditorHeader';
 import { EditorCanvas } from '@/components/Editor/EditorCanvas/EditorCanvas';
@@ -16,6 +17,7 @@ import { toast } from 'sonner';
 
 const EditorContent = () => {
   const { state, dispatch } = useEditorContext();
+  const [activeDragItem, setActiveDragItem] = useState<any>(null);
 
   // Configure drag sensors
   const sensors = useSensors(
@@ -29,6 +31,9 @@ const EditorContent = () => {
   const handleDragStart = (event: DragStartEvent) => {
     const draggedId = event.active.id;
 
+    // Store active drag data for overlay
+    setActiveDragItem(event.active.data.current);
+
     // Check if it's a staging item (string id starting with 'staging-')
     if (typeof draggedId === 'string' && draggedId.startsWith('staging-')) {
       // Don't select staging items during drag
@@ -40,6 +45,9 @@ const EditorContent = () => {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    // Clear active drag item
+    setActiveDragItem(null);
+
     const { active, delta, over } = event;
     const draggedId = active.id;
 
@@ -121,6 +129,45 @@ const EditorContent = () => {
           <ItemPropertiesPanel />
         </div>
       </div>
+
+      {/* DragOverlay renders dragged items at root level, above all stacking contexts */}
+      <DragOverlay>
+        {activeDragItem ? (
+          activeDragItem.type === 'staging-item' ? (
+            // Staging item preview
+            <div className="border rounded-lg bg-white shadow-xl opacity-90">
+              <div className="flex flex-row items-center justify-start px-3 py-2 gap-2">
+                <div className="w-8 h-8 rounded-full bg-main/10 flex items-center justify-center shrink-0">
+                  <img
+                    src={activeDragItem.item.icon.imageUrl}
+                    alt={activeDragItem.item.icon.name}
+                    className="w-4 h-4 object-contain"
+                  />
+                </div>
+                <span className="flex-1 text-sm text-black truncate">
+                  {activeDragItem.item.name}
+                </span>
+              </div>
+            </div>
+          ) : (
+            // Canvas item preview
+            <div className="border border-primary rounded-lg bg-white shadow-xl opacity-90 px-4 py-2">
+              <div className="flex flex-row items-center justify-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
+                  <img
+                    src={activeDragItem?.icon?.imageUrl}
+                    alt={activeDragItem?.icon?.name}
+                    className="w-5 h-5 object-contain"
+                  />
+                </div>
+                <span className="text-base text-black">
+                  {activeDragItem?.name}
+                </span>
+              </div>
+            </div>
+          )
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 };

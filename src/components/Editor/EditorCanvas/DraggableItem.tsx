@@ -22,6 +22,7 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
   const { dispatch } = useEditorContext();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.templateItemId,
+    data: item, // Pass item data for DragOverlay
   });
 
   const [isResizing, setIsResizing] = useState(false);
@@ -38,8 +39,6 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
     width: pixelSize.width,
     height: pixelSize.height,
     transform: CSS.Translate.toString(transform),
-    // Highest z-index when dragging to appear above everything
-    ...(isDragging && { zIndex: 9999 }),
   };
 
   const handleClick = (e: React.MouseEvent) => {

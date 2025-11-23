@@ -502,7 +502,8 @@ export function resolveCollisions(
     // If we couldn't push to adjacent space, try swapping positions
     if (!pushed) {
       // Check if overlapped item can fit in moving item's original position
-      const otherItemsExcludingBoth = allItems.filter(
+      // IMPORTANT: Use current positions (not original) to check for overlaps
+      const otherItemsExcludingBoth = getCurrentItems().filter(
         (item) =>
           item.templateItemId !== movingItemId &&
           item.templateItemId !== overlappedItem.templateItemId
@@ -524,6 +525,24 @@ export function resolveCollisions(
     // If we couldn't push this item or swap, collision resolution failed
     if (!pushed) {
       return null;
+    }
+  }
+
+  // Final validation: ensure no items overlap after all position changes
+  const finalItems = getCurrentItems();
+  for (let i = 0; i < finalItems.length; i++) {
+    for (let j = i + 1; j < finalItems.length; j++) {
+      if (checkOverlap(
+        finalItems[i].position,
+        finalItems[i].size,
+        finalItems[j].position,
+        finalItems[j].size
+      )) {
+        // Items still overlap after resolution - this should never happen
+        // but if it does, reject the entire operation
+        console.error('Collision resolution failed: items still overlap', finalItems[i], finalItems[j]);
+        return null;
+      }
     }
   }
 

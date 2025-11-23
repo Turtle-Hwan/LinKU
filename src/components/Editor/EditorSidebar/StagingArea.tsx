@@ -25,7 +25,7 @@ export const StagingArea = () => {
       <div
         ref={setNodeRef}
         className={cn(
-          'min-h-[150px] max-h-[400px] border-2 border-dashed rounded-lg p-3 transition-colors overflow-y-auto',
+          'min-h-[150px] max-h-[400px] border-2 border-dashed rounded-lg p-3 transition-colors overflow-y-auto overflow-x-hidden',
           isOver ? 'border-primary bg-primary/5' : 'border-gray-300 bg-gray-50/50'
         )}
       >
