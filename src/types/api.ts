@@ -448,10 +448,10 @@ export interface Subscription {
 }
 
 /**
- * Alert filter parameters (only general notice categories can be filtered)
+ * Alert filter parameters (external alert categories can be filtered)
  */
 export interface AlertFilterParams {
-  category?: GeneralNoticeCategory;
+  category?: AlertCategory;
 }
 
 // ============================================================================

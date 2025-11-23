@@ -1,4 +1,4 @@
-import type { GeneralNoticeCategory } from "@/types/api";
+import type { AlertCategory } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -6,20 +6,19 @@ type AlertViewMode = "all" | "my";
 
 interface AlertFilterProps {
   viewMode: AlertViewMode;
-  selectedCategory: GeneralNoticeCategory | undefined;
+  selectedCategory: AlertCategory | undefined;
   onViewModeChange: (mode: AlertViewMode) => void;
-  onCategoryChange: (category: GeneralNoticeCategory | undefined) => void;
+  onCategoryChange: (category: AlertCategory | undefined) => void;
 }
 
-const categories: { value: GeneralNoticeCategory | undefined; label: string }[] = [
+const categories: { value: AlertCategory | undefined; label: string }[] = [
   { value: undefined, label: "전체" },
   { value: "일반", label: "일반" },
   { value: "학사", label: "학사" },
   { value: "학생", label: "학생" },
   { value: "장학", label: "장학" },
-  { value: "채용", label: "채용" },
+  { value: "취창업", label: "취창업" },
   { value: "국제", label: "국제" },
-  { value: "에너지 절약", label: "에너지 절약" },
 ];
 
 const AlertFilter = ({

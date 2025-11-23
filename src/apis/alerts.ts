@@ -17,38 +17,60 @@ import { getCareerAlertsFromHTML } from './external/html-parser';
 /**
  * Get filtered alerts by category
  * Fetch alerts with optional category filter
- * Falls back to RSS feed if API fails
+ * Falls back to external sources (RSS/HTML) for categories that fail via API
  */
 export async function getAlerts(
   params?: AlertFilterParams
 ): Promise<ApiResponse<GeneralAlert[]>> {
   try {
-    const result = await get<GeneralAlert[]>(ENDPOINTS.ALERTS.BASE, { params });
+    // If specific category is requested, try API first
+    if (params?.category) {
+      const result = await get<GeneralAlert[]>(ENDPOINTS.ALERTS.BASE, { params });
 
-    // If API call succeeded, return the result
+      // If API succeeded, return the result
+      if (result.success && result.status === 200) {
+        return result;
+      }
+
+      // If API failed for this category, fallback to external sources
+      console.warn(`API failed for category ${params.category}, falling back to external sources`);
+
+      const [rssAlerts, careerAlerts] = await Promise.all([
+        getAlertsFromRSS(),
+        getCareerAlertsFromHTML(6000),
+      ]);
+
+      const allAlerts = [...rssAlerts, ...careerAlerts];
+      const filteredAlerts = allAlerts.filter(alert => alert.category === params.category);
+
+      return {
+        success: true,
+        data: filteredAlerts,
+        status: 200,
+      };
+    }
+
+    // If no category specified, try API first for all categories
+    const result = await get<GeneralAlert[]>(ENDPOINTS.ALERTS.BASE);
+
+    // If API succeeded, return the result
     if (result.success && result.status === 200) {
       return result;
     }
 
-    // If API failed, fallback to external sources (RSS + HTML)
+    // If API failed, fallback to external sources for all categories
     console.warn("API failed, falling back to external sources");
 
-    // Fetch from both RSS and HTML sources in parallel
     const [rssAlerts, careerAlerts] = await Promise.all([
       getAlertsFromRSS(),
-      getCareerAlertsFromHTML(6000), // Different ID range for career alerts
+      getCareerAlertsFromHTML(6000),
     ]);
 
     const allAlerts = [...rssAlerts, ...careerAlerts];
 
-    // Filter by category if specified
-    const filteredAlerts = params?.category
-      ? allAlerts.filter(alert => alert.category === params.category)
-      : allAlerts;
-
     return {
       success: true,
-      data: filteredAlerts,
+      data: allAlerts,
       status: 200,
     };
   } catch (error) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getAlerts, getMyAlerts } from "@/apis";
-import type { Alert, GeneralNoticeCategory } from "@/types/api";
+import type { Alert, AlertCategory } from "@/types/api";
 import { getStorage, setStorage } from "@/utils/chrome";
 import AlertItem from "./AlertItem";
 import AlertFilter from "./AlertFilter";
@@ -17,7 +17,7 @@ const Alerts = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [viewMode, setViewMode] = useState<AlertViewMode>("all");
-  const [selectedCategory, setSelectedCategory] = useState<GeneralNoticeCategory | undefined>(undefined);
+  const [selectedCategory, setSelectedCategory] = useState<AlertCategory | undefined>(undefined);
   const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,7 +48,7 @@ const Alerts = () => {
   useEffect(() => {
     const loadSettings = async () => {
       const savedViewMode = await getStorage<AlertViewMode>(ALERT_VIEW_MODE_KEY);
-      const savedCategory = await getStorage<GeneralNoticeCategory>(ALERT_CATEGORY_KEY);
+      const savedCategory = await getStorage<AlertCategory>(ALERT_CATEGORY_KEY);
 
       if (savedViewMode) {
         setViewMode(savedViewMode);
@@ -72,7 +72,7 @@ const Alerts = () => {
   };
 
   // 카테고리 변경
-  const handleCategoryChange = async (category: GeneralNoticeCategory | undefined) => {
+  const handleCategoryChange = async (category: AlertCategory | undefined) => {
     setSelectedCategory(category);
     await setStorage({ [ALERT_CATEGORY_KEY]: category || null });
   };

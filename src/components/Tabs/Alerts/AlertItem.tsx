@@ -1,4 +1,4 @@
-import type { Alert, GeneralNoticeCategory } from "@/types/api";
+import type { Alert, AlertCategory } from "@/types/api";
 import { ExternalLink, Calendar, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -7,25 +7,23 @@ interface AlertItemProps {
 }
 
 // 일반 공지 카테고리별 라벨 (표시용)
-const categoryLabels: Record<GeneralNoticeCategory, string> = {
+const categoryLabels: Record<AlertCategory, string> = {
   "일반": "일반",
   "학사": "학사",
   "학생": "학생",
   "장학": "장학",
-  "채용": "채용",
+  "취창업": "취창업",
   "국제": "국제",
-  "에너지 절약": "에너지 절약",
 };
 
 // 일반 공지 카테고리별 색상
-const categoryColors: Record<GeneralNoticeCategory, string> = {
+const categoryColors: Record<AlertCategory, string> = {
   "일반": "bg-gray-100 text-gray-700",
   "학사": "bg-blue-100 text-blue-700",
   "학생": "bg-green-100 text-green-700",
   "장학": "bg-yellow-100 text-yellow-700",
-  "채용": "bg-purple-100 text-purple-700",
+  "취창업": "bg-orange-100 text-orange-700",
   "국제": "bg-cyan-100 text-cyan-700",
-  "에너지 절약": "bg-emerald-100 text-emerald-700",
 };
 
 const AlertItem = ({ alert }: AlertItemProps) => {
