@@ -22,12 +22,12 @@ const TabsLayout = () => {
       <div className="px-3">
         <TabsList className="w-full">
           <TabsTrigger value="LinkGroup">링크모음</TabsTrigger>
+          <TabsTrigger value="Alerts">공지사항</TabsTrigger>
           <TabsTrigger value="TimeTable">시간표</TabsTrigger>
           <TabsTrigger value="TodoList">
             <span>Todo List</span>
             <TodoCountBadge />
           </TabsTrigger>
-          <TabsTrigger value="Alerts">공지사항</TabsTrigger>
         </TabsList>
       </div>
 
