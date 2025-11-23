@@ -5,7 +5,10 @@ const CAREER_URL = "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do";
 /**
  * Parses HTML table and converts to GeneralAlert array for 취창업 category
  */
-const parseHTMLToAlerts = (htmlText: string, startId: number): GeneralAlert[] => {
+const parseHTMLToAlerts = (
+  htmlText: string,
+  startId: number
+): GeneralAlert[] => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlText, "text/html");
 
@@ -34,15 +37,22 @@ const parseHTMLToAlerts = (htmlText: string, startId: number): GeneralAlert[] =>
     const title = titleStrong.textContent?.trim() || "";
     const dateText = cells[3].textContent?.trim() || "";
 
-    // Extract article ID from javascript:jf_combBbs_view('konkuk','2','4083','1161958')
-    const onclickAttr = titleLink?.getAttribute("onclick") || "";
-    const idMatch = onclickAttr.match(/jf_combBbs_view\([^,]+,[^,]+,[^,]+,'(\d+)'\)/);
-    const articleId = idMatch ? idMatch[1] : "";
+    // Extract all 4 parameters from href="javascript:jf_combBbs_view('konkuk','2','4083','1161958');"
+    // Parameters: siteId, boardId, bbsId, artclId
+    const hrefAttr = titleLink?.getAttribute("href") || "";
+    const viewMatch = hrefAttr.match(
+      /jf_combBbs_view\('([^']+)','([^']+)','([^']+)','([^']+)'\)/
+    );
 
-    // Build URL
-    const url = articleId
-      ? `https://www.konkuk.ac.kr/combBbs/konkuk/2/artclView.do?layout=unknown&artclId=${articleId}`
+    // Build URL with correct format: /combBbs/{siteId}/{boardId}/{bbsId}/{artclId}/view.do
+    const url = viewMatch
+      ? `https://www.konkuk.ac.kr/combBbs/${viewMatch[1]}/${viewMatch[2]}/${viewMatch[3]}/${viewMatch[4]}/view.do`
       : "";
+
+    // Debug logging
+    if (!url) {
+      console.warn("Failed to parse URL from href:", hrefAttr, "Title:", title);
+    }
 
     // Convert date to ISO string (format: YYYY.MM.DD)
     let publishedAt = new Date().toISOString();
@@ -77,6 +87,7 @@ export const getCareerAlertsFromHTML = async (
   startId: number = 3001
 ): Promise<GeneralAlert[]> => {
   try {
+    console.log("Fetching career alerts from:", CAREER_URL);
     const response = await fetch(CAREER_URL);
 
     if (!response.ok) {
@@ -84,7 +95,9 @@ export const getCareerAlertsFromHTML = async (
     }
 
     const htmlText = await response.text();
-    return parseHTMLToAlerts(htmlText, startId);
+    const alerts = parseHTMLToAlerts(htmlText, startId);
+    console.log(`Parsed ${alerts.length} career alerts, sample:`, alerts[0]);
+    return alerts;
   } catch (error) {
     console.error("Error fetching career HTML:", error);
     return []; // Return empty array on error
