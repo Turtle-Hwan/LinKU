@@ -1,4 +1,4 @@
-import type { Alert } from "@/types/api";
+import type { Alert, GeneralNoticeCategory } from "@/types/api";
 import { ExternalLink, Calendar, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -6,22 +6,26 @@ interface AlertItemProps {
   alert: Alert;
 }
 
-// 카테고리 한글 매핑
-const categoryLabels: Record<string, string> = {
-  BASE: "일반",
-  ACADEMIC: "학사",
-  STUDENT: "학생",
-  EMPLOYMENT: "취업",
-  SCHOLARSHIP: "장학",
+// 일반 공지 카테고리별 라벨 (표시용)
+const categoryLabels: Record<GeneralNoticeCategory, string> = {
+  "일반": "일반",
+  "학사": "학사",
+  "학생": "학생",
+  "장학": "장학",
+  "채용": "채용",
+  "국제": "국제",
+  "에너지 절약": "에너지 절약",
 };
 
-// 카테고리별 색상
-const categoryColors: Record<string, string> = {
-  BASE: "bg-gray-100 text-gray-700",
-  ACADEMIC: "bg-blue-100 text-blue-700",
-  STUDENT: "bg-green-100 text-green-700",
-  EMPLOYMENT: "bg-purple-100 text-purple-700",
-  SCHOLARSHIP: "bg-yellow-100 text-yellow-700",
+// 일반 공지 카테고리별 색상
+const categoryColors: Record<GeneralNoticeCategory, string> = {
+  "일반": "bg-gray-100 text-gray-700",
+  "학사": "bg-blue-100 text-blue-700",
+  "학생": "bg-green-100 text-green-700",
+  "장학": "bg-yellow-100 text-yellow-700",
+  "채용": "bg-purple-100 text-purple-700",
+  "국제": "bg-cyan-100 text-cyan-700",
+  "에너지 절약": "bg-emerald-100 text-emerald-700",
 };
 
 const AlertItem = ({ alert }: AlertItemProps) => {
@@ -41,6 +45,10 @@ const AlertItem = ({ alert }: AlertItemProps) => {
 
   const isClickable = Boolean(alert.url);
 
+  // 일반 공지인지 학과 공지인지 구분
+  const isGeneralAlert = "category" in alert;
+  const isDepartmentAlert = "department" in alert;
+
   return (
     <div
       onClick={handleClick}
@@ -50,20 +58,24 @@ const AlertItem = ({ alert }: AlertItemProps) => {
         alert.isRead && "opacity-60"
       )}
     >
-      {/* 헤더: 카테고리와 학과 */}
+      {/* 헤더: 카테고리 또는 학과 */}
       <div className="flex items-center gap-2 mb-2">
-        <span
-          className={cn(
-            "px-2 py-1 rounded text-xs font-medium",
-            categoryColors[alert.category] || "bg-gray-100 text-gray-700"
-          )}
-        >
-          {categoryLabels[alert.category] || alert.category}
-        </span>
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Building2 className="h-3.5 w-3.5" />
-          <span>{alert.department.name}</span>
-        </div>
+        {isGeneralAlert && (
+          <span
+            className={cn(
+              "px-2 py-1 rounded text-xs font-medium",
+              categoryColors[alert.category]
+            )}
+          >
+            {categoryLabels[alert.category]}
+          </span>
+        )}
+        {isDepartmentAlert && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+            <Building2 className="h-3.5 w-3.5" />
+            <span>{alert.department.name}</span>
+          </div>
+        )}
       </div>
 
       {/* 제목 */}

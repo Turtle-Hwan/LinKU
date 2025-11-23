@@ -334,36 +334,97 @@ export interface VerifyCodeResponse {
 // ============================================================================
 
 /**
- * Alert category types
+ * General notice category types (departmentConfigId: 1-7)
+ * Based on backend departmentConfig
  */
-export type AlertCategory =
-  | "BASE"
-  | "ACADEMIC"
-  | "STUDENT"
-  | "EMPLOYMENT"
-  | "SCHOLARSHIP";
+export type GeneralNoticeCategory =
+  | "학사"
+  | "장학"
+  | "국제"
+  | "학생"
+  | "일반"
+  | "채용"
+  | "에너지 절약";
+
+/**
+ * Department category types (departmentConfigId: 8-34)
+ * Based on backend departmentConfig
+ */
+export type DepartmentCategory =
+  | "국어국문학과"
+  | "영어영문학과"
+  | "중어중문학과"
+  | "철학과"
+  | "사학과"
+  | "미디어커뮤니케이션학과"
+  | "문화콘텐츠학과"
+  | "정치외교학과"
+  | "경제학과"
+  | "행정학과"
+  | "국제무역학과"
+  | "응용통계학과"
+  | "융합인재학과"
+  | "수학과"
+  | "물리학과"
+  | "화학과"
+  | "전기전자공학부"
+  | "화학공학부"
+  | "컴퓨터공학부"
+  | "사회환경공학부"
+  | "기계항공공학부"
+  | "생물공학과"
+  | "산업공학과"
+  | "경영학과"
+  | "기술경영학과"
+  | "건축학부"
+  | "수의학과";
+
+/**
+ * Department configuration from backend
+ */
+export interface DepartmentConfig {
+  departmentConfigId: number;
+  departmentConfigName: string;
+}
 
 /**
  * Department entity
  */
 export interface Department {
   id: number;
-  name: string;
+  name: DepartmentCategory;
 }
 
 /**
- * Alert entity
+ * Alert entity (with general notice category)
  */
-export interface Alert {
+export interface GeneralAlert {
   alertId: number;
   title: string;
   content: string;
-  category: AlertCategory;
+  category: GeneralNoticeCategory;
+  url?: string;
+  publishedAt: string;
+  isRead?: boolean;
+}
+
+/**
+ * Alert entity (with department)
+ */
+export interface DepartmentAlert {
+  alertId: number;
+  title: string;
+  content: string;
   department: Department;
   url?: string;
   publishedAt: string;
   isRead?: boolean;
 }
+
+/**
+ * Alert entity (union type for exclusive relationship)
+ */
+export type Alert = GeneralAlert | DepartmentAlert;
 
 /**
  * Subscription entity
@@ -375,10 +436,10 @@ export interface Subscription {
 }
 
 /**
- * Alert filter parameters
+ * Alert filter parameters (only general notice categories can be filtered)
  */
 export interface AlertFilterParams {
-  category?: AlertCategory;
+  category?: GeneralNoticeCategory;
 }
 
 // ============================================================================
