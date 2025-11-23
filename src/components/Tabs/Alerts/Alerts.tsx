@@ -6,9 +6,7 @@ import { toast } from "sonner";
 import AlertItem from "./AlertItem";
 import AlertFilter from "./AlertFilter";
 import SubscriptionManager from "./SubscriptionManager";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings } from "lucide-react";
 
 type AlertViewMode = "all" | "my";
 
@@ -30,7 +28,7 @@ const Alerts = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [viewMode, setViewMode] = useState<AlertViewMode>("all");
   const [selectedCategory, setSelectedCategory] = useState<AlertCategory | undefined>(undefined);
-  const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
+  const showSubscriptionManager = false;
 
   // 공지사항 목록 가져오기
   const fetchAlerts = useCallback(async () => {
