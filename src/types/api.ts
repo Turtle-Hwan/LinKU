@@ -93,9 +93,9 @@ export interface RequestConfig {
  * Icon entity
  */
 export interface Icon {
-  iconId: number;
-  iconName: string;
-  iconUrl: string;
+  id: number;
+  name: string;
+  imageUrl: string;
   isDefault?: boolean;
   createdAt?: string;
 }
@@ -104,9 +104,9 @@ export interface Icon {
  * Response after uploading an icon
  */
 export interface CreateIconResponse {
-  iconId: number;
-  iconName: string;
-  iconUrl: string;
+  id: number;
+  name: string;
+  imageUrl: string;
 }
 
 // ============================================================================
@@ -114,7 +114,10 @@ export interface CreateIconResponse {
 // ============================================================================
 
 /**
- * Position coordinates for template items
+ * Position coordinates for template items (grid units)
+ * x: column index (0-5 for 6-column grid)
+ * y: row index (0-5 for 6-row grid)
+ * Example: { x: 0, y: 1 } = first column, second row
  */
 export interface Position {
   x: number;
@@ -122,7 +125,10 @@ export interface Position {
 }
 
 /**
- * Size dimensions for template items
+ * Size dimensions for template items (grid units)
+ * width: number of columns (1-6, typically 2 or 3)
+ * height: number of rows (typically 1)
+ * Example: { width: 2, height: 1 } = spans 2 columns, 1 row
  */
 export interface Size {
   width: number;
@@ -147,7 +153,7 @@ export interface TemplateItem {
 export interface TemplateItemRequest {
   name: string;
   siteUrl: string;
-  iconId: number;
+  id: number;
   position: Position;
   size: Size;
 }
@@ -158,7 +164,7 @@ export interface TemplateItemRequest {
 export interface Template extends BaseEntity {
   templateId: number;
   name: string;
-  height: number;
+  height: number; // Template height in rows (e.g., 6 for 6-row grid)
   cloned: boolean;
   items: TemplateItem[];
 }
