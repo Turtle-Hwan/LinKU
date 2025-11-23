@@ -12,6 +12,7 @@ import type {
   Subscription,
 } from '../types/api';
 import { getAlertsFromRSS } from './external/rss-parser';
+import { getCareerAlertsFromHTML } from './external/html-parser';
 
 /**
  * Get filtered alerts by category
@@ -29,14 +30,21 @@ export async function getAlerts(
       return result;
     }
 
-    // If API failed, fallback to RSS
-    console.warn("API failed, falling back to RSS feed");
-    const rssAlerts = await getAlertsFromRSS();
+    // If API failed, fallback to external sources (RSS + HTML)
+    console.warn("API failed, falling back to external sources");
+
+    // Fetch from both RSS and HTML sources in parallel
+    const [rssAlerts, careerAlerts] = await Promise.all([
+      getAlertsFromRSS(),
+      getCareerAlertsFromHTML(6000), // Different ID range for career alerts
+    ]);
+
+    const allAlerts = [...rssAlerts, ...careerAlerts];
 
     // Filter by category if specified
     const filteredAlerts = params?.category
-      ? rssAlerts.filter(alert => alert.category === params.category)
-      : rssAlerts;
+      ? allAlerts.filter(alert => alert.category === params.category)
+      : allAlerts;
 
     return {
       success: true,
@@ -44,8 +52,8 @@ export async function getAlerts(
       status: 200,
     };
   } catch (error) {
-    // If both API and RSS fail, return error
-    console.error("Both API and RSS failed:", error);
+    // If API and external sources fail, return error
+    console.error("API and external sources failed:", error);
     return {
       success: false,
       error: {

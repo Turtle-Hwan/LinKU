@@ -347,10 +347,16 @@ export type GeneralNoticeCategory =
   | "에너지 절약";
 
 /**
- * Alert category type for RSS parsing
- * Subset of GeneralNoticeCategory with available RSS feeds
+ * RSS-based alert categories
+ * Categories that have RSS feeds
  */
-export type AlertCategory = "학사" | "장학" | "취창업" | "국제" | "학생";
+export type RSSAlertCategory = "학사" | "장학" | "국제" | "학생" | "일반";
+
+/**
+ * Alert category type for external sources
+ * Includes both RSS and HTML-based categories
+ */
+export type AlertCategory = RSSAlertCategory | "취창업";
 
 /**
  * Department category types (departmentConfigId: 8-34)

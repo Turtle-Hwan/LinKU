@@ -1,14 +1,14 @@
-import type { GeneralAlert, AlertCategory } from "../../types/api";
+import type { GeneralAlert, RSSAlertCategory } from "../../types/api";
 
 /**
  * RSS URL configuration for each category
  */
-const RSS_URLS: Record<AlertCategory, string> = {
+const RSS_URLS: Record<RSSAlertCategory, string> = {
   학사: "https://www.konkuk.ac.kr/bbs/konkuk/234/rssList.do?row=50",
   장학: "https://www.konkuk.ac.kr/bbs/konkuk/235/rssList.do?row=50",
-  취창업: "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do",
   국제: "https://www.konkuk.ac.kr/bbs/konkuk/237/rssList.do?row=50",
   학생: "https://www.konkuk.ac.kr/bbs/konkuk/238/rssList.do?row=50",
+  일반: "https://www.konkuk.ac.kr/bbs/konkuk/240/rssList.do?row=50",
 };
 
 /**
@@ -16,7 +16,7 @@ const RSS_URLS: Record<AlertCategory, string> = {
  */
 const parseRSSToAlerts = (
   xmlText: string,
-  category: AlertCategory,
+  category: RSSAlertCategory,
   startId: number
 ): GeneralAlert[] => {
   const parser = new DOMParser();
@@ -59,7 +59,7 @@ const parseRSSToAlerts = (
  * Fetches alerts from a single RSS feed
  */
 const fetchRSSByCategory = async (
-  category: AlertCategory,
+  category: RSSAlertCategory,
   startId: number
 ): Promise<GeneralAlert[]> => {
   try {
@@ -84,7 +84,13 @@ const fetchRSSByCategory = async (
  */
 export const getAlertsFromRSS = async (): Promise<GeneralAlert[]> => {
   try {
-    const categories: AlertCategory[] = ["학사", "장학", "취창업", "국제", "학생"];
+    const categories: RSSAlertCategory[] = [
+      "학사",
+      "장학",
+      "국제",
+      "학생",
+      "일반",
+    ];
 
     // Fetch all RSS feeds in parallel
     const results = await Promise.all(
