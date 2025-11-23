@@ -114,8 +114,12 @@ export const EditorHeader = () => {
           className="w-64"
           placeholder="템플릿 이름"
         />
-        {state.isDirty && (
-          <span className="text-sm text-muted-foreground">• 저장되지 않음</span>
+        {state.isSaving ? (
+          <span className="text-sm text-muted-foreground">• 저장 중...</span>
+        ) : state.isDirty ? (
+          <span className="text-sm text-yellow-600">• 저장되지 않음</span>
+        ) : (
+          <span className="text-sm text-green-600">• 저장 완료됨</span>
         )}
       </div>
 
