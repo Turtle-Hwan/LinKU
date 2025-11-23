@@ -1,10 +1,14 @@
+/**
+ * App.tsx - Root Layout Component
+ * Standard React Router v6 pattern: App contains Outlet for child routes
+ */
+
 import { useEffect } from "react";
-import "./App.css";
+import { Outlet } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
-import MainLayout from "./components/MainLayout";
-import TabsLayout from "./components/TabsLayout";
 import { Toaster } from "./components/ui/sonner";
 import { sendPageView } from "./utils/analytics";
+import "./App.css";
 
 function App() {
   console.log(
@@ -36,9 +40,10 @@ function App() {
         </div>
       }
     >
-      <MainLayout>
-        <TabsLayout />
-      </MainLayout>
+      {/* Outlet: React Router가 여기에 자식 라우트를 렌더링 */}
+      <Outlet />
+
+      {/* Global Toast Notifications */}
       <Toaster duration={2000} />
     </ErrorBoundary>
   );
