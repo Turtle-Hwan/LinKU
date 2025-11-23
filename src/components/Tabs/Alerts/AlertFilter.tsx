@@ -21,14 +21,14 @@ const AlertFilter = ({
       >
         모든 공지
       </Button>
-      <Button
+      {/* <Button
         variant={viewMode === "my" ? "default" : "ghost"}
         size="sm"
         onClick={() => onViewModeChange("my")}
         className="h-8 px-3"
       >
         내 공지
-      </Button>
+      </Button> */}
     </div>
   );
 };

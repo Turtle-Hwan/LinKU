@@ -113,7 +113,7 @@ const Alerts = () => {
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
           />
-          <Button
+          {/* <Button
             variant="outline"
             size="sm"
             onClick={() => setShowSubscriptionManager(!showSubscriptionManager)}
@@ -121,7 +121,7 @@ const Alerts = () => {
           >
             <Settings className="h-4 w-4" />
             구독 관리
-          </Button>
+          </Button> */}
         </div>
 
         {/* 두 번째 줄: 카테고리 필터 (모든 공지 모드일 때만 표시) */}
