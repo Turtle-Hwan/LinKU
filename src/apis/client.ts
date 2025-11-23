@@ -175,10 +175,23 @@ async function request<T = unknown>(
     const contentType = response.headers.get("content-type");
     let data: T;
 
-    if (contentType?.includes("application/json")) {
-      data = await response.json();
-    } else {
-      data = (await response.text()) as T;
+    try {
+      if (contentType?.includes("application/json")) {
+        data = await response.json();
+      } else {
+        data = (await response.text()) as T;
+      }
+    } catch (parseError) {
+      console.error("Response parsing error:", parseError);
+      // If parsing fails, return error response
+      return {
+        success: false,
+        error: {
+          code: "PARSE_ERROR",
+          message: `응답 파싱 실패: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        },
+        status: response.status,
+      };
     }
 
     // Build API response

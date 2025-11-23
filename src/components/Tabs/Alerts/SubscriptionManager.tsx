@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   getSubscriptions,
   getMySubscriptions,
@@ -17,12 +17,10 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [allDepartments, setAllDepartments] = useState<Department[]>([]);
   const [mySubscriptions, setMySubscriptions] = useState<Subscription[]>([]);
-  const [error, setError] = useState("");
 
   // 구독 목록 불러오기
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     setIsLoading(true);
-    setError("");
 
     try {
       const [departmentsResult, subscriptionsResult] = await Promise.all([
@@ -33,7 +31,7 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
       if (departmentsResult.success && departmentsResult.data) {
         setAllDepartments(departmentsResult.data);
       } else {
-        setError(departmentsResult.error?.message || "학과 목록을 불러오는데 실패했습니다.");
+        toast.error(departmentsResult.error?.message || "학과 목록을 불러오는데 실패했습니다.");
       }
 
       if (subscriptionsResult.success && subscriptionsResult.data) {
@@ -41,15 +39,15 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
       }
     } catch (error) {
       console.error("Error fetching subscription data:", error);
-      setError("데이터를 불러오는 중 오류가 발생했습니다.");
+      toast.error("데이터를 불러오는 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, []);
 
   // 구독 여부 확인
   const isSubscribed = (departmentId: number) => {
@@ -98,14 +96,6 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
         <div className="flex justify-center p-4">
           <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full"></div>
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="border rounded-lg p-4">
-        <p className="text-sm text-destructive">{error}</p>
       </div>
     );
   }
