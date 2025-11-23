@@ -19,13 +19,13 @@ export const StagingArea = () => {
   };
 
   return (
-    <div className="flex-1 p-4 min-h-[200px]">
+    <div className="flex-1 p-4 min-h-[200px] overflow-hidden">
       <h3 className="font-semibold text-sm mb-3">임시 저장 공간</h3>
 
       <div
         ref={setNodeRef}
         className={cn(
-          'min-h-[150px] border-2 border-dashed rounded-lg p-3 transition-colors',
+          'min-h-[150px] max-h-[400px] border-2 border-dashed rounded-lg p-3 transition-colors overflow-y-auto',
           isOver ? 'border-primary bg-primary/5' : 'border-gray-300 bg-gray-50/50'
         )}
       >

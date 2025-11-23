@@ -69,8 +69,8 @@ export const ItemPropertiesPanel = () => {
       return;
     }
 
-    if (name.trim().length > 10) {
-      toast.error('링크 이름은 10자 이하로 입력해주세요.');
+    if (name.trim().length > 15) {
+      toast.error('링크 이름은 15자 이하로 입력해주세요.');
       return;
     }
 
@@ -158,7 +158,7 @@ export const ItemPropertiesPanel = () => {
             key={icon.id}
             onClick={() => setSelectedIconId(icon.id)}
             className={`
-              p-2 rounded-md border-2 transition-all
+              aspect-square p-2 rounded-md border-2 transition-all
               ${
                 selectedIconId === icon.id
                   ? 'border-primary bg-primary/10'
@@ -192,13 +192,19 @@ export const ItemPropertiesPanel = () => {
 
         {/* Name Input */}
         <div className="space-y-2">
-          <Label htmlFor="item-name" className="text-xs">링크 이름</Label>
+          <Label htmlFor="item-name" className="text-xs">링크 이름 (최대 15자)</Label>
           <Input
             id="item-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= 15) {
+                setName(value);
+              }
+            }}
             placeholder="예: 이캠퍼스"
             className="h-8 text-sm"
+            maxLength={15}
           />
         </div>
 

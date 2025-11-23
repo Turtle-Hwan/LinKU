@@ -58,6 +58,13 @@ const EditorContent = () => {
     const item = state.template?.items.find((i) => i.templateItemId === itemId);
     if (!item || !state.template) return;
 
+    // Check if canvas item is dropped on staging area
+    if (over && over.id === 'staging-area') {
+      dispatch({ type: 'MOVE_TO_STAGING', payload: itemId });
+      toast.info('아이템이 임시 저장 공간으로 이동되었습니다.');
+      return;
+    }
+
     // Convert grid position to pixel, add delta, then convert back to grid
     const currentPixelPos = gridToPixelPosition(item.position);
     const newPixelPos = {
