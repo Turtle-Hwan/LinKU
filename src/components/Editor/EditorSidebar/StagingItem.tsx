@@ -1,11 +1,12 @@
 /**
  * Staging Item - Template item in staging area (temporary storage)
- * Can be dragged to canvas
+ * Can be dragged to canvas and selected for editing
  */
 
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { TemplateItem } from '@/types/api';
+import { useEditorContext } from '@/contexts/EditorContext';
 import { cn } from '@/lib/utils';
 import { Trash2 } from 'lucide-react';
 
@@ -15,6 +16,7 @@ interface StagingItemProps {
 }
 
 export const StagingItem = ({ item, onDelete }: StagingItemProps) => {
+  const { state, dispatch } = useEditorContext();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `staging-${item.templateItemId}`,
     data: {
@@ -23,8 +25,15 @@ export const StagingItem = ({ item, onDelete }: StagingItemProps) => {
     },
   });
 
+  const isSelected = state.selectedItemId === item.templateItemId;
+
   const style = {
     transform: CSS.Translate.toString(transform),
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    dispatch({ type: 'SELECT_ITEM', payload: item.templateItemId });
   };
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -38,10 +47,13 @@ export const StagingItem = ({ item, onDelete }: StagingItemProps) => {
       style={style}
       className={cn(
         'relative group border rounded-lg bg-white transition-all cursor-move',
-        'hover:bg-gray-50 hover:border-primary',
-        'border-gray-200',
+        'hover:bg-gray-50',
+        // Selected state
+        isSelected && 'border-primary ring-2 ring-primary/20',
+        !isSelected && 'border-gray-200 hover:border-primary',
         isDragging && 'opacity-50 shadow-lg'
       )}
+      onClick={handleClick}
       {...listeners}
       {...attributes}
     >
@@ -61,11 +73,14 @@ export const StagingItem = ({ item, onDelete }: StagingItemProps) => {
         </span>
       </div>
 
-      {/* Delete button (appears on hover) */}
+      {/* Delete button (appears on hover or when selected) */}
       <button
         onClick={handleDelete}
-        className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
-        title="삭제"
+        className={cn(
+          'absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded transition-opacity',
+          isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        )}
+        title="영구 삭제"
       >
         <Trash2 className="h-3 w-3" />
       </button>

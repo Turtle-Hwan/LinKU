@@ -9,17 +9,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trash2, Save } from 'lucide-react';
+import { Trash2, Save, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { GRID_CONFIG } from '@/utils/template';
 
 export const ItemPropertiesPanel = () => {
   const { state, dispatch } = useEditorContext();
 
-  // Find selected item
-  const selectedItem = state.template?.items.find(
+  // Find selected item (search both canvas and staging items)
+  const selectedCanvasItem = state.template?.items.find(
     (item) => item.templateItemId === state.selectedItemId
   );
+  const selectedStagingItem = state.stagingItems.find(
+    (item) => item.templateItemId === state.selectedItemId
+  );
+  const selectedItem = selectedCanvasItem || selectedStagingItem;
+  const isFromStaging = !!selectedStagingItem;
 
   // Local state for form fields
   const [name, setName] = useState('');
@@ -57,6 +62,8 @@ export const ItemPropertiesPanel = () => {
   }
 
   const handleSave = () => {
+    if (!selectedItem) return;
+
     if (!name.trim()) {
       toast.error('링크 이름을 입력해주세요.');
       return;
@@ -96,9 +103,9 @@ export const ItemPropertiesPanel = () => {
     const clampedPosX = Math.max(0, Math.min(GRID_CONFIG.COLS - clampedWidth, posX));
     const clampedPosY = Math.max(0, Math.min(GRID_CONFIG.ROWS - clampedHeight, posY));
 
-    // Update item
+    // Update item (use different action based on location)
     dispatch({
-      type: 'UPDATE_ITEM',
+      type: isFromStaging ? 'UPDATE_STAGING_ITEM' : 'UPDATE_ITEM',
       payload: {
         id: selectedItem.templateItemId,
         changes: {
@@ -115,8 +122,23 @@ export const ItemPropertiesPanel = () => {
   };
 
   const handleDelete = () => {
-    dispatch({ type: 'MOVE_TO_STAGING', payload: selectedItem.templateItemId });
-    toast.info('아이템이 임시 저장 공간으로 이동되었습니다.');
+    if (!selectedItem) return;
+
+    if (isFromStaging) {
+      // Permanently delete from staging
+      dispatch({ type: 'REMOVE_FROM_STAGING', payload: selectedItem.templateItemId });
+      toast.info('아이템이 영구 삭제되었습니다.');
+    } else {
+      // Move canvas item to staging
+      dispatch({ type: 'MOVE_TO_STAGING', payload: selectedItem.templateItemId });
+      toast.info('아이템이 임시 저장 공간으로 이동되었습니다.');
+    }
+  };
+
+  const handleMoveToCanvas = () => {
+    if (!selectedItem || !isFromStaging) return;
+    dispatch({ type: 'MOVE_TO_CANVAS', payload: selectedItem.templateItemId });
+    toast.success('아이템이 캔버스에 추가되었습니다.');
   };
 
   const renderIconGrid = (icons: typeof state.defaultIcons) => (
@@ -283,22 +305,56 @@ export const ItemPropertiesPanel = () => {
             <Save className="h-4 w-4 mr-2" />
             변경사항 저장
           </Button>
-          <Button
-            onClick={handleDelete}
-            variant="destructive"
-            className="w-full h-9"
-            size="sm"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            임시 저장 공간으로 이동
-          </Button>
+
+          {isFromStaging ? (
+            <>
+              <Button
+                onClick={handleMoveToCanvas}
+                className="w-full h-9"
+                size="sm"
+                variant="outline"
+              >
+                <ArrowRight className="h-4 w-4 mr-2" />
+                캔버스에 추가
+              </Button>
+              <Button
+                onClick={handleDelete}
+                variant="destructive"
+                className="w-full h-9"
+                size="sm"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                영구 삭제
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={handleDelete}
+              variant="destructive"
+              className="w-full h-9"
+              size="sm"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              임시 저장 공간으로 이동
+            </Button>
+          )}
         </div>
 
         {/* Info */}
         <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
-          <p>💡 드래그하여 위치 조절</p>
-          <p>💡 우하단 핸들로 크기 조절</p>
-          <p>💡 캔버스를 클릭하면 선택 해제</p>
+          {isFromStaging ? (
+            <>
+              <p>💡 임시 저장 공간의 아이템입니다</p>
+              <p>💡 드래그하여 캔버스에 추가 가능</p>
+              <p>💡 영구 삭제 시 복구할 수 없습니다</p>
+            </>
+          ) : (
+            <>
+              <p>💡 드래그하여 위치 조절</p>
+              <p>💡 우하단 핸들로 크기 조절</p>
+              <p>💡 캔버스를 클릭하면 선택 해제</p>
+            </>
+          )}
         </div>
       </div>
     </aside>
