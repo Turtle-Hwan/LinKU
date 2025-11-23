@@ -33,7 +33,7 @@ export interface PaginationParams {
   page?: number;
   limit?: number;
   sort?: string;
-  order?: 'asc' | 'desc';
+  order?: "asc" | "desc";
 }
 
 /**
@@ -74,14 +74,14 @@ export interface BaseEntity extends Timestamps {
 /**
  * HTTP methods
  */
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 /**
  * Request configuration
  */
 export interface RequestConfig {
   headers?: Record<string, string>;
-  params?: any;
+  params?: unknown;
   timeout?: number;
 }
 
@@ -248,7 +248,7 @@ export interface PostedTemplateSummary {
  * Query parameters for posted templates list
  */
 export interface PostedTemplateListParams {
-  sort?: 'latest' | 'popular' | 'mostLiked' | 'mostCloned';
+  sort?: "latest" | "popular" | "mostLiked" | "mostCloned";
   query?: string;
   page?: number;
   limit?: number;
@@ -336,7 +336,12 @@ export interface VerifyCodeResponse {
 /**
  * Alert category types
  */
-export type AlertCategory = 'BASE' | 'ACADEMIC' | 'STUDENT' | 'EMPLOYMENT' | 'SCHOLARSHIP';
+export type AlertCategory =
+  | "BASE"
+  | "ACADEMIC"
+  | "STUDENT"
+  | "EMPLOYMENT"
+  | "SCHOLARSHIP";
 
 /**
  * Department entity
