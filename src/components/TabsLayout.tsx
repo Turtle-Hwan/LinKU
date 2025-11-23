@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LinkGroup from "./Tabs/LinkGroup";
 import TodoList from "./Tabs/TodoList/TodoList";
 import TodoCountBadge from "./Tabs/TodoList/TodoCountBadge";
+import Alerts from "./Tabs/Alerts/Alerts";
 import { sendTabChange } from "@/utils/analytics";
 
 const TabsLayout = () => {
@@ -10,7 +11,8 @@ const TabsLayout = () => {
     const tabNames = {
       LinkGroup: "링크모음",
       TimeTable: "시간표",
-      TodoList: "Todo List"
+      TodoList: "Todo List",
+      Alerts: "공지사항"
     };
     sendTabChange(tabNames[value] || value);
   };
@@ -18,13 +20,14 @@ const TabsLayout = () => {
   return (
     <Tabs defaultValue="LinkGroup" className="w-full" onValueChange={handleTabChange}>
       <div className="px-3">
-        <TabsList className="w-full grid grid-cols-3">
+        <TabsList className="w-full">
           <TabsTrigger value="LinkGroup">링크모음</TabsTrigger>
           <TabsTrigger value="TimeTable">시간표</TabsTrigger>
           <TabsTrigger value="TodoList">
             <span>Todo List</span>
             <TodoCountBadge />
           </TabsTrigger>
+          <TabsTrigger value="Alerts">공지사항</TabsTrigger>
         </TabsList>
       </div>
 
@@ -38,6 +41,9 @@ const TabsLayout = () => {
       </TabsContent>
       <TabsContent value="TodoList">
         <TodoList />
+      </TabsContent>
+      <TabsContent value="Alerts">
+        <Alerts />
       </TabsContent>
     </Tabs>
   );
