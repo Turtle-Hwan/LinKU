@@ -1,21 +1,29 @@
-import { LinkList } from "@/constants/LinkList";
+import { LinkList, LinkListElement } from "@/constants/LinkList";
 import { getCurrentTab } from "@/utils/chrome";
 import { sendLinkClick } from "@/utils/analytics";
 import React, { use } from "react";
 
-const LinkGroup = () => {
-  return <LinkGroup.Grid />;
+interface LinkGroupProps {
+  items?: LinkListElement[];
+}
+
+const LinkGroup = ({ items = LinkList }: LinkGroupProps) => {
+  return <LinkGroup.Grid items={items} />;
 };
 
 const tabPromise = getCurrentTab();
 
-const Grid = () => {
+interface GridProps {
+  items: LinkListElement[];
+}
+
+const Grid = ({ items }: GridProps) => {
   const tab = use(tabPromise);
   const tabHostname = tab?.url ? new URL(tab.url).hostname : "";
 
   return (
     <div className="Link__Grid grid grid-cols-6 gap-3 p-3 mt-auto border-t">
-      {LinkList.map((item, idx) => {
+      {items.map((item, idx) => {
         const isSameHost =
           new URL(item.link).hostname === tabHostname && item.samehost;
         const GridItem = isSameHost
