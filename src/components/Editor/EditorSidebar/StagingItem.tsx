@@ -44,9 +44,15 @@ export const StagingItem = ({ item, onDelete }: StagingItemProps) => {
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...style,
+        // High z-index when dragging to appear above canvas
+        ...(isDragging && { zIndex: 9999 }),
+      }}
       className={cn(
-        'relative group border rounded-lg bg-white transition-all cursor-move',
+        'relative group border rounded-lg bg-white cursor-move',
+        // Only apply transitions when not dragging
+        !isDragging && 'transition-all',
         'hover:bg-gray-50',
         // Selected state
         isSelected && 'border-primary ring-2 ring-primary/20',

@@ -428,6 +428,7 @@ function getPrioritizedDirections(
 /**
  * Resolve collisions by pushing overlapping items away
  * New logic: Only push items by 1 grid cell, prioritize adjacent spaces
+ * Also supports swapping positions when no adjacent space is available
  * Returns updated positions for all affected items, or null if resolution impossible
  */
 export function resolveCollisions(
@@ -437,6 +438,8 @@ export function resolveCollisions(
 ): Map<number, Position> | null {
   const movingItem = allItems.find((item) => item.templateItemId === movingItemId);
   if (!movingItem) return null;
+
+  const originalPosition = movingItem.position;
 
   // Create a map to track position changes
   const positionChanges = new Map<number, Position>();
@@ -496,7 +499,29 @@ export function resolveCollisions(
       }
     }
 
-    // If we couldn't push this item within 1 grid cell range, collision resolution failed
+    // If we couldn't push to adjacent space, try swapping positions
+    if (!pushed) {
+      // Check if overlapped item can fit in moving item's original position
+      const otherItemsExcludingBoth = allItems.filter(
+        (item) =>
+          item.templateItemId !== movingItemId &&
+          item.templateItemId !== overlappedItem.templateItemId
+      );
+
+      const swapOverlaps = findOverlappingItems(
+        originalPosition,
+        overlappedItem.size,
+        otherItemsExcludingBoth
+      );
+
+      if (swapOverlaps.length === 0 && isWithinGridBounds(originalPosition, overlappedItem.size)) {
+        // Swap is possible!
+        positionChanges.set(overlappedItem.templateItemId, originalPosition);
+        pushed = true;
+      }
+    }
+
+    // If we couldn't push this item or swap, collision resolution failed
     if (!pushed) {
       return null;
     }

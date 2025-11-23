@@ -69,6 +69,11 @@ export const ItemPropertiesPanel = () => {
       return;
     }
 
+    if (name.trim().length > 10) {
+      toast.error('링크 이름은 10자 이하로 입력해주세요.');
+      return;
+    }
+
     if (!url.trim()) {
       toast.error('링크 URL을 입력해주세요.');
       return;
@@ -142,9 +147,9 @@ export const ItemPropertiesPanel = () => {
   };
 
   const renderIconGrid = (icons: typeof state.defaultIcons) => (
-    <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
+    <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
       {icons.length === 0 ? (
-        <div className="col-span-6 flex items-center justify-center py-4">
+        <div className="col-span-4 flex items-center justify-center py-4">
           <p className="text-xs text-muted-foreground">아이콘이 없습니다</p>
         </div>
       ) : (
