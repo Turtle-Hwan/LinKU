@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getAlerts, getMyAlerts } from "@/apis";
 import type { Alert, AlertCategory } from "@/types/api";
 import { getStorage, setStorage } from "@/utils/chrome";
+import { toast } from "sonner";
 import AlertItem from "./AlertItem";
 import AlertFilter from "./AlertFilter";
 import SubscriptionManager from "./SubscriptionManager";
@@ -30,12 +31,10 @@ const Alerts = () => {
   const [viewMode, setViewMode] = useState<AlertViewMode>("all");
   const [selectedCategory, setSelectedCategory] = useState<AlertCategory | undefined>(undefined);
   const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
-  const [error, setError] = useState("");
 
   // 공지사항 목록 가져오기
   const fetchAlerts = useCallback(async () => {
     setIsLoading(true);
-    setError("");
 
     try {
       const result = viewMode === "all"
@@ -54,11 +53,11 @@ const Alerts = () => {
 
         setAlerts(sortedData);
       } else {
-        setError(result.error?.message || "공지사항을 불러오는데 실패했습니다.");
+        toast.error(result.error?.message || "공지사항을 불러오는데 실패했습니다.");
       }
     } catch (error) {
       console.error("Error fetching alerts:", error);
-      setError("공지사항을 불러오는 중 오류가 발생했습니다.");
+      toast.error("공지사항을 불러오는 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
@@ -156,19 +155,16 @@ const Alerts = () => {
           <div className="flex justify-center p-8">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
-        ) : error ? (
-          <div className="text-center p-8 text-muted-foreground">
-            <p>{error}</p>
-          </div>
         ) : alerts.length > 0 ? (
           alerts.map((alert) => (
             <AlertItem key={alert.alertId} alert={alert} />
           ))
         ) : (
           <div className="text-center p-8 text-muted-foreground">
-            <p>공지사항이 없습니다</p>
-            {viewMode === "my" && (
-              <p className="text-sm mt-2">구독 관리에서 학과를 구독해보세요!</p>
+            {viewMode === "my" ? (
+              <p>공지사항이 없습니다~ 구독 관리에서 학과를 구독해보세요!</p>
+            ) : (
+              <p>공지사항이 없습니다</p>
             )}
           </div>
         )}
