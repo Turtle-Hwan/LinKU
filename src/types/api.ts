@@ -167,6 +167,7 @@ export interface Template extends BaseEntity {
   height: number; // Template height in rows (e.g., 6 for 6-row grid)
   cloned: boolean;
   items: TemplateItem[];
+  syncStatus?: 'local' | 'synced'; // Local-only or synced with server
 }
 
 /**
@@ -207,6 +208,7 @@ export interface TemplateSummary {
   createdAt: string;
   updatedAt: string;
   itemCount?: number;
+  syncStatus?: 'local' | 'synced'; // Local-only or synced with server
   previewUrl?: string;
 }
 

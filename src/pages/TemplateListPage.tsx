@@ -5,14 +5,15 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOwnedTemplates, getClonedTemplates, deleteTemplate } from '@/apis/templates';
+import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer } from '@/apis/templates';
 import type { TemplateSummary } from '@/types/api';
 import { TemplateCard } from '@/components/Editor/EditorSidebar/TemplateCard';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, CloudUpload, Cloud } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
+import { updateTemplateSyncStatus } from '@/utils/templateStorage';
 
 export const TemplateListPage = () => {
   const navigate = useNavigate();
@@ -120,6 +121,49 @@ export const TemplateListPage = () => {
     }
   };
 
+  const handleSyncTemplate = async (templateId: number, templateName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    try {
+      // Load full template data
+      const templateResult = await getTemplate(templateId);
+      if (!templateResult.success || !templateResult.data) {
+        throw new Error('템플릿을 불러올 수 없습니다.');
+      }
+
+      // Sync to server
+      const syncResult = await syncTemplateToServer(templateResult.data);
+
+      if (syncResult.success && syncResult.data) {
+        // Update localStorage sync status
+        updateTemplateSyncStatus(syncResult.data.templateId, true);
+
+        // Update local state
+        setOwnedTemplates(prev =>
+          prev.map(t =>
+            t.templateId === templateId
+              ? { ...t, syncStatus: 'synced' as const }
+              : t
+          )
+        );
+
+        toast({
+          title: '동기화 완료',
+          description: `"${templateName}" 템플릿이 서버에 동기화되었습니다.`,
+        });
+      } else {
+        throw new Error(syncResult.error?.message || '동기화에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to sync template:', error);
+      toast({
+        title: '동기화 실패',
+        description: error instanceof Error ? error.message : '동기화 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const renderTemplateList = (templates: TemplateSummary[]) => {
     if (loading) {
       return (
@@ -159,6 +203,21 @@ export const TemplateListPage = () => {
 
               {/* Action buttons */}
               <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Sync button (local-only templates) */}
+                {template.syncStatus === 'local' ? (
+                  <button
+                    onClick={(e) => handleSyncTemplate(template.templateId, template.name, e)}
+                    className="p-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
+                    title="서버에 동기화"
+                  >
+                    <CloudUpload className="h-4 w-4" />
+                  </button>
+                ) : template.syncStatus === 'synced' ? (
+                  <div className="p-2 bg-green-600 text-white rounded-md shadow-sm" title="동기화됨">
+                    <Cloud className="h-4 w-4" />
+                  </div>
+                ) : null}
+
                 {/* Apply button */}
                 {!isSelected ? (
                   <button

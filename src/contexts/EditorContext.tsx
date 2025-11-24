@@ -8,6 +8,7 @@ import type { Template, TemplateItem, Icon } from '@/types/api';
 import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons } from '@/apis/icons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
+import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 
 /**
  * Editor state interface
@@ -24,6 +25,9 @@ export interface EditorState {
   stagingItems: TemplateItem[];
   defaultIcons: Icon[];
   userIcons: Icon[];
+  // Sync state
+  isSyncing: boolean;
+  syncStatus: 'local' | 'synced';
 }
 
 /**
@@ -54,7 +58,11 @@ export type EditorAction =
   | { type: 'UPDATE_STAGING_ITEM'; payload: { id: number; changes: Partial<TemplateItem> } }
   | { type: 'LOAD_DEFAULT_ICONS'; payload: Icon[] }
   | { type: 'LOAD_USER_ICONS'; payload: Icon[] }
-  | { type: 'ADD_USER_ICON'; payload: Icon };
+  | { type: 'ADD_USER_ICON'; payload: Icon }
+  // Sync actions
+  | { type: 'START_SYNCING' }
+  | { type: 'SYNC_SUCCESS'; payload: Template }
+  | { type: 'SYNC_FAILED'; payload: string };
 
 /**
  * Initial state
@@ -70,6 +78,8 @@ const initialState: EditorState = {
   stagingItems: [],
   defaultIcons: [],
   userIcons: [],
+  isSyncing: false,
+  syncStatus: 'local',
 };
 
 /**
@@ -311,6 +321,28 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         userIcons: [...state.userIcons, action.payload],
       };
 
+    case 'START_SYNCING':
+      return {
+        ...state,
+        isSyncing: true,
+      };
+
+    case 'SYNC_SUCCESS':
+      return {
+        ...state,
+        template: action.payload,
+        isSyncing: false,
+        syncStatus: 'synced',
+        isDirty: false,
+      };
+
+    case 'SYNC_FAILED':
+      return {
+        ...state,
+        isSyncing: false,
+        error: action.payload,
+      };
+
     default:
       return state;
   }
@@ -366,7 +398,23 @@ export const EditorProvider = ({ children, templateId }: EditorProviderProps) =>
    */
   const loadTemplate = async (id: number) => {
     dispatch({ type: 'SET_LOADING', payload: true });
+
     try {
+      // Try loading from localStorage first
+      const localData = loadTemplateFromLocalStorage(id);
+      if (localData) {
+        dispatch({ type: 'LOAD_TEMPLATE', payload: localData.template });
+
+        // Load staging items if exists
+        localData.stagingItems.forEach((item) => {
+          dispatch({ type: 'ADD_TO_STAGING', payload: item });
+        });
+
+        console.log('[EditorContext] Loaded template from localStorage', id);
+        return;
+      }
+
+      // Fallback: Load from server
       const result = await getTemplate(id);
       if (result.success && result.data) {
         dispatch({ type: 'LOAD_TEMPLATE', payload: result.data });

@@ -5,10 +5,16 @@
 import { useEditorContext } from '@/contexts/EditorContext';
 import { Input } from '@/components/ui/input';
 import { SaveButton } from './SaveButton';
+import { SyncButton } from './SyncButton';
 import { PublishButton } from './PublishButton';
 import { BackButton } from './BackButton';
-import { createTemplate, updateTemplate, postTemplate } from '@/apis/templates';
+import { postTemplate, syncTemplateToServer } from '@/apis/templates';
 import { toast } from 'sonner';
+import {
+  saveTemplateToLocalStorage,
+  checkLocalStorageSpace,
+  updateTemplateSyncStatus,
+} from '@/utils/templateStorage';
 
 export const EditorHeader = () => {
   const { state, dispatch } = useEditorContext();
@@ -23,57 +29,91 @@ export const EditorHeader = () => {
     dispatch({ type: 'START_SAVING' });
 
     try {
-      const payload = {
-        templateId: state.template.templateId,
-        name: state.template.name,
-        height: state.template.height,
-        items: state.template.items.map((item) => ({
-          name: item.name,
-          siteUrl: item.siteUrl,
-          id: item.icon.id,
-          position: item.position,
-          size: item.size,
-        })),
-      };
+      // Check localStorage space
+      const spaceCheck = checkLocalStorageSpace();
+      if (!spaceCheck.available) {
+        throw new Error(spaceCheck.error);
+      }
 
-      const result =
-        state.mode === 'create'
-          ? await createTemplate(payload)
-          : await updateTemplate(state.template.templateId, payload);
+      // Generate new templateId if creating new template
+      let savedTemplate = state.template;
+      if (state.mode === 'create') {
+        // For local-only templates, use timestamp as ID
+        savedTemplate = {
+          ...state.template,
+          templateId: Date.now(),
+          updatedAt: new Date().toISOString(),
+        };
+      } else {
+        savedTemplate = {
+          ...state.template,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+
+      // Save to localStorage
+      await saveTemplateToLocalStorage(
+        savedTemplate,
+        state.stagingItems,
+        false // Not synced with server
+      );
+
+      dispatch({ type: 'SAVE_SUCCESS', payload: savedTemplate });
+
+      toast.success('저장 완료', {
+        description: '템플릿이 로컬에 저장되었습니다.',
+      });
+    } catch (error) {
+      dispatch({
+        type: 'SAVE_FAILED',
+        payload:
+          error instanceof Error
+            ? error.message
+            : '저장 중 오류가 발생했습니다.',
+      });
+      toast.error('저장 실패', {
+        description:
+          error instanceof Error
+            ? error.message
+            : '저장 중 오류가 발생했습니다.',
+      });
+    }
+  };
+
+  const handleSyncToServer = async () => {
+    if (!state.template) return;
+
+    dispatch({ type: 'START_SYNCING' });
+
+    try {
+      const result = await syncTemplateToServer(state.template);
 
       if (result.success && result.data) {
-        dispatch({ type: 'SAVE_SUCCESS', payload: result.data });
+        // Update template with server ID
+        dispatch({ type: 'SYNC_SUCCESS', payload: result.data });
 
-        // Cache template in Chrome Extension Storage for offline access
-        try {
-          await chrome.storage.local.set({
-            [`template_${result.data.templateId}`]: result.data,
-            [`template_${result.data.templateId}_updated`]: Date.now(),
-          });
-        } catch (storageError) {
-          console.warn('Failed to cache template:', storageError);
-          // Non-critical error - don't show to user
-        }
+        // Update localStorage sync status
+        updateTemplateSyncStatus(result.data.templateId, true);
 
-        toast.success('저장 완료', {
-          description: '템플릿이 저장되었습니다.',
+        toast.success('동기화 완료', {
+          description: '템플릿이 서버에 동기화되었습니다.',
         });
       } else {
         dispatch({
-          type: 'SAVE_FAILED',
-          payload: result.error?.message || '저장 실패',
+          type: 'SYNC_FAILED',
+          payload: result.error?.message || '동기화 실패',
         });
-        toast.error('저장 실패', {
+        toast.error('동기화 실패', {
           description: result.error?.message,
         });
       }
     } catch (error) {
       dispatch({
-        type: 'SAVE_FAILED',
-        payload: '저장 중 오류가 발생했습니다.',
+        type: 'SYNC_FAILED',
+        payload: '동기화 중 오류가 발생했습니다.',
       });
       toast.error('오류', {
-        description: '저장 중 오류가 발생했습니다.',
+        description: '동기화 중 오류가 발생했습니다.',
       });
     }
   };
@@ -125,6 +165,11 @@ export const EditorHeader = () => {
 
       <div className="flex items-center gap-2">
         <SaveButton onSave={handleSave} isSaving={state.isSaving} />
+        <SyncButton
+          onSync={handleSyncToServer}
+          isSyncing={state.isSyncing}
+          syncStatus={state.syncStatus}
+        />
         <PublishButton
           onPublish={handlePublish}
           disabled={state.mode === 'create' || state.isDirty}

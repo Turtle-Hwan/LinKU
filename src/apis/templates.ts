@@ -78,3 +78,42 @@ export async function postTemplate(
 ): Promise<ApiResponse<PostTemplateResponse>> {
   return post<PostTemplateResponse>(ENDPOINTS.TEMPLATES.POST(templateId));
 }
+
+/**
+ * Sync template to server
+ * If local-only template (timestamp-based ID), creates new template on server
+ * If existing server template, updates it
+ */
+export async function syncTemplateToServer(
+  template: Template
+): Promise<ApiResponse<Template>> {
+  // Prepare payload
+  const payload: CreateTemplateRequest = {
+    templateId: 0, // Server will assign new ID for create
+    name: template.name,
+    height: template.height,
+    items: template.items.map((item) => ({
+      name: item.name,
+      siteUrl: item.siteUrl,
+      id: item.icon.id,
+      position: item.position,
+      size: item.size,
+    })),
+  };
+
+  // Check if this is a local-only template (timestamp-based ID)
+  // Timestamp IDs are much larger than sequential IDs (> 100000000)
+  const isLocalOnly = template.templateId > 100000000;
+
+  if (isLocalOnly) {
+    // Create new template on server
+    return createTemplate(payload);
+  } else {
+    // Update existing template on server
+    return updateTemplate(template.templateId, {
+      name: template.name,
+      height: template.height,
+      items: payload.items,
+    });
+  }
+}
