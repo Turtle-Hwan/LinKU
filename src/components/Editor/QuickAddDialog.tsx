@@ -20,6 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEditorContext } from '@/contexts/EditorContext';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateLinkForm } from '@/utils/formValidation';
+import { IconGrid } from '@/components/Editor/Common/IconGrid';
 
 interface QuickAddDialogProps {
   open: boolean;
@@ -49,27 +51,10 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
   }, [open, state.defaultIcons, state.userIcons]);
 
   const handleAdd = () => {
-    // Validation
-    if (!name.trim()) {
-      toast.error('링크 이름을 입력해주세요.');
-      return;
-    }
-
-    if (!url.trim()) {
-      toast.error('링크 URL을 입력해주세요.');
-      return;
-    }
-
-    // Basic URL validation
-    try {
-      new URL(url);
-    } catch {
-      toast.error('올바른 URL을 입력해주세요.');
-      return;
-    }
-
-    if (!selectedIconId) {
-      toast.error('아이콘을 선택해주세요.');
+    // Validate form using centralized validation
+    const validation = validateLinkForm(name, url, selectedIconId, 15);
+    if (!validation.valid) {
+      toast.error(validation.error!);
       return;
     }
 
@@ -77,45 +62,12 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
     onAdd({
       name: name.trim(),
       url: url.trim(),
-      iconId: selectedIconId,
+      iconId: selectedIconId!,
     });
 
     // Close dialog
     onOpenChange(false);
   };
-
-  const renderIconGrid = (icons: typeof state.defaultIcons) => (
-    <div className="grid grid-cols-8 gap-2 max-h-64 overflow-y-auto p-2 border rounded-md">
-      {icons.length === 0 ? (
-        <div className="col-span-8 flex items-center justify-center py-8">
-          <p className="text-sm text-muted-foreground">아이콘이 없습니다</p>
-        </div>
-      ) : (
-        icons.map((icon) => (
-          <button
-            key={icon.id}
-            onClick={() => setSelectedIconId(icon.id)}
-            className={`
-              w-12 h-12 p-2 rounded-md border-2 transition-all
-              ${
-                selectedIconId === icon.id
-                  ? 'border-primary bg-primary/10'
-                  : 'border-transparent hover:border-gray-300'
-              }
-            `}
-            title={icon.name}
-            type="button"
-          >
-            <img
-              src={icon.imageUrl}
-              alt={icon.name}
-              className="w-full h-full object-contain"
-            />
-          </button>
-        ))
-      )}
-    </div>
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,13 +82,19 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
         <div className="space-y-4 py-4">
           {/* Name Input */}
           <div className="space-y-2">
-            <Label htmlFor="link-name">링크 이름</Label>
+            <Label htmlFor="link-name">링크 이름 (최대 15자)</Label>
             <Input
               id="link-name"
               placeholder="예: 이캠퍼스"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length <= 15) {
+                  setName(value);
+                }
+              }}
               autoComplete="off"
+              maxLength={15}
             />
           </div>
 
@@ -167,11 +125,23 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
               </TabsList>
 
               <TabsContent value="default" className="mt-2">
-                {renderIconGrid(state.defaultIcons)}
+                <IconGrid
+                  icons={state.defaultIcons}
+                  selectedIconId={selectedIconId}
+                  onSelectIcon={setSelectedIconId}
+                  columns={8}
+                  maxHeight="max-h-64"
+                />
               </TabsContent>
 
               <TabsContent value="user" className="mt-2">
-                {renderIconGrid(state.userIcons)}
+                <IconGrid
+                  icons={state.userIcons}
+                  selectedIconId={selectedIconId}
+                  onSelectIcon={setSelectedIconId}
+                  columns={8}
+                  maxHeight="max-h-64"
+                />
               </TabsContent>
             </Tabs>
           </div>

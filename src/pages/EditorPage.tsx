@@ -12,6 +12,7 @@ import { EditorHeader } from '@/components/Editor/EditorHeader/EditorHeader';
 import { EditorCanvas } from '@/components/Editor/EditorCanvas/EditorCanvas';
 import { EditorSidebar } from '@/components/Editor/EditorSidebar/EditorSidebar';
 import { ItemPropertiesPanel } from '@/components/Editor/ItemPropertiesPanel';
+import { DragOverlayPreview } from '@/components/Editor/Common/DragOverlayPreview';
 import { gridToPixelPosition, pixelToGridPosition, clampToGridBounds, resolveCollisions } from '@/utils/template';
 import { toast } from 'sonner';
 
@@ -132,41 +133,12 @@ const EditorContent = () => {
 
       {/* DragOverlay renders dragged items at root level, above all stacking contexts */}
       <DragOverlay>
-        {activeDragItem ? (
-          activeDragItem.type === 'staging-item' ? (
-            // Staging item preview
-            <div className="border rounded-lg bg-white shadow-xl opacity-90">
-              <div className="flex flex-row items-center justify-start px-3 py-2 gap-2">
-                <div className="w-8 h-8 rounded-full bg-main/10 flex items-center justify-center shrink-0">
-                  <img
-                    src={activeDragItem.item.icon.imageUrl}
-                    alt={activeDragItem.item.icon.name}
-                    className="w-4 h-4 object-contain"
-                  />
-                </div>
-                <span className="flex-1 text-sm text-black truncate">
-                  {activeDragItem.item.name}
-                </span>
-              </div>
-            </div>
-          ) : (
-            // Canvas item preview
-            <div className="border border-primary rounded-lg bg-white shadow-xl opacity-90 px-4 py-2">
-              <div className="flex flex-row items-center justify-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
-                  <img
-                    src={activeDragItem?.icon?.imageUrl}
-                    alt={activeDragItem?.icon?.name}
-                    className="w-5 h-5 object-contain"
-                  />
-                </div>
-                <span className="text-base text-black">
-                  {activeDragItem?.name}
-                </span>
-              </div>
-            </div>
-          )
-        ) : null}
+        {activeDragItem && (
+          <DragOverlayPreview
+            item={activeDragItem.type === 'staging-item' ? activeDragItem.item : activeDragItem}
+            type={activeDragItem.type === 'staging-item' ? 'staging-item' : 'canvas-item'}
+          />
+        )}
       </DragOverlay>
     </DndContext>
   );

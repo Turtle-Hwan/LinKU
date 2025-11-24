@@ -12,6 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trash2, Save, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { GRID_CONFIG } from '@/utils/template';
+import { validateLinkForm } from '@/utils/formValidation';
+import { IconGrid } from '@/components/Editor/Common/IconGrid';
+import { InputGroup } from '@/components/Editor/Common/InputGroup';
 
 export const ItemPropertiesPanel = () => {
   const { state, dispatch } = useEditorContext();
@@ -64,31 +67,10 @@ export const ItemPropertiesPanel = () => {
   const handleSave = () => {
     if (!selectedItem) return;
 
-    if (!name.trim()) {
-      toast.error('링크 이름을 입력해주세요.');
-      return;
-    }
-
-    if (name.trim().length > 15) {
-      toast.error('링크 이름은 15자 이하로 입력해주세요.');
-      return;
-    }
-
-    if (!url.trim()) {
-      toast.error('링크 URL을 입력해주세요.');
-      return;
-    }
-
-    // Validate URL format
-    try {
-      new URL(url);
-    } catch {
-      toast.error('올바른 URL을 입력해주세요.');
-      return;
-    }
-
-    if (!selectedIconId) {
-      toast.error('아이콘을 선택해주세요.');
+    // Validate form using centralized validation
+    const validation = validateLinkForm(name, url, selectedIconId, 15);
+    if (!validation.valid) {
+      toast.error(validation.error!);
       return;
     }
 
@@ -146,38 +128,6 @@ export const ItemPropertiesPanel = () => {
     toast.success('아이템이 캔버스에 추가되었습니다.');
   };
 
-  const renderIconGrid = (icons: typeof state.defaultIcons) => (
-    <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-      {icons.length === 0 ? (
-        <div className="col-span-4 flex items-center justify-center py-4">
-          <p className="text-xs text-muted-foreground">아이콘이 없습니다</p>
-        </div>
-      ) : (
-        icons.map((icon) => (
-          <button
-            key={icon.id}
-            onClick={() => setSelectedIconId(icon.id)}
-            className={`
-              aspect-square p-2 rounded-md border-2 transition-all
-              ${
-                selectedIconId === icon.id
-                  ? 'border-primary bg-primary/10'
-                  : 'border-transparent hover:border-gray-300'
-              }
-            `}
-            title={icon.name}
-            type="button"
-          >
-            <img
-              src={icon.imageUrl}
-              alt={icon.name}
-              className="w-full h-full object-contain"
-            />
-          </button>
-        ))
-      )}
-    </div>
-  );
 
   return (
     <aside className="w-72 border-l bg-background overflow-y-auto">
@@ -235,76 +185,70 @@ export const ItemPropertiesPanel = () => {
             </TabsList>
 
             <TabsContent value="default" className="mt-2">
-              {renderIconGrid(state.defaultIcons)}
+              <IconGrid
+                icons={state.defaultIcons}
+                selectedIconId={selectedIconId}
+                onSelectIcon={setSelectedIconId}
+                columns={4}
+              />
             </TabsContent>
 
             <TabsContent value="user" className="mt-2">
-              {renderIconGrid(state.userIcons)}
+              <IconGrid
+                icons={state.userIcons}
+                selectedIconId={selectedIconId}
+                onSelectIcon={setSelectedIconId}
+                columns={4}
+              />
             </TabsContent>
           </Tabs>
         </div>
 
         {/* Size Controls */}
-        <div className="space-y-2">
-          <Label className="text-xs">크기 (그리드 단위)</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="item-width" className="text-xs text-muted-foreground">너비</Label>
-              <Input
-                id="item-width"
-                type="number"
-                min={1}
-                max={GRID_CONFIG.COLS}
-                value={width}
-                onChange={(e) => setWidth(parseInt(e.target.value) || 1)}
-                className="h-8 text-sm"
-              />
-            </div>
-            <div>
-              <Label htmlFor="item-height" className="text-xs text-muted-foreground">높이</Label>
-              <Input
-                id="item-height"
-                type="number"
-                min={1}
-                max={GRID_CONFIG.ROWS}
-                value={height}
-                onChange={(e) => setHeight(parseInt(e.target.value) || 1)}
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-        </div>
+        <InputGroup
+          title="크기 (그리드 단위)"
+          fields={[
+            {
+              id: 'item-width',
+              label: '너비',
+              value: width,
+              onChange: setWidth,
+              min: 1,
+              max: GRID_CONFIG.COLS,
+            },
+            {
+              id: 'item-height',
+              label: '높이',
+              value: height,
+              onChange: setHeight,
+              min: 1,
+              max: GRID_CONFIG.ROWS,
+            },
+          ]}
+        />
 
         {/* Position Controls */}
-        <div className="space-y-2">
-          <Label className="text-xs">위치 (그리드 좌표)</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="item-pos-x" className="text-xs text-muted-foreground">X</Label>
-              <Input
-                id="item-pos-x"
-                type="number"
-                min={0}
-                max={GRID_CONFIG.COLS - 1}
-                value={posX}
-                onChange={(e) => setPosX(parseInt(e.target.value) || 0)}
-                className="h-8 text-sm"
-              />
-            </div>
-            <div>
-              <Label htmlFor="item-pos-y" className="text-xs text-muted-foreground">Y</Label>
-              <Input
-                id="item-pos-y"
-                type="number"
-                min={0}
-                max={GRID_CONFIG.ROWS - 1}
-                value={posY}
-                onChange={(e) => setPosY(parseInt(e.target.value) || 0)}
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-        </div>
+        <InputGroup
+          title="위치 (그리드 좌표)"
+          fields={[
+            {
+              id: 'item-pos-x',
+              label: 'X',
+              value: posX,
+              onChange: setPosX,
+              min: 0,
+              max: GRID_CONFIG.COLS - 1,
+            },
+            {
+              id: 'item-pos-y',
+              label: 'Y',
+              value: posY,
+              onChange: setPosY,
+              min: 0,
+              max: GRID_CONFIG.ROWS - 1,
+            },
+          ]}
+        />
 
         {/* Action Buttons */}
         <div className="space-y-2 pt-2">
