@@ -96,7 +96,7 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
             key={icon.id}
             onClick={() => setSelectedIconId(icon.id)}
             className={`
-              p-2 rounded-md border-2 transition-all
+              w-12 h-12 p-2 rounded-md border-2 transition-all
               ${
                 selectedIconId === icon.id
                   ? 'border-primary bg-primary/10'

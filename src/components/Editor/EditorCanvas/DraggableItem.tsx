@@ -158,7 +158,7 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
         <button
           onClick={handleDelete}
           onPointerDown={handleDeletePointerDown}
-          className="absolute top-0 right-0 w-6 h-6 flex items-center justify-center bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors z-10"
+          className="absolute top-0 right-0 w-6 h-6 flex items-center justify-center bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors z-20"
           title="캔버스에서 제거 (임시 저장 공간으로 이동)"
         >
           <Trash2 className="h-4 w-4" />
