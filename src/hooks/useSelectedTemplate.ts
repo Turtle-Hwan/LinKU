@@ -20,7 +20,7 @@ function convertTemplateToLinkList(template: Template): LinkListElement[] {
     label: item.name,
     link: item.siteUrl,
     type: 'png' as const,
-    islong: item.size.width > 150, // Approximate: items wider than 150px span 3 columns
+    islong: item.size.width > 2, // Items wider than 2 columns span 3 columns
     iconColor: undefined,
   }));
 }

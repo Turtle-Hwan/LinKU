@@ -198,8 +198,10 @@ async function request<T = unknown>(
 
     // Extract data from backend 'result' field if present
     if (data && typeof data === 'object' && 'result' in data) {
-      const backendResponse = data as { result: T };
-      data = backendResponse.result;
+      const backendResponse = data as Record<string, unknown>;
+      if (backendResponse.result !== undefined) {
+        data = backendResponse.result as T;
+      }
     }
 
     // Build API response

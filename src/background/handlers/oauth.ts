@@ -7,7 +7,21 @@
 import type { GoogleLoginResponse } from '../types';
 
 // Backend URL from environment
-const BACKEND_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || '';
+const BACKEND_URL = (() => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!baseUrl) return '';
+
+  try {
+    const url = new URL(baseUrl);
+    if (url.pathname.endsWith('/api')) {
+      url.pathname = url.pathname.slice(0, -4);
+    }
+    return url.origin + url.pathname;
+  } catch {
+    // Fallback to string replacement if URL parsing fails
+    return baseUrl.replace('/api', '');
+  }
+})();
 const OAUTH_STATE_KEY = 'oauth_state';
 
 /**

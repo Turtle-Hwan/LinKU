@@ -445,17 +445,29 @@ export const EditorProvider = ({ children, templateId }: EditorProviderProps) =>
 
       console.log('Icons API Response:', iconsResult);
 
+      // Type guards for API response parsing
+      function isIconArray(data: unknown): data is Icon[] {
+        return Array.isArray(data);
+      }
+
+      function isPaginatedResponse(data: unknown): data is { items: Icon[] } {
+        if (typeof data !== 'object' || data === null || !('items' in data)) {
+          return false;
+        }
+        const candidate = data as Record<string, unknown>;
+        return Array.isArray(candidate.items);
+      }
+
       // Ensure defaultIcons is an array
       let defaultIcons: Icon[] = [];
       if (iconsResult.success && iconsResult.data) {
+        // Cast to unknown first to handle both array and paginated responses
+        const data = iconsResult.data as unknown;
         // Handle both array and object responses
-        if (Array.isArray(iconsResult.data)) {
-          defaultIcons = iconsResult.data;
-        } else if (typeof iconsResult.data === 'object') {
-          // Check if data has an 'items' property (paginated response)
-          defaultIcons = Array.isArray((iconsResult.data as any).items)
-            ? (iconsResult.data as any).items
-            : [];
+        if (isIconArray(data)) {
+          defaultIcons = data;
+        } else if (isPaginatedResponse(data)) {
+          defaultIcons = data.items;
         }
       }
 
