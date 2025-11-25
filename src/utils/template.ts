@@ -555,13 +555,19 @@ export function resolveCollisions(
 /**
  * Convert LucideIcon component to SVG data URI
  * Renders the icon as SVG and converts it to a base64 data URI
+ *
+ * @param IconComponent - Lucide icon component to convert
+ * @param color - Icon color (default: '#00913a' matching CSS --color-main)
  */
-export function convertLucideIconToDataUri(IconComponent: LucideIcon): string {
+export function convertLucideIconToDataUri(
+  IconComponent: LucideIcon,
+  color: string = '#00913a' // Default matches App.css --color-main
+): string {
   try {
     // Create icon element using createElement
     const iconElement = createElement(IconComponent, {
       size: 24,
-      color: 'currentColor',
+      color: color,
       strokeWidth: 2,
     });
 

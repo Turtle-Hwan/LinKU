@@ -40,7 +40,7 @@ export const TemplatePreviewItem = ({ item, scale = 1.0 }: TemplatePreviewItemPr
       <div
         className="flex flex-row items-center justify-start h-full gap-3 overflow-hidden"
         style={{
-          padding: `${2 * scale}px ${4 * scale}px`,
+          padding: `${8 * scale}px ${16 * scale}px`, // Match px-4 py-2 (16px horizontal, 8px vertical)
         }}
       >
         {/* Icon with circular background */}
