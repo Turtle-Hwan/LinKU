@@ -207,7 +207,8 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         template: action.payload,
         isSaving: false,
         isDirty: false,
-        mode: 'edit',
+        // Keep mode as 'create' if templateId is still 0 (draft)
+        mode: action.payload.templateId === 0 ? 'create' : 'edit',
       };
 
     case 'SAVE_FAILED':

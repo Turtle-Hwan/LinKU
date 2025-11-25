@@ -27,6 +27,12 @@ export const EditorHeader = () => {
   const handleSave = async () => {
     if (!state.template) return;
 
+    console.log('[EditorHeader] handleSave started:', {
+      currentTemplateId: state.template.templateId,
+      mode: state.mode,
+      templateName: state.template.name,
+    });
+
     dispatch({ type: 'START_SAVING' });
 
     try {
@@ -37,20 +43,31 @@ export const EditorHeader = () => {
       }
 
       // Generate new templateId if creating new template
+      // Check templateId directly (0 = draft/new template) instead of relying on mode
       let savedTemplate = state.template;
-      if (state.mode === 'create') {
-        // For local-only templates, use timestamp as ID
+      if (state.template.templateId === 0) {
+        // Draft template - generate new ID
+        const newId = Date.now();
         savedTemplate = {
           ...state.template,
-          templateId: Date.now(),
+          templateId: newId,
           updatedAt: new Date().toISOString(),
         };
+        console.log('[EditorHeader] Generated new ID for draft template:', newId);
       } else {
+        // Existing template - keep ID
         savedTemplate = {
           ...state.template,
           updatedAt: new Date().toISOString(),
         };
+        console.log('[EditorHeader] Using existing ID for saved template:', savedTemplate.templateId);
       }
+
+      console.log('[EditorHeader] Saving template:', {
+        templateId: savedTemplate.templateId,
+        name: savedTemplate.name,
+        itemCount: savedTemplate.items.length,
+      });
 
       // Save to localStorage
       await saveTemplateToLocalStorage(
@@ -65,6 +82,7 @@ export const EditorHeader = () => {
         description: '템플릿이 로컬에 저장되었습니다.',
       });
     } catch (error) {
+      console.error('[EditorHeader] Save failed:', error);
       dispatch({
         type: 'SAVE_FAILED',
         payload:

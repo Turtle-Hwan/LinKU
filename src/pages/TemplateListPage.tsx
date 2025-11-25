@@ -73,32 +73,51 @@ export const TemplateListPage = () => {
       }
 
       // 4. localStorage에만 있는 템플릿 추가
-      localIndex.forEach(localTemplate => {
-        // 서버 목록에 없는 템플릿만 추가
-        const existsInServer = mergedOwned.some(
-          t => t.templateId === localTemplate.templateId
-        );
+      localIndex
+        .filter(localTemplate => localTemplate.templateId !== 0) // Skip draft templates (templateId: 0)
+        .forEach(localTemplate => {
+          // 서버 목록에 없는 템플릿만 추가
+          const existsInServer = mergedOwned.some(
+            t => t.templateId === localTemplate.templateId
+          );
 
-        if (!existsInServer) {
-          // localStorage에서 전체 템플릿 데이터 로드
-          const stored = loadTemplateFromLocalStorage(localTemplate.templateId);
-          if (stored) {
-            mergedOwned.push({
-              templateId: stored.template.templateId,
-              name: stored.template.name,
-              height: stored.template.height,
-              cloned: stored.template.cloned,
-              createdAt: stored.template.createdAt,
-              updatedAt: stored.template.updatedAt,
-              itemCount: stored.template.items.length,
-              syncStatus: stored.metadata.syncedWithServer ? 'synced' : 'local',
-              items: stored.template.items, // Add items for preview
-            });
+          if (!existsInServer) {
+            // localStorage에서 전체 템플릿 데이터 로드
+            const stored = loadTemplateFromLocalStorage(localTemplate.templateId);
+            if (stored) {
+              mergedOwned.push({
+                templateId: stored.template.templateId,
+                name: stored.template.name,
+                height: stored.template.height,
+                cloned: stored.template.cloned,
+                createdAt: stored.template.createdAt,
+                updatedAt: stored.template.updatedAt,
+                itemCount: stored.template.items.length,
+                syncStatus: stored.metadata.syncedWithServer ? 'synced' : 'local',
+                items: stored.template.items, // Add items for preview
+              });
+            }
           }
-        }
-      });
+        });
 
-      // 5. 기본 템플릿 추가 (항상 맨 위에 표시)
+      // 5. 중복 검사 및 경고 (Deduplication check)
+      const seenIds = new Set<number>();
+      const duplicateIds: number[] = [];
+      for (const template of mergedOwned) {
+        if (seenIds.has(template.templateId)) {
+          duplicateIds.push(template.templateId);
+        }
+        seenIds.add(template.templateId);
+      }
+      if (duplicateIds.length > 0) {
+        console.warn('[TemplateListPage] Duplicate template IDs detected:', duplicateIds);
+        // Remove duplicates - keep first occurrence only
+        mergedOwned = mergedOwned.filter((template, index, self) =>
+          index === self.findIndex(t => t.templateId === template.templateId)
+        );
+      }
+
+      // 6. 기본 템플릿 추가 (항상 맨 위에 표시)
       // Convert LinkList to Icon array (including lucide-react icons)
       const defaultIcons = LinkList.map((link, index) => {
         let imageUrl: string;
@@ -130,7 +149,7 @@ export const TemplateListPage = () => {
         items: defaultTemplateItems,
       };
 
-      // 6. 최종 정렬 (updatedAt 기준 내림차순)
+      // 7. 최종 정렬 (updatedAt 기준 내림차순)
       mergedOwned.sort((a, b) => {
         const aTime = new Date(a.updatedAt).getTime();
         const bTime = new Date(b.updatedAt).getTime();

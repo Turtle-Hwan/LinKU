@@ -94,6 +94,18 @@ async function updateTemplateIndex(
     const indexData = localStorage.getItem(INDEX_KEY);
     const index: TemplateIndexEntry[] = indexData ? JSON.parse(indexData) : [];
 
+    // Skip draft templates (templateId === 0) - they should not be in the index
+    // Draft templates are stored separately under DRAFT_KEY
+    // Also remove any existing draft entries from the index
+    if (template.templateId === 0) {
+      // Remove any existing entries with templateId === 0 from index
+      const filteredIndex = index.filter((t) => t.templateId !== 0);
+      if (filteredIndex.length !== index.length) {
+        localStorage.setItem(INDEX_KEY, JSON.stringify(filteredIndex));
+      }
+      return;
+    }
+
     // Find existing entry or create new
     const existingIndex = index.findIndex(
       (t) => t.templateId === template.templateId
