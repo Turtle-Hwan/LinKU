@@ -40,7 +40,7 @@ const Grid = ({ items }: GridProps) => {
 const GridItem = ({ item, colNum }) => {
   return (
     <button
-      className={`${colNum} flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer`}
+      className={`${colNum} flex flex-row items-center justify-start px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer overflow-hidden`}
       onClick={() => {
         sendLinkClick(item.label, item.link);
         window.open(item.link);
@@ -57,7 +57,7 @@ const GridItem = ({ item, colNum }) => {
           <item.icon className={`Icon__Animation w-5 h-5 ${item.iconColor || 'text-main'}`} />
         )}
       </div>
-      <span className="w-full text-base text-black text-center break-keep">
+      <span className="w-full text-base text-black text-center truncate">
         {item.label}
       </span>
     </button>

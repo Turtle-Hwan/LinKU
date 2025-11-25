@@ -138,7 +138,7 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
       {...attributes}
     >
       {/* Horizontal layout matching LinkGroup GridItem */}
-      <div className="flex flex-row items-center justify-start px-4 py-2 h-full gap-3">
+      <div className="flex flex-row items-center justify-start px-4 py-2 h-full gap-3 overflow-hidden">
         {/* Icon with circular background */}
         <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
           <img
@@ -148,7 +148,7 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
           />
         </div>
         {/* Name */}
-        <span className="w-full text-base text-black text-center break-keep">
+        <span className="w-full text-base text-black text-center truncate">
           {item.name}
         </span>
       </div>
