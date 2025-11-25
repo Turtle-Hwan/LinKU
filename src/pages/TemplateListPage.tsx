@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Trash2, Check, CloudUpload, Cloud } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
-import { updateTemplateSyncStatus } from '@/utils/templateStorage';
+import { updateTemplateSyncStatus, getTemplatesIndex, loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 
 export const TemplateListPage = () => {
@@ -33,14 +33,69 @@ export const TemplateListPage = () => {
   const loadTemplates = async () => {
     setLoading(true);
     try {
+      // 1. 서버에서 템플릿 목록 가져오기
       const [ownedRes, clonedRes] = await Promise.all([
         getOwnedTemplates(),
         getClonedTemplates(),
       ]);
 
+      // 2. localStorage에서 템플릿 인덱스 가져오기
+      const localIndex = getTemplatesIndex();
+
+      // 3. 서버 템플릿과 localStorage 템플릿 병합
+      let mergedOwned: TemplateSummary[] = [];
       if (ownedRes.success && ownedRes.data) {
-        setOwnedTemplates(ownedRes.data);
-      } else if (!ownedRes.success) {
+        // 서버 템플릿은 기본적으로 'synced' 상태
+        mergedOwned = ownedRes.data.map(serverTemplate => ({
+          ...serverTemplate,
+          syncStatus: 'synced' as const,
+        }));
+      }
+
+      // 4. localStorage에만 있는 템플릿 추가
+      localIndex.forEach(localTemplate => {
+        // 서버 목록에 없는 템플릿만 추가
+        const existsInServer = mergedOwned.some(
+          t => t.templateId === localTemplate.templateId
+        );
+
+        if (!existsInServer) {
+          // localStorage에서 전체 템플릿 데이터 로드
+          const stored = loadTemplateFromLocalStorage(localTemplate.templateId);
+          if (stored) {
+            mergedOwned.push({
+              templateId: stored.template.templateId,
+              name: stored.template.name,
+              height: stored.template.height,
+              cloned: stored.template.cloned,
+              createdAt: stored.template.createdAt,
+              updatedAt: stored.template.updatedAt,
+              itemCount: stored.template.items.length,
+              syncStatus: stored.metadata.syncedWithServer ? 'synced' : 'local',
+            });
+          }
+        }
+      });
+
+      // 5. 최종 정렬 (updatedAt 기준 내림차순)
+      mergedOwned.sort((a, b) => {
+        const aTime = new Date(a.updatedAt).getTime();
+        const bTime = new Date(b.updatedAt).getTime();
+        return bTime - aTime;
+      });
+
+      setOwnedTemplates(mergedOwned);
+
+      // 복제 템플릿도 동일하게 처리 (서버만, 보통 복제는 로컬에 없음)
+      if (clonedRes.success && clonedRes.data) {
+        setClonedTemplates(clonedRes.data.map(t => ({
+          ...t,
+          syncStatus: 'synced' as const,
+        })));
+      }
+
+      // 에러 처리
+      if (!ownedRes.success) {
         console.error('Failed to load owned templates:', ownedRes.error);
         toast({
           title: '내 템플릿 불러오기 실패',
@@ -49,9 +104,7 @@ export const TemplateListPage = () => {
         });
       }
 
-      if (clonedRes.success && clonedRes.data) {
-        setClonedTemplates(clonedRes.data);
-      } else if (!clonedRes.success) {
+      if (!clonedRes.success) {
         console.error('Failed to load cloned templates:', clonedRes.error);
         toast({
           title: '복제 템플릿 불러오기 실패',
