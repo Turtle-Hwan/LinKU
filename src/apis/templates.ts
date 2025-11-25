@@ -76,7 +76,7 @@ export async function getClonedTemplates(
 export async function postTemplate(
   templateId: number
 ): Promise<ApiResponse<PostTemplateResponse>> {
-  return post<PostTemplateResponse>(ENDPOINTS.TEMPLATES.POST(templateId));
+  return post<PostTemplateResponse>(ENDPOINTS.TEMPLATES.POST(templateId), {});
 }
 
 /**
@@ -101,9 +101,9 @@ export async function syncTemplateToServer(
     })),
   };
 
-  // Check if this is a local-only template (timestamp-based ID)
-  // Timestamp IDs are much larger than sequential IDs (> 100000000)
-  const isLocalOnly = template.templateId > 100000000;
+  // Check if this is a local-only template using syncStatus
+  // Local templates have syncStatus 'local', server templates have 'synced'
+  const isLocalOnly = template.syncStatus === 'local';
 
   if (isLocalOnly) {
     // Create new template on server

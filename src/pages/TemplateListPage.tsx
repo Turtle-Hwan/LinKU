@@ -14,6 +14,30 @@ import { Plus, Trash2, Check, CloudUpload, Cloud } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { updateTemplateSyncStatus } from '@/utils/templateStorage';
+import type { ApiResponse } from '@/types/api';
+
+/**
+ * Get user-friendly error message based on API response
+ */
+function getErrorMessage(result: ApiResponse<any>, defaultMessage: string): string {
+  if (result.error) {
+    // Check specific error codes
+    if (result.status === 401) {
+      return '로그인이 필요합니다. 다시 로그인해주세요.';
+    } else if (result.status === 403) {
+      return '권한이 없습니다.';
+    } else if (result.status === 404) {
+      return '템플릿을 찾을 수 없습니다.';
+    } else if (result.status === 400) {
+      return result.error.message || '잘못된 요청입니다.';
+    } else if (result.status && result.status >= 500) {
+      return '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+    }
+    // Return specific error message from server if available
+    return result.error.message || defaultMessage;
+  }
+  return defaultMessage;
+}
 
 export const TemplateListPage = () => {
   const navigate = useNavigate();
@@ -39,16 +63,30 @@ export const TemplateListPage = () => {
 
       if (ownedRes.success && ownedRes.data) {
         setOwnedTemplates(ownedRes.data);
+      } else if (!ownedRes.success) {
+        console.error('Failed to load owned templates:', ownedRes.error);
+        toast({
+          title: '내 템플릿 불러오기 실패',
+          description: getErrorMessage(ownedRes, '내 템플릿을 불러오는데 실패했습니다.'),
+          variant: 'destructive',
+        });
       }
 
       if (clonedRes.success && clonedRes.data) {
         setClonedTemplates(clonedRes.data);
+      } else if (!clonedRes.success) {
+        console.error('Failed to load cloned templates:', clonedRes.error);
+        toast({
+          title: '복제 템플릿 불러오기 실패',
+          description: getErrorMessage(clonedRes, '복제한 템플릿을 불러오는데 실패했습니다.'),
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Failed to load templates:', error);
       toast({
-        title: '오류',
-        description: '템플릿을 불러오는데 실패했습니다.',
+        title: '네트워크 오류',
+        description: '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
         variant: 'destructive',
       });
     } finally {
@@ -105,17 +143,18 @@ export const TemplateListPage = () => {
           await selectTemplate(null);
         }
       } else {
+        const errorMsg = getErrorMessage(result, '템플릿 삭제에 실패했습니다.');
         toast({
           title: '삭제 실패',
-          description: result.error?.message || '템플릿 삭제에 실패했습니다.',
+          description: errorMsg,
           variant: 'destructive',
         });
       }
     } catch (error) {
       console.error('Failed to delete template:', error);
       toast({
-        title: '오류',
-        description: '템플릿 삭제 중 오류가 발생했습니다.',
+        title: '네트워크 오류',
+        description: '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
         variant: 'destructive',
       });
     }
@@ -128,7 +167,8 @@ export const TemplateListPage = () => {
       // Load full template data
       const templateResult = await getTemplate(templateId);
       if (!templateResult.success || !templateResult.data) {
-        throw new Error('템플릿을 불러올 수 없습니다.');
+        const errorMsg = getErrorMessage(templateResult, '템플릿을 불러올 수 없습니다.');
+        throw new Error(errorMsg);
       }
 
       // Sync to server
@@ -152,13 +192,17 @@ export const TemplateListPage = () => {
           description: `"${templateName}" 템플릿이 서버에 동기화되었습니다.`,
         });
       } else {
-        throw new Error(syncResult.error?.message || '동기화에 실패했습니다.');
+        const errorMsg = getErrorMessage(syncResult, '동기화에 실패했습니다.');
+        throw new Error(errorMsg);
       }
     } catch (error) {
       console.error('Failed to sync template:', error);
+      const description = error instanceof Error
+        ? error.message
+        : '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.';
       toast({
         title: '동기화 실패',
-        description: error instanceof Error ? error.message : '동기화 중 오류가 발생했습니다.',
+        description,
         variant: 'destructive',
       });
     }
