@@ -10,7 +10,7 @@ import type { TemplateSummary } from '@/types/api';
 import { TemplateCard } from '@/components/Editor/EditorSidebar/TemplateCard';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Check, CloudUpload, Cloud } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { updateTemplateSyncStatus, getTemplatesIndex, loadTemplateFromLocalStorage } from '@/utils/templateStorage';
@@ -359,70 +359,22 @@ export const TemplateListPage = () => {
           }
 
           return (
-            <div key={template.templateId} className="relative group">
-              <TemplateCard
-                template={template}
-                onClick={template.templateId === 0 ? undefined : () => handleEditTemplate(template.templateId)}
-                isSelected={isSelected}
-              />
-
-              {/* Action buttons */}
-              <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                {/* Sync button (local-only templates) - hide for default template */}
-                {template.templateId !== 0 && template.syncStatus === 'local' ? (
-                  <button
-                    onClick={(e) => handleSyncTemplate(template.templateId, template.name, e)}
-                    className="p-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
-                    title="서버에 동기화"
-                  >
-                    <CloudUpload className="h-4 w-4" />
-                  </button>
-                ) : template.templateId !== 0 && template.syncStatus === 'synced' ? (
-                  <div className="p-2 bg-green-600 text-white rounded-md shadow-sm" title="동기화됨">
-                    <Cloud className="h-4 w-4" />
-                  </div>
-                ) : null}
-
-                {/* Apply button */}
-                {!isSelected ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleApplyTemplate(template.templateId, template.name);
-                    }}
-                    className="p-2 bg-primary text-primary-foreground rounded-md shadow-sm hover:bg-primary/90"
-                    title="메인 화면에 적용"
-                  >
-                    <Check className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <div className="p-2 bg-primary text-primary-foreground rounded-md shadow-sm">
-                    <Check className="h-4 w-4" />
-                  </div>
-                )}
-
-                {/* Delete button (owned only) - hide for default template */}
-                {activeTab === 'owned' && template.templateId !== 0 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTemplate(template.templateId, template.name);
-                    }}
-                    className="p-2 bg-destructive text-destructive-foreground rounded-md shadow-sm hover:bg-destructive/90"
-                    title="삭제"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Selected indicator */}
-              {isSelected && (
-                <div className="absolute bottom-2 left-2 px-2 py-1 bg-primary text-primary-foreground text-xs rounded-md">
-                  현재 적용 중
-                </div>
-              )}
-            </div>
+            <TemplateCard
+              key={template.templateId}
+              template={template}
+              onClick={template.templateId === 0 ? undefined : () => handleEditTemplate(template.templateId)}
+              isSelected={isSelected}
+              onApply={(e) => {
+                e.stopPropagation();
+                handleApplyTemplate(template.templateId, template.name);
+              }}
+              onDelete={(e) => {
+                e.stopPropagation();
+                handleDeleteTemplate(template.templateId, template.name);
+              }}
+              onSync={(e) => handleSyncTemplate(template.templateId, template.name, e)}
+              showDelete={activeTab === 'owned'}
+            />
           );
         })}
       </div>
