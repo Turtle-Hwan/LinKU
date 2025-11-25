@@ -35,21 +35,25 @@ export const TemplateListPage = () => {
   const loadTemplates = async () => {
     setLoading(true);
     try {
-      // 1. 서버에서 템플릿 목록 가져오기
-      const [ownedRes, clonedRes] = await Promise.all([
+      // 1. 서버에서 템플릿 목록 가져오기 (에러가 발생해도 계속 진행)
+      const [ownedRes, clonedRes] = await Promise.allSettled([
         getOwnedTemplates(),
         getClonedTemplates(),
       ]);
+
+      // Extract values from settled promises
+      const ownedResult = ownedRes.status === 'fulfilled' ? ownedRes.value : { success: false as const, error: { message: 'Failed to load owned templates' } };
+      const clonedResult = clonedRes.status === 'fulfilled' ? clonedRes.value : { success: false as const, error: { message: 'Failed to load cloned templates' } };
 
       // 2. localStorage에서 템플릿 인덱스 가져오기
       const localIndex = getTemplatesIndex();
 
       // 3. 서버 템플릿과 localStorage 템플릿 병합
       let mergedOwned: TemplateSummary[] = [];
-      if (ownedRes.success && ownedRes.data) {
+      if (ownedResult.success && ownedResult.data) {
         // 서버 템플릿의 상세 정보 로드 (items 포함)
         const detailedTemplates = await Promise.all(
-          ownedRes.data.map(async (serverTemplate) => {
+          ownedResult.data.map(async (serverTemplate) => {
             try {
               const detailResult = await getTemplate(serverTemplate.templateId);
               if (detailResult.success && detailResult.data) {
@@ -160,9 +164,9 @@ export const TemplateListPage = () => {
       setOwnedTemplates([defaultTemplate, ...mergedOwned]);
 
       // 복제 템플릿도 동일하게 처리 (서버만, 보통 복제는 로컬에 없음)
-      if (clonedRes.success && clonedRes.data) {
+      if (clonedResult.success && clonedResult.data) {
         const detailedCloned = await Promise.all(
-          clonedRes.data.map(async (clonedTemplate) => {
+          clonedResult.data.map(async (clonedTemplate) => {
             try {
               const detailResult = await getTemplate(clonedTemplate.templateId);
               if (detailResult.success && detailResult.data) {
@@ -184,23 +188,15 @@ export const TemplateListPage = () => {
         setClonedTemplates(detailedCloned);
       }
 
-      // 에러 처리
-      if (!ownedRes.success) {
-        console.error('Failed to load owned templates:', ownedRes.error);
-        toast({
-          title: '내 템플릿 불러오기 실패',
-          description: getErrorMessage(ownedRes, '내 템플릿을 불러오는데 실패했습니다.'),
-          variant: 'destructive',
-        });
+      // 에러 처리 - 에러가 발생해도 localStorage 템플릿은 표시되도록 조용히 처리
+      if (!ownedResult.success) {
+        console.warn('Failed to load owned templates from server:', ownedResult.error);
+        // Don't show error toast - user can still see local templates
       }
 
-      if (!clonedRes.success) {
-        console.error('Failed to load cloned templates:', clonedRes.error);
-        toast({
-          title: '복제 템플릿 불러오기 실패',
-          description: getErrorMessage(clonedRes, '복제한 템플릿을 불러오는데 실패했습니다.'),
-          variant: 'destructive',
-        });
+      if (!clonedResult.success) {
+        console.warn('Failed to load cloned templates from server:', clonedResult.error);
+        // Don't show error toast - this is not critical for normal usage
       }
     } catch (error) {
       console.error('Failed to load templates:', error);

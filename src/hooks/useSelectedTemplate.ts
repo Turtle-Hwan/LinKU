@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { getTemplate } from '@/apis/templates';
 import type { Template } from '@/types/api';
 import { LinkList, LinkListElement } from '@/constants/LinkList';
+import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 
 const STORAGE_KEY = 'selectedTemplateId';
 
@@ -120,9 +121,21 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     setError(null);
 
     try {
+      // Try loading from localStorage first (for local-only templates)
+      const localData = loadTemplateFromLocalStorage(templateId);
+      if (localData) {
+        console.log('[useSelectedTemplate] Loaded template from localStorage:', templateId);
+        setTemplateData(localData.template);
+        setLinkItems(convertTemplateToLinkList(localData.template));
+        setIsLoading(false);
+        return;
+      }
+
+      // Fallback: Load from server
       const result = await getTemplate(templateId);
 
       if (result.success && result.data) {
+        console.log('[useSelectedTemplate] Loaded template from server:', templateId);
         setTemplateData(result.data);
         setLinkItems(convertTemplateToLinkList(result.data));
       } else {
