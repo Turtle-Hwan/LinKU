@@ -51,7 +51,14 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     const listener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
       if (areaName === 'local' && changes[STORAGE_KEY]) {
         const newValue = changes[STORAGE_KEY].newValue;
-        setSelectedTemplateId(newValue !== undefined ? newValue : null);
+        console.log('[useSelectedTemplate] Storage changed:', {
+          raw: newValue,
+          type: typeof newValue,
+        });
+        // 0 값도 null로 변환 (기본 템플릿)
+        const normalizedValue = newValue === 0 || newValue === undefined ? null : newValue;
+        console.log('[useSelectedTemplate] Normalized value:', normalizedValue);
+        setSelectedTemplateId(normalizedValue);
       }
     };
 
@@ -79,18 +86,31 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       const result = await chrome.storage.local.get([STORAGE_KEY]);
       const templateId = result[STORAGE_KEY];
 
-      if (templateId && typeof templateId === 'number') {
+      console.log('[useSelectedTemplate] Loaded from storage:', {
+        raw: templateId,
+        type: typeof templateId,
+      });
+
+      if (templateId === 0) {
+        // templateId가 0이면 기본 템플릿 → null로 변환
+        console.log('[useSelectedTemplate] Converting 0 to null (default template)');
+        setSelectedTemplateId(null);
+        setLinkItems(LinkList);
+      } else if (templateId && typeof templateId === 'number') {
+        console.log('[useSelectedTemplate] Setting templateId:', templateId);
         setSelectedTemplateId(templateId);
       } else {
         // No template selected - use default
+        console.log('[useSelectedTemplate] No template selected, using default');
         setSelectedTemplateId(null);
         setLinkItems(LinkList);
-        setIsLoading(false);
       }
     } catch (err) {
       console.error('Failed to load selected template:', err);
       setError('템플릿을 불러오는데 실패했습니다.');
       setLinkItems(LinkList);
+      setSelectedTemplateId(null);
+    } finally {
       setIsLoading(false);
     }
   };

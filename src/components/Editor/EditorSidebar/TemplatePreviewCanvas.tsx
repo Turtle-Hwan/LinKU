@@ -21,7 +21,7 @@ export const TemplatePreviewCanvas = ({ items, height, loading }: TemplatePrevie
   if (loading) {
     return (
       <div
-        className="relative bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center"
+        className="relative bg-white rounded-lg border border-gray-200 flex items-center justify-center"
         style={{
           width: canvasWidth,
           height: canvasHeight,
@@ -35,7 +35,7 @@ export const TemplatePreviewCanvas = ({ items, height, loading }: TemplatePrevie
   if (!items || items.length === 0) {
     return (
       <div
-        className="relative bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center"
+        className="relative bg-white rounded-lg border border-gray-200 flex items-center justify-center"
         style={{
           width: canvasWidth,
           height: canvasHeight,
@@ -48,7 +48,7 @@ export const TemplatePreviewCanvas = ({ items, height, loading }: TemplatePrevie
 
   return (
     <div
-      className="relative bg-gray-100 rounded-lg border border-gray-200"
+      className="relative bg-white rounded-lg border border-gray-200"
       style={{
         width: canvasWidth,
         height: canvasHeight,

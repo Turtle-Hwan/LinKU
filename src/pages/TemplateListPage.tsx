@@ -339,19 +339,32 @@ export const TemplateListPage = () => {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {templates.map((template) => {
-          const isSelected = selectedTemplateId === template.templateId ||
-                             (selectedTemplateId === null && template.templateId === 0);
+          // Ensure only ONE template is selected at a time
+          // - If selectedTemplateId is null → default template (0) is selected
+          // - If selectedTemplateId has a value → that specific template is selected
+          const isSelected = selectedTemplateId === null
+            ? template.templateId === 0
+            : selectedTemplateId === template.templateId;
+
+          // 디버깅: 선택 상태 로깅
+          if (isSelected) {
+            console.log('[TemplateListPage] Selected template:', {
+              templateId: template.templateId,
+              templateName: template.name,
+              selectedTemplateId,
+              isSelected,
+            });
+          }
 
           return (
             <div key={template.templateId} className="relative group">
-              <div className={isSelected ? 'ring-2 ring-primary rounded-lg' : ''}>
-                <TemplateCard
-                  template={template}
-                  onClick={template.templateId === 0 ? undefined : () => handleEditTemplate(template.templateId)}
-                />
-              </div>
+              <TemplateCard
+                template={template}
+                onClick={template.templateId === 0 ? undefined : () => handleEditTemplate(template.templateId)}
+                isSelected={isSelected}
+              />
 
               {/* Action buttons */}
               <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -417,7 +430,7 @@ export const TemplateListPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-6xl">
+    <div className="container mx-auto px-4 py-6 max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

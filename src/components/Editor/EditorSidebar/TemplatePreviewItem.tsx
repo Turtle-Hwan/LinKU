@@ -38,7 +38,7 @@ export const TemplatePreviewItem = ({ item, scale = 1.0 }: TemplatePreviewItemPr
     >
       {/* Horizontal layout matching DraggableItem */}
       <div
-        className="flex flex-row items-center justify-start h-full gap-1.5 overflow-hidden"
+        className="flex flex-row items-center justify-start h-full gap-3 overflow-hidden"
         style={{
           padding: `${2 * scale}px ${4 * scale}px`,
         }}

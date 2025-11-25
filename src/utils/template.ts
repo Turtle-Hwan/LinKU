@@ -6,6 +6,7 @@
 
 import type { TemplateItem, Icon, Position, Size } from '@/types/api';
 import { LinkList } from '@/constants/LinkList';
+import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { LucideIcon } from 'lucide-react';
 
@@ -557,10 +558,15 @@ export function resolveCollisions(
  */
 export function convertLucideIconToDataUri(IconComponent: LucideIcon): string {
   try {
-    // Render the Lucide icon component to SVG string
-    const svgString = renderToStaticMarkup(
-      IconComponent({ size: 24, color: 'currentColor' })
-    );
+    // Create icon element using createElement
+    const iconElement = createElement(IconComponent, {
+      size: 24,
+      color: 'currentColor',
+      strokeWidth: 2,
+    });
+
+    // Render to SVG string
+    const svgString = renderToStaticMarkup(iconElement);
 
     // Convert SVG to base64 data URI
     const base64 = btoa(svgString);
