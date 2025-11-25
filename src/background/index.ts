@@ -19,7 +19,7 @@ console.log('[Background] Service worker initialized');
  */
 chrome.runtime.onMessage.addListener(
   (
-    message: any,
+    message: unknown,
     _sender: chrome.runtime.MessageSender,
     sendResponse: (response: unknown) => void
   ) => {
@@ -32,10 +32,13 @@ chrome.runtime.onMessage.addListener(
       return false;
     }
 
-    console.log('[Background] Message received:', message.type);
+    // At this point, message is an object with a type property
+    // Cast to BackgroundMessage for type-safe handling
+    const typedMessage = message as BackgroundMessage;
+    console.log('[Background] Message received:', typedMessage.type);
 
     // Handle Google Login
-    if (isGoogleLoginMessage(message)) {
+    if (isGoogleLoginMessage(typedMessage)) {
       console.log('[Background] Handling Google login request');
 
       // Handle async OAuth flow
@@ -57,10 +60,12 @@ chrome.runtime.onMessage.addListener(
     }
 
     // Unknown message type
-    console.warn('[Background] Unknown message type:', message.type);
+    // TypeScript narrows to never here, but runtime may have unknown types
+    const unknownMessage = typedMessage as { type: string };
+    console.warn('[Background] Unknown message type:', unknownMessage.type);
     sendResponse({
       success: false,
-      error: `Unknown message type: ${message.type}`,
+      error: `Unknown message type: ${unknownMessage.type}`,
     });
 
     return false;

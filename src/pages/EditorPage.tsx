@@ -15,10 +15,19 @@ import { ItemPropertiesPanel } from '@/components/Editor/ItemPropertiesPanel';
 import { DragOverlayPreview } from '@/components/Editor/Common/DragOverlayPreview';
 import { gridToPixelPosition, pixelToGridPosition, clampToGridBounds, resolveCollisions } from '@/utils/template';
 import { toast } from 'sonner';
+import type { TemplateItem } from '@/types/api';
+
+/**
+ * Drag item data for DragOverlay
+ * Discriminated union for staging items vs canvas items
+ */
+type DragItemData =
+  | { type: 'staging-item'; item: TemplateItem }
+  | (TemplateItem & { type?: 'canvas-item' });
 
 const EditorContent = () => {
   const { state, dispatch } = useEditorContext();
-  const [activeDragItem, setActiveDragItem] = useState<any>(null);
+  const [activeDragItem, setActiveDragItem] = useState<DragItemData | null>(null);
 
   // Configure drag sensors
   const sensors = useSensors(
@@ -33,7 +42,7 @@ const EditorContent = () => {
     const draggedId = event.active.id;
 
     // Store active drag data for overlay
-    setActiveDragItem(event.active.data.current);
+    setActiveDragItem(event.active.data.current as DragItemData | null);
 
     // Check if it's a staging item (string id starting with 'staging-')
     if (typeof draggedId === 'string' && draggedId.startsWith('staging-')) {
