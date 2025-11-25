@@ -28,6 +28,8 @@ export interface EditorState {
   // Sync state
   isSyncing: boolean;
   syncStatus: 'local' | 'synced';
+  // Transition control
+  noTransitionItemId: number | null;
 }
 
 /**
@@ -62,7 +64,10 @@ export type EditorAction =
   // Sync actions
   | { type: 'START_SYNCING' }
   | { type: 'SYNC_SUCCESS'; payload: Template }
-  | { type: 'SYNC_FAILED'; payload: string };
+  | { type: 'SYNC_FAILED'; payload: string }
+  // Transition control actions
+  | { type: 'SET_NO_TRANSITION_ITEM'; payload: number }
+  | { type: 'CLEAR_NO_TRANSITION_ITEM' };
 
 /**
  * Initial state
@@ -80,6 +85,7 @@ const initialState: EditorState = {
   userIcons: [],
   isSyncing: false,
   syncStatus: 'local',
+  noTransitionItemId: null,
 };
 
 /**
@@ -341,6 +347,18 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         ...state,
         isSyncing: false,
         error: action.payload,
+      };
+
+    case 'SET_NO_TRANSITION_ITEM':
+      return {
+        ...state,
+        noTransitionItemId: action.payload,
+      };
+
+    case 'CLEAR_NO_TRANSITION_ITEM':
+      return {
+        ...state,
+        noTransitionItemId: null,
       };
 
     default:

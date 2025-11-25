@@ -33,10 +33,10 @@ export const ItemPropertiesPanel = () => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [selectedIconId, setSelectedIconId] = useState<number | null>(null);
-  const [width, setWidth] = useState(2);
-  const [height, setHeight] = useState(1);
-  const [posX, setPosX] = useState(0);
-  const [posY, setPosY] = useState(0);
+  const [width, setWidth] = useState('2');
+  const [height, setHeight] = useState('1');
+  const [posX, setPosX] = useState('0');
+  const [posY, setPosY] = useState('0');
 
   // Update form when selected item changes
   useEffect(() => {
@@ -44,10 +44,10 @@ export const ItemPropertiesPanel = () => {
       setName(selectedItem.name);
       setUrl(selectedItem.siteUrl);
       setSelectedIconId(selectedItem.icon.id);
-      setWidth(selectedItem.size.width);
-      setHeight(selectedItem.size.height);
-      setPosX(selectedItem.position.x);
-      setPosY(selectedItem.position.y);
+      setWidth(selectedItem.size.width.toString());
+      setHeight(selectedItem.size.height.toString());
+      setPosX(selectedItem.position.x.toString());
+      setPosY(selectedItem.position.y.toString());
     }
   }, [selectedItem]);
 
@@ -82,13 +82,17 @@ export const ItemPropertiesPanel = () => {
       return;
     }
 
-    // Validate size bounds
-    const clampedWidth = Math.max(1, Math.min(GRID_CONFIG.COLS, width));
-    const clampedHeight = Math.max(1, Math.min(GRID_CONFIG.ROWS, height));
+    // Parse and validate size bounds
+    const parsedWidth = parseInt(width) || 1;
+    const parsedHeight = parseInt(height) || 1;
+    const clampedWidth = Math.max(1, Math.min(GRID_CONFIG.COLS, parsedWidth));
+    const clampedHeight = Math.max(1, Math.min(GRID_CONFIG.ROWS, parsedHeight));
 
-    // Validate position bounds
-    const clampedPosX = Math.max(0, Math.min(GRID_CONFIG.COLS - clampedWidth, posX));
-    const clampedPosY = Math.max(0, Math.min(GRID_CONFIG.ROWS - clampedHeight, posY));
+    // Parse and validate position bounds
+    const parsedPosX = parseInt(posX) || 0;
+    const parsedPosY = parseInt(posY) || 0;
+    const clampedPosX = Math.max(0, Math.min(GRID_CONFIG.COLS - clampedWidth, parsedPosX));
+    const clampedPosY = Math.max(0, Math.min(GRID_CONFIG.ROWS - clampedHeight, parsedPosY));
 
     // Update item (use different action based on location)
     dispatch({

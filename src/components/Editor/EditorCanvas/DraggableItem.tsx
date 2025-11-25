@@ -19,7 +19,7 @@ interface DraggableItemProps {
 }
 
 export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
-  const { dispatch } = useEditorContext();
+  const { state, dispatch } = useEditorContext();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.templateItemId,
     data: item, // Pass item data for DragOverlay
@@ -122,8 +122,8 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
       className={cn(
         // Base styles matching LinkGroup GridItem
         'border rounded-lg bg-white',
-        // Only apply transitions when not dragging or resizing
-        !isDragging && !isResizing && 'transition-all',
+        // Only apply transitions when not dragging or resizing, and not in no-transition state
+        !isDragging && !isResizing && item.templateItemId !== state.noTransitionItemId && 'transition-all',
         // Cursor changes based on state
         isResizing ? 'cursor-se-resize' : 'cursor-move',
         'hover:bg-gray-100',

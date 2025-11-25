@@ -96,7 +96,16 @@ const EditorContent = () => {
     // Clamp position to grid bounds considering item size
     const clampedPos = clampToGridBounds(newGridPos, item.size);
 
-    // Try to resolve collisions
+    // Immediately update the dragged item's position to prevent animation glitch
+    dispatch({
+      type: 'MOVE_ITEM',
+      payload: {
+        id: itemId,
+        position: clampedPos,
+      },
+    });
+
+    // Try to resolve collisions with other items
     const positionChanges = resolveCollisions(
       itemId,
       clampedPos,
@@ -104,23 +113,43 @@ const EditorContent = () => {
     );
 
     if (positionChanges) {
-      // Apply all position changes (moving item + pushed items)
+      // Check if there are no collisions (only the dragged item in the map)
+      const hasCollisions = positionChanges.size > 1;
+
+      if (!hasCollisions) {
+        // No collisions: disable transition for instant snap
+        dispatch({ type: 'SET_NO_TRANSITION_ITEM', payload: itemId });
+        setTimeout(() => {
+          dispatch({ type: 'CLEAR_NO_TRANSITION_ITEM' });
+        }, 50);
+      }
+
+      // Apply position changes only for affected items (excluding the dragged item)
       positionChanges.forEach((newPos, affectedItemId) => {
-        dispatch({
-          type: 'MOVE_ITEM',
-          payload: {
-            id: affectedItemId,
-            position: newPos,
-          },
-        });
+        if (affectedItemId !== itemId) {
+          dispatch({
+            type: 'MOVE_ITEM',
+            payload: {
+              id: affectedItemId,
+              position: newPos,
+            },
+          });
+        }
       });
 
       // Show notification if items were pushed
-      if (positionChanges.size > 1) {
+      if (hasCollisions) {
         toast.info(`${positionChanges.size - 1}개의 아이템이 밀려났습니다`);
       }
     } else {
       // Collision resolution failed, revert to original position
+      dispatch({
+        type: 'MOVE_ITEM',
+        payload: {
+          id: itemId,
+          position: item.position,
+        },
+      });
       toast.error('아이템을 배치할 수 없습니다. 공간이 부족합니다.');
     }
   };
