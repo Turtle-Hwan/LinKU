@@ -34,8 +34,8 @@ export const DragOverlayPreview = ({ item, type }: DragOverlayPreviewProps) => {
 
   // Canvas item preview
   return (
-    <div className="border border-primary rounded-lg bg-white shadow-xl opacity-90 px-4 py-2">
-      <div className="flex flex-row items-center justify-start gap-3">
+    <div className="border border-primary rounded-lg bg-white shadow-xl opacity-90 px-4 py-2 overflow-hidden">
+      <div className="flex flex-row items-center justify-start gap-3 overflow-hidden">
         <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
           <img
             src={item.icon.imageUrl}
@@ -43,7 +43,7 @@ export const DragOverlayPreview = ({ item, type }: DragOverlayPreviewProps) => {
             className="w-5 h-5 object-contain"
           />
         </div>
-        <span className="text-base text-black">
+        <span className="text-base text-black truncate">
           {item.name}
         </span>
       </div>
