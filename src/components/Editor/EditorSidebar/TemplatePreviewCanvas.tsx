@@ -1,6 +1,6 @@
 /**
- * Template Preview Canvas - Read-only mini canvas for template previews
- * Renders template layout at half scale
+ * Template Preview Canvas - Read-only canvas for template previews
+ * Renders template layout at full scale
  */
 
 import type { TemplateItem } from '@/types/api';
@@ -14,7 +14,7 @@ interface TemplatePreviewCanvasProps {
 }
 
 export const TemplatePreviewCanvas = ({ items, height, loading }: TemplatePreviewCanvasProps) => {
-  const scale = 0.5;
+  const scale = 1.0;
   const canvasWidth = GRID_CONFIG.CANVAS_WIDTH_PX * scale;
   const canvasHeight = GRID_CONFIG.CANVAS_HEIGHT_PX * scale * (height / GRID_CONFIG.ROWS);
 
@@ -48,25 +48,12 @@ export const TemplatePreviewCanvas = ({ items, height, loading }: TemplatePrevie
 
   return (
     <div
-      className="relative bg-white rounded-lg border border-gray-200"
+      className="relative bg-gray-100 rounded-lg border border-gray-200"
       style={{
         width: canvasWidth,
         height: canvasHeight,
       }}
     >
-      {/* Grid background (optional) */}
-      <div
-        className="absolute inset-0 opacity-5"
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, #000 1px, transparent 1px),
-            linear-gradient(to bottom, #000 1px, transparent 1px)
-          `,
-          backgroundSize: `${GRID_CONFIG.CELL_WIDTH_PX * scale}px ${GRID_CONFIG.CELL_HEIGHT_PX * scale}px`,
-          backgroundPosition: `${GRID_CONFIG.PADDING_PX * scale}px ${GRID_CONFIG.PADDING_PX * scale}px`,
-        }}
-      />
-
       {/* Items */}
       {items.map((item) => (
         <TemplatePreviewItem key={item.templateItemId} item={item} scale={scale} />

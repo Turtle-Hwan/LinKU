@@ -46,6 +46,21 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     loadSelectedTemplate();
   }, []);
 
+  // Listen for storage changes from other contexts (real-time sync)
+  useEffect(() => {
+    const listener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'local' && changes[STORAGE_KEY]) {
+        const newValue = changes[STORAGE_KEY].newValue;
+        setSelectedTemplateId(newValue !== undefined ? newValue : null);
+      }
+    };
+
+    chrome.storage.onChanged.addListener(listener);
+    return () => {
+      chrome.storage.onChanged.removeListener(listener);
+    };
+  }, []);
+
   // Load template data when selectedTemplateId changes
   useEffect(() => {
     if (selectedTemplateId) {

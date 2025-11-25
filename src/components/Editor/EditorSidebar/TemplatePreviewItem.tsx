@@ -12,7 +12,7 @@ interface TemplatePreviewItemProps {
   scale?: number;
 }
 
-export const TemplatePreviewItem = ({ item, scale = 0.5 }: TemplatePreviewItemProps) => {
+export const TemplatePreviewItem = ({ item, scale = 1.0 }: TemplatePreviewItemProps) => {
   // Convert grid coordinates to pixel positions
   const pixelPos = gridToPixelPosition(item.position);
   const pixelSize = gridToPixelSize(item.size);

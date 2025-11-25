@@ -15,6 +15,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { updateTemplateSyncStatus, getTemplatesIndex, loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
+import { convertLinkListToTemplateItems } from '@/utils/template';
+import { LinkList } from '@/constants/LinkList';
 
 export const TemplateListPage = () => {
   const navigate = useNavigate();
@@ -96,14 +98,37 @@ export const TemplateListPage = () => {
         }
       });
 
-      // 5. 최종 정렬 (updatedAt 기준 내림차순)
+      // 5. 기본 템플릿 추가 (항상 맨 위에 표시)
+      // Convert LinkList to Icon array first (filter string icons only)
+      const defaultIcons = LinkList
+        .filter((link) => typeof link.icon === 'string')
+        .map((link, index) => ({
+          id: index,
+          name: link.label,
+          imageUrl: link.icon as string,
+        }));
+      const defaultTemplateItems = convertLinkListToTemplateItems(defaultIcons);
+      const defaultTemplate: TemplateSummary = {
+        templateId: 0,
+        name: 'LinKU 기본 템플릿',
+        height: 6,
+        cloned: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        itemCount: defaultTemplateItems.length,
+        syncStatus: 'synced',
+        items: defaultTemplateItems,
+      };
+
+      // 6. 최종 정렬 (updatedAt 기준 내림차순)
       mergedOwned.sort((a, b) => {
         const aTime = new Date(a.updatedAt).getTime();
         const bTime = new Date(b.updatedAt).getTime();
         return bTime - aTime;
       });
 
-      setOwnedTemplates(mergedOwned);
+      // 기본 템플릿을 맨 앞에 추가
+      setOwnedTemplates([defaultTemplate, ...mergedOwned]);
 
       // 복제 템플릿도 동일하게 처리 (서버만, 보통 복제는 로컬에 없음)
       if (clonedRes.success && clonedRes.data) {
@@ -307,14 +332,14 @@ export const TemplateListPage = () => {
               <div className={isSelected ? 'ring-2 ring-primary rounded-lg' : ''}>
                 <TemplateCard
                   template={template}
-                  onClick={() => handleEditTemplate(template.templateId)}
+                  onClick={template.templateId === 0 ? undefined : () => handleEditTemplate(template.templateId)}
                 />
               </div>
 
               {/* Action buttons */}
               <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                {/* Sync button (local-only templates) */}
-                {template.syncStatus === 'local' ? (
+                {/* Sync button (local-only templates) - hide for default template */}
+                {template.templateId !== 0 && template.syncStatus === 'local' ? (
                   <button
                     onClick={(e) => handleSyncTemplate(template.templateId, template.name, e)}
                     className="p-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
@@ -322,7 +347,7 @@ export const TemplateListPage = () => {
                   >
                     <CloudUpload className="h-4 w-4" />
                   </button>
-                ) : template.syncStatus === 'synced' ? (
+                ) : template.templateId !== 0 && template.syncStatus === 'synced' ? (
                   <div className="p-2 bg-green-600 text-white rounded-md shadow-sm" title="동기화됨">
                     <Cloud className="h-4 w-4" />
                   </div>
@@ -346,8 +371,8 @@ export const TemplateListPage = () => {
                   </div>
                 )}
 
-                {/* Delete button (owned only) */}
-                {activeTab === 'owned' && (
+                {/* Delete button (owned only) - hide for default template */}
+                {activeTab === 'owned' && template.templateId !== 0 && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
