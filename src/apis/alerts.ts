@@ -13,6 +13,7 @@ import type {
 } from '../types/api';
 import { getAlertsFromRSS } from './external/rss-parser';
 import { getCareerAlertsFromHTML } from './external/html-parser';
+import { getErrorDiagnostics } from '@/utils/apiErrorHandler';
 
 /**
  * Get filtered alerts by category
@@ -33,7 +34,12 @@ export async function getAlerts(
       }
 
       // If API failed for this category, fallback to external sources
-      console.warn(`API failed for category ${params.category}, falling back to external sources`);
+      const errorDiagnostics = getErrorDiagnostics(result);
+      console.warn(
+        `[Alerts API] Failed to fetch category "${params.category}"`,
+        `\n  Diagnosis: ${errorDiagnostics}`,
+        `\n  Fallback: RSS/HTML 파싱으로 전환합니다.`
+      );
 
       const [rssAlerts, careerAlerts] = await Promise.all([
         getAlertsFromRSS(),
@@ -59,7 +65,12 @@ export async function getAlerts(
     }
 
     // If API failed, fallback to external sources for all categories
-    console.warn("API failed, falling back to external sources");
+    const errorDiagnostics = getErrorDiagnostics(result);
+    console.warn(
+      `[Alerts API] Failed to fetch all alerts`,
+      `\n  Diagnosis: ${errorDiagnostics}`,
+      `\n  Fallback: RSS/HTML 파싱으로 전환합니다.`
+    );
 
     const [rssAlerts, careerAlerts] = await Promise.all([
       getAlertsFromRSS(),
@@ -75,7 +86,12 @@ export async function getAlerts(
     };
   } catch (error) {
     // If API and external sources fail, return error
-    console.error("API and external sources failed:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[Alerts API] Critical failure - both API and external sources failed`,
+      `\n  Error: ${errorMessage}`,
+      `\n  Stack:`, error
+    );
     return {
       success: false,
       error: {
