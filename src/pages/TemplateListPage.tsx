@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
-import { updateTemplateSyncStatus, getTemplatesIndex, loadTemplateFromLocalStorage } from '@/utils/templateStorage';
+import { updateTemplateSyncStatus, getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
 import { LinkList } from '@/constants/LinkList';
@@ -242,18 +242,46 @@ export const TemplateListPage = () => {
     }
   };
 
-  const handleDeleteTemplate = async (templateId: number, templateName: string) => {
+  const handleDeleteTemplate = async (
+    templateId: number,
+    templateName: string,
+    syncStatus?: 'local' | 'synced'
+  ) => {
     if (!confirm(`"${templateName}" 템플릿을 삭제하시겠습니까?`)) {
       return;
     }
 
     try {
+      // Local-only template: Delete from localStorage only
+      if (syncStatus === 'local') {
+        deleteTemplateFromLocalStorage(templateId);
+
+        toast({
+          title: '삭제 완료',
+          description: '로컬 템플릿이 삭제되었습니다.',
+        });
+
+        // 목록 갱신
+        setOwnedTemplates(prev => prev.filter(t => t.templateId !== templateId));
+        setClonedTemplates(prev => prev.filter(t => t.templateId !== templateId));
+
+        // 삭제된 템플릿이 현재 적용 중이라면 선택 해제
+        if (selectedTemplateId === templateId) {
+          await selectTemplate(null);
+        }
+        return;
+      }
+
+      // Synced template: Delete from server first
       const result = await deleteTemplate(templateId);
 
       if (result.success) {
+        // Also delete from localStorage if exists
+        deleteTemplateFromLocalStorage(templateId);
+
         toast({
           title: '삭제 완료',
-          description: '템플릿이 삭제되었습니다.',
+          description: '템플릿이 서버와 로컬에서 삭제되었습니다.',
         });
 
         // 목록 갱신
@@ -385,7 +413,7 @@ export const TemplateListPage = () => {
               }}
               onDelete={(e) => {
                 e.stopPropagation();
-                handleDeleteTemplate(template.templateId, template.name);
+                handleDeleteTemplate(template.templateId, template.name, template.syncStatus);
               }}
               onSync={(e) => handleSyncTemplate(template.templateId, template.name, e)}
               showDelete={activeTab === 'owned'}
