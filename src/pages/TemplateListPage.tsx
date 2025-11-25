@@ -45,11 +45,29 @@ export const TemplateListPage = () => {
       // 3. 서버 템플릿과 localStorage 템플릿 병합
       let mergedOwned: TemplateSummary[] = [];
       if (ownedRes.success && ownedRes.data) {
-        // 서버 템플릿은 기본적으로 'synced' 상태
-        mergedOwned = ownedRes.data.map(serverTemplate => ({
-          ...serverTemplate,
-          syncStatus: 'synced' as const,
-        }));
+        // 서버 템플릿의 상세 정보 로드 (items 포함)
+        const detailedTemplates = await Promise.all(
+          ownedRes.data.map(async (serverTemplate) => {
+            try {
+              const detailResult = await getTemplate(serverTemplate.templateId);
+              if (detailResult.success && detailResult.data) {
+                return {
+                  ...serverTemplate,
+                  syncStatus: 'synced' as const,
+                  items: detailResult.data.items, // Add items for preview
+                };
+              }
+            } catch (error) {
+              console.error(`Failed to load template ${serverTemplate.templateId}:`, error);
+            }
+            // Fallback without items
+            return {
+              ...serverTemplate,
+              syncStatus: 'synced' as const,
+            };
+          })
+        );
+        mergedOwned = detailedTemplates;
       }
 
       // 4. localStorage에만 있는 템플릿 추가
@@ -72,6 +90,7 @@ export const TemplateListPage = () => {
               updatedAt: stored.template.updatedAt,
               itemCount: stored.template.items.length,
               syncStatus: stored.metadata.syncedWithServer ? 'synced' : 'local',
+              items: stored.template.items, // Add items for preview
             });
           }
         }
@@ -88,10 +107,27 @@ export const TemplateListPage = () => {
 
       // 복제 템플릿도 동일하게 처리 (서버만, 보통 복제는 로컬에 없음)
       if (clonedRes.success && clonedRes.data) {
-        setClonedTemplates(clonedRes.data.map(t => ({
-          ...t,
-          syncStatus: 'synced' as const,
-        })));
+        const detailedCloned = await Promise.all(
+          clonedRes.data.map(async (clonedTemplate) => {
+            try {
+              const detailResult = await getTemplate(clonedTemplate.templateId);
+              if (detailResult.success && detailResult.data) {
+                return {
+                  ...clonedTemplate,
+                  syncStatus: 'synced' as const,
+                  items: detailResult.data.items,
+                };
+              }
+            } catch (error) {
+              console.error(`Failed to load cloned template ${clonedTemplate.templateId}:`, error);
+            }
+            return {
+              ...clonedTemplate,
+              syncStatus: 'synced' as const,
+            };
+          })
+        );
+        setClonedTemplates(detailedCloned);
       }
 
       // 에러 처리
