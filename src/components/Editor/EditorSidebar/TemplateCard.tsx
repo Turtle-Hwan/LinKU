@@ -16,7 +16,7 @@ export const TemplateCard = ({ template, onClick, className }: TemplateCardProps
   return (
     <div
       className={cn(
-        'p-3 border rounded-lg transition-all',
+        'p-3 border rounded-lg transition-all min-w-[550px]',
         onClick && 'cursor-pointer hover:border-primary hover:shadow-sm',
         !onClick && 'cursor-default',
         className

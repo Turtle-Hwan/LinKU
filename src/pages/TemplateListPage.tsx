@@ -15,7 +15,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { updateTemplateSyncStatus, getTemplatesIndex, loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
-import { convertLinkListToTemplateItems } from '@/utils/template';
+import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
 import { LinkList } from '@/constants/LinkList';
 
 export const TemplateListPage = () => {
@@ -99,14 +99,24 @@ export const TemplateListPage = () => {
       });
 
       // 5. 기본 템플릿 추가 (항상 맨 위에 표시)
-      // Convert LinkList to Icon array first (filter string icons only)
-      const defaultIcons = LinkList
-        .filter((link) => typeof link.icon === 'string')
-        .map((link, index) => ({
+      // Convert LinkList to Icon array (including lucide-react icons)
+      const defaultIcons = LinkList.map((link, index) => {
+        let imageUrl: string;
+
+        if (typeof link.icon === 'string') {
+          // PNG/URL 문자열
+          imageUrl = link.icon;
+        } else {
+          // LucideIcon 컴포넌트 → 데이터 URI 변환
+          imageUrl = convertLucideIconToDataUri(link.icon);
+        }
+
+        return {
           id: index,
           name: link.label,
-          imageUrl: link.icon as string,
-        }));
+          imageUrl,
+        };
+      });
       const defaultTemplateItems = convertLinkListToTemplateItems(defaultIcons);
       const defaultTemplate: TemplateSummary = {
         templateId: 0,
@@ -195,11 +205,17 @@ export const TemplateListPage = () => {
 
   const handleApplyTemplate = async (templateId: number, templateName: string) => {
     try {
-      await selectTemplate(templateId);
+      // 기본 템플릿(templateId === 0)인 경우 null로 처리
+      const targetId = templateId === 0 ? null : templateId;
+      await selectTemplate(targetId);
+
+      const message = templateId === 0
+        ? '기본 템플릿이 적용되었습니다.'
+        : `"${templateName}" 템플릿이 메인 화면에 적용되었습니다.`;
 
       toast({
         title: '템플릿 적용 완료',
-        description: `"${templateName}" 템플릿이 메인 화면에 적용되었습니다.`,
+        description: message,
       });
     } catch (error) {
       console.error('Failed to apply template:', error);
@@ -323,9 +339,10 @@ export const TemplateListPage = () => {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
         {templates.map((template) => {
-          const isSelected = selectedTemplateId === template.templateId;
+          const isSelected = selectedTemplateId === template.templateId ||
+                             (selectedTemplateId === null && template.templateId === 0);
 
           return (
             <div key={template.templateId} className="relative group">

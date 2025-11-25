@@ -6,6 +6,8 @@
 
 import type { TemplateItem, Icon, Position, Size } from '@/types/api';
 import { LinkList } from '@/constants/LinkList';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * Grid configuration (6 columns × 6 rows)
@@ -547,4 +549,25 @@ export function resolveCollisions(
   }
 
   return positionChanges;
+}
+
+/**
+ * Convert LucideIcon component to SVG data URI
+ * Renders the icon as SVG and converts it to a base64 data URI
+ */
+export function convertLucideIconToDataUri(IconComponent: LucideIcon): string {
+  try {
+    // Render the Lucide icon component to SVG string
+    const svgString = renderToStaticMarkup(
+      IconComponent({ size: 24, color: 'currentColor' })
+    );
+
+    // Convert SVG to base64 data URI
+    const base64 = btoa(svgString);
+    return `data:image/svg+xml;base64,${base64}`;
+  } catch (error) {
+    console.error('Failed to convert Lucide icon to data URI:', error);
+    // Return a placeholder data URI on error
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==';
+  }
 }
