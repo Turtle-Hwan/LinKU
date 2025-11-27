@@ -10,7 +10,13 @@ import type { TemplateSummary } from '@/types/api';
 import { TemplateCard } from '@/components/Editor/EditorSidebar/TemplateCard';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Plus, FileText, LayoutTemplate } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { updateTemplateSyncStatus, getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage } from '@/utils/templateStorage';
@@ -210,8 +216,12 @@ export const TemplateListPage = () => {
     }
   };
 
-  const handleCreateNew = () => {
-    navigate('/editor');
+  const handleCreateFromDefault = () => {
+    navigate('/editor?from=default');
+  };
+
+  const handleCreateEmpty = () => {
+    navigate('/editor?from=empty');
   };
 
   const handleEditTemplate = (templateId: number) => {
@@ -372,10 +382,24 @@ export const TemplateListPage = () => {
         <div className="flex flex-col items-center justify-center py-12 space-y-4">
           <p className="text-muted-foreground">템플릿이 없습니다.</p>
           {activeTab === 'owned' && (
-            <Button onClick={handleCreateNew} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              새 템플릿 만들기
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  새 템플릿 만들기
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center">
+                <DropdownMenuItem onClick={handleCreateFromDefault}>
+                  <LayoutTemplate className="h-4 w-4 mr-2" />
+                  기본 템플릿에서 시작하기
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCreateEmpty}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  빈 템플릿에서 시작하기
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       );
@@ -435,10 +459,24 @@ export const TemplateListPage = () => {
           </p>
         </div>
 
-        <Button onClick={handleCreateNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          새 템플릿
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              새 템플릿
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleCreateFromDefault}>
+              <LayoutTemplate className="h-4 w-4 mr-2" />
+              기본 템플릿에서 시작하기
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleCreateEmpty}>
+              <FileText className="h-4 w-4 mr-2" />
+              빈 템플릿에서 시작하기
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Tabs */}

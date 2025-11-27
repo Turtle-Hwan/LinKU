@@ -7,8 +7,9 @@ import { createContext, useContext, useReducer, useEffect, ReactNode } from 'rea
 import type { Template, TemplateItem, Icon } from '@/types/api';
 import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons } from '@/apis/icons';
-import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
+import { convertLinkListToTemplateItems, calculateTemplateHeight, convertLucideIconToDataUri } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
+import { LinkList } from '@/constants/LinkList';
 
 /**
  * Editor state interface
@@ -394,12 +395,13 @@ export const useEditorContext = () => {
 interface EditorProviderProps {
   children: ReactNode;
   templateId?: number;
+  startFrom?: 'default' | 'empty';
 }
 
 /**
  * EditorProvider component
  */
-export const EditorProvider = ({ children, templateId }: EditorProviderProps) => {
+export const EditorProvider = ({ children, templateId, startFrom }: EditorProviderProps) => {
   const [state, dispatch] = useReducer(editorReducer, initialState);
 
   // Template loading effect
@@ -407,10 +409,10 @@ export const EditorProvider = ({ children, templateId }: EditorProviderProps) =>
     if (templateId) {
       loadTemplate(templateId);
     } else {
-      initializeNewTemplate();
+      initializeNewTemplate(startFrom);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId]);
+  }, [templateId, startFrom]);
 
   /**
    * Load existing template
@@ -453,13 +455,74 @@ export const EditorProvider = ({ children, templateId }: EditorProviderProps) =>
   };
 
   /**
-   * Initialize new template with default LinkList items
+   * Initialize new template with default LinkList items or empty
+   * @param startFrom - 'default' to start with LinkList items, 'empty' for blank canvas
    */
-  const initializeNewTemplate = async () => {
+  const initializeNewTemplate = async (startFrom?: 'default' | 'empty') => {
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      // Load default icons from backend
+      // If starting from empty, create blank template immediately
+      if (startFrom === 'empty') {
+        const emptyTemplate: Template = {
+          templateId: 0,
+          name: '새 템플릿',
+          height: 6, // 6 rows (grid units)
+          cloned: false,
+          items: [], // Empty items array
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
+        dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: [] });
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return;
+      }
+
+      // If starting from default, convert LinkList directly (same as default template in TemplateListPage)
+      if (startFrom === 'default') {
+        // Convert LinkList to Icon array (including lucide-react icons)
+        const defaultIcons = LinkList.map((link, index) => {
+          let imageUrl: string;
+
+          if (typeof link.icon === 'string') {
+            // PNG/URL string
+            imageUrl = link.icon;
+          } else {
+            // LucideIcon component → convert to data URI with correct color
+            imageUrl = convertLucideIconToDataUri(link.icon);
+          }
+
+          return {
+            id: index,
+            name: link.label,
+            imageUrl,
+          };
+        });
+
+        const templateItems = convertLinkListToTemplateItems(defaultIcons);
+        const templateHeight = calculateTemplateHeight();
+
+        const newTemplate: Template = {
+          templateId: 0,
+          name: '새 템플릿',
+          height: templateHeight,
+          cloned: false,
+          items: templateItems,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
+        dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return;
+      }
+
+      // Fallback: Load default icons from backend (for backward compatibility)
       const iconsResult = await getDefaultIcons();
 
       console.log('Icons API Response:', iconsResult);
