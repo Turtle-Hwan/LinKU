@@ -91,6 +91,31 @@ chrome.runtime.onStartup.addListener(() => {
   console.log('[Background] Browser started, service worker activated');
 });
 
+/**
+ * Badge update for todo count
+ */
+function updateBadge(count: number) {
+  if (count > 0) {
+    chrome.action.setBadgeText({ text: count > 99 ? '99+' : String(count) });
+    chrome.action.setBadgeBackgroundColor({ color: '#00913A' });
+    chrome.action.setBadgeTextColor({ color: '#FFFFFF' });
+  } else {
+    chrome.action.setBadgeText({ text: '' });
+  }
+}
+
+// Initialize badge on service worker start
+chrome.storage.local.get('todoCount', (data) => {
+  updateBadge(data.todoCount || 0);
+});
+
+// Listen for todoCount changes
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local' && changes.todoCount) {
+    updateBadge(changes.todoCount.newValue || 0);
+  }
+});
+
 // Export for type checking (not used at runtime)
 export type { BackgroundMessage, GoogleLoginResponse };
 export { BackgroundMessageType };
