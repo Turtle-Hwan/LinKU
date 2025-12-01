@@ -39,7 +39,14 @@ export async function getUserProfile(): Promise<UserProfile | null> {
  * Clear all tokens and user profile from chrome.storage.local
  */
 export async function clearTokens(): Promise<void> {
-  await chrome.storage.local.remove(['accessToken', 'refreshToken', 'guestToken', 'userProfile']);
+  await chrome.storage.local.remove([
+    'accessToken',
+    'refreshToken',
+    'guestToken',
+    'userProfile',
+    'isGuest',
+    'kuMail',
+  ]);
 }
 
 /**
@@ -48,6 +55,15 @@ export async function clearTokens(): Promise<void> {
 export async function isLoggedIn(): Promise<boolean> {
   const token = await getAccessToken();
   return !!token;
+}
+
+/**
+ * Check if current user is a guest (needs email verification)
+ */
+export async function isGuestUser(): Promise<boolean> {
+  const result = await chrome.storage.local.get(['isGuest', 'refreshToken']);
+  // Guest if isGuest flag is true OR no refreshToken
+  return result.isGuest === true || !result.refreshToken;
 }
 
 /**

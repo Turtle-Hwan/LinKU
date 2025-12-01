@@ -1,59 +1,53 @@
 /**
- * OAuth Handler for Background Script
- * Handles Google OAuth authentication using chrome.identity API
- * This MUST run in background context as chrome.identity is not available in popup
+ * Google OAuth Handler for Chrome Extension
+ *
+ * 백엔드 API 스펙 (PR #26):
+ * 1. GET /api/oauth2/google?redirectUri={uri} - Google OAuth 페이지로 리다이렉트
+ * 2. GET /api/oauth2/google/login?redirectUri={uri}&code={code} - 토큰 교환
+ *
+ * 응답 형식:
+ * {
+ *   "code": 1000,
+ *   "message": "SUCCESS",
+ *   "result": {
+ *     "accessToken": "token_here",
+ *     "refreshToken": "refresh_or_null"
+ *   }
+ * }
  */
 
-import type { GoogleLoginResponse } from '../types';
+import type { GoogleLoginResponse } from "../types";
 
 // Backend URL from environment
 const BACKEND_URL = (() => {
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
-  if (!baseUrl) return '';
+  if (!baseUrl) return "";
 
   try {
     const url = new URL(baseUrl);
-    if (url.pathname.endsWith('/api')) {
+    if (url.pathname.endsWith("/api")) {
       url.pathname = url.pathname.slice(0, -4);
     }
-    return url.origin + url.pathname;
+    const result = url.origin + url.pathname;
+    return result.endsWith("/") ? result.slice(0, -1) : result;
   } catch {
-    // Fallback to string replacement if URL parsing fails
-    return baseUrl.replace('/api', '');
+    const result = baseUrl.replace("/api", "");
+    return result.endsWith("/") ? result.slice(0, -1) : result;
   }
 })();
-const OAUTH_STATE_KEY = 'oauth_state';
 
 /**
- * User profile type
+ * Save tokens and auth state to chrome.storage.local
  */
-interface UserProfile {
-  email: string;
-  name: string;
-  picture: string;
-}
-
-/**
- * Generate random state string for CSRF protection
- */
-function generateState(): string {
-  const array = new Uint8Array(16);
-  crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-}
-
-/**
- * Save state to chrome.storage.session
- */
-async function saveState(state: string): Promise<void> {
-  await chrome.storage.session.set({ [OAUTH_STATE_KEY]: state });
-}
-
-/**
- * Save tokens to chrome.storage.local
- */
-async function saveTokens(accessToken: string, refreshToken?: string): Promise<void> {
-  const data: Record<string, string> = { accessToken };
+async function saveTokens(
+  accessToken: string,
+  refreshToken?: string | null
+): Promise<void> {
+  const isGuest = !refreshToken;
+  const data: Record<string, string | boolean> = {
+    accessToken,
+    isGuest,
+  };
   if (refreshToken) {
     data.refreshToken = refreshToken;
   }
@@ -61,89 +55,55 @@ async function saveTokens(accessToken: string, refreshToken?: string): Promise<v
 }
 
 /**
- * Save user profile to chrome.storage.local
- */
-async function saveUserProfile(profile: UserProfile): Promise<void> {
-  await chrome.storage.local.set({ userProfile: profile });
-}
-
-/**
  * Handle Google OAuth Login
- * This function runs in background context where chrome.identity is available
+ * Uses chrome.identity.launchWebAuthFlow for OAuth flow
  */
 export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
   try {
-    console.log('[Background] Starting Google OAuth flow');
+    console.log("[Background] Starting Google OAuth flow");
 
-    // 1. Generate and save state
-    const state = generateState();
-    await saveState(state);
-
-    // 2. Construct Redirect URI
-    // Chrome Extension에서 OAuth를 사용할 때는 특별한 형식의 redirect URI를 사용합니다.
-    // 형식: https://<extension-id>.chromiumapp.org/
-    //
-    // 이 redirect URI는:
-    // - OAuth 인증 완료 후 Google이 사용자를 리다이렉트할 엔드포인트
-    // - Authorization code가 쿼리 파라미터로 추가됨 (예: ?code=4/0AbC...)
-    // - Chrome이 이 패턴(*.chromiumapp.org)을 감지하면 자동으로 OAuth 창을 닫음
-    //
-    // 요구사항 (RFC 6749 & Google OAuth):
-    // ✅ 절대 URI여야 함 (상대 경로 불가)
-    // ✅ 프로토콜 필수 (https://)
-    // ✅ Fragment 포함 불가 (#이후 부분)
-    // ✅ 공개 IP 주소 사용 불가
-    // ✅ 와일드카드 사용 불가
-    //
-    // 중요: 이 URI를 Google Cloud Console의 "Authorized redirect URIs"에 등록해야 함!
+    // 1. Get extension ID and construct redirect URI
     const extensionId = chrome.runtime.id;
     const redirectUri = `https://${extensionId}.chromiumapp.org/`;
 
-    console.log('[Background] Extension ID:', extensionId);
-    console.log('[Background] Redirect URI:', redirectUri);
+    console.log("[Background] Extension ID:", extensionId);
+    console.log("[Background] Redirect URI:", redirectUri);
+    console.log("[Background] Backend URL:", BACKEND_URL);
 
-    // 3. Build OAuth Authorization URL
     if (!BACKEND_URL) {
       return {
         success: false,
-        error: 'Backend URL이 설정되지 않았습니다. 환경 변수를 확인해주세요.',
+        error: "Backend URL이 설정되지 않았습니다. 환경 변수를 확인해주세요.",
       };
     }
 
-    const authUrl = new URL(`${BACKEND_URL}/api/oauth2/authorization/google`);
+    // 2. Construct OAuth URL (새 API 스펙)
+    const authUrl = new URL(`${BACKEND_URL}/api/oauth2/google`);
+    authUrl.searchParams.set("redirectUri", redirectUri);
 
-    // redirect_uri 파라미터 명시적 지정
-    // Google Cloud Console에 여러 redirect URI를 등록했더라도,
-    // authorization request에 사용할 URI를 명시적으로 지정해야 합니다.
-    // Google은 자동으로 선택하지 않습니다!
-    //
-    // Google이 검증하는 방법:
-    // 1. 요청의 redirect_uri 파라미터 값을 확인
-    // 2. Google Cloud Console에 등록된 URI 목록과 정확히 일치하는지 검증
-    // 3. 일치하면 인증 진행, 불일치하면 redirect_uri_mismatch 오류 발생
-    authUrl.searchParams.set('redirect_uri', redirectUri);
+    console.log("[Background] Auth URL:", authUrl.toString());
 
-    console.log('[Background] Auth URL:', authUrl.toString());
-
-    // 4. Launch OAuth flow using chrome.identity API
+    // 3. Launch OAuth flow using chrome.identity API
     const responseUrl = await chrome.identity.launchWebAuthFlow({
       url: authUrl.toString(),
       interactive: true,
     });
 
-    console.log('[Background] OAuth response URL received');
+    console.log("[Background] Response URL:", responseUrl);
 
-    // 5. Parse response URL
     if (!responseUrl) {
-      return { success: false, error: '인증이 취소되었습니다.' };
+      return { success: false, error: "인증이 취소되었습니다." };
     }
 
+    // 4. Parse response URL to extract code
     const url = new URL(responseUrl);
-    const code = url.searchParams.get('code');
-    const error = url.searchParams.get('error');
+    const code = url.searchParams.get("code");
+    const error = url.searchParams.get("error");
 
-    // Check for OAuth errors
+    console.log("[Background] Extracted code:", code ? "있음" : "없음");
+
     if (error) {
+      console.error("[Background] OAuth error:", error);
       return {
         success: false,
         error: `OAuth 오류: ${error}`,
@@ -153,27 +113,31 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     if (!code) {
       return {
         success: false,
-        error: '인증 코드를 받지 못했습니다.',
+        error: "인증 코드를 받지 못했습니다.",
       };
     }
 
-    console.log('[Background] Authorization code received');
+    // 5. Exchange code for token via backend (새 API 스펙)
+    console.log("[Background] Exchanging code for token...");
 
-    // 6. Exchange code for token via backend
-    const tokenResponse = await fetch(`${BACKEND_URL}/api/oauth2/google/token`, {
-      method: 'POST',
+    const tokenUrl = new URL(`${BACKEND_URL}/api/oauth2/google/login`);
+    tokenUrl.searchParams.set("redirectUri", redirectUri);
+    tokenUrl.searchParams.set("code", code);
+
+    console.log("[Background] Token URL:", tokenUrl.toString());
+
+    const tokenResponse = await fetch(tokenUrl.toString(), {
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
+        Accept: "application/json",
       },
-      body: JSON.stringify({
-        authorizationCode: code,
-        redirectUri,
-      }),
     });
+
+    console.log("[Background] Token Response Status:", tokenResponse.status);
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('[Background] Token exchange failed:', errorText);
+      console.error("[Background] Token exchange failed:", errorText);
       return {
         success: false,
         error: `토큰 교환 실패: ${tokenResponse.status} ${tokenResponse.statusText}`,
@@ -181,49 +145,88 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     }
 
     const tokenData = await tokenResponse.json();
+    console.log("[Background] Token Data:", JSON.stringify(tokenData, null, 2));
 
-    if (!tokenData.success || !tokenData.data) {
+    // 6. Parse backend response
+    // 응답 형식: { code: 1000, message: "SUCCESS", result: { accessToken, refreshToken } }
+    if (tokenData.code !== 1000) {
       return {
         success: false,
-        error: tokenData.error?.message || '토큰 교환에 실패했습니다.',
+        error: tokenData.message || "토큰 교환에 실패했습니다.",
       };
     }
 
-    console.log('[Background] Token exchange successful');
+    const { accessToken, refreshToken } = tokenData.result || {};
 
-    // 7. Save tokens and user profile
-    // The backend returns guestToken - save it as accessToken
-    await saveTokens(tokenData.data.guestToken);
+    if (!accessToken) {
+      console.error("[Background] No accessToken in response:", tokenData);
+      return {
+        success: false,
+        error: "백엔드 응답에서 토큰을 찾을 수 없습니다.",
+      };
+    }
 
-    // Save user profile for later use
-    await saveUserProfile({
-      email: tokenData.data.profile.email,
-      name: tokenData.data.profile.name,
-      picture: tokenData.data.profile.picture,
-    });
+    // 7. Save tokens
+    await saveTokens(accessToken, refreshToken);
+    console.log("[Background] Tokens saved successfully");
 
-    console.log('[Background] OAuth flow completed successfully');
+    // 8. Return success response
+    // refreshToken이 없으면 게스트(신규 회원)
+    const isGuest = !refreshToken;
 
     return {
       success: true,
-      response: tokenData.data,
+      response: {
+        guestToken: accessToken,
+        requiresSignup: isGuest,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        profile: {
+          email: "",
+          name: "",
+          picture: "",
+        },
+      },
     };
   } catch (error) {
-    console.error('[Background] OAuth error:', error);
+    console.error("[Background] OAuth error:", error);
 
-    // User closed the popup
-    if (error instanceof Error && error.message.includes('closed')) {
-      return { success: false, error: '로그인 창이 닫혔습니다.' };
-    }
+    // User closed the popup or cancelled
+    if (error instanceof Error) {
+      if (
+        error.message.includes("The user did not approve") ||
+        error.message.includes("closed") ||
+        error.message.includes("cancelled")
+      ) {
+        return {
+          success: false,
+          error: "사용자가 인증을 취소했습니다.",
+        };
+      }
 
-    // Interrupted
-    if (error instanceof Error && error.message.includes('interrupted')) {
-      return { success: false, error: '로그인이 중단되었습니다.' };
+      // Authorization page could not be loaded
+      if (error.message.includes("Authorization page could not be loaded")) {
+        return {
+          success: false,
+          error:
+            "인증 페이지를 로드할 수 없습니다. 백엔드 서버 상태를 확인해주세요.",
+        };
+      }
+
+      // Interrupted
+      if (error.message.includes("interrupted")) {
+        return {
+          success: false,
+          error: "로그인이 중단되었습니다.",
+        };
+      }
     }
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+      error:
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다.",
     };
   }
 }

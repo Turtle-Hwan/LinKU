@@ -92,3 +92,58 @@ export function validateLinkForm(
 
   return { valid: true };
 }
+
+/**
+ * Validate Konkuk University email
+ * @param email - The email to validate (@konkuk.ac.kr)
+ */
+export function validateKonkukEmail(email: string): ValidationResult {
+  if (!email.trim()) {
+    return {
+      valid: false,
+      error: '이메일을 입력해주세요.',
+    };
+  }
+
+  // Check email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return {
+      valid: false,
+      error: '올바른 이메일 형식을 입력해주세요.',
+    };
+  }
+
+  // Check if it's a Konkuk email
+  if (!email.toLowerCase().endsWith('@konkuk.ac.kr')) {
+    return {
+      valid: false,
+      error: '건국대학교 이메일(@konkuk.ac.kr)만 사용 가능합니다.',
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validate verification code
+ * @param code - The 6-digit verification code
+ */
+export function validateAuthCode(code: string): ValidationResult {
+  if (!code.trim()) {
+    return {
+      valid: false,
+      error: '인증 코드를 입력해주세요.',
+    };
+  }
+
+  // Check if it's 6 digits
+  if (!/^\d{6}$/.test(code)) {
+    return {
+      valid: false,
+      error: '6자리 숫자를 입력해주세요.',
+    };
+  }
+
+  return { valid: true };
+}

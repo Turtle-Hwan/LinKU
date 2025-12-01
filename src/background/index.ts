@@ -60,12 +60,11 @@ chrome.runtime.onMessage.addListener(
     }
 
     // Unknown message type
-    // TypeScript narrows to never here, but runtime may have unknown types
-    const unknownMessage = typedMessage as { type: string };
-    console.warn('[Background] Unknown message type:', unknownMessage.type);
+    const unknownType = (message as { type: string }).type;
+    console.warn('[Background] Unknown message type:', unknownType);
     sendResponse({
       success: false,
-      error: `Unknown message type: ${unknownMessage.type}`,
+      error: `Unknown message type: ${unknownType}`,
     });
 
     return false;
