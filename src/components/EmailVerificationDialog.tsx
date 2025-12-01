@@ -30,18 +30,29 @@ interface EmailVerificationDialogProps {
 
 type Step = 'email' | 'code';
 
+const EMAIL_DOMAIN = '@konkuk.ac.kr';
+
 export function EmailVerificationDialog({
   open,
   onOpenChange,
   onVerificationComplete,
 }: EmailVerificationDialogProps) {
   const [step, setStep] = useState<Step>('email');
-  const [kuMail, setKuMail] = useState('');
+  const [emailId, setEmailId] = useState(''); // ID part only (before @)
   const [authCode, setAuthCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Full email address
+  const kuMail = emailId ? `${emailId}${EMAIL_DOMAIN}` : '';
+
   const handleSendCode = async () => {
-    // Validate email
+    // Validate ID part
+    if (!emailId.trim()) {
+      toast.error('이메일 아이디를 입력해주세요.');
+      return;
+    }
+
+    // Validate full email
     const validation = validateKonkukEmail(kuMail);
     if (!validation.valid) {
       toast.error(validation.error);
@@ -128,7 +139,7 @@ export function EmailVerificationDialog({
 
   const handleClose = () => {
     setStep('email');
-    setKuMail('');
+    setEmailId('');
     setAuthCode('');
     onOpenChange(false);
   };
@@ -165,20 +176,30 @@ export function EmailVerificationDialog({
         <div className="space-y-4 py-4">
           {step === 'email' ? (
             <div className="space-y-2">
-              <label htmlFor="kuMail" className="text-sm font-medium">
+              <label htmlFor="emailId" className="text-sm font-medium">
                 건국대 이메일
               </label>
-              <Input
-                id="kuMail"
-                type="email"
-                placeholder="student@konkuk.ac.kr"
-                value={kuMail}
-                onChange={(e) => setKuMail(e.target.value)}
-                disabled={isLoading}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
-              />
+              <div className="flex items-center">
+                <Input
+                  id="emailId"
+                  type="text"
+                  placeholder="student"
+                  value={emailId}
+                  onChange={(e) => {
+                    // Remove @ and everything after, allow only valid email ID characters
+                    const value = e.target.value.replace(/@.*$/, '').toLowerCase();
+                    setEmailId(value);
+                  }}
+                  disabled={isLoading}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
+                  className="rounded-r-none border-r-0"
+                />
+                <span className="inline-flex items-center px-3 h-9 border border-l-0 border-input bg-muted text-muted-foreground text-sm rounded-r-md">
+                  {EMAIL_DOMAIN}
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground">
-                @konkuk.ac.kr 이메일만 사용 가능합니다.
+                건국대학교 이메일 아이디를 입력해주세요.
               </p>
             </div>
           ) : (
@@ -220,7 +241,7 @@ export function EmailVerificationDialog({
             취소
           </Button>
           {step === 'email' ? (
-            <Button onClick={handleSendCode} disabled={isLoading || !kuMail.trim()}>
+            <Button onClick={handleSendCode} disabled={isLoading || !emailId.trim()}>
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
