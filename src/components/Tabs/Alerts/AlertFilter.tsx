@@ -5,11 +5,13 @@ type AlertViewMode = "all" | "my";
 interface AlertFilterProps {
   viewMode: AlertViewMode;
   onViewModeChange: (mode: AlertViewMode) => void;
+  isLoggedIn: boolean;
 }
 
 const AlertFilter = ({
   viewMode,
   onViewModeChange,
+  isLoggedIn,
 }: AlertFilterProps) => {
   return (
     <div className="flex border rounded-lg p-[3px] w-fit">
@@ -21,14 +23,16 @@ const AlertFilter = ({
       >
         모든 공지
       </Button>
-      {/* <Button
-        variant={viewMode === "my" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => onViewModeChange("my")}
-        className="h-8 px-3"
-      >
-        내 공지
-      </Button> */}
+      {isLoggedIn && (
+        <Button
+          variant={viewMode === "my" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => onViewModeChange("my")}
+          className="h-8 px-3"
+        >
+          내 공지
+        </Button>
+      )}
     </div>
   );
 };

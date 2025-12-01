@@ -13,65 +13,16 @@ import type {
 } from '../types/api';
 import { getAlertsFromRSS } from './external/rss-parser';
 import { getCareerAlertsFromHTML } from './external/html-parser';
-import { getErrorDiagnostics } from '@/utils/apiErrorHandler';
 
 /**
  * Get filtered alerts by category
- * Fetch alerts with optional category filter
- * Falls back to external sources (RSS/HTML) for categories that fail via API
+ * Fetches alerts from RSS/HTML external sources
  */
 export async function getAlerts(
   params?: AlertFilterParams
 ): Promise<ApiResponse<GeneralAlert[]>> {
   try {
-    // If specific category is requested, try API first
-    if (params?.category) {
-      const result = await get<GeneralAlert[]>(ENDPOINTS.ALERTS.BASE, { params });
-
-      // If API succeeded, return the result
-      if (result.success && result.status === 200) {
-        return result;
-      }
-
-      // If API failed for this category, fallback to external sources
-      const errorDiagnostics = getErrorDiagnostics(result);
-      console.warn(
-        `[Alerts API] Failed to fetch category "${params.category}"`,
-        `\n  Diagnosis: ${errorDiagnostics}`,
-        `\n  Fallback: RSS/HTML 파싱으로 전환합니다.`
-      );
-
-      const [rssAlerts, careerAlerts] = await Promise.all([
-        getAlertsFromRSS(),
-        getCareerAlertsFromHTML(6000),
-      ]);
-
-      const allAlerts = [...rssAlerts, ...careerAlerts];
-      const filteredAlerts = allAlerts.filter(alert => alert.category === params.category);
-
-      return {
-        success: true,
-        data: filteredAlerts,
-        status: 200,
-      };
-    }
-
-    // If no category specified, try API first for all categories
-    const result = await get<GeneralAlert[]>(ENDPOINTS.ALERTS.BASE);
-
-    // If API succeeded, return the result
-    if (result.success && result.status === 200) {
-      return result;
-    }
-
-    // If API failed, fallback to external sources for all categories
-    const errorDiagnostics = getErrorDiagnostics(result);
-    console.warn(
-      `[Alerts API] Failed to fetch all alerts`,
-      `\n  Diagnosis: ${errorDiagnostics}`,
-      `\n  Fallback: RSS/HTML 파싱으로 전환합니다.`
-    );
-
+    // Fetch from external sources (RSS/HTML parsing)
     const [rssAlerts, careerAlerts] = await Promise.all([
       getAlertsFromRSS(),
       getCareerAlertsFromHTML(6000),
@@ -79,18 +30,26 @@ export async function getAlerts(
 
     const allAlerts = [...rssAlerts, ...careerAlerts];
 
+    // Filter by category if specified
+    if (params?.category) {
+      const filteredAlerts = allAlerts.filter(alert => alert.category === params.category);
+      return {
+        success: true,
+        data: filteredAlerts,
+        status: 200,
+      };
+    }
+
     return {
       success: true,
       data: allAlerts,
       status: 200,
     };
   } catch (error) {
-    // If API and external sources fail, return error
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `[Alerts API] Critical failure - both API and external sources failed`,
-      `\n  Error: ${errorMessage}`,
-      `\n  Stack:`, error
+      `[Alerts] Failed to fetch alerts from external sources`,
+      `\n  Error: ${errorMessage}`
     );
     return {
       success: false,

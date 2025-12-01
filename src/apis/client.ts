@@ -51,7 +51,6 @@ export const ENDPOINTS = {
 
   // Alerts
   ALERTS: {
-    BASE: "/alerts",
     MY: "/alerts/my",
     SUBSCRIPTION: "/alerts/subscription",
     MY_SUBSCRIPTION: "/alerts/subscription/my",
