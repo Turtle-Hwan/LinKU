@@ -10,6 +10,7 @@ import type { GoogleOAuthResponse } from '../types/api';
  */
 export enum BackgroundMessageType {
   GOOGLE_LOGIN = 'GOOGLE_LOGIN',
+  SILENT_REAUTH = 'SILENT_REAUTH',
 }
 
 /**
@@ -55,4 +56,29 @@ export function isGoogleLoginMessage(
   message: BackgroundMessage
 ): message is GoogleLoginMessage {
   return message.type === BackgroundMessageType.GOOGLE_LOGIN;
+}
+
+/**
+ * Silent Reauth Request Message
+ * Used when token expires (5004 error) - triggers OAuth without user interaction
+ */
+export interface SilentReauthMessage extends BackgroundMessage {
+  type: BackgroundMessageType.SILENT_REAUTH;
+}
+
+/**
+ * Silent Reauth Response
+ */
+export interface SilentReauthResponse {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Type guard for Silent Reauth Message
+ */
+export function isSilentReauthMessage(
+  message: BackgroundMessage
+): message is SilentReauthMessage {
+  return message.type === BackgroundMessageType.SILENT_REAUTH;
 }

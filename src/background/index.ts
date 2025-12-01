@@ -8,8 +8,8 @@
  * Note: chrome.identity API is ONLY available in background/service worker context
  */
 
-import { BackgroundMessageType, isGoogleLoginMessage } from './types';
-import type { BackgroundMessage, GoogleLoginResponse } from './types';
+import { BackgroundMessageType, isGoogleLoginMessage, isSilentReauthMessage } from './types';
+import type { BackgroundMessage, GoogleLoginResponse, SilentReauthResponse } from './types';
 import { handleGoogleLogin } from './handlers/oauth';
 
 console.log('[Background] Service worker initialized');
@@ -56,6 +56,31 @@ chrome.runtime.onMessage.addListener(
         });
 
       // Return true to indicate async response
+      return true;
+    }
+
+    // Handle Silent Reauth (when token expires - 5004 error)
+    if (isSilentReauthMessage(typedMessage)) {
+      console.log('[Background] Handling silent reauth request (token expired)');
+
+      // Reuse Google OAuth flow for silent reauth
+      handleGoogleLogin()
+        .then((response: GoogleLoginResponse) => {
+          console.log('[Background] Silent reauth completed:', response.success);
+          const reauthResponse: SilentReauthResponse = {
+            success: response.success,
+            error: response.success ? undefined : (response as { error?: string }).error,
+          };
+          sendResponse(reauthResponse);
+        })
+        .catch((error: unknown) => {
+          console.error('[Background] Silent reauth error:', error);
+          sendResponse({
+            success: false,
+            error: error instanceof Error ? error.message : '재인증에 실패했습니다.',
+          } as SilentReauthResponse);
+        });
+
       return true;
     }
 
@@ -117,5 +142,5 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 });
 
 // Export for type checking (not used at runtime)
-export type { BackgroundMessage, GoogleLoginResponse };
+export type { BackgroundMessage, GoogleLoginResponse, SilentReauthResponse };
 export { BackgroundMessageType };

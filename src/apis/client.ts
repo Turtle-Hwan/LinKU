@@ -4,6 +4,19 @@
  */
 
 import type { ApiResponse, RequestConfig } from "../types/api";
+import { BackgroundMessageType } from "../background/types";
+import type { SilentReauthResponse } from "../background/types";
+
+/**
+ * Token expired error code from backend
+ */
+const TOKEN_EXPIRED_CODE = 5004;
+
+/**
+ * Reauth state to prevent multiple simultaneous OAuth popups
+ */
+let isReauthenticating = false;
+let reauthPromise: Promise<boolean> | null = null;
 
 /**
  * API Base URL
@@ -73,6 +86,50 @@ async function clearAccessToken(): Promise<void> {
 }
 
 /**
+ * Handle token expiration by triggering silent re-authentication
+ * Sends SILENT_REAUTH message to background script to re-trigger Google OAuth
+ * Uses flags to prevent multiple simultaneous OAuth popups
+ * @returns Promise<boolean> - true if reauth succeeded, false otherwise
+ */
+async function handleTokenExpired(): Promise<boolean> {
+  // If already reauthenticating, wait for the existing promise
+  if (isReauthenticating && reauthPromise) {
+    console.log('[API Client] Reauth already in progress, waiting...');
+    return reauthPromise;
+  }
+
+  console.log('[API Client] Token expired (5004), attempting silent reauth...');
+
+  isReauthenticating = true;
+  reauthPromise = (async () => {
+    try {
+      const response = await chrome.runtime.sendMessage<
+        { type: BackgroundMessageType.SILENT_REAUTH },
+        SilentReauthResponse
+      >({
+        type: BackgroundMessageType.SILENT_REAUTH,
+      });
+
+      if (response?.success) {
+        console.log('[API Client] Silent reauth succeeded');
+        return true;
+      } else {
+        console.error('[API Client] Silent reauth failed:', response?.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('[API Client] Silent reauth error:', error);
+      return false;
+    } finally {
+      isReauthenticating = false;
+      reauthPromise = null;
+    }
+  })();
+
+  return reauthPromise;
+}
+
+/**
  * Request Interceptors
  */
 async function applyRequestInterceptors(options: RequestInit): Promise<RequestInit> {
@@ -122,12 +179,14 @@ function buildUrl(url: string, params?: unknown): string {
 
 /**
  * Core request function
+ * @param isRetry - Internal flag to prevent infinite retry loops on 5004 error
  */
 async function request<T = unknown>(
   url: string,
   method: string,
   body?: unknown,
-  config?: RequestConfig
+  config?: RequestConfig,
+  isRetry: boolean = false
 ): Promise<ApiResponse<T>> {
   try {
     const { headers = {}, params, ...restConfig } = config || {};
@@ -193,6 +252,39 @@ async function request<T = unknown>(
         },
         status: response.status,
       };
+    }
+
+    // Check for token expired error (5004) and attempt silent reauth
+    if (
+      !isRetry &&
+      data &&
+      typeof data === 'object' &&
+      'code' in data &&
+      (data as Record<string, unknown>).code === TOKEN_EXPIRED_CODE
+    ) {
+      console.log('[API Client] Detected 5004 token expired error, attempting reauth...');
+
+      const reauthSuccess = await handleTokenExpired();
+
+      if (reauthSuccess) {
+        // Retry the original request with new token
+        console.log('[API Client] Retrying request after successful reauth');
+        return request<T>(url, method, body, config, true);
+      } else {
+        // Reauth failed, clear tokens and notify
+        console.error('[API Client] Reauth failed, clearing tokens');
+        await clearAccessToken();
+        window.dispatchEvent(new CustomEvent("auth:unauthorized"));
+
+        return {
+          success: false,
+          error: {
+            code: String(TOKEN_EXPIRED_CODE),
+            message: '세션이 만료되었습니다. 다시 로그인해주세요.',
+          },
+          status: 401,
+        };
+      }
     }
 
     // Extract data from backend 'result' field if present
