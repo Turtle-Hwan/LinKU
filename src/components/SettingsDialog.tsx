@@ -26,7 +26,7 @@ import {
   UserProfile,
 } from "@/utils/oauth";
 import { eCampusLoginAPI } from "@/apis";
-import { Info, Palette, LogOut, Mail } from "lucide-react";
+import { Info, Palette, LogOut, Mail, User } from "lucide-react";
 import { toast } from "sonner";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
 
@@ -332,13 +332,13 @@ const GoogleOAuthSection = () => {
     // Not logged in - show login button
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold">Google 계정</h2>
+        <h2 className="text-base font-semibold">Google / Konkuk 계정 연동</h2>
 
         <div className="space-y-3">
           <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Google 계정으로 로그인하면 템플릿을 서버에 저장하고 여러 기기에서 동기화할 수 있습니다.
+              계정 연동을 하면 템플릿을 서버에 저장하고 여러 기기에서 동기화할 수 있습니다.
             </p>
           </div>
 
@@ -401,14 +401,14 @@ const GoogleOAuthSection = () => {
   // Logged in as member - show user profile
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-semibold">Google 계정</h2>
+      <h2 className="text-base font-semibold">Google / Konkuk 계정 연동</h2>
 
       <div className="space-y-3">
         <div className="flex items-center gap-3 rounded-lg border p-4">
           <Avatar className="h-12 w-12">
             <AvatarImage src={userProfile?.picture} alt={userProfile?.name} />
             <AvatarFallback>
-              {userProfile ? getInitials(userProfile.name) : "??"}
+              {userProfile?.name ? getInitials(userProfile.name) : <User className="h-6 w-6 text-muted-foreground" />}
             </AvatarFallback>
           </Avatar>
 
@@ -501,7 +501,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
         <Tabs defaultValue="google" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="google">Google 계정</TabsTrigger>
+            <TabsTrigger value="google">Google / Konkuk 계정 연동</TabsTrigger>
             <TabsTrigger value="ecampus">eCampus 계정</TabsTrigger>
           </TabsList>
 
