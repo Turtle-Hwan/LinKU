@@ -9,6 +9,7 @@ import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons } from '@/apis/icons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
+import { toast } from 'sonner';
 
 /**
  * Editor state interface
@@ -464,42 +465,28 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       // Always fetch server icons first (for icon picker and template items)
       const iconsResult = await getDefaultIcons();
 
-      console.log('Icons API Response:', iconsResult);
+      console.log('[EditorContext] Icons API full response:', iconsResult);
 
-      // Type guards for API response parsing
-      function isIconArray(data: unknown): data is Icon[] {
-        return Array.isArray(data);
-      }
-
-      function isPaginatedResponse(data: unknown): data is { items: Icon[] } {
-        if (typeof data !== 'object' || data === null || !('items' in data)) {
-          return false;
-        }
-        const candidate = data as Record<string, unknown>;
-        return Array.isArray(candidate.items);
-      }
-
-      // Ensure defaultIcons is an array
+      // Parse icons from response
+      // client.ts already extracts 'result' field, so iconsResult.data should be Icon[]
       let defaultIcons: Icon[] = [];
+
       if (iconsResult.success && iconsResult.data) {
-        // Cast to unknown first to handle both array and paginated responses
-        const data = iconsResult.data as unknown;
-        // Handle both array and object responses
-        if (isIconArray(data)) {
-          defaultIcons = data;
-        } else if (isPaginatedResponse(data)) {
-          defaultIcons = data.items;
+        if (Array.isArray(iconsResult.data)) {
+          defaultIcons = iconsResult.data;
+        } else if (typeof iconsResult.data === 'object' && 'items' in iconsResult.data) {
+          // Handle paginated response format
+          defaultIcons = (iconsResult.data as { items: Icon[] }).items;
+        } else {
+          console.error('[EditorContext] Unexpected response structure:', iconsResult.data);
         }
+      } else {
+        console.error('[EditorContext] Icons API failed:', iconsResult.error);
       }
 
-      console.log('Processed defaultIcons:', defaultIcons);
+      console.log('[EditorContext] Final defaultIcons count:', defaultIcons.length);
 
-      if (!Array.isArray(defaultIcons) || defaultIcons.length === 0) {
-        console.warn('No default icons available from server');
-        defaultIcons = [];
-      }
-
-      // Load server icons for icon picker
+      // Load server icons for icon picker (even if empty)
       dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
 
       // Create template based on startFrom mode
@@ -518,31 +505,45 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
       } else {
         // Default template - convert LinkList using server icons
-        const templateItems = defaultIcons.length > 0
-          ? convertLinkListToTemplateItems(defaultIcons)
-          : [];
-        const templateHeight = calculateTemplateHeight();
+        // If no icons available, show warning and create empty template (still saveable locally)
+        if (defaultIcons.length === 0) {
+          toast.warning('서버 아이콘을 불러올 수 없어 빈 템플릿으로 시작합니다.');
+          const emptyTemplate: Template = {
+            templateId: 0,
+            name: '새 템플릿',
+            height: 6,
+            cloned: false,
+            items: [],
+            id: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
+        } else {
+          const templateItems = convertLinkListToTemplateItems(defaultIcons);
+          const templateHeight = calculateTemplateHeight();
 
-        const newTemplate: Template = {
-          templateId: 0,
-          name: '새 템플릿',
-          height: templateHeight,
-          cloned: false,
-          items: templateItems,
-          id: crypto.randomUUID(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+          const newTemplate: Template = {
+            templateId: 0,
+            name: '새 템플릿',
+            height: templateHeight,
+            cloned: false,
+            items: templateItems,
+            id: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
 
-        dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
+          dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
+        }
       }
     } catch (error) {
-      console.error('Failed to initialize template:', error);
-      // Fallback: create empty template with 6 rows
+      console.error('[EditorContext] Failed to initialize template:', error);
+      // Fallback: create empty template (still saveable locally)
       const emptyTemplate: Template = {
         templateId: 0,
         name: '새 템플릿',
-        height: 6, // 6 rows (grid units)
+        height: 6,
         cloned: false,
         items: [],
         id: crypto.randomUUID(),

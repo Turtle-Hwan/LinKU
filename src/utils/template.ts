@@ -169,16 +169,13 @@ function getIconIdentifier(linkItem: typeof LinkList[number]): string {
 
 /**
  * Map LinkList icon to default icon using multiple matching strategies
+ * Returns null if no valid server icon is found
  */
-function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[]): Icon {
-  // Ensure defaultIcons is an array
+function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[]): Icon | null {
+  // Ensure defaultIcons is an array with valid server icons
   if (!Array.isArray(defaultIcons) || defaultIcons.length === 0) {
-    console.warn('findMatchingIcon: defaultIcons is not a valid array');
-    return {
-      id: 0,
-      name: 'default',
-      imageUrl: '',
-    };
+    console.warn('findMatchingIcon: No server icons available');
+    return null;
   }
 
   // Get icon identifier from LinkList item
@@ -238,16 +235,19 @@ function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[
     }
   }
 
-  // Return match or first icon as fallback
-  return match || defaultIcons[0] || {
-    id: 0,
-    name: 'default',
-    imageUrl: '',
-  };
+  // Return match or first server icon as fallback (never return local/fake icon)
+  if (match) {
+    return match;
+  }
+
+  // Use first server icon as fallback if no match found
+  console.warn(`findMatchingIcon: No match for "${linkItem.label}", using first server icon`);
+  return defaultIcons[0];
 }
 
 /**
  * Convert LinkList to TemplateItems with grid coordinates
+ * Only includes items with valid server icons
  */
 export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateItem[] {
   // Validate that defaultIcons is an array
@@ -257,29 +257,37 @@ export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateIt
   }
 
   if (defaultIcons.length === 0) {
-    console.warn('convertLinkListToTemplateItems: No default icons available');
+    console.warn('convertLinkListToTemplateItems: No server icons available');
     return [];
   }
 
-  return LinkList.map((linkItem, index) => {
+  const items: TemplateItem[] = [];
+
+  LinkList.forEach((linkItem, index) => {
+    // Find matching server icon
+    const icon = findMatchingIcon(linkItem, defaultIcons);
+
+    // Skip items without valid server icon
+    if (!icon) {
+      console.warn(`convertLinkListToTemplateItems: Skipping "${linkItem.label}" - no valid server icon`);
+      return;
+    }
+
     const colSpan = linkItem.islong ? 3 : 2;
     const position = calculateGridPosition(index, colSpan);
     const size = calculateGridSize(colSpan);
 
-    // Find matching icon - pass the entire linkItem for better matching
-    const icon = findMatchingIcon(linkItem, defaultIcons);
-
-    const templateItem: TemplateItem = {
+    items.push({
       templateItemId: -(index + 1), // Temporary negative IDs for new items
       name: linkItem.label,
       siteUrl: linkItem.link,
       position: position, // Grid coordinates (0-5, 0-5)
       size: size,         // Grid size (width: 2-3, height: 1)
       icon: icon,
-    };
-
-    return templateItem;
+    });
   });
+
+  return items;
 }
 
 /**

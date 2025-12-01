@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer } from '@/apis/templates';
+import { getDefaultIcons } from '@/apis/icons';
 import type { TemplateSummary } from '@/types/api';
 import { TemplateCard } from '@/components/Editor/EditorSidebar/TemplateCard';
 import { Button } from '@/components/ui/button';
@@ -328,6 +329,24 @@ export const TemplateListPage = () => {
       const stored = loadTemplateFromLocalStorage(templateId);
       if (!stored) {
         throw new Error('로컬 템플릿을 찾을 수 없습니다.');
+      }
+
+      // Validate icon IDs before syncing (only if template has items)
+      if (stored.template.items.length > 0) {
+        const iconsResult = await getDefaultIcons();
+        if (iconsResult.success && iconsResult.data) {
+          const serverIcons = Array.isArray(iconsResult.data) ? iconsResult.data : [];
+          const validIconIds = new Set(serverIcons.map(icon => icon.id));
+
+          const invalidItems = stored.template.items.filter(
+            item => !validIconIds.has(item.icon.id)
+          );
+
+          if (invalidItems.length > 0) {
+            console.error('[Sync] Invalid icon IDs found:', invalidItems.map(i => ({ name: i.name, iconId: i.icon.id })));
+            throw new Error('일부 아이템의 아이콘이 서버에 없습니다. 아이콘을 변경 후 다시 시도해주세요.');
+          }
+        }
       }
 
       // Set syncStatus from metadata (template object may not have it)
