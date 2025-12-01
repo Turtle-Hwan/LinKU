@@ -29,7 +29,7 @@ const MyAlertsView = () => {
   // 전체 학과 목록 로드
   const loadDepartments = useCallback(async () => {
     const result = await getSubscriptions();
-    if (result.success && result.data) {
+    if (result.success && Array.isArray(result.data)) {
       setDepartments(result.data);
     }
   }, []);
@@ -43,11 +43,11 @@ const MyAlertsView = () => {
         getMyAlerts(),
       ]);
 
-      if (subscriptionsResult.success && subscriptionsResult.data) {
+      if (subscriptionsResult.success && Array.isArray(subscriptionsResult.data)) {
         setMySubscriptions(subscriptionsResult.data);
       }
 
-      if (alertsResult.success && alertsResult.data) {
+      if (alertsResult.success && Array.isArray(alertsResult.data)) {
         setMyAlerts(alertsResult.data);
       }
     } catch (error) {
