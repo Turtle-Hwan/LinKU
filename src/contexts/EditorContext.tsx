@@ -7,9 +7,8 @@ import { createContext, useContext, useReducer, useEffect, ReactNode } from 'rea
 import type { Template, TemplateItem, Icon } from '@/types/api';
 import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons } from '@/apis/icons';
-import { convertLinkListToTemplateItems, calculateTemplateHeight, convertLucideIconToDataUri } from '@/utils/template';
+import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
-import { LinkList } from '@/constants/LinkList';
 
 /**
  * Editor state interface
@@ -462,67 +461,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      // If starting from empty, create blank template immediately
-      if (startFrom === 'empty') {
-        const emptyTemplate: Template = {
-          templateId: 0,
-          name: '새 템플릿',
-          height: 6, // 6 rows (grid units)
-          cloned: false,
-          items: [], // Empty items array
-          id: crypto.randomUUID(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
-        dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: [] });
-        dispatch({ type: 'SET_LOADING', payload: false });
-        return;
-      }
-
-      // If starting from default, convert LinkList directly (same as default template in TemplateListPage)
-      if (startFrom === 'default') {
-        // Convert LinkList to Icon array (including lucide-react icons)
-        const defaultIcons = LinkList.map((link, index) => {
-          let imageUrl: string;
-
-          if (typeof link.icon === 'string') {
-            // PNG/URL string
-            imageUrl = link.icon;
-          } else {
-            // LucideIcon component → convert to data URI with correct color
-            imageUrl = convertLucideIconToDataUri(link.icon);
-          }
-
-          return {
-            id: index,
-            name: link.label,
-            imageUrl,
-          };
-        });
-
-        const templateItems = convertLinkListToTemplateItems(defaultIcons);
-        const templateHeight = calculateTemplateHeight();
-
-        const newTemplate: Template = {
-          templateId: 0,
-          name: '새 템플릿',
-          height: templateHeight,
-          cloned: false,
-          items: templateItems,
-          id: crypto.randomUUID(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
-        dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
-        dispatch({ type: 'SET_LOADING', payload: false });
-        return;
-      }
-
-      // Fallback: Load default icons from backend (for backward compatibility)
+      // Always fetch server icons first (for icon picker and template items)
       const iconsResult = await getDefaultIcons();
 
       console.log('Icons API Response:', iconsResult);
@@ -556,27 +495,47 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       console.log('Processed defaultIcons:', defaultIcons);
 
       if (!Array.isArray(defaultIcons) || defaultIcons.length === 0) {
-        console.warn('No default icons available, creating empty template');
+        console.warn('No default icons available from server');
         defaultIcons = [];
       }
 
-      // Convert LinkList to TemplateItems
-      const templateItems = convertLinkListToTemplateItems(defaultIcons);
-      const templateHeight = calculateTemplateHeight();
-
-      const newTemplate: Template = {
-        templateId: 0,
-        name: '새 템플릿',
-        height: templateHeight,
-        cloned: false,
-        items: templateItems,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
+      // Load server icons for icon picker
       dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
+
+      // Create template based on startFrom mode
+      if (startFrom === 'empty') {
+        // Empty template - no items, just icons for picker
+        const emptyTemplate: Template = {
+          templateId: 0,
+          name: '새 템플릿',
+          height: 6,
+          cloned: false,
+          items: [],
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
+      } else {
+        // Default template - convert LinkList using server icons
+        const templateItems = defaultIcons.length > 0
+          ? convertLinkListToTemplateItems(defaultIcons)
+          : [];
+        const templateHeight = calculateTemplateHeight();
+
+        const newTemplate: Template = {
+          templateId: 0,
+          name: '새 템플릿',
+          height: templateHeight,
+          cloned: false,
+          items: templateItems,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
+      }
     } catch (error) {
       console.error('Failed to initialize template:', error);
       // Fallback: create empty template with 6 rows

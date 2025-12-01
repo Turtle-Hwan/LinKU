@@ -19,7 +19,7 @@ import {
 import { Plus, FileText, LayoutTemplate } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
-import { updateTemplateSyncStatus, getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage } from '@/utils/templateStorage';
+import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage, saveTemplateToLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
 import { LinkList } from '@/constants/LinkList';
@@ -324,25 +324,45 @@ export const TemplateListPage = () => {
     e.stopPropagation();
 
     try {
-      // Load full template data
-      const templateResult = await getTemplate(templateId);
-      if (!templateResult.success || !templateResult.data) {
-        const errorMsg = getErrorMessage(templateResult, '템플릿을 불러올 수 없습니다.');
-        throw new Error(errorMsg);
+      // Load full template data from localStorage (local-only templates don't exist on server)
+      const stored = loadTemplateFromLocalStorage(templateId);
+      if (!stored) {
+        throw new Error('로컬 템플릿을 찾을 수 없습니다.');
       }
 
+      // Set syncStatus from metadata (template object may not have it)
+      const templateWithStatus = {
+        ...stored.template,
+        syncStatus: (stored.metadata.syncedWithServer ? 'synced' : 'local') as 'local' | 'synced',
+      };
+
       // Sync to server
-      const syncResult = await syncTemplateToServer(templateResult.data);
+      const syncResult = await syncTemplateToServer(templateWithStatus);
 
       if (syncResult.success && syncResult.data) {
-        // Update localStorage sync status
-        updateTemplateSyncStatus(syncResult.data.templateId, true);
+        const serverTemplateId = syncResult.data.templateId;
 
-        // Update local state
+        // Delete old local template (with timestamp ID) from localStorage
+        if (serverTemplateId !== templateId) {
+          deleteTemplateFromLocalStorage(templateId);
+        }
+
+        // Save synced template with server ID to localStorage (for offline use)
+        await saveTemplateToLocalStorage(
+          { ...syncResult.data, syncStatus: 'synced' },
+          stored.stagingItems,
+          true // synced with server
+        );
+
+        // Update local state - replace old templateId with new server ID
         setOwnedTemplates(prev =>
           prev.map(t =>
             t.templateId === templateId
-              ? { ...t, syncStatus: 'synced' as const }
+              ? {
+                  ...t,
+                  templateId: serverTemplateId,
+                  syncStatus: 'synced' as const,
+                }
               : t
           )
         );
