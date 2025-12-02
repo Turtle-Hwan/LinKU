@@ -7,17 +7,22 @@ import {
   unsubscribeDepartment,
 } from "@/apis";
 import type { Department, Subscription, GeneralAlert } from "@/types/api";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronDown, X, Bell, Loader2 } from "lucide-react";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { X, Bell, Loader2, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import AlertItem from "./AlertItem";
 
 const MyAlertsView = () => {
@@ -28,6 +33,8 @@ const MyAlertsView = () => {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isDepartmentsLoaded, setIsDepartmentsLoaded] = useState(false);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [open, setOpen] = useState(false);
 
   // 전체 학과 목록 로드 (드롭다운 열 때만)
   const loadDepartments = useCallback(async () => {
@@ -69,10 +76,13 @@ const MyAlertsView = () => {
     }
   }, []);
 
-  // 드롭다운 열릴 때 학과 목록 로드
-  const handleDropdownOpen = (open: boolean) => {
-    if (open) {
+  // Popover 열릴 때 학과 목록 로드, 닫힐 때 검색어 초기화
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
       loadDepartments();
+    } else {
+      setSearchQuery("");
     }
   };
 
@@ -127,6 +137,14 @@ const MyAlertsView = () => {
     (dept) => !mySubscriptions.some((sub) => sub.department.id === dept.id)
   );
 
+  // 검색어로 필터링
+  const filteredDepartments = useMemo(() => {
+    if (!searchQuery.trim()) return availableDepartments;
+    return availableDepartments.filter((dept) =>
+      dept.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
+    );
+  }, [availableDepartments, searchQuery]);
+
   // 공지사항 시간순 정렬 (최신순)
   const sortedAlerts = useMemo(() => {
     return [...myAlerts].sort((a, b) => {
@@ -145,52 +163,64 @@ const MyAlertsView = () => {
           <span className="text-sm font-medium">학과 구독</span>
         </div>
 
-        {/* 학과 선택 드롭다운 */}
-        <DropdownMenu onOpenChange={handleDropdownOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-between"
-              disabled={isSubscribing || (isDepartmentsLoaded && availableDepartments.length === 0)}
-            >
-              {isSubscribing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  구독 중...
-                </>
-              ) : isDepartmentsLoaded && availableDepartments.length === 0 ? (
-                "구독 가능한 학과 없음"
-              ) : (
-                "학과 선택"
-              )}
-              <ChevronDown className="h-4 w-4 ml-2" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-(--radix-dropdown-menu-trigger-width) p-0">
-            <ScrollArea className="max-h-[min(300px,var(--radix-dropdown-menu-content-available-height))]">
-              <div className="p-1">
+        {/* 학과 검색 Combobox */}
+        <Popover open={open} onOpenChange={handleOpenChange}>
+          <PopoverTrigger asChild>
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder={
+                  isSubscribing
+                    ? "구독 중..."
+                    : isDepartmentsLoaded && availableDepartments.length === 0
+                      ? "구독 가능한 학과 없음"
+                      : "학과 검색..."
+                }
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 cursor-pointer"
+                disabled={isSubscribing || (isDepartmentsLoaded && availableDepartments.length === 0)}
+              />
+            </div>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[--radix-popover-trigger-width] p-0"
+            align="start"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <Command shouldFilter={false}>
+              <CommandList className="max-h-[250px]">
                 {isLoadingDepartments ? (
                   <div className="flex justify-center py-4">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
-                ) : availableDepartments.length === 0 ? (
-                  <div className="text-center py-4 text-sm text-muted-foreground">
-                    구독 가능한 학과가 없습니다
-                  </div>
+                ) : filteredDepartments.length === 0 ? (
+                  <CommandEmpty>
+                    {searchQuery.trim()
+                      ? "검색 결과가 없습니다"
+                      : "구독 가능한 학과가 없습니다"}
+                  </CommandEmpty>
                 ) : (
-                  availableDepartments.map((dept) => (
-                    <DropdownMenuItem
-                      key={dept.id}
-                      onClick={() => handleSubscribe(dept.id)}
-                    >
-                      {dept.name}
-                    </DropdownMenuItem>
-                  ))
+                  <CommandGroup>
+                    {filteredDepartments.map((dept) => (
+                      <CommandItem
+                        key={dept.id}
+                        value={dept.name}
+                        onSelect={() => {
+                          handleSubscribe(dept.id);
+                          setOpen(false);
+                          setSearchQuery("");
+                        }}
+                      >
+                        {dept.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
                 )}
-              </div>
-            </ScrollArea>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
         {/* 구독 중인 학과 뱃지 */}
         {mySubscriptions.length > 0 && (

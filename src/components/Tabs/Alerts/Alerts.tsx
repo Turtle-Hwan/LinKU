@@ -25,29 +25,15 @@ const categories: { value: AlertCategory | undefined; label: string }[] = [
 ];
 
 const Alerts = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [viewMode, setViewMode] = useState<AlertViewMode>("all");
   const [selectedCategory, setSelectedCategory] = useState<AlertCategory | undefined>(undefined);
   const [loggedIn, setLoggedIn] = useState(false);
 
-  // 로그인 상태 확인
-  useEffect(() => {
-    const checkLogin = async () => {
-      const status = await checkLoggedIn();
-      setLoggedIn(status);
-      // 로그아웃 상태면 viewMode를 "all"로 리셋
-      if (!status && viewMode === "my") {
-        setViewMode("all");
-      }
-    };
-    checkLogin();
-  }, [viewMode]);
-
-  // 공지사항 목록 가져오기 (모든 공지 모드에서만 사용)
+  // 공지사항 목록 가져오기
   const fetchAlerts = useCallback(async () => {
-    if (viewMode !== "all") return;
-
     setIsLoading(true);
 
     try {
@@ -73,28 +59,41 @@ const Alerts = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [viewMode, selectedCategory]);
+  }, [selectedCategory]);
 
-  // 초기 로드 시 저장된 설정 불러오기
+  // 초기화: 설정 + 로그인 상태를 한 번에 로드
   useEffect(() => {
-    const loadSettings = async () => {
-      const savedViewMode = await getStorage<AlertViewMode>(ALERT_VIEW_MODE_KEY);
-      const savedCategory = await getStorage<AlertCategory>(ALERT_CATEGORY_KEY);
+    const initialize = async () => {
+      const [savedViewMode, savedCategory, loginStatus] = await Promise.all([
+        getStorage<AlertViewMode>(ALERT_VIEW_MODE_KEY),
+        getStorage<AlertCategory>(ALERT_CATEGORY_KEY),
+        checkLoggedIn(),
+      ]);
 
-      if (savedViewMode) {
+      setLoggedIn(loginStatus);
+
+      // 로그아웃 상태에서 저장된 viewMode가 "my"면 "all"로 변경
+      if (savedViewMode === "my" && !loginStatus) {
+        setViewMode("all");
+      } else if (savedViewMode) {
         setViewMode(savedViewMode);
       }
+
       if (savedCategory) {
         setSelectedCategory(savedCategory);
       }
+
+      setIsInitialized(true);
     };
-    loadSettings();
+    initialize();
   }, []);
 
-  // 설정 변경 시 공지사항 다시 불러오기
+  // viewMode가 "all"일 때만 공지사항 가져오기
   useEffect(() => {
-    fetchAlerts();
-  }, [fetchAlerts]);
+    if (viewMode === "all") {
+      fetchAlerts();
+    }
+  }, [viewMode, fetchAlerts]);
 
   // 뷰 모드 변경
   const handleViewModeChange = async (mode: AlertViewMode) => {
@@ -107,6 +106,15 @@ const Alerts = () => {
     setSelectedCategory(category);
     await setStorage({ [ALERT_CATEGORY_KEY]: category || null });
   };
+
+  // 초기화 전 로딩 표시
+  if (!isInitialized) {
+    return (
+      <div className="flex flex-col h-[500px] justify-center items-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[500px]">
@@ -122,20 +130,18 @@ const Alerts = () => {
         </div>
 
         {/* 카테고리 필터 (모든 공지 모드일 때만 표시) */}
-        {viewMode === "all" && (
-          <div className="flex gap-2 flex-wrap">
-            {categories.map((category) => (
-              <Badge
-                key={category.label}
-                variant={selectedCategory === category.value ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => handleCategoryChange(category.value)}
-              >
-                {category.label}
-              </Badge>
-            ))}
-          </div>
-        )}
+        <div className={viewMode === "all" ? "flex gap-2 flex-wrap" : "hidden"}>
+          {categories.map((category) => (
+            <Badge
+              key={category.label}
+              variant={selectedCategory === category.value ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => handleCategoryChange(category.value)}
+            >
+              {category.label}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       {/* 콘텐츠 영역 */}
@@ -143,27 +149,26 @@ const Alerts = () => {
         className="flex-1 overflow-y-auto px-4 pb-4"
         style={{ scrollbarWidth: "thin" }}
       >
-        {viewMode === "my" ? (
-          // 내 공지 모드: MyAlertsView 렌더링
-          <MyAlertsView />
-        ) : (
-          // 모든 공지 모드: 기존 공지 목록 렌더링
-          <div className="space-y-3">
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-              </div>
-            ) : alerts.length > 0 ? (
-              alerts.map((alert) => (
-                <AlertItem key={alert.alertId} alert={alert} />
-              ))
-            ) : (
-              <div className="text-center p-8 text-muted-foreground">
-                <p>공지사항이 없습니다</p>
-              </div>
-            )}
-          </div>
-        )}
+        {/* 내 공지 모드 */}
+        <div className={viewMode === "my" ? "" : "hidden"}>
+          {loggedIn && <MyAlertsView />}
+        </div>
+        {/* 모든 공지 모드 */}
+        <div className={viewMode === "all" ? "space-y-3" : "hidden"}>
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            </div>
+          ) : alerts.length > 0 ? (
+            alerts.map((alert) => (
+              <AlertItem key={alert.alertId} alert={alert} />
+            ))
+          ) : (
+            <div className="text-center p-8 text-muted-foreground">
+              <p>공지사항이 없습니다</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
