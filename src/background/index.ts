@@ -48,7 +48,7 @@ chrome.runtime.onMessage.addListener(
           sendResponse(response);
         })
         .catch((error: unknown) => {
-          console.error('[Background] OAuth handler error:', error);
+          console.warn('[Background] OAuth handler error:', error);
           sendResponse({
             success: false,
             error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
@@ -74,7 +74,7 @@ chrome.runtime.onMessage.addListener(
           sendResponse(reauthResponse);
         })
         .catch((error: unknown) => {
-          console.error('[Background] Silent reauth error:', error);
+          console.warn('[Background] Silent reauth error:', error);
           sendResponse({
             success: false,
             error: error instanceof Error ? error.message : '재인증에 실패했습니다.',

@@ -114,11 +114,11 @@ async function handleTokenExpired(): Promise<boolean> {
         console.log('[API Client] Silent reauth succeeded');
         return true;
       } else {
-        console.error('[API Client] Silent reauth failed:', response?.error);
+        console.warn('[API Client] Silent reauth failed:', response?.error);
         return false;
       }
     } catch (error) {
-      console.error('[API Client] Silent reauth error:', error);
+      console.warn('[API Client] Silent reauth error:', error);
       return false;
     } finally {
       isReauthenticating = false;
@@ -272,7 +272,7 @@ async function request<T = unknown>(
         return request<T>(url, method, body, config, true);
       } else {
         // Reauth failed, clear tokens and notify
-        console.error('[API Client] Reauth failed, clearing tokens');
+        console.warn('[API Client] Reauth failed, clearing tokens');
         await clearAccessToken();
         window.dispatchEvent(new CustomEvent("auth:unauthorized"));
 

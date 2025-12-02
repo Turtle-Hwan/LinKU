@@ -188,7 +188,19 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
       },
     };
   } catch (error) {
-    console.error("[Background] OAuth error:", error);
+    // 사용자 취소 케이스는 warn으로, 실제 오류는 error로 구분
+    const isUserCancellation =
+      error instanceof Error &&
+      (error.message.includes("The user did not approve") ||
+        error.message.includes("closed") ||
+        error.message.includes("cancelled") ||
+        error.message.includes("interrupted"));
+
+    if (isUserCancellation) {
+      console.warn("[Background] OAuth cancelled by user:", (error as Error).message);
+    } else {
+      console.error("[Background] OAuth error:", error);
+    }
 
     // User closed the popup or cancelled
     if (error instanceof Error) {
