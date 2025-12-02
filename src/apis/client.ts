@@ -67,8 +67,8 @@ export const ENDPOINTS = {
     MY: "/alerts/my",
     SUBSCRIPTION: "/alerts/subscription",
     MY_SUBSCRIPTION: "/alerts/subscription/my",
-    SUBSCRIBE: (departmentId: number) => `/alerts/${departmentId}`,
-    UNSUBSCRIBE: (departmentId: number) => `/alerts/${departmentId}`,
+    SUBSCRIBE: (departmentId: number) => `/alerts/subscription/${departmentId}`,
+    UNSUBSCRIBE: (departmentId: number) => `/alerts/subscription/${departmentId}`,
   },
 } as const;
 

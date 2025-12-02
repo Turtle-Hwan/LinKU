@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, X, Bell, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import AlertItem from "./AlertItem";
 
 const MyAlertsView = () => {
@@ -140,15 +141,19 @@ const MyAlertsView = () => {
               <ChevronDown className="h-4 w-4 ml-2" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-full max-h-60 overflow-y-auto">
-            {availableDepartments.map((dept) => (
-              <DropdownMenuItem
-                key={dept.id}
-                onClick={() => handleSubscribe(dept.id)}
-              >
-                {dept.name}
-              </DropdownMenuItem>
-            ))}
+          <DropdownMenuContent className="w-(--radix-dropdown-menu-trigger-width) p-0">
+            <ScrollArea className="max-h-[min(300px,var(--radix-dropdown-menu-content-available-height))]">
+              <div className="p-1">
+                {availableDepartments.map((dept) => (
+                  <DropdownMenuItem
+                    key={dept.id}
+                    onClick={() => handleSubscribe(dept.id)}
+                  >
+                    {dept.name}
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            </ScrollArea>
           </DropdownMenuContent>
         </DropdownMenu>
 

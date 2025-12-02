@@ -70,10 +70,33 @@ export async function getMyAlerts(): Promise<ApiResponse<GeneralAlert[]>> {
 }
 
 /**
+ * Backend response type for subscription API
+ */
+interface DepartmentConfigResponse {
+  departmentConfigList: Array<{
+    departmentConfigId: number;
+    departmentConfigName: string;
+  }>;
+}
+
+/**
  * Get all available departments for subscription
+ * Transforms backend response to frontend Department format
  */
 export async function getSubscriptions(): Promise<ApiResponse<Department[]>> {
-  return get<Department[]>(ENDPOINTS.ALERTS.SUBSCRIPTION);
+  const response = await get<DepartmentConfigResponse>(ENDPOINTS.ALERTS.SUBSCRIPTION);
+
+  if (response.success && response.data?.departmentConfigList) {
+    // Transform field names to match frontend Department type
+    // Use type assertion since API may return categories not in DepartmentCategory
+    const departments = response.data.departmentConfigList.map(item => ({
+      id: item.departmentConfigId,
+      name: item.departmentConfigName,
+    })) as Department[];
+    return { ...response, data: departments };
+  }
+
+  return { ...response, data: [] };
 }
 
 /**
