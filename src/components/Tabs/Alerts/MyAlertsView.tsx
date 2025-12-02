@@ -178,7 +178,7 @@ const MyAlertsView = () => {
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 cursor-pointer"
+                className="pl-10 cursor-pointer"
                 disabled={isSubscribing || (isDepartmentsLoaded && availableDepartments.length === 0)}
               />
             </div>
@@ -189,7 +189,7 @@ const MyAlertsView = () => {
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <Command shouldFilter={false}>
-              <CommandList className="max-h-[250px]">
+              <CommandList className="max-h-[250px] overflow-y-auto">
                 {isLoadingDepartments ? (
                   <div className="flex justify-center py-4">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -205,7 +205,6 @@ const MyAlertsView = () => {
                     {filteredDepartments.map((dept) => (
                       <CommandItem
                         key={dept.id}
-                        value={dept.name}
                         onSelect={() => {
                           handleSubscribe(dept.id);
                           setOpen(false);

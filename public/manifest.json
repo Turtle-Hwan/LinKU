@@ -29,16 +29,6 @@
     "https://www.google-analytics.com/*",
     "https://ku-linku.store/*"
   ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "auth.html"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
-    }
-  ],
   "commands": {
     "_execute_action": {
       "suggested_key": {
