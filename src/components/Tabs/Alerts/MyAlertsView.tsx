@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getSubscriptions,
   getMySubscriptions,
@@ -26,14 +26,24 @@ const MyAlertsView = () => {
   const [myAlerts, setMyAlerts] = useState<GeneralAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [isDepartmentsLoaded, setIsDepartmentsLoaded] = useState(false);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
 
-  // 전체 학과 목록 로드
+  // 전체 학과 목록 로드 (드롭다운 열 때만)
   const loadDepartments = useCallback(async () => {
-    const result = await getSubscriptions();
-    if (result.success && Array.isArray(result.data)) {
-      setDepartments(result.data);
+    if (isDepartmentsLoaded || isLoadingDepartments) return;
+
+    setIsLoadingDepartments(true);
+    try {
+      const result = await getSubscriptions();
+      if (result.success && Array.isArray(result.data)) {
+        setDepartments(result.data);
+        setIsDepartmentsLoaded(true);
+      }
+    } finally {
+      setIsLoadingDepartments(false);
     }
-  }, []);
+  }, [isDepartmentsLoaded, isLoadingDepartments]);
 
   // 내 구독 + 내 공지 로드
   const loadMyData = useCallback(async () => {
@@ -59,11 +69,17 @@ const MyAlertsView = () => {
     }
   }, []);
 
-  // 초기 로드
+  // 드롭다운 열릴 때 학과 목록 로드
+  const handleDropdownOpen = (open: boolean) => {
+    if (open) {
+      loadDepartments();
+    }
+  };
+
+  // 초기 로드 (내 구독 + 내 공지만)
   useEffect(() => {
-    loadDepartments();
     loadMyData();
-  }, [loadDepartments, loadMyData]);
+  }, [loadMyData]);
 
   // 학과 구독
   const handleSubscribe = async (departmentId: number) => {
@@ -111,6 +127,15 @@ const MyAlertsView = () => {
     (dept) => !mySubscriptions.some((sub) => sub.department.id === dept.id)
   );
 
+  // 공지사항 시간순 정렬 (최신순)
+  const sortedAlerts = useMemo(() => {
+    return [...myAlerts].sort((a, b) => {
+      const dateA = new Date(a.publishedAt).getTime();
+      const dateB = new Date(b.publishedAt).getTime();
+      return dateB - dateA;
+    });
+  }, [myAlerts]);
+
   return (
     <div className="space-y-4">
       {/* 학과 구독 섹션 */}
@@ -121,19 +146,19 @@ const MyAlertsView = () => {
         </div>
 
         {/* 학과 선택 드롭다운 */}
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={handleDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
               className="w-full justify-between"
-              disabled={isSubscribing || availableDepartments.length === 0}
+              disabled={isSubscribing || (isDepartmentsLoaded && availableDepartments.length === 0)}
             >
               {isSubscribing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   구독 중...
                 </>
-              ) : availableDepartments.length === 0 ? (
+              ) : isDepartmentsLoaded && availableDepartments.length === 0 ? (
                 "구독 가능한 학과 없음"
               ) : (
                 "학과 선택"
@@ -144,14 +169,24 @@ const MyAlertsView = () => {
           <DropdownMenuContent className="w-(--radix-dropdown-menu-trigger-width) p-0">
             <ScrollArea className="max-h-[min(300px,var(--radix-dropdown-menu-content-available-height))]">
               <div className="p-1">
-                {availableDepartments.map((dept) => (
-                  <DropdownMenuItem
-                    key={dept.id}
-                    onClick={() => handleSubscribe(dept.id)}
-                  >
-                    {dept.name}
-                  </DropdownMenuItem>
-                ))}
+                {isLoadingDepartments ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : availableDepartments.length === 0 ? (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    구독 가능한 학과가 없습니다
+                  </div>
+                ) : (
+                  availableDepartments.map((dept) => (
+                    <DropdownMenuItem
+                      key={dept.id}
+                      onClick={() => handleSubscribe(dept.id)}
+                    >
+                      {dept.name}
+                    </DropdownMenuItem>
+                  ))
+                )}
               </div>
             </ScrollArea>
           </DropdownMenuContent>
@@ -186,9 +221,9 @@ const MyAlertsView = () => {
           <div className="flex justify-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : myAlerts.length > 0 ? (
+        ) : sortedAlerts.length > 0 ? (
           <div className="space-y-3">
-            {myAlerts.map((alert) => (
+            {sortedAlerts.map((alert) => (
               <AlertItem key={alert.alertId} alert={alert} />
             ))}
           </div>

@@ -1,5 +1,5 @@
 import type { Alert, AlertCategory } from "@/types/api";
-import { ExternalLink, Calendar, Building2 } from "lucide-react";
+import { ExternalLink, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AlertItemProps {
@@ -26,6 +26,9 @@ const categoryColors: Record<AlertCategory, string> = {
   "국제": "bg-cyan-100 text-cyan-700",
 };
 
+// 표준 카테고리인지 확인 (학과명인 경우 false)
+const standardCategories = new Set<string>(["일반", "학사", "학생", "장학", "취창업", "국제"]);
+
 const AlertItem = ({ alert }: AlertItemProps) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -44,8 +47,12 @@ const AlertItem = ({ alert }: AlertItemProps) => {
   const isClickable = Boolean(alert.url);
 
   // 일반 공지인지 학과 공지인지 구분
-  const isGeneralAlert = "category" in alert;
-  const isDepartmentAlert = "department" in alert;
+  const hasCategory = "category" in alert;
+  const hasDepartment = "department" in alert;
+
+  // 카테고리가 표준 카테고리인지 학과명인지 확인
+  const isStandardCategory = hasCategory && standardCategories.has(alert.category);
+  const isDepartmentFromCategory = hasCategory && !isStandardCategory;
 
   return (
     <div
@@ -58,7 +65,7 @@ const AlertItem = ({ alert }: AlertItemProps) => {
     >
       {/* 헤더: 카테고리 또는 학과 */}
       <div className="flex items-center gap-2 mb-2">
-        {isGeneralAlert && (
+        {isStandardCategory && (
           <span
             className={cn(
               "px-2 py-1 rounded text-xs font-medium",
@@ -68,11 +75,15 @@ const AlertItem = ({ alert }: AlertItemProps) => {
             {categoryLabels[alert.category]}
           </span>
         )}
-        {isDepartmentAlert && (
-          <div className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
-            <Building2 className="h-3.5 w-3.5" />
-            <span>{alert.department.name}</span>
-          </div>
+        {hasDepartment && (
+          <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+            {alert.department.name}
+          </span>
+        )}
+        {isDepartmentFromCategory && (
+          <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+            {alert.category}
+          </span>
         )}
       </div>
 

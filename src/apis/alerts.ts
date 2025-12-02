@@ -62,11 +62,40 @@ export async function getAlerts(
 }
 
 /**
+ * Backend response type for my alerts API
+ */
+interface MyAlertsResponse {
+  alertResponseList: Array<{
+    alertId: number;
+    departmentName: string;
+    url: string;
+    title: string;
+    postTime: string;
+    content: string;
+  }>;
+}
+
+/**
  * Get my alerts
  * Fetch alerts from subscribed departments
  */
 export async function getMyAlerts(): Promise<ApiResponse<GeneralAlert[]>> {
-  return get<GeneralAlert[]>(ENDPOINTS.ALERTS.MY);
+  const response = await get<MyAlertsResponse>(ENDPOINTS.ALERTS.MY);
+
+  if (response.success && response.data?.alertResponseList) {
+    // Transform to GeneralAlert format
+    const alerts: GeneralAlert[] = response.data.alertResponseList.map(item => ({
+      alertId: item.alertId,
+      title: item.title,
+      content: item.content,
+      category: item.departmentName as GeneralAlert['category'],
+      url: item.url,
+      publishedAt: item.postTime,
+    }));
+    return { ...response, data: alerts };
+  }
+
+  return { ...response, data: [] };
 }
 
 /**
@@ -101,9 +130,25 @@ export async function getSubscriptions(): Promise<ApiResponse<Department[]>> {
 
 /**
  * Get my subscribed departments
+ * Uses same response structure as getSubscriptions (departmentConfigList)
  */
 export async function getMySubscriptions(): Promise<ApiResponse<Subscription[]>> {
-  return get<Subscription[]>(ENDPOINTS.ALERTS.MY_SUBSCRIPTION);
+  const response = await get<DepartmentConfigResponse>(ENDPOINTS.ALERTS.MY_SUBSCRIPTION);
+
+  if (response.success && response.data?.departmentConfigList) {
+    // Transform to Subscription format (using departmentConfigId as subscriptionId)
+    const subscriptions: Subscription[] = response.data.departmentConfigList.map(item => ({
+      subscriptionId: item.departmentConfigId,
+      department: {
+        id: item.departmentConfigId,
+        name: item.departmentConfigName,
+      } as Department,
+      createdAt: '',
+    }));
+    return { ...response, data: subscriptions };
+  }
+
+  return { ...response, data: [] };
 }
 
 /**
