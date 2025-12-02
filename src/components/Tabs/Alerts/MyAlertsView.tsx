@@ -8,6 +8,7 @@ import {
 } from "@/apis";
 import type { Department, Subscription, GeneralAlert } from "@/types/api";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
@@ -17,11 +18,11 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
 import { X, Bell, Loader2, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import AlertItem from "./AlertItem";
 
@@ -33,7 +34,6 @@ const MyAlertsView = () => {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isDepartmentsLoaded, setIsDepartmentsLoaded] = useState(false);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
 
   // 전체 학과 목록 로드 (드롭다운 열 때만)
@@ -76,13 +76,11 @@ const MyAlertsView = () => {
     }
   }, []);
 
-  // Popover 열릴 때 학과 목록 로드, 닫힐 때 검색어 초기화
+  // Popover 열릴 때 학과 목록 로드
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
       loadDepartments();
-    } else {
-      setSearchQuery("");
     }
   };
 
@@ -137,14 +135,6 @@ const MyAlertsView = () => {
     (dept) => !mySubscriptions.some((sub) => sub.department.id === dept.id)
   );
 
-  // 검색어로 필터링
-  const filteredDepartments = useMemo(() => {
-    if (!searchQuery.trim()) return availableDepartments;
-    return availableDepartments.filter((dept) =>
-      dept.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
-    );
-  }, [availableDepartments, searchQuery]);
-
   // 공지사항 시간순 정렬 (최신순)
   const sortedAlerts = useMemo(() => {
     return [...myAlerts].sort((a, b) => {
@@ -166,55 +156,45 @@ const MyAlertsView = () => {
         {/* 학과 검색 Combobox */}
         <Popover open={open} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder={
-                  isSubscribing
-                    ? "구독 중..."
-                    : isDepartmentsLoaded && availableDepartments.length === 0
-                      ? "구독 가능한 학과 없음"
-                      : "학과 검색..."
-                }
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 cursor-pointer"
-                disabled={isSubscribing || (isDepartmentsLoaded && availableDepartments.length === 0)}
-              />
-            </div>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              disabled={isSubscribing || (isDepartmentsLoaded && availableDepartments.length === 0)}
+            >
+              <Search className="mr-2 h-4 w-4" />
+              {isSubscribing
+                ? "구독 중..."
+                : isDepartmentsLoaded && availableDepartments.length === 0
+                  ? "구독 가능한 학과 없음"
+                  : "학과 검색..."}
+            </Button>
           </PopoverTrigger>
-          <PopoverContent
-            className="w-[--radix-popover-trigger-width] p-0"
-            align="start"
-            onOpenAutoFocus={(e) => e.preventDefault()}
-          >
-            <Command shouldFilter={false}>
-              <CommandList className="max-h-[250px] overflow-y-auto">
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="학과 검색..." />
+              <CommandList>
                 {isLoadingDepartments ? (
                   <div className="flex justify-center py-4">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
-                ) : filteredDepartments.length === 0 ? (
-                  <CommandEmpty>
-                    {searchQuery.trim()
-                      ? "검색 결과가 없습니다"
-                      : "구독 가능한 학과가 없습니다"}
-                  </CommandEmpty>
                 ) : (
-                  <CommandGroup>
-                    {filteredDepartments.map((dept) => (
-                      <CommandItem
-                        key={dept.id}
-                        onSelect={() => {
-                          handleSubscribe(dept.id);
-                          setOpen(false);
-                          setSearchQuery("");
-                        }}
-                      >
-                        {dept.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  <>
+                    <CommandEmpty>검색 결과가 없습니다</CommandEmpty>
+                    <CommandGroup>
+                      {availableDepartments.map((dept) => (
+                        <CommandItem
+                          key={dept.id}
+                          value={dept.name}
+                          onSelect={() => {
+                            handleSubscribe(dept.id);
+                            setOpen(false);
+                          }}
+                        >
+                          {dept.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </>
                 )}
               </CommandList>
             </Command>
@@ -244,8 +224,6 @@ const MyAlertsView = () => {
 
       {/* 내 공지사항 목록 */}
       <div className="space-y-3">
-        <span className="text-sm font-medium">내 공지사항</span>
-
         {isLoading ? (
           <div className="flex justify-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
