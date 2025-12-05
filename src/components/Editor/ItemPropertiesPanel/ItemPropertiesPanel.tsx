@@ -13,8 +13,8 @@ import { Trash2, Save, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { GRID_CONFIG } from '@/utils/template';
 import { validateLinkForm } from '@/utils/formValidation';
-import { IconGrid } from '@/components/Editor/Common/IconGrid';
-import { InputGroup } from '@/components/Editor/Common/InputGroup';
+import { IconGrid } from '@/components/Editor/shared/IconGrid';
+import { InputGroup } from '@/components/Editor/shared/InputGroup';
 
 export const ItemPropertiesPanel = () => {
   const { state, dispatch } = useEditorContext();

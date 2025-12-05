@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Zap } from 'lucide-react';
 import { IconUploadButton } from './IconUploadButton';
 import { StagingArea } from './StagingArea';
-import { QuickAddDialog } from '../QuickAddDialog';
+import { QuickAddDialog } from './QuickAddDialog';
 import type { Icon } from '@/types/api';
 
 export const EditorSidebar = () => {

@@ -1,1 +1,0 @@
-export { ItemPropertiesPanel } from './ItemPropertiesPanel';

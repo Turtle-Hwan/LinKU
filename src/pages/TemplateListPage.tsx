@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer } from '@/apis/templates';
 import { getDefaultIcons } from '@/apis/icons';
 import type { TemplateSummary } from '@/types/api';
-import { TemplateCard } from '@/components/Editor/EditorSidebar/TemplateCard';
+import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {

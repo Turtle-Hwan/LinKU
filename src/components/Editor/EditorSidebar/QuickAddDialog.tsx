@@ -21,7 +21,7 @@ import { useEditorContext } from '@/contexts/EditorContext';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { validateLinkForm } from '@/utils/formValidation';
-import { IconGrid } from '@/components/Editor/Common/IconGrid';
+import { IconGrid } from '@/components/Editor/shared/IconGrid';
 
 interface QuickAddDialogProps {
   open: boolean;
