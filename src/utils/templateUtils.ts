@@ -2,7 +2,7 @@
  * Template utility functions
  */
 
-import type { TemplateItem, PostedTemplateItem } from '@/types/api';
+import type { Template, TemplateItem, PostedTemplateItem } from '@/types/api';
 
 /**
  * Common item interface for comparison
@@ -47,4 +47,17 @@ export const areItemsEqual = (
   const normB = itemsB.map(normalize).sort(sortByPosition);
 
   return JSON.stringify(normA) === JSON.stringify(normB);
+};
+
+/**
+ * Compare two templates for equality
+ * Compares name, height, and items
+ */
+export const areTemplatesEqual = (
+  templateA: Template,
+  templateB: Template
+): boolean => {
+  if (templateA.name !== templateB.name) return false;
+  if (templateA.height !== templateB.height) return false;
+  return areItemsEqual(templateA.items, templateB.items);
 };

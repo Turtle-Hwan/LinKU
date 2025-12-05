@@ -16,12 +16,14 @@ import {
   saveTemplateToLocalStorage,
   checkLocalStorageSpace,
 } from '@/utils/templateStorage';
+import { getTemplate } from '@/apis/templates';
+import { areTemplatesEqual } from '@/utils/templateUtils';
 
 export const EditorHeader = () => {
   const { state, dispatch } = useEditorContext();
   const { syncToServer } = useTemplateSync();
   const { publishTemplate } = useTemplatePublish();
-  const { refreshPostedTemplates } = usePostedTemplates();
+  const { loadPostedTemplates } = usePostedTemplates();
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch({ type: 'UPDATE_TEMPLATE_NAME', payload: e.target.value });
@@ -29,6 +31,22 @@ export const EditorHeader = () => {
 
   const handleSave = async () => {
     if (!state.template) return;
+
+    // 복제된 템플릿인 경우: 서버 원본과 비교하여 변경 여부 확인
+    if (state.template.cloned) {
+      try {
+        const serverResult = await getTemplate(state.template.templateId);
+        if (serverResult.success && serverResult.data) {
+          if (areTemplatesEqual(serverResult.data, state.template)) {
+            toast.info('수정된 내용이 없습니다.');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('[EditorHeader] Failed to fetch original template:', error);
+        // 원본 확인 실패 시 저장 진행 (fail-safe)
+      }
+    }
 
     console.log('[EditorHeader] handleSave started:', {
       currentTemplateId: state.template.templateId,
@@ -105,6 +123,22 @@ export const EditorHeader = () => {
   const handleSyncToServer = async () => {
     if (!state.template) return;
 
+    // 복제된 템플릿인 경우: 서버 원본과 비교하여 변경 여부 확인
+    if (state.template.cloned) {
+      try {
+        const serverResult = await getTemplate(state.template.templateId);
+        if (serverResult.success && serverResult.data) {
+          if (areTemplatesEqual(serverResult.data, state.template)) {
+            toast.info('수정된 내용이 없습니다.');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('[EditorHeader] Failed to fetch original template:', error);
+        // 원본 확인 실패 시 동기화 진행 (fail-safe)
+      }
+    }
+
     dispatch({ type: 'START_SYNCING' });
     const result = await syncToServer(state.template, state.stagingItems);
 
@@ -134,7 +168,7 @@ export const EditorHeader = () => {
     const result = await publishTemplate(state.template.templateId, currentItems);
 
     if (result.success) {
-      await refreshPostedTemplates();
+      await loadPostedTemplates();
       toast.success('게시 완료', {
         description: '템플릿이 공개 갤러리에 게시되었습니다.',
       });
