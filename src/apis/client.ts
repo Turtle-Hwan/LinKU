@@ -315,7 +315,7 @@ async function request<T = unknown>(
       status: response.status,
     });
   } catch (error) {
-    console.error("API Request Error:", error);
+    console.warn("API Request Error:", error);
     return {
       success: false,
       error: {
