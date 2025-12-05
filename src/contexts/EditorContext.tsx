@@ -6,7 +6,7 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import type { Template, TemplateItem, Icon } from '@/types/api';
 import { getTemplate } from '@/apis/templates';
-import { getDefaultIcons } from '@/apis/icons';
+import { getDefaultIcons, getMyIcons } from '@/apis/icons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { toast } from 'sonner';
@@ -421,6 +421,26 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
+      // Load icons first (needed for icon picker)
+      const [iconsResult, userIconsResult] = await Promise.allSettled([
+        getDefaultIcons(),
+        getMyIcons(),
+      ]);
+
+      if (iconsResult.status === 'fulfilled' && iconsResult.value.success && iconsResult.value.data) {
+        const defaultIcons = Array.isArray(iconsResult.value.data)
+          ? iconsResult.value.data
+          : (iconsResult.value.data as { items: Icon[] }).items || [];
+        dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
+      }
+
+      if (userIconsResult.status === 'fulfilled' && userIconsResult.value.success && userIconsResult.value.data) {
+        const userIcons = Array.isArray(userIconsResult.value.data)
+          ? userIconsResult.value.data
+          : (userIconsResult.value.data as { items: Icon[] }).items || [];
+        dispatch({ type: 'LOAD_USER_ICONS', payload: userIcons });
+      }
+
       // Try loading from localStorage first
       const localData = loadTemplateFromLocalStorage(id);
       if (localData) {
