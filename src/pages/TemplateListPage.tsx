@@ -50,9 +50,7 @@ export const TemplateListPage = () => {
   // Posted templates from global context
   const {
     postedTemplates,
-    count: postedCount,
     loadPostedTemplates,
-    refreshPostedTemplates,
     unpostTemplate,
     likeTemplate,
   } = usePostedTemplates();
@@ -492,7 +490,7 @@ export const TemplateListPage = () => {
     const result = await publishTemplate(templateId, currentItems);
 
     if (result.success) {
-      await refreshPostedTemplates();
+      await loadPostedTemplates();
       toast({
         title: '게시 완료',
         description: `"${templateName}" 템플릿이 갤러리에 게시되었습니다.`,
@@ -579,7 +577,7 @@ export const TemplateListPage = () => {
               }}
               onSync={(e) => handleSyncTemplate(template.templateId, template.name, e)}
               onPublish={(e) => handlePublishTemplate(template.templateId, template.name, e)}
-              showDelete={activeTab === 'owned'}
+              showDelete={activeTab === 'owned' || activeTab === 'cloned'}
               needsSync={template.needsSync}
             />
           );
@@ -685,7 +683,7 @@ export const TemplateListPage = () => {
             복제한 템플릿 ({clonedTemplates.length})
           </TabsTrigger>
           <TabsTrigger value="posted">
-            게시한 템플릿 ({postedCount})
+            게시한 템플릿 ({postedTemplates.length})
           </TabsTrigger>
         </TabsList>
 

@@ -45,13 +45,6 @@ export function usePostedTemplates() {
   }, [dispatch]);
 
   /**
-   * Refresh posted templates (call after publishing)
-   */
-  const refreshPostedTemplates = useCallback(async () => {
-    await loadPostedTemplates();
-  }, [loadPostedTemplates]);
-
-  /**
    * Unpost (delete) a posted template
    */
   const unpostTemplate = useCallback(
@@ -101,11 +94,9 @@ export function usePostedTemplates() {
     postedTemplates: state.postedTemplates,
     isLoading: state.isLoading,
     error: state.error,
-    count: state.postedTemplates.length,
 
     // Actions
     loadPostedTemplates,
-    refreshPostedTemplates,
     unpostTemplate,
     likeTemplate,
   };

@@ -6,7 +6,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPublicPostedTemplates, getPostedTemplateDetail, clonePostedTemplate, likePostedTemplate } from '@/apis/posted-templates';
+import { getClonedTemplates, getTemplate } from '@/apis/templates';
 import type { PostedTemplateSummary, PostedTemplateListParams } from '@/types/api';
+import { areItemsEqual } from '@/utils/templateUtils';
 import { PostedTemplateCard } from '@/components/Editor/TemplatePreview/PostedTemplateCard';
 import { Input } from '@/components/ui/input';
 import {
@@ -51,6 +53,7 @@ export const GalleryPage = () => {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cloneInProgressRef = useRef<number | null>(null);
 
   // Check login status
   useEffect(() => {
@@ -187,6 +190,8 @@ export const GalleryPage = () => {
 
   // Handle clone
   const handleClone = async (template: PostedTemplateSummary) => {
+    const id = template.postedTemplateId;
+
     if (!userLoggedIn) {
       toast({
         title: '로그인 필요',
@@ -196,16 +201,44 @@ export const GalleryPage = () => {
       return;
     }
 
-    setActionLoading(template.postedTemplateId);
+    // 1. 진행 중인 복제가 있으면 무시 (레이스 컨디션 방지)
+    if (cloneInProgressRef.current === id) {
+      return;
+    }
+
+    cloneInProgressRef.current = id;
+    setActionLoading(id);
 
     try {
-      const result = await clonePostedTemplate(template.postedTemplateId);
+      // 2. 이미 복제한 템플릿인지 확인
+      const clonedResult = await getClonedTemplates();
+      if (clonedResult.success && clonedResult.data) {
+        // posted template의 items (이미 detailItems로 로드됨)
+        const postedItems = template.detailItems || [];
+
+        // 각 cloned template의 items와 비교
+        for (const cloned of clonedResult.data) {
+          const detailResult = await getTemplate(cloned.templateId);
+          if (detailResult.success && detailResult.data) {
+            if (areItemsEqual(postedItems, detailResult.data.items)) {
+              toast({
+                title: '이미 복제됨',
+                description: '동일한 내용의 템플릿이 이미 존재합니다.',
+              });
+              return; // 복제 취소
+            }
+          }
+        }
+      }
+
+      // 3. 복제 진행
+      const result = await clonePostedTemplate(id);
 
       if (result.success) {
         // Update clone count locally
         setTemplates(prev =>
           prev.map(t =>
-            t.postedTemplateId === template.postedTemplateId
+            t.postedTemplateId === id
               ? { ...t, usageCount: t.usageCount + 1 }
               : t
           )
@@ -226,6 +259,7 @@ export const GalleryPage = () => {
         variant: 'destructive',
       });
     } finally {
+      cloneInProgressRef.current = null;
       setActionLoading(null);
     }
   };
