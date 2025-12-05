@@ -264,7 +264,7 @@ export interface PostedTemplateSummary {
  * Query parameters for posted templates list
  */
 export interface PostedTemplateListParams {
-  sort?: "latest" | "popular" | "mostLiked" | "mostCloned";
+  sort?: "most-liked" | "most-used" | "newest" | "oldest";
   query?: string;
   page?: number;
   limit?: number;
@@ -283,7 +283,7 @@ export interface CloneTemplateResponse {
  */
 export interface LikeTemplateResponse {
   isLiked: boolean;
-  likesCount: number;
+  likeCount: number;
 }
 
 // ============================================================================
