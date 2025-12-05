@@ -287,33 +287,33 @@ async function request<T = unknown>(
       }
     }
 
-    // Extract data from backend 'result' field if present
+    // Handle error responses FIRST (preserve original error data before result extraction)
+    if (!response.ok) {
+      const errorData = data as Record<string, unknown>;
+      return applyResponseInterceptors({
+        success: false,
+        error: {
+          code: String(errorData?.code || response.status),
+          message: (errorData?.message as string) || `HTTP Error: ${response.status} ${response.statusText}`,
+        },
+        status: response.status,
+        data,
+      });
+    }
+
+    // For SUCCESS responses only: extract 'result' field if present
     if (data && typeof data === 'object' && 'result' in data) {
       const backendResponse = data as Record<string, unknown>;
-      if (backendResponse.result !== undefined) {
+      if (backendResponse.result !== undefined && backendResponse.result !== null) {
         data = backendResponse.result as T;
       }
     }
 
-    // Build API response
-    const apiResponse: ApiResponse<T> = !response.ok
-      ? {
-          success: false,
-          error: {
-            code: String((data as Record<string, unknown>)?.code || response.status),
-            message: (data as Record<string, unknown>)?.message as string
-                     || `HTTP Error: ${response.status} ${response.statusText}`,
-          },
-          status: response.status,
-          data,
-        }
-      : {
-          success: true,
-          data,
-          status: response.status,
-        };
-
-    return applyResponseInterceptors(apiResponse);
+    return applyResponseInterceptors({
+      success: true,
+      data,
+      status: response.status,
+    });
   } catch (error) {
     console.error("API Request Error:", error);
     return {

@@ -12,6 +12,19 @@ import {
   deletePostedTemplate,
   likePostedTemplate as likePostedTemplateApi,
 } from '@/apis/posted-templates';
+import type { LikeTemplateResponse } from '@/types/api';
+
+// Result types for error message propagation
+interface LikeResult {
+  success: boolean;
+  error?: string;
+  data?: LikeTemplateResponse;
+}
+
+interface UnpostResult {
+  success: boolean;
+  error?: string;
+}
 
 export function usePostedTemplates() {
   const { state, dispatch } = usePostedTemplatesContext();
@@ -46,18 +59,25 @@ export function usePostedTemplates() {
 
   /**
    * Unpost (delete) a posted template
+   * Returns Result object with error message for proper toast display
    */
   const unpostTemplate = useCallback(
-    async (postedTemplateId: number): Promise<boolean> => {
+    async (postedTemplateId: number): Promise<UnpostResult> => {
       try {
         const result = await deletePostedTemplate(postedTemplateId);
         if (result.success) {
           dispatch({ type: 'REMOVE_TEMPLATE', payload: postedTemplateId });
-          return true;
+          return { success: true };
         }
-        return false;
-      } catch {
-        return false;
+        return {
+          success: false,
+          error: result.error?.message || '게시 취소에 실패했습니다.',
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : '네트워크 오류',
+        };
       }
     },
     [dispatch]
@@ -65,9 +85,10 @@ export function usePostedTemplates() {
 
   /**
    * Toggle like on a posted template
+   * Returns Result object with error message for proper toast display
    */
   const likeTemplate = useCallback(
-    async (postedTemplateId: number): Promise<boolean> => {
+    async (postedTemplateId: number): Promise<LikeResult> => {
       try {
         const result = await likePostedTemplateApi(postedTemplateId);
         if (result.success && result.data) {
@@ -79,11 +100,17 @@ export function usePostedTemplates() {
               likesCount: result.data.likeCount,
             },
           });
-          return true;
+          return { success: true, data: result.data };
         }
-        return false;
-      } catch {
-        return false;
+        return {
+          success: false,
+          error: result.error?.message || '좋아요 처리에 실패했습니다.',
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : '네트워크 오류',
+        };
       }
     },
     [dispatch]

@@ -77,6 +77,11 @@ export const TemplateListPage = () => {
       const loggedIn = await isLoggedIn();
       setUserLoggedIn(loggedIn);
 
+      // 로그인 시 posted 템플릿도 즉시 로드 (탭 개수 표시용)
+      if (loggedIn) {
+        loadPostedTemplates(); // await 없이 병렬 실행
+      }
+
       let ownedResult: { success: boolean; data?: TemplateSummary[]; error?: { message: string } } = { success: false };
       let clonedResult: { success: boolean; data?: TemplateSummary[]; error?: { message: string } } = { success: false };
 
@@ -434,49 +439,39 @@ export const TemplateListPage = () => {
 
     setActionLoading(template.postedTemplateId);
 
-    try {
-      const success = await unpostTemplate(template.postedTemplateId);
+    const result = await unpostTemplate(template.postedTemplateId);
 
-      if (success) {
-        toast({
-          title: '게시 취소 완료',
-          description: `"${template.name}" 템플릿이 갤러리에서 제거되었습니다.`,
-        });
-      } else {
-        throw new Error('게시 취소에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to unpost template:', error);
+    if (result.success) {
+      toast({
+        title: '게시 취소 완료',
+        description: `"${template.name}" 템플릿이 갤러리에서 제거되었습니다.`,
+      });
+    } else {
       toast({
         title: '게시 취소 실패',
-        description: error instanceof Error ? error.message : '게시 취소에 실패했습니다.',
+        description: result.error || '게시 취소에 실패했습니다.',
         variant: 'destructive',
       });
-    } finally {
-      setActionLoading(null);
     }
+
+    setActionLoading(null);
   };
 
   // Handle like for posted templates
   const handleLikePostedTemplate = async (template: PostedTemplateSummary) => {
     setActionLoading(template.postedTemplateId);
 
-    try {
-      const success = await likeTemplate(template.postedTemplateId);
+    const result = await likeTemplate(template.postedTemplateId);
 
-      if (!success) {
-        throw new Error('좋아요 처리에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to like template:', error);
+    if (!result.success) {
       toast({
         title: '좋아요 실패',
-        description: error instanceof Error ? error.message : '좋아요 처리에 실패했습니다.',
+        description: result.error || '좋아요 처리에 실패했습니다.',
         variant: 'destructive',
       });
-    } finally {
-      setActionLoading(null);
     }
+
+    setActionLoading(null);
   };
 
   // Handle publish template to gallery
