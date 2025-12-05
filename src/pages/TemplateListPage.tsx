@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, FileText, LayoutTemplate, Globe } from 'lucide-react';
+import { Plus, FileText, LayoutTemplate, Share2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { usePostedTemplates } from '@/hooks/usePostedTemplates';
@@ -644,7 +644,7 @@ export const TemplateListPage = () => {
 
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => navigate('/gallery')}>
-            <Globe className="h-4 w-4 mr-2" />
+            <Share2 className="h-4 w-4 mr-2" />
             갤러리
           </Button>
           <DropdownMenu>
