@@ -40,21 +40,6 @@ export const PostedTemplateCard = ({
   className,
   isLoading = false,
 }: PostedTemplateCardProps) => {
-  const handleClone = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onClone?.();
-  };
-
-  const handleLike = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onLike?.();
-  };
-
-  const handleUnpost = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onUnpost?.();
-  };
-
   return (
     <div
       className={cn(
@@ -102,7 +87,7 @@ export const PostedTemplateCard = ({
           {/* Stats */}
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <button
-              onClick={handleLike}
+              onClick={(e) => { e.stopPropagation(); onLike?.(); }}
               disabled={!isLoggedIn || isLoading}
               className={cn(
                 'flex items-center gap-1 transition-colors',
@@ -129,7 +114,7 @@ export const PostedTemplateCard = ({
             {/* Clone Button */}
             {onClone && (
               <button
-                onClick={handleClone}
+                onClick={(e) => { e.stopPropagation(); onClone?.(); }}
                 disabled={!isLoggedIn || isLoading}
                 className={cn(
                   'px-2 py-1 text-xs rounded-md transition-colors',
@@ -146,7 +131,7 @@ export const PostedTemplateCard = ({
             {/* Unpost Button (owner only) */}
             {isOwner && onUnpost && (
               <button
-                onClick={handleUnpost}
+                onClick={(e) => { e.stopPropagation(); onUnpost?.(); }}
                 disabled={isLoading}
                 className={cn(
                   'p-1 rounded-md transition-colors',

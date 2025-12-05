@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate } from '@/apis/templates';
-import type { TemplateSummary, PostedTemplateSummary, TemplateItem } from '@/types/api';
+import type { TemplateSummary, PostedTemplateSummary } from '@/types/api';
 
 // Extended type with needsSync flag
 interface TemplateSummaryWithSync extends TemplateSummary {
@@ -31,6 +31,7 @@ import { useTemplatePublish } from '@/hooks/useTemplatePublish';
 import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
+import { areItemsEqual } from '@/utils/templateUtils';
 import { LinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
 
@@ -96,33 +97,7 @@ export const TemplateListPage = () => {
       // 3. localStorage에서 템플릿 인덱스 가져오기 (항상 로드)
       const localIndex = getTemplatesIndex();
 
-      // Helper function to compare template items (핵심 필드만 비교)
-      // templateItemId는 서버에서 할당하므로 비교에서 제외
-      const areItemsEqual = (localItems: TemplateItem[], serverItems: TemplateItem[]): boolean => {
-        if (localItems.length !== serverItems.length) return false;
-
-        // 비교할 핵심 필드만 추출 (templateItemId 제외 - 서버 할당 값)
-        const normalize = (item: TemplateItem) => ({
-          name: item.name,
-          siteUrl: item.siteUrl,
-          position: item.position,
-          size: item.size,
-          iconId: item.icon?.iconId,
-        });
-
-        // position 기준 정렬 (row -> col 순)
-        const sortByPosition = (a: ReturnType<typeof normalize>, b: ReturnType<typeof normalize>) => {
-          if (a.position.y !== b.position.y) return a.position.y - b.position.y;
-          return a.position.x - b.position.x;
-        };
-
-        const localNorm = localItems.map(normalize).sort(sortByPosition);
-        const serverNorm = serverItems.map(normalize).sort(sortByPosition);
-
-        return JSON.stringify(localNorm) === JSON.stringify(serverNorm);
-      };
-
-      // 3. 서버 템플릿과 localStorage 템플릿 병합 (로컬 우선)
+      // 4. 서버 템플릿과 localStorage 템플릿 병합 (로컬 우선)
       let mergedOwned: TemplateSummaryWithSync[] = [];
       if (ownedResult.success && ownedResult.data) {
         // 서버 템플릿 처리 - 로컬 데이터가 있으면 로컬 우선 사용

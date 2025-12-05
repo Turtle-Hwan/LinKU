@@ -32,6 +32,8 @@ export const TemplateCard = ({
   showDelete = false,
   needsSync = false,
 }: TemplateCardProps) => {
+  const canPublish = template.syncStatus === 'synced' && !needsSync;
+
   return (
     <div
       className={cn(
@@ -67,24 +69,19 @@ export const TemplateCard = ({
       )}>
         {/* Publish button - always show, disabled when not synced */}
         {template.templateId !== 0 && onPublish && (
-          (() => {
-            const canPublish = template.syncStatus === 'synced' && !needsSync;
-            return (
-              <button
-                onClick={canPublish ? onPublish : undefined}
-                className={cn(
-                  "p-2 rounded-md shadow-sm",
-                  canPublish
-                    ? "bg-publish text-publish-foreground hover:bg-publish/90 cursor-pointer"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                )}
-                title={canPublish ? "갤러리에 게시" : "동기화 후 게시 가능"}
-                disabled={!canPublish}
-              >
-                <Share2 className="h-4 w-4" />
-              </button>
-            );
-          })()
+          <button
+            onClick={canPublish ? onPublish : undefined}
+            className={cn(
+              "p-2 rounded-md shadow-sm",
+              canPublish
+                ? "bg-publish text-publish-foreground hover:bg-publish/90 cursor-pointer"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            )}
+            title={canPublish ? "갤러리에 게시" : "동기화 후 게시 가능"}
+            disabled={!canPublish}
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
         )}
         {/* Sync button - show for local-only OR needsSync (local changes pending) */}
         {template.templateId !== 0 && (template.syncStatus === 'local' || needsSync) && onSync && (
