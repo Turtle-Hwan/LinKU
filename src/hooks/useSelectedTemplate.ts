@@ -17,7 +17,7 @@ const STORAGE_KEY = 'selectedTemplateId';
  */
 function convertTemplateToLinkList(template: Template): LinkListElement[] {
   return template.items.map((item) => ({
-    icon: item.icon.imageUrl,
+    icon: item.icon.iconUrl,
     label: item.name,
     link: item.siteUrl,
     type: 'png' as const,

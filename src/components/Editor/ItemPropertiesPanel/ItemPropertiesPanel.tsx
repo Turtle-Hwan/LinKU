@@ -43,7 +43,7 @@ export const ItemPropertiesPanel = () => {
     if (selectedItem) {
       setName(selectedItem.name);
       setUrl(selectedItem.siteUrl);
-      setSelectedIconId(selectedItem.icon.id);
+      setSelectedIconId(selectedItem.icon.iconId);
       setWidth(selectedItem.size.width.toString());
       setHeight(selectedItem.size.height.toString());
       setPosX(selectedItem.position.x.toString());

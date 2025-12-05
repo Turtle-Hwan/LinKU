@@ -95,7 +95,7 @@ export async function syncTemplateToServer(
     items: template.items.map((item) => ({
       name: item.name,
       siteUrl: item.siteUrl,
-      id: item.icon.id,
+      iconId: item.icon.iconId,
       position: item.position,
       size: item.size,
     })),

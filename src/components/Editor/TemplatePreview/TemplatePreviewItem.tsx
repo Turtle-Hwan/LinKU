@@ -52,8 +52,8 @@ export const TemplatePreviewItem = ({ item, scale = 1.0 }: TemplatePreviewItemPr
           }}
         >
           <img
-            src={item.icon.imageUrl}
-            alt={item.icon.name}
+            src={item.icon.iconUrl}
+            alt={item.icon.iconName}
             className="object-contain"
             style={{
               width: 5 * scale * 4, // w-5 = 20px, scaled

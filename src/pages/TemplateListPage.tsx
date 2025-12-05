@@ -339,11 +339,11 @@ export const TemplateListPage = () => {
           const validIconIds = new Set(serverIcons.map(icon => icon.id));
 
           const invalidItems = stored.template.items.filter(
-            item => !validIconIds.has(item.icon.id)
+            item => !validIconIds.has(item.icon.iconId)
           );
 
           if (invalidItems.length > 0) {
-            console.error('[Sync] Invalid icon IDs found:', invalidItems.map(i => ({ name: i.name, iconId: i.icon.id })));
+            console.error('[Sync] Invalid icon IDs found:', invalidItems.map(i => ({ name: i.name, iconId: i.icon.iconId })));
             throw new Error('일부 아이템의 아이콘이 서버에 없습니다. 아이콘을 변경 후 다시 시도해주세요.');
           }
         }

@@ -114,6 +114,15 @@ export interface CreateIconResponse {
 // ============================================================================
 
 /**
+ * Icon in template item response (different from Icons API response)
+ */
+export interface TemplateIcon {
+  iconId: number;
+  iconName: string;
+  iconUrl: string;
+}
+
+/**
  * Position coordinates for template items (grid units)
  * x: column index (0-5 for 6-column grid)
  * y: row index (0-5 for 6-row grid)
@@ -144,7 +153,7 @@ export interface TemplateItem {
   siteUrl: string;
   position: Position;
   size: Size;
-  icon: Icon;
+  icon: TemplateIcon;
 }
 
 /**
@@ -153,7 +162,7 @@ export interface TemplateItem {
 export interface TemplateItemRequest {
   name: string;
   siteUrl: string;
-  id: number;
+  iconId: number;
   position: Position;
   size: Size;
 }
