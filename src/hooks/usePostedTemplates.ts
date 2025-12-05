@@ -25,14 +25,24 @@ export function usePostedTemplates() {
   const { state, dispatch } = usePostedTemplatesContext();
 
   /**
-   * Load posted templates from server
+   * Load posted templates from server (with detail items for preview)
    */
   const loadPostedTemplates = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const result = await getMyPostedTemplates();
       if (result.success && result.data) {
-        dispatch({ type: 'SET_TEMPLATES', payload: result.data });
+        // 각 템플릿의 상세 items 로드 (미리보기용)
+        const templatesWithItems = await Promise.all(
+          result.data.map(async (template) => {
+            const detailResult = await getPostedTemplateDetail(template.postedTemplateId);
+            return {
+              ...template,
+              detailItems: detailResult.success ? detailResult.data?.items : undefined,
+            };
+          })
+        );
+        dispatch({ type: 'SET_TEMPLATES', payload: templatesWithItems });
       } else {
         dispatch({ type: 'SET_ERROR', payload: result.error?.message || '로드 실패' });
       }

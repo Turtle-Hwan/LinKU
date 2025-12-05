@@ -678,6 +678,8 @@ export const TemplateListPage = () => {
           <PostedTemplateCard
             key={template.postedTemplateId}
             template={template}
+            items={template.detailItems}
+            height={template.height}
             isOwner={true}
             isLoggedIn={userLoggedIn}
             isLoading={actionLoading === template.postedTemplateId}

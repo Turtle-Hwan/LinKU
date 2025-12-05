@@ -3,12 +3,12 @@
  * Renders template layout at full scale
  */
 
-import type { TemplateItem } from '@/types/api';
+import type { PreviewableItem } from '@/types/api';
 import { TemplatePreviewItem } from './TemplatePreviewItem';
 import { GRID_CONFIG } from '@/utils/template';
 
 interface TemplatePreviewCanvasProps {
-  items: TemplateItem[];
+  items: PreviewableItem[];
   height: number;
   loading?: boolean;
 }
@@ -55,8 +55,8 @@ export const TemplatePreviewCanvas = ({ items, height, loading }: TemplatePrevie
       }}
     >
       {/* Items */}
-      {items.map((item) => (
-        <TemplatePreviewItem key={item.templateItemId} item={item} scale={scale} />
+      {items.map((item, index) => (
+        <TemplatePreviewItem key={`${item.position.x}-${item.position.y}-${index}`} item={item} scale={scale} />
       ))}
     </div>
   );

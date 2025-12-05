@@ -227,6 +227,21 @@ export interface TemplateSummary {
 // ============================================================================
 
 /**
+ * Common item interface for preview rendering
+ * Supports both TemplateItem and PostedTemplateItem
+ */
+export interface PreviewableItem {
+  name: string;
+  siteUrl: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  icon: {
+    iconUrl: string;
+    iconName: string;
+  };
+}
+
+/**
  * Posted template item (from detail API response)
  */
 export interface PostedTemplateItem {
@@ -271,6 +286,7 @@ export interface PostedTemplateSummary {
   items: number;
   previewUrl?: string;
   isLiked?: boolean;
+  detailItems?: PostedTemplateItem[]; // 미리보기용 상세 items (클라이언트에서 추가)
 }
 
 /**

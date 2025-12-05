@@ -3,7 +3,7 @@
  * Shows author info, like/clone counts, and action buttons
  */
 
-import type { PostedTemplateSummary, TemplateItem } from '@/types/api';
+import type { PostedTemplateSummary, PreviewableItem } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { TemplatePreviewCanvas } from './TemplatePreviewCanvas';
 import { Heart, Copy, Trash2, User } from 'lucide-react';
@@ -11,7 +11,7 @@ import { Heart, Copy, Trash2, User } from 'lucide-react';
 interface PostedTemplateCardProps {
   template: PostedTemplateSummary;
   /** Optional items for preview rendering (if available from API) */
-  items?: TemplateItem[];
+  items?: PreviewableItem[];
   /** Template height for preview canvas */
   height?: number;
   onClick?: () => void;

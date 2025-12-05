@@ -3,12 +3,12 @@
  * Displays template items with same styling but half scale
  */
 
-import type { TemplateItem } from '@/types/api';
+import type { PreviewableItem } from '@/types/api';
 import { gridToPixelPosition, gridToPixelSize } from '@/utils/template';
 import { cn } from '@/lib/utils';
 
 interface TemplatePreviewItemProps {
-  item: TemplateItem;
+  item: PreviewableItem;
   scale?: number;
 }
 
