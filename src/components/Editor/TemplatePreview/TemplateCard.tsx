@@ -65,6 +65,27 @@ export const TemplateCard = ({
         "absolute top-2 right-2 flex gap-2 transition-opacity",
         isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
       )}>
+        {/* Publish button - always show, disabled when not synced */}
+        {template.templateId !== 0 && onPublish && (
+          (() => {
+            const canPublish = template.syncStatus === 'synced' && !needsSync;
+            return (
+              <button
+                onClick={canPublish ? onPublish : undefined}
+                className={cn(
+                  "p-2 rounded-md shadow-sm",
+                  canPublish
+                    ? "bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                )}
+                title={canPublish ? "갤러리에 게시" : "동기화 후 게시 가능"}
+                disabled={!canPublish}
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            );
+          })()
+        )}
         {/* Sync button - show for local-only OR needsSync (local changes pending) */}
         {template.templateId !== 0 && (template.syncStatus === 'local' || needsSync) && onSync && (
           <button
@@ -80,16 +101,6 @@ export const TemplateCard = ({
           <div className="p-2 bg-green-600 text-white rounded-md shadow-sm" title="동기화됨">
             <Cloud className="h-4 w-4" />
           </div>
-        )}
-        {/* Publish button - show for synced templates */}
-        {template.templateId !== 0 && template.syncStatus === 'synced' && onPublish && (
-          <button
-            onClick={onPublish}
-            className="p-2 bg-purple-600 text-white rounded-md shadow-sm hover:bg-purple-700"
-            title="갤러리에 게시"
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
         )}
 
         {/* Apply button */}
