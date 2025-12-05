@@ -1,9 +1,9 @@
 import React, { Suspense, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
-import { Search, Settings, Globe } from "lucide-react";
+import { Search, Settings } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 import { sendButtonClick, sendGAEvent } from "@/utils/analytics";
 
@@ -20,7 +20,6 @@ const MainLayout = () => {
 const Header = () => {
   const [text, setText] = React.useState<string>("");
   const [showSettings, setShowSettings] = useState(false);
-  const navigate = useNavigate();
 
   return (
     <header className="px-4 py-3">
@@ -53,13 +52,6 @@ const Header = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Globe
-            className="w-5 h-5 text-gray-600 cursor-pointer"
-            onClick={() => {
-              sendButtonClick("gallery_icon", "header");
-              navigate("/gallery");
-            }}
-          />
           <Settings
             className="w-5 h-5 text-gray-600 cursor-pointer"
             onClick={() => {
