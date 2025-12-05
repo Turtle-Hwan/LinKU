@@ -47,14 +47,7 @@ export const TemplateListPage = () => {
 
   useEffect(() => {
     loadTemplates();
-    checkAuth();
   }, []);
-
-  // Check login status
-  const checkAuth = async () => {
-    const loggedIn = await isLoggedIn();
-    setUserLoggedIn(loggedIn);
-  };
 
   // Load posted templates when tab changes to 'posted'
   useEffect(() => {
@@ -77,26 +70,52 @@ export const TemplateListPage = () => {
   const loadTemplates = async () => {
     setLoading(true);
     try {
-      // 1. 서버에서 템플릿 목록 가져오기 (에러가 발생해도 계속 진행)
-      const [ownedRes, clonedRes] = await Promise.allSettled([
-        getOwnedTemplates(),
-        getClonedTemplates(),
-      ]);
+      // 1. 로그인 상태 확인 - 비로그인 시 서버 API 호출 스킵
+      const loggedIn = await isLoggedIn();
+      setUserLoggedIn(loggedIn);
 
-      // Extract values from settled promises
-      const ownedResult = ownedRes.status === 'fulfilled' ? ownedRes.value : { success: false as const, error: { message: 'Failed to load owned templates' } };
-      const clonedResult = clonedRes.status === 'fulfilled' ? clonedRes.value : { success: false as const, error: { message: 'Failed to load cloned templates' } };
+      let ownedResult: { success: boolean; data?: TemplateSummary[]; error?: { message: string } } = { success: false };
+      let clonedResult: { success: boolean; data?: TemplateSummary[]; error?: { message: string } } = { success: false };
 
-      // 2. localStorage에서 템플릿 인덱스 가져오기
+      // 2. 로그인된 경우에만 서버에서 템플릿 목록 가져오기
+      if (loggedIn) {
+        const [ownedRes, clonedRes] = await Promise.allSettled([
+          getOwnedTemplates(),
+          getClonedTemplates(),
+        ]);
+
+        // Extract values from settled promises
+        ownedResult = ownedRes.status === 'fulfilled' ? ownedRes.value : { success: false, error: { message: 'Failed to load owned templates' } };
+        clonedResult = clonedRes.status === 'fulfilled' ? clonedRes.value : { success: false, error: { message: 'Failed to load cloned templates' } };
+      }
+
+      // 3. localStorage에서 템플릿 인덱스 가져오기 (항상 로드)
       const localIndex = getTemplatesIndex();
 
-      // Helper function to compare template items
+      // Helper function to compare template items (핵심 필드만 비교)
+      // templateItemId는 서버에서 할당하므로 비교에서 제외
       const areItemsEqual = (localItems: TemplateItem[], serverItems: TemplateItem[]): boolean => {
         if (localItems.length !== serverItems.length) return false;
-        // Simple comparison by JSON stringify (could be optimized)
-        const localSorted = [...localItems].sort((a, b) => a.templateItemId - b.templateItemId);
-        const serverSorted = [...serverItems].sort((a, b) => a.templateItemId - b.templateItemId);
-        return JSON.stringify(localSorted) === JSON.stringify(serverSorted);
+
+        // 비교할 핵심 필드만 추출 (templateItemId 제외 - 서버 할당 값)
+        const normalize = (item: TemplateItem) => ({
+          name: item.name,
+          siteUrl: item.siteUrl,
+          position: item.position,
+          size: item.size,
+          iconId: item.icon?.iconId,
+        });
+
+        // position 기준 정렬 (row -> col 순)
+        const sortByPosition = (a: ReturnType<typeof normalize>, b: ReturnType<typeof normalize>) => {
+          if (a.position.y !== b.position.y) return a.position.y - b.position.y;
+          return a.position.x - b.position.x;
+        };
+
+        const localNorm = localItems.map(normalize).sort(sortByPosition);
+        const serverNorm = serverItems.map(normalize).sort(sortByPosition);
+
+        return JSON.stringify(localNorm) === JSON.stringify(serverNorm);
       };
 
       // 3. 서버 템플릿과 localStorage 템플릿 병합 (로컬 우선)
