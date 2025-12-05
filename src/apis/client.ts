@@ -300,8 +300,9 @@ async function request<T = unknown>(
       ? {
           success: false,
           error: {
-            code: String(response.status),
-            message: `HTTP Error: ${response.status} ${response.statusText}`,
+            code: String((data as Record<string, unknown>)?.code || response.status),
+            message: (data as Record<string, unknown>)?.message as string
+                     || `HTTP Error: ${response.status} ${response.statusText}`,
           },
           status: response.status,
           data,
