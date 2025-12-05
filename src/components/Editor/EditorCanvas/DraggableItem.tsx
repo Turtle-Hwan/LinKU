@@ -133,9 +133,9 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
         // Dragging state (only when not resizing)
         isDragging && !isResizing && 'opacity-50 shadow-lg'
       )}
-      onClick={handleClick}
-      {...(!isResizing && listeners)}
+      {...(isResizing ? {} : listeners)}
       {...attributes}
+      onClick={handleClick}
     >
       {/* Horizontal layout matching LinkGroup GridItem */}
       <div className="flex flex-row items-center justify-start px-4 py-2 h-full gap-3 overflow-hidden">

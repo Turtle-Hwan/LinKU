@@ -95,9 +95,17 @@ const initialState: EditorState = {
 const editorReducer = (state: EditorState, action: EditorAction): EditorState => {
   switch (action.type) {
     case 'LOAD_TEMPLATE':
+      // templateItemId 유효성 검증 (SYNC_SUCCESS와 동일한 처리)
+      const loadedTemplate = {
+        ...action.payload,
+        items: action.payload.items.map((item, index) => ({
+          ...item,
+          templateItemId: item.templateItemId ?? -(index + 1),
+        })),
+      };
       return {
         ...state,
-        template: action.payload,
+        template: loadedTemplate,
         mode: 'edit',
         isLoading: false,
         isDirty: false,
