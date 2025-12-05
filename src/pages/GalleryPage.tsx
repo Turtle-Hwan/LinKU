@@ -288,14 +288,14 @@ export const GalleryPage = () => {
             placeholder="템플릿 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-10"
           />
         </div>
 
         {/* Sort */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full sm:w-[150px] justify-between">
+            <Button variant="outline" className="w-[120px] shrink-0 justify-between">
               {SORT_OPTIONS.find(o => o.value === sort)?.label || '정렬'}
               <ChevronDown className="ml-2 h-4 w-4" />
             </Button>

@@ -75,7 +75,7 @@ export const TemplateCard = ({
                 className={cn(
                   "p-2 rounded-md shadow-sm",
                   canPublish
-                    ? "bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
+                    ? "bg-publish text-publish-foreground hover:bg-publish/90 cursor-pointer"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 )}
                 title={canPublish ? "갤러리에 게시" : "동기화 후 게시 가능"}
