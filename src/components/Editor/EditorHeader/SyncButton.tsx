@@ -8,21 +8,14 @@ import { CloudUpload } from 'lucide-react';
 interface SyncButtonProps {
   onSync: () => void | Promise<void>;
   isSyncing: boolean;
-  syncStatus: 'local' | 'synced';
   disabled?: boolean;
 }
 
 export const SyncButton = ({
   onSync,
   isSyncing,
-  syncStatus,
   disabled,
 }: SyncButtonProps) => {
-  // Only show button for local-only templates
-  if (syncStatus === 'synced') {
-    return null;
-  }
-
   return (
     <Button
       onClick={onSync}

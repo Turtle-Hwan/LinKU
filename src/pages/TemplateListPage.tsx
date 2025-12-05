@@ -428,6 +428,7 @@ export const TemplateListPage = () => {
                   ...t,
                   templateId: serverTemplateId,
                   syncStatus: 'synced' as const,
+                  needsSync: false,
                 }
               : t
           )

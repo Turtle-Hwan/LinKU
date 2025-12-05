@@ -12,8 +12,8 @@ import { postTemplate, syncTemplateToServer } from '@/apis/templates';
 import { toast } from 'sonner';
 import {
   saveTemplateToLocalStorage,
+  deleteTemplateFromLocalStorage,
   checkLocalStorageSpace,
-  updateTemplateSyncStatus,
 } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 
@@ -108,11 +108,23 @@ export const EditorHeader = () => {
       const result = await syncTemplateToServer(state.template);
 
       if (result.success && result.data) {
+        const oldTemplateId = state.template.templateId;
+        const newTemplateId = result.data.templateId;
+
         // Update template with server ID
         dispatch({ type: 'SYNC_SUCCESS', payload: result.data });
 
-        // Update localStorage sync status
-        updateTemplateSyncStatus(result.data.templateId, true);
+        // 이전 ID와 새 ID가 다르면 이전 localStorage 삭제
+        if (oldTemplateId !== newTemplateId) {
+          deleteTemplateFromLocalStorage(oldTemplateId);
+        }
+
+        // 새 ID로 저장 (동기화 상태 포함)
+        await saveTemplateToLocalStorage(
+          { ...result.data, syncStatus: 'synced' },
+          state.stagingItems,
+          true // synced with server
+        );
 
         toast.success('동기화 완료', {
           description: '템플릿이 서버에 동기화되었습니다.',
@@ -190,7 +202,6 @@ export const EditorHeader = () => {
         <SyncButton
           onSync={handleSyncToServer}
           isSyncing={state.isSyncing}
-          syncStatus={state.syncStatus}
         />
         <PublishButton
           onPublish={handlePublish}
