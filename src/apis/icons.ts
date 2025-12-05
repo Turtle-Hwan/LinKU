@@ -14,8 +14,8 @@ export async function createIcon(
   iconFile: File | Blob
 ): Promise<ApiResponse<CreateIconResponse>> {
   const formData = new FormData();
-  formData.append('iconName', iconName);
-  formData.append('iconFile', iconFile);
+  formData.append('name', iconName);
+  formData.append('file', iconFile);
 
   return post<CreateIconResponse>(ENDPOINTS.ICONS.BASE, formData);
 }
