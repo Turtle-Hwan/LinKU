@@ -227,20 +227,33 @@ export interface TemplateSummary {
 // ============================================================================
 
 /**
- * Posted (shared) template
+ * Posted template item (from detail API response)
  */
-export interface PostedTemplate extends BaseEntity {
-  postedTemplateId: number;
-  template: Template;
-  author: {
-    userId: number;
-    nickname: string;
-    profileImage?: string;
+export interface PostedTemplateItem {
+  postedTemplateItemId: number;
+  name: string;
+  siteUrl: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  icon: {
+    iconName: string;
+    iconUrl: string;
   };
-  likeCount: number;
-  cloneCount: number;
-  isLiked?: boolean;
-  description?: string;
+}
+
+/**
+ * Posted (shared) template detail
+ * Matches actual API response from /posted-templates/{id}
+ */
+export interface PostedTemplate {
+  postedTemplateId: number;
+  name: string;
+  ownerId: number;
+  ownerName: string;
+  height: number;
+  likesCount: number;
+  usageCount: number;
+  items: PostedTemplateItem[];
 }
 
 /**

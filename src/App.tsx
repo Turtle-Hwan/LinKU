@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
+import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
 import { sendPageView } from "./utils/analytics";
 import "./App.css";
 
@@ -40,11 +41,13 @@ function App() {
         </div>
       }
     >
-      {/* Outlet: React Router가 여기에 자식 라우트를 렌더링 */}
-      <Outlet />
+      <PostedTemplatesProvider>
+        {/* Outlet: React Router가 여기에 자식 라우트를 렌더링 */}
+        <Outlet />
 
-      {/* Global Toast Notifications */}
-      <Toaster duration={2000} />
+        {/* Global Toast Notifications */}
+        <Toaster duration={2000} />
+      </PostedTemplatesProvider>
     </ErrorBoundary>
   );
 }

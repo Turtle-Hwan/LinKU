@@ -5,8 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer, postTemplate } from '@/apis/templates';
-import { getMyPostedTemplates, deletePostedTemplate, likePostedTemplate, getPostedTemplateDetail } from '@/apis/posted-templates';
+import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer } from '@/apis/templates';
 import type { TemplateSummary, PostedTemplateSummary, TemplateItem } from '@/types/api';
 
 // Extended type with needsSync flag
@@ -26,10 +25,10 @@ import {
 import { Plus, FileText, LayoutTemplate, Globe } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
+import { usePostedTemplates } from '@/hooks/usePostedTemplates';
 import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage, saveTemplateToLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
-import { areItemsEqual } from '@/utils/templateUtils';
 import { LinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
 
@@ -40,11 +39,20 @@ export const TemplateListPage = () => {
 
   const [ownedTemplates, setOwnedTemplates] = useState<TemplateSummaryWithSync[]>([]);
   const [clonedTemplates, setClonedTemplates] = useState<TemplateSummaryWithSync[]>([]);
-  const [postedTemplates, setPostedTemplates] = useState<PostedTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'owned' | 'cloned' | 'posted'>('owned');
   const [userLoggedIn, setUserLoggedIn] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  // Posted templates from global context
+  const {
+    postedTemplates,
+    count: postedCount,
+    loadPostedTemplates,
+    unpostTemplate,
+    likeTemplate,
+    publishTemplate,
+  } = usePostedTemplates();
 
   useEffect(() => {
     loadTemplates();
@@ -55,18 +63,7 @@ export const TemplateListPage = () => {
     if (activeTab === 'posted' && postedTemplates.length === 0 && userLoggedIn) {
       loadPostedTemplates();
     }
-  }, [activeTab, userLoggedIn]);
-
-  const loadPostedTemplates = async () => {
-    try {
-      const result = await getMyPostedTemplates();
-      if (result.success && result.data) {
-        setPostedTemplates(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to load posted templates:', error);
-    }
-  };
+  }, [activeTab, userLoggedIn, postedTemplates.length, loadPostedTemplates]);
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -484,19 +481,15 @@ export const TemplateListPage = () => {
     setActionLoading(template.postedTemplateId);
 
     try {
-      const result = await deletePostedTemplate(template.postedTemplateId);
+      const success = await unpostTemplate(template.postedTemplateId);
 
-      if (result.success) {
-        setPostedTemplates(prev =>
-          prev.filter(t => t.postedTemplateId !== template.postedTemplateId)
-        );
-
+      if (success) {
         toast({
           title: '게시 취소 완료',
           description: `"${template.name}" 템플릿이 갤러리에서 제거되었습니다.`,
         });
       } else {
-        throw new Error(result.error?.message || '게시 취소에 실패했습니다.');
+        throw new Error('게시 취소에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to unpost template:', error);
@@ -515,18 +508,10 @@ export const TemplateListPage = () => {
     setActionLoading(template.postedTemplateId);
 
     try {
-      const result = await likePostedTemplate(template.postedTemplateId);
+      const success = await likeTemplate(template.postedTemplateId);
 
-      if (result.success && result.data) {
-        setPostedTemplates(prev =>
-          prev.map(t =>
-            t.postedTemplateId === template.postedTemplateId
-              ? { ...t, isLiked: result.data!.isLiked, likesCount: result.data!.likeCount }
-              : t
-          )
-        );
-      } else {
-        throw new Error(result.error?.message || '좋아요 처리에 실패했습니다.');
+      if (!success) {
+        throw new Error('좋아요 처리에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to like template:', error);
@@ -549,38 +534,20 @@ export const TemplateListPage = () => {
       const currentTemplate = [...ownedTemplates, ...clonedTemplates].find(t => t.templateId === templateId);
       const currentItems = currentTemplate?.items || [];
 
-      // 중복 게시 체크 (내 게시 템플릿과 items 비교)
-      const postedResult = await getMyPostedTemplates();
-      if (postedResult.success && postedResult.data && currentItems.length > 0) {
-        for (const posted of postedResult.data) {
-          const detailResult = await getPostedTemplateDetail(posted.postedTemplateId);
-          if (detailResult.success && detailResult.data?.template.items) {
-            if (areItemsEqual(currentItems, detailResult.data.template.items)) {
-              toast({
-                title: '게시 불가',
-                description: '이미 게시된 템플릿과 동일한 내용입니다.',
-                variant: 'destructive',
-              });
-              return;
-            }
-          }
-        }
-      }
-
-      const result = await postTemplate(templateId);
+      // publishTemplate 훅 사용 (중복 체크 포함)
+      const result = await publishTemplate(templateId, currentItems);
 
       if (result.success) {
         toast({
           title: '게시 완료',
           description: `"${templateName}" 템플릿이 갤러리에 게시되었습니다.`,
         });
-
-        // Reload posted templates if on posted tab
-        if (activeTab === 'posted') {
-          loadPostedTemplates();
-        }
       } else {
-        throw new Error(result.error?.message || '게시에 실패했습니다.');
+        toast({
+          title: '게시 불가',
+          description: result.error || '게시에 실패했습니다.',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Failed to publish template:', error);
@@ -769,7 +736,7 @@ export const TemplateListPage = () => {
             복제한 템플릿 ({clonedTemplates.length})
           </TabsTrigger>
           <TabsTrigger value="posted">
-            게시한 템플릿 ({postedTemplates.length})
+            게시한 템플릿 ({postedCount})
           </TabsTrigger>
         </TabsList>
 

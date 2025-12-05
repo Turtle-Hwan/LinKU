@@ -8,9 +8,8 @@ import { SaveButton } from './SaveButton';
 import { SyncButton } from './SyncButton';
 import { PublishButton } from './PublishButton';
 import { BackButton } from './BackButton';
-import { postTemplate, syncTemplateToServer } from '@/apis/templates';
-import { getMyPostedTemplates, getPostedTemplateDetail } from '@/apis/posted-templates';
-import { areItemsEqual } from '@/utils/templateUtils';
+import { syncTemplateToServer } from '@/apis/templates';
+import { usePostedTemplates } from '@/hooks/usePostedTemplates';
 import { toast } from 'sonner';
 import {
   saveTemplateToLocalStorage,
@@ -21,6 +20,7 @@ import { getErrorMessage } from '@/utils/apiErrorHandler';
 
 export const EditorHeader = () => {
   const { state, dispatch } = useEditorContext();
+  const { publishTemplate } = usePostedTemplates();
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch({ type: 'UPDATE_TEMPLATE_NAME', payload: e.target.value });
@@ -162,32 +162,17 @@ export const EditorHeader = () => {
     }
 
     try {
-      // 중복 게시 체크 (내 게시 템플릿과 items 비교)
+      // publishTemplate 훅 사용 (중복 체크 포함)
       const currentItems = state.template.items || [];
-      const postedResult = await getMyPostedTemplates();
-      if (postedResult.success && postedResult.data && currentItems.length > 0) {
-        for (const posted of postedResult.data) {
-          const detailResult = await getPostedTemplateDetail(posted.postedTemplateId);
-          if (detailResult.success && detailResult.data?.template.items) {
-            if (areItemsEqual(currentItems, detailResult.data.template.items)) {
-              toast.error('게시 불가', {
-                description: '이미 게시된 템플릿과 동일한 내용입니다.',
-              });
-              return;
-            }
-          }
-        }
-      }
+      const result = await publishTemplate(state.template.templateId, currentItems);
 
-      const result = await postTemplate(state.template.templateId);
       if (result.success) {
         toast.success('게시 완료', {
           description: '템플릿이 공개 갤러리에 게시되었습니다.',
         });
       } else {
-        const errorMsg = getErrorMessage(result, '게시에 실패했습니다.');
-        toast.error('게시 실패', {
-          description: errorMsg,
+        toast.error('게시 불가', {
+          description: result.error || '게시에 실패했습니다.',
         });
       }
     } catch (error) {
