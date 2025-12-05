@@ -14,8 +14,8 @@ export async function createIcon(
   iconFile: File | Blob
 ): Promise<ApiResponse<CreateIconResponse>> {
   const formData = new FormData();
-  formData.append('iconName', iconName);
-  formData.append('iconFile', iconFile);
+  formData.append('name', iconName);
+  formData.append('file', iconFile);
 
   return post<CreateIconResponse>(ENDPOINTS.ICONS.BASE, formData);
 }
@@ -41,7 +41,7 @@ export async function renameIcon(
   iconId: number,
   newName: string
 ): Promise<ApiResponse<Icon>> {
-  return put<Icon>(ENDPOINTS.ICONS.RENAME(iconId), { iconName: newName });
+  return put<Icon>(ENDPOINTS.ICONS.RENAME(iconId), { name: newName });
 }
 
 /**

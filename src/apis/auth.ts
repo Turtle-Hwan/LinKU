@@ -26,7 +26,9 @@ export async function googleOAuth(
 
 /**
  * Send verification code to email
- * Send 6-digit verification code to Konkuk University email
+ * POST /auth/send-code
+ * @param data.kuMail - 건국대 이메일 (@konkuk.ac.kr)
+ * @requires Authorization: Bearer {guest_token}
  */
 export async function sendVerificationCode(
   data: SendCodeRequest
@@ -36,7 +38,10 @@ export async function sendVerificationCode(
 
 /**
  * Verify email code
- * Verify 6-digit code sent to email
+ * POST /auth/verify-code
+ * @param data.kuMail - 건국대 이메일
+ * @param data.authCode - 6자리 인증 코드
+ * @requires Authorization: Bearer {guest_token}
  */
 export async function verifyEmailCode(
   data: VerifyCodeRequest

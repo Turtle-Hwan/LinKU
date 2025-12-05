@@ -1,4 +1,5 @@
 import React, { Suspense, useState } from "react";
+import { Outlet } from "react-router-dom";
 import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
@@ -6,11 +7,11 @@ import { Search, Settings } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 import { sendButtonClick, sendGAEvent } from "@/utils/analytics";
 
-const MainLayout = ({ children }) => {
+const MainLayout = () => {
   return (
     <div className="w-[500px] h-[600px] flex flex-col bg-white overflow-hidden">
       <MainLayout.Header />
-      {children}
+      <Outlet />
       <MainLayout.Banner />
     </div>
   );

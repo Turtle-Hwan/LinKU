@@ -16,51 +16,13 @@ import { getCareerAlertsFromHTML } from './external/html-parser';
 
 /**
  * Get filtered alerts by category
- * Fetch alerts with optional category filter
- * Falls back to external sources (RSS/HTML) for categories that fail via API
+ * Fetches alerts from RSS/HTML external sources
  */
 export async function getAlerts(
   params?: AlertFilterParams
 ): Promise<ApiResponse<GeneralAlert[]>> {
   try {
-    // If specific category is requested, try API first
-    if (params?.category) {
-      const result = await get<GeneralAlert[]>(ENDPOINTS.ALERTS.BASE, { params });
-
-      // If API succeeded, return the result
-      if (result.success && result.status === 200) {
-        return result;
-      }
-
-      // If API failed for this category, fallback to external sources
-      console.warn(`API failed for category ${params.category}, falling back to external sources`);
-
-      const [rssAlerts, careerAlerts] = await Promise.all([
-        getAlertsFromRSS(),
-        getCareerAlertsFromHTML(6000),
-      ]);
-
-      const allAlerts = [...rssAlerts, ...careerAlerts];
-      const filteredAlerts = allAlerts.filter(alert => alert.category === params.category);
-
-      return {
-        success: true,
-        data: filteredAlerts,
-        status: 200,
-      };
-    }
-
-    // If no category specified, try API first for all categories
-    const result = await get<GeneralAlert[]>(ENDPOINTS.ALERTS.BASE);
-
-    // If API succeeded, return the result
-    if (result.success && result.status === 200) {
-      return result;
-    }
-
-    // If API failed, fallback to external sources for all categories
-    console.warn("API failed, falling back to external sources");
-
+    // Fetch from external sources (RSS/HTML parsing)
     const [rssAlerts, careerAlerts] = await Promise.all([
       getAlertsFromRSS(),
       getCareerAlertsFromHTML(6000),
@@ -68,14 +30,27 @@ export async function getAlerts(
 
     const allAlerts = [...rssAlerts, ...careerAlerts];
 
+    // Filter by category if specified
+    if (params?.category) {
+      const filteredAlerts = allAlerts.filter(alert => alert.category === params.category);
+      return {
+        success: true,
+        data: filteredAlerts,
+        status: 200,
+      };
+    }
+
     return {
       success: true,
       data: allAlerts,
       status: 200,
     };
   } catch (error) {
-    // If API and external sources fail, return error
-    console.error("API and external sources failed:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[Alerts] Failed to fetch alerts from external sources`,
+      `\n  Error: ${errorMessage}`
+    );
     return {
       success: false,
       error: {
@@ -87,25 +62,93 @@ export async function getAlerts(
 }
 
 /**
+ * Backend response type for my alerts API
+ */
+interface MyAlertsResponse {
+  alertResponseList: Array<{
+    alertId: number;
+    departmentName: string;
+    url: string;
+    title: string;
+    postTime: string;
+    content: string;
+  }>;
+}
+
+/**
  * Get my alerts
  * Fetch alerts from subscribed departments
  */
 export async function getMyAlerts(): Promise<ApiResponse<GeneralAlert[]>> {
-  return get<GeneralAlert[]>(ENDPOINTS.ALERTS.MY);
+  const response = await get<MyAlertsResponse>(ENDPOINTS.ALERTS.MY);
+
+  if (response.success && response.data?.alertResponseList) {
+    // Transform to GeneralAlert format
+    const alerts: GeneralAlert[] = response.data.alertResponseList.map(item => ({
+      alertId: item.alertId,
+      title: item.title,
+      content: item.content,
+      category: item.departmentName as GeneralAlert['category'],
+      url: item.url,
+      publishedAt: item.postTime,
+    }));
+    return { ...response, data: alerts };
+  }
+
+  return { ...response, data: [] };
+}
+
+/**
+ * Backend response type for subscription API
+ */
+interface DepartmentConfigResponse {
+  departmentConfigList: Array<{
+    departmentConfigId: number;
+    departmentConfigName: string;
+  }>;
 }
 
 /**
  * Get all available departments for subscription
+ * Transforms backend response to frontend Department format
  */
 export async function getSubscriptions(): Promise<ApiResponse<Department[]>> {
-  return get<Department[]>(ENDPOINTS.ALERTS.SUBSCRIPTION);
+  const response = await get<DepartmentConfigResponse>(ENDPOINTS.ALERTS.SUBSCRIPTION);
+
+  if (response.success && response.data?.departmentConfigList) {
+    // Transform field names to match frontend Department type
+    // Use type assertion since API may return categories not in DepartmentCategory
+    const departments = response.data.departmentConfigList.map(item => ({
+      id: item.departmentConfigId,
+      name: item.departmentConfigName,
+    })) as Department[];
+    return { ...response, data: departments };
+  }
+
+  return { ...response, data: [] };
 }
 
 /**
  * Get my subscribed departments
+ * Uses same response structure as getSubscriptions (departmentConfigList)
  */
 export async function getMySubscriptions(): Promise<ApiResponse<Subscription[]>> {
-  return get<Subscription[]>(ENDPOINTS.ALERTS.MY_SUBSCRIPTION);
+  const response = await get<DepartmentConfigResponse>(ENDPOINTS.ALERTS.MY_SUBSCRIPTION);
+
+  if (response.success && response.data?.departmentConfigList) {
+    // Transform to Subscription format (using departmentConfigId as subscriptionId)
+    const subscriptions: Subscription[] = response.data.departmentConfigList.map(item => ({
+      subscriptionId: item.departmentConfigId,
+      department: {
+        id: item.departmentConfigId,
+        name: item.departmentConfigName,
+      } as Department,
+      createdAt: '',
+    }));
+    return { ...response, data: subscriptions };
+  }
+
+  return { ...response, data: [] };
 }
 
 /**

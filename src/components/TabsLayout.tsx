@@ -5,8 +5,11 @@ import TodoList from "./Tabs/TodoList/TodoList";
 import TodoCountBadge from "./Tabs/TodoList/TodoCountBadge";
 import Alerts from "./Tabs/Alerts/Alerts";
 import { sendTabChange } from "@/utils/analytics";
+import { useSelectedTemplate } from "@/hooks/useSelectedTemplate";
 
 const TabsLayout = () => {
+  const { linkItems, isLoading, error } = useSelectedTemplate();
+
   const handleTabChange = (value: string) => {
     const tabNames = {
       LinkGroup: "링크모음",
@@ -32,7 +35,17 @@ const TabsLayout = () => {
       </div>
 
       <TabsContent value="LinkGroup">
-        <LinkGroup />
+        {isLoading ? (
+          <div className="flex items-center justify-center p-8 border-t">
+            <p className="text-sm text-muted-foreground">템플릿 로딩 중...</p>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center p-8 border-t">
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        ) : (
+          <LinkGroup items={linkItems} />
+        )}
       </TabsContent>
       <TabsContent value="TimeTable">
         <div className="size-full border-t text-center">

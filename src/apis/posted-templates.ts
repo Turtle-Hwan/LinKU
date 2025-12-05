@@ -48,7 +48,8 @@ export async function clonePostedTemplate(
   postedTemplateId: number
 ): Promise<ApiResponse<CloneTemplateResponse>> {
   return post<CloneTemplateResponse>(
-    ENDPOINTS.POSTED_TEMPLATES.CLONE(postedTemplateId)
+    ENDPOINTS.POSTED_TEMPLATES.CLONE(postedTemplateId),
+    {}
   );
 }
 

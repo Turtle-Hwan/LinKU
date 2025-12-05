@@ -33,6 +33,8 @@ body {
 @theme {
   --color-main: #00913a;
   --color-hover: #007a30;
+  --color-publish: #7c3aed;
+  --color-publish-foreground: #ffffff;
 }
 
 /* tailwind css */
@@ -54,6 +56,8 @@ body {
   --accent-foreground: hsl(240 5.9% 10%);
   --destructive: hsl(0 72.22% 50.59%);
   --destructive-foreground: hsl(0 0% 98%);
+  --publish: hsl(270 50% 50%);
+  --publish-foreground: hsl(0 0% 100%);
   --border: hsl(240 5.9% 90%);
   --input: hsl(240 5.9% 90%);
   --ring: hsl(240 5% 64.9%);
@@ -93,6 +97,8 @@ body {
   --accent-foreground: hsl(0 0% 98%);
   --destructive: hsl(0 62.8% 30.6%);
   --destructive-foreground: hsl(0 85.7% 97.3%);
+  --publish: hsl(270 50% 40%);
+  --publish-foreground: hsl(0 0% 100%);
   --border: hsl(240 3.7% 15.9%);
   --input: hsl(240 3.7% 15.9%);
   --ring: hsl(240 4.9% 83.9%);
@@ -131,6 +137,8 @@ body {
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-publish: var(--publish);
+  --color-publish-foreground: var(--publish-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

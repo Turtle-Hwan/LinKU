@@ -93,9 +93,9 @@ export interface RequestConfig {
  * Icon entity
  */
 export interface Icon {
-  iconId: number;
-  iconName: string;
-  iconUrl: string;
+  id: number;
+  name: string;
+  imageUrl: string;
   isDefault?: boolean;
   createdAt?: string;
 }
@@ -104,9 +104,9 @@ export interface Icon {
  * Response after uploading an icon
  */
 export interface CreateIconResponse {
-  iconId: number;
-  iconName: string;
-  iconUrl: string;
+  id: number;
+  name: string;
+  imageUrl: string;
 }
 
 // ============================================================================
@@ -114,7 +114,19 @@ export interface CreateIconResponse {
 // ============================================================================
 
 /**
- * Position coordinates for template items
+ * Icon in template item response (different from Icons API response)
+ */
+export interface TemplateIcon {
+  iconId: number;
+  iconName: string;
+  iconUrl: string;
+}
+
+/**
+ * Position coordinates for template items (grid units)
+ * x: column index (0-5 for 6-column grid)
+ * y: row index (0-5 for 6-row grid)
+ * Example: { x: 0, y: 1 } = first column, second row
  */
 export interface Position {
   x: number;
@@ -122,7 +134,10 @@ export interface Position {
 }
 
 /**
- * Size dimensions for template items
+ * Size dimensions for template items (grid units)
+ * width: number of columns (1-6, typically 2 or 3)
+ * height: number of rows (typically 1)
+ * Example: { width: 2, height: 1 } = spans 2 columns, 1 row
  */
 export interface Size {
   width: number;
@@ -138,7 +153,7 @@ export interface TemplateItem {
   siteUrl: string;
   position: Position;
   size: Size;
-  icon: Icon;
+  icon: TemplateIcon;
 }
 
 /**
@@ -158,9 +173,10 @@ export interface TemplateItemRequest {
 export interface Template extends BaseEntity {
   templateId: number;
   name: string;
-  height: number;
+  height: number; // Template height in rows (e.g., 6 for 6-row grid)
   cloned: boolean;
   items: TemplateItem[];
+  syncStatus?: 'local' | 'synced'; // Local-only or synced with server
 }
 
 /**
@@ -201,7 +217,9 @@ export interface TemplateSummary {
   createdAt: string;
   updatedAt: string;
   itemCount?: number;
+  syncStatus?: 'local' | 'synced'; // Local-only or synced with server
   previewUrl?: string;
+  items?: TemplateItem[]; // For preview rendering
 }
 
 // ============================================================================
@@ -209,46 +227,73 @@ export interface TemplateSummary {
 // ============================================================================
 
 /**
- * Posted (shared) template
+ * Common item interface for preview rendering
+ * Supports both TemplateItem and PostedTemplateItem
  */
-export interface PostedTemplate extends BaseEntity {
-  postedTemplateId: number;
-  template: Template;
-  author: {
-    userId: number;
-    nickname: string;
-    profileImage?: string;
+export interface PreviewableItem {
+  name: string;
+  siteUrl: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  icon: {
+    iconUrl: string;
+    iconName: string;
   };
-  likeCount: number;
-  cloneCount: number;
-  isLiked?: boolean;
-  description?: string;
+}
+
+/**
+ * Posted template item (from detail API response)
+ */
+export interface PostedTemplateItem {
+  postedTemplateItemId: number;
+  name: string;
+  siteUrl: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  icon: {
+    iconName: string;
+    iconUrl: string;
+  };
+}
+
+/**
+ * Posted (shared) template detail
+ * Matches actual API response from /posted-templates/{id}
+ */
+export interface PostedTemplate {
+  postedTemplateId: number;
+  name: string;
+  ownerId: number;
+  ownerName: string;
+  height: number;
+  likesCount: number;
+  usageCount: number;
+  items: PostedTemplateItem[];
 }
 
 /**
  * Posted template summary (for list views)
+ * Matches actual API response from /posted-templates/public
  */
 export interface PostedTemplateSummary {
   postedTemplateId: number;
-  templateId: number;
   name: string;
-  author: {
-    userId: number;
-    nickname: string;
-    profileImage?: string;
-  };
-  likeCount: number;
-  cloneCount: number;
-  isLiked?: boolean;
-  createdAt: string;
+  ownerId: number;
+  ownerName: string;
+  height: number;
+  likesCount: number;
+  usageCount: number;
+  items: number;
   previewUrl?: string;
+  isLiked?: boolean;
+  detailItems?: PostedTemplateItem[]; // 미리보기용 상세 items (클라이언트에서 추가)
 }
 
 /**
  * Query parameters for posted templates list
  */
 export interface PostedTemplateListParams {
-  sort?: "latest" | "popular" | "mostLiked" | "mostCloned";
+  sort?: "most-liked" | "most-used" | "newest" | "oldest";
   query?: string;
   page?: number;
   limit?: number;
@@ -298,36 +343,41 @@ export interface GoogleOAuthResponse {
 
 /**
  * Send verification code request
+ * POST /auth/send-code
  */
 export interface SendCodeRequest {
-  email: string;
+  kuMail: string; // 건국대 이메일 (@konkuk.ac.kr)
 }
 
 /**
  * Send verification code response
+ * 성공 시 result: null
  */
-export interface SendCodeResponse {
-  email: string;
-  expiresAt: string;
-}
+export type SendCodeResponse = null;
 
 /**
  * Verify code request
+ * POST /auth/verify-code
  */
 export interface VerifyCodeRequest {
-  email: string;
-  verificationCode: string;
+  kuMail: string; // 건국대 이메일 (@konkuk.ac.kr)
+  authCode: string; // 6자리 인증 코드
 }
 
 /**
  * Verify code response
+ * 성공 시 result: null
  */
-export interface VerifyCodeResponse {
-  email: string;
-  verified: boolean;
-  verifiedAt: string;
-  verificationToken: string;
-}
+export type VerifyCodeResponse = null;
+
+/**
+ * Auth error codes
+ */
+export const AUTH_ERROR_CODES = {
+  INVALID_INPUT: 1005, // 입력 값이 유효하지 않습니다
+  DUPLICATE_EMAIL: 5014, // 이미 존재하는 건국대학교 이메일입니다
+  INVALID_CODE: 5015, // 인증 코드가 올바르지 않습니다
+} as const;
 
 // ============================================================================
 // Alerts
