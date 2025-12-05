@@ -245,21 +245,19 @@ export interface PostedTemplate extends BaseEntity {
 
 /**
  * Posted template summary (for list views)
+ * Matches actual API response from /posted-templates/public
  */
 export interface PostedTemplateSummary {
   postedTemplateId: number;
-  templateId: number;
   name: string;
-  author: {
-    userId: number;
-    nickname: string;
-    profileImage?: string;
-  };
-  likeCount: number;
-  cloneCount: number;
-  isLiked?: boolean;
-  createdAt: string;
+  ownerId: number;
+  ownerName: string;
+  height: number;
+  likesCount: number;
+  usageCount: number;
+  items: number;
   previewUrl?: string;
+  isLiked?: boolean;
 }
 
 /**
@@ -285,7 +283,7 @@ export interface CloneTemplateResponse {
  */
 export interface LikeTemplateResponse {
   isLiked: boolean;
-  likeCount: number;
+  likesCount: number;
 }
 
 // ============================================================================

@@ -520,7 +520,7 @@ export const TemplateListPage = () => {
         setPostedTemplates(prev =>
           prev.map(t =>
             t.postedTemplateId === template.postedTemplateId
-              ? { ...t, isLiked: result.data!.isLiked, likeCount: result.data!.likeCount }
+              ? { ...t, isLiked: result.data!.isLiked, likesCount: result.data!.likesCount }
               : t
           )
         );

@@ -195,7 +195,7 @@ export const GalleryPage = () => {
         setTemplates(prev =>
           prev.map(t =>
             t.postedTemplateId === template.postedTemplateId
-              ? { ...t, cloneCount: t.cloneCount + 1 }
+              ? { ...t, usageCount: t.usageCount + 1 }
               : t
           )
         );
@@ -240,7 +240,7 @@ export const GalleryPage = () => {
         setTemplates(prev =>
           prev.map(t =>
             t.postedTemplateId === template.postedTemplateId
-              ? { ...t, isLiked: result.data!.isLiked, likeCount: result.data!.likeCount }
+              ? { ...t, isLiked: result.data!.isLiked, likesCount: result.data!.likesCount }
               : t
           )
         );

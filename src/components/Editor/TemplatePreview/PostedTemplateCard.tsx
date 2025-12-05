@@ -89,19 +89,11 @@ export const PostedTemplateCard = ({
 
         {/* Author */}
         <div className="flex items-center gap-2">
-          {template.author.profileImage ? (
-            <img
-              src={template.author.profileImage}
-              alt={template.author.nickname}
-              className="w-5 h-5 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center">
-              <User className="h-3 w-3 text-muted-foreground" />
-            </div>
-          )}
+          <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center">
+            <User className="h-3 w-3 text-muted-foreground" />
+          </div>
           <span className="text-xs text-muted-foreground truncate">
-            {template.author.nickname}
+            {template.ownerName ?? '알 수 없음'}
           </span>
         </div>
 
@@ -123,12 +115,12 @@ export const PostedTemplateCard = ({
               <Heart
                 className={cn('h-4 w-4', template.isLiked && 'fill-current')}
               />
-              <span>{template.likeCount}</span>
+              <span>{template.likesCount}</span>
             </button>
 
             <div className="flex items-center gap-1">
               <Copy className="h-4 w-4" />
-              <span>{template.cloneCount}</span>
+              <span>{template.usageCount}</span>
             </div>
           </div>
 
