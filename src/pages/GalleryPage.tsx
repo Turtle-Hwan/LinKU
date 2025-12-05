@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPublicPostedTemplates, clonePostedTemplate, likePostedTemplate } from '@/apis/posted-templates';
+import { getPublicPostedTemplates, getPostedTemplateDetail, clonePostedTemplate, likePostedTemplate } from '@/apis/posted-templates';
 import type { PostedTemplateSummary, PostedTemplateListParams } from '@/types/api';
 import { PostedTemplateCard } from '@/components/Editor/TemplatePreview/PostedTemplateCard';
 import { Input } from '@/components/ui/input';
@@ -111,10 +111,21 @@ export const GalleryPage = () => {
       if (result.success && result.data) {
         const newTemplates = result.data;
 
+        // 각 템플릿의 상세 items 로드 (미리보기용)
+        const templatesWithItems = await Promise.all(
+          newTemplates.map(async (template) => {
+            const detailResult = await getPostedTemplateDetail(template.postedTemplateId);
+            return {
+              ...template,
+              detailItems: detailResult.success ? detailResult.data?.items : undefined,
+            };
+          })
+        );
+
         if (reset) {
-          setTemplates(newTemplates);
+          setTemplates(templatesWithItems);
         } else {
-          setTemplates(prev => [...prev, ...newTemplates]);
+          setTemplates(prev => [...prev, ...templatesWithItems]);
         }
 
         // Check if there are more pages
@@ -336,6 +347,8 @@ export const GalleryPage = () => {
             <PostedTemplateCard
               key={template.postedTemplateId}
               template={template}
+              items={template.detailItems}
+              height={template.height}
               isLoggedIn={userLoggedIn}
               isLoading={actionLoading === template.postedTemplateId}
               onClone={() => handleClone(template)}
