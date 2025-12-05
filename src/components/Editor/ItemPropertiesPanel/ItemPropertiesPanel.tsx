@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { GRID_CONFIG } from '@/utils/template';
 import { validateLinkForm } from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
+import type { TemplateIcon } from '@/types/api';
 import { InputGroup } from '@/components/Editor/shared/InputGroup';
 
 export const ItemPropertiesPanel = () => {
@@ -106,7 +107,7 @@ export const ItemPropertiesPanel = () => {
             iconId: icon.id,
             iconName: icon.name,
             iconUrl: icon.imageUrl,
-          },
+          } as TemplateIcon,
           size: { width: clampedWidth, height: clampedHeight },
           position: { x: clampedPosX, y: clampedPosY },
         },

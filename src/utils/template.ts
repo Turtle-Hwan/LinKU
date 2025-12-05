@@ -4,7 +4,7 @@
  * Rendering conversion to pixels happens in components
  */
 
-import type { TemplateItem, Icon, Position, Size } from '@/types/api';
+import type { TemplateItem, TemplateIcon, Icon, Position, Size } from '@/types/api';
 import { LinkList } from '@/constants/LinkList';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -287,7 +287,7 @@ export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateIt
         iconId: icon.id,
         iconName: icon.name,
         iconUrl: icon.imageUrl,
-      },
+      } as TemplateIcon,
     });
   });
 

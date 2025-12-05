@@ -10,7 +10,7 @@ import { Zap, Upload } from 'lucide-react';
 import { IconUploadDialog } from './IconUploadDialog';
 import { StagingArea } from './StagingArea';
 import { QuickAddDialog } from './QuickAddDialog';
-import type { Icon } from '@/types/api';
+import type { Icon, TemplateIcon } from '@/types/api';
 
 export const EditorSidebar = () => {
   const { state, dispatch } = useEditorContext();
@@ -41,7 +41,7 @@ export const EditorSidebar = () => {
         iconId: selectedIcon.id,
         iconName: selectedIcon.name,
         iconUrl: selectedIcon.imageUrl,
-      },
+      } as TemplateIcon,
     };
 
     dispatch({ type: 'ADD_TO_STAGING', payload: newItem });

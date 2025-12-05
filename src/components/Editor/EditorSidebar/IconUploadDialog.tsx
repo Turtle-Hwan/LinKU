@@ -176,27 +176,31 @@ export const IconUploadDialog = ({
               ${isDragging ? 'border-primary bg-muted/50' : 'border-muted-foreground/25'}
             `}
           >
+            {/* X button at top-right of upload area */}
+            {preview && (
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-2 right-2 h-6 w-6 z-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearFile();
+                }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+
             {preview ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="relative">
-                  <img
-                    src={preview}
-                    alt="Preview"
-                    className="max-h-32 max-w-full object-contain rounded"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute -top-2 -right-2 h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleClearFile();
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">{file?.name}</p>
+              <div className="flex flex-col items-center gap-2">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="h-16 w-16 object-contain rounded"
+                />
+                <p className="text-xs text-muted-foreground truncate max-w-full">
+                  {file?.name}
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2">
