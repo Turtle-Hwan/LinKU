@@ -20,13 +20,13 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { isLoggedIn } from '@/utils/oauth';
 
-type SortOption = 'latest' | 'popular' | 'mostLiked' | 'mostCloned';
+type SortOption = 'newest' | 'oldest' | 'most-liked' | 'most-used';
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'latest', label: '최신순' },
-  { value: 'popular', label: '인기순' },
-  { value: 'mostLiked', label: '좋아요순' },
-  { value: 'mostCloned', label: '복제순' },
+  { value: 'newest', label: '최신순' },
+  { value: 'most-liked', label: '좋아요순' },
+  { value: 'most-used', label: '복제순' },
+  { value: 'oldest', label: '오래된순' },
 ];
 
 const PAGE_SIZE = 12;
@@ -41,7 +41,7 @@ export const GalleryPage = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState<SortOption>('latest');
+  const [sort, setSort] = useState<SortOption>('newest');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [userLoggedIn, setUserLoggedIn] = useState(false);
