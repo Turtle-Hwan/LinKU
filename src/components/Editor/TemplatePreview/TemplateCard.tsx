@@ -5,7 +5,7 @@
 import type { TemplateSummary } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { TemplatePreviewCanvas } from './TemplatePreviewCanvas';
-import { Check, CloudUpload, Cloud, Trash2 } from 'lucide-react';
+import { Check, CloudUpload, Cloud, Trash2, Share2 } from 'lucide-react';
 
 interface TemplateCardProps {
   template: TemplateSummary;
@@ -15,7 +15,9 @@ interface TemplateCardProps {
   onApply?: (e: React.MouseEvent) => void;
   onDelete?: (e: React.MouseEvent) => void;
   onSync?: (e: React.MouseEvent) => void;
+  onPublish?: (e: React.MouseEvent) => void;
   showDelete?: boolean;
+  needsSync?: boolean;  // 로컬과 서버 데이터가 다를 때 true
 }
 
 export const TemplateCard = ({
@@ -26,7 +28,9 @@ export const TemplateCard = ({
   onApply,
   onDelete,
   onSync,
-  showDelete = false
+  onPublish,
+  showDelete = false,
+  needsSync = false,
 }: TemplateCardProps) => {
   return (
     <div
@@ -61,20 +65,31 @@ export const TemplateCard = ({
         "absolute top-2 right-2 flex gap-2 transition-opacity",
         isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
       )}>
-        {/* Sync button (local-only templates) - hide for default template */}
-        {template.templateId !== 0 && template.syncStatus === 'local' && onSync && (
+        {/* Sync button - show for local-only OR needsSync (local changes pending) */}
+        {template.templateId !== 0 && (template.syncStatus === 'local' || needsSync) && onSync && (
           <button
             onClick={onSync}
             className="p-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
-            title="서버에 동기화"
+            title={template.syncStatus === 'local' ? '서버에 동기화' : '변경사항 업로드'}
           >
             <CloudUpload className="h-4 w-4" />
           </button>
         )}
-        {template.templateId !== 0 && template.syncStatus === 'synced' && (
+        {/* Synced badge - only show when fully synced (no pending changes) */}
+        {template.templateId !== 0 && template.syncStatus === 'synced' && !needsSync && (
           <div className="p-2 bg-green-600 text-white rounded-md shadow-sm" title="동기화됨">
             <Cloud className="h-4 w-4" />
           </div>
+        )}
+        {/* Publish button - show for synced templates */}
+        {template.templateId !== 0 && template.syncStatus === 'synced' && onPublish && (
+          <button
+            onClick={onPublish}
+            className="p-2 bg-purple-600 text-white rounded-md shadow-sm hover:bg-purple-700"
+            title="갤러리에 게시"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
         )}
 
         {/* Apply button */}

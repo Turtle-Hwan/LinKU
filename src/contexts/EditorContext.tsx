@@ -336,12 +336,21 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       };
 
     case 'SYNC_SUCCESS':
+      // 서버 응답의 아이템에 templateItemId가 없을 경우 임시 ID 생성
+      const processedTemplate = {
+        ...action.payload,
+        items: action.payload.items.map((item, index) => ({
+          ...item,
+          templateItemId: item.templateItemId ?? -(index + 1),  // null/undefined면 음수 임시 ID
+        })),
+      };
       return {
         ...state,
-        template: action.payload,
+        template: processedTemplate,
         isSyncing: false,
         syncStatus: 'synced',
         isDirty: false,
+        selectedItemId: null,  // 동기화 후 선택 상태 초기화
       };
 
     case 'SYNC_FAILED':

@@ -5,10 +5,15 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer } from '@/apis/templates';
+import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer, postTemplate } from '@/apis/templates';
 import { getMyPostedTemplates, deletePostedTemplate, likePostedTemplate } from '@/apis/posted-templates';
 import { getDefaultIcons } from '@/apis/icons';
-import type { TemplateSummary, PostedTemplateSummary } from '@/types/api';
+import type { TemplateSummary, PostedTemplateSummary, TemplateItem } from '@/types/api';
+
+// Extended type with needsSync flag
+interface TemplateSummaryWithSync extends TemplateSummary {
+  needsSync?: boolean;  // 로컬과 서버 데이터가 다를 때 true
+}
 import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
 import { PostedTemplateCard } from '@/components/Editor/TemplatePreview/PostedTemplateCard';
 import { Button } from '@/components/ui/button';
@@ -33,8 +38,8 @@ export const TemplateListPage = () => {
   const { toast } = useToast();
   const { selectedTemplateId, selectTemplate } = useSelectedTemplate();
 
-  const [ownedTemplates, setOwnedTemplates] = useState<TemplateSummary[]>([]);
-  const [clonedTemplates, setClonedTemplates] = useState<TemplateSummary[]>([]);
+  const [ownedTemplates, setOwnedTemplates] = useState<TemplateSummaryWithSync[]>([]);
+  const [clonedTemplates, setClonedTemplates] = useState<TemplateSummaryWithSync[]>([]);
   const [postedTemplates, setPostedTemplates] = useState<PostedTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'owned' | 'cloned' | 'posted'>('owned');
@@ -86,19 +91,48 @@ export const TemplateListPage = () => {
       // 2. localStorage에서 템플릿 인덱스 가져오기
       const localIndex = getTemplatesIndex();
 
-      // 3. 서버 템플릿과 localStorage 템플릿 병합
-      let mergedOwned: TemplateSummary[] = [];
+      // Helper function to compare template items
+      const areItemsEqual = (localItems: TemplateItem[], serverItems: TemplateItem[]): boolean => {
+        if (localItems.length !== serverItems.length) return false;
+        // Simple comparison by JSON stringify (could be optimized)
+        const localSorted = [...localItems].sort((a, b) => a.templateItemId - b.templateItemId);
+        const serverSorted = [...serverItems].sort((a, b) => a.templateItemId - b.templateItemId);
+        return JSON.stringify(localSorted) === JSON.stringify(serverSorted);
+      };
+
+      // 3. 서버 템플릿과 localStorage 템플릿 병합 (로컬 우선)
+      let mergedOwned: TemplateSummaryWithSync[] = [];
       if (ownedResult.success && ownedResult.data) {
-        // 서버 템플릿의 상세 정보 로드 (items 포함)
+        // 서버 템플릿 처리 - 로컬 데이터가 있으면 로컬 우선 사용
         const detailedTemplates = await Promise.all(
           ownedResult.data.map(async (serverTemplate) => {
             try {
+              // 1. 먼저 localStorage에서 데이터 확인
+              const localStored = loadTemplateFromLocalStorage(serverTemplate.templateId);
+
+              // 2. 서버에서 상세 정보 로드
               const detailResult = await getTemplate(serverTemplate.templateId);
-              if (detailResult.success && detailResult.data) {
+
+              if (localStored && localStored.template.items) {
+                // 로컬 데이터가 있으면 로컬 items 사용
+                const serverItems = detailResult.success && detailResult.data
+                  ? detailResult.data.items
+                  : [];
+                const needsSync = !areItemsEqual(localStored.template.items, serverItems);
+
                 return {
                   ...serverTemplate,
                   syncStatus: 'synced' as const,
-                  items: detailResult.data.items, // Add items for preview
+                  items: localStored.template.items, // 로컬 데이터 우선
+                  needsSync, // 로컬과 서버가 다르면 true
+                };
+              } else if (detailResult.success && detailResult.data) {
+                // 로컬 데이터 없으면 서버 데이터 사용
+                return {
+                  ...serverTemplate,
+                  syncStatus: 'synced' as const,
+                  items: detailResult.data.items,
+                  needsSync: false,
                 };
               }
             } catch (error) {
@@ -108,6 +142,7 @@ export const TemplateListPage = () => {
             return {
               ...serverTemplate,
               syncStatus: 'synced' as const,
+              needsSync: false,
             };
           })
         );
@@ -503,7 +538,37 @@ export const TemplateListPage = () => {
     }
   };
 
-  const renderTemplateList = (templates: TemplateSummary[]) => {
+  // Handle publish template to gallery
+  const handlePublishTemplate = async (templateId: number, templateName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    try {
+      const result = await postTemplate(templateId);
+
+      if (result.success) {
+        toast({
+          title: '게시 완료',
+          description: `"${templateName}" 템플릿이 갤러리에 게시되었습니다.`,
+        });
+
+        // Reload posted templates if on posted tab
+        if (activeTab === 'posted') {
+          loadPostedTemplates();
+        }
+      } else {
+        throw new Error(result.error?.message || '게시에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to publish template:', error);
+      toast({
+        title: '게시 실패',
+        description: error instanceof Error ? error.message : '템플릿 게시에 실패했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const renderTemplateList = (templates: TemplateSummaryWithSync[]) => {
     if (loading) {
       return (
         <div className="flex items-center justify-center py-12">
@@ -575,7 +640,9 @@ export const TemplateListPage = () => {
                 handleDeleteTemplate(template.templateId, template.name, template.syncStatus);
               }}
               onSync={(e) => handleSyncTemplate(template.templateId, template.name, e)}
+              onPublish={(e) => handlePublishTemplate(template.templateId, template.name, e)}
               showDelete={activeTab === 'owned'}
+              needsSync={template.needsSync}
             />
           );
         })}

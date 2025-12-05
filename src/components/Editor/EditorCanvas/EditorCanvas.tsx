@@ -64,7 +64,7 @@ export const EditorCanvas = () => {
           <DraggableItem
             key={item.templateItemId}
             item={item}
-            isSelected={state.selectedItemId === item.templateItemId}
+            isSelected={state.selectedItemId !== null && state.selectedItemId === item.templateItemId}
           />
         ))}
 
