@@ -1,6 +1,7 @@
 /**
  * usePostedTemplates hook
- * Manages posted templates state and server synchronization
+ * Manages posted templates state (global context)
+ * Note: publishTemplate moved to useTemplatePublish hook (Option A style)
  */
 
 import { useCallback } from 'react';
@@ -11,15 +12,6 @@ import {
   deletePostedTemplate,
   likePostedTemplate as likePostedTemplateApi,
 } from '@/apis/posted-templates';
-import { postTemplate } from '@/apis/templates';
-import { areItemsEqual } from '@/utils/templateUtils';
-import type { TemplateItem, PostedTemplateSummary } from '@/types/api';
-
-interface PublishResult {
-  success: boolean;
-  error?: string;
-  data?: PostedTemplateSummary;
-}
 
 export function usePostedTemplates() {
   const { state, dispatch } = usePostedTemplatesContext();
@@ -53,50 +45,11 @@ export function usePostedTemplates() {
   }, [dispatch]);
 
   /**
-   * Publish template to gallery (with duplicate check)
+   * Refresh posted templates (call after publishing)
    */
-  const publishTemplate = useCallback(
-    async (
-      templateId: number,
-      currentItems: TemplateItem[]
-    ): Promise<PublishResult> => {
-      // Duplicate check against existing posted templates
-      if (currentItems.length > 0) {
-        for (const posted of state.postedTemplates) {
-          try {
-            const detailResult = await getPostedTemplateDetail(posted.postedTemplateId);
-            if (detailResult.success && detailResult.data?.items) {
-              if (areItemsEqual(currentItems, detailResult.data.items)) {
-                return {
-                  success: false,
-                  error: '이미 게시된 템플릿과 동일한 내용입니다.',
-                };
-              }
-            }
-          } catch {
-            // Skip if detail load fails
-          }
-        }
-      }
-
-      // Publish request
-      try {
-        const result = await postTemplate(templateId);
-        if (result.success && result.data) {
-          // Reload posted templates to get the new one
-          await loadPostedTemplates();
-          return { success: true };
-        }
-        return {
-          success: false,
-          error: result.error?.message || '게시에 실패했습니다.',
-        };
-      } catch {
-        return { success: false, error: '네트워크 오류' };
-      }
-    },
-    [state.postedTemplates, loadPostedTemplates]
-  );
+  const refreshPostedTemplates = useCallback(async () => {
+    await loadPostedTemplates();
+  }, [loadPostedTemplates]);
 
   /**
    * Unpost (delete) a posted template
@@ -152,7 +105,7 @@ export function usePostedTemplates() {
 
     // Actions
     loadPostedTemplates,
-    publishTemplate,
+    refreshPostedTemplates,
     unpostTemplate,
     likeTemplate,
   };

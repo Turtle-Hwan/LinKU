@@ -8,19 +8,20 @@ import { SaveButton } from './SaveButton';
 import { SyncButton } from './SyncButton';
 import { PublishButton } from './PublishButton';
 import { BackButton } from './BackButton';
-import { syncTemplateToServer } from '@/apis/templates';
+import { useTemplateSync } from '@/hooks/useTemplateSync';
+import { useTemplatePublish } from '@/hooks/useTemplatePublish';
 import { usePostedTemplates } from '@/hooks/usePostedTemplates';
 import { toast } from 'sonner';
 import {
   saveTemplateToLocalStorage,
-  deleteTemplateFromLocalStorage,
   checkLocalStorageSpace,
 } from '@/utils/templateStorage';
-import { getErrorMessage } from '@/utils/apiErrorHandler';
 
 export const EditorHeader = () => {
   const { state, dispatch } = useEditorContext();
-  const { publishTemplate } = usePostedTemplates();
+  const { syncToServer } = useTemplateSync();
+  const { publishTemplate } = useTemplatePublish();
+  const { refreshPostedTemplates } = usePostedTemplates();
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch({ type: 'UPDATE_TEMPLATE_NAME', payload: e.target.value });
@@ -105,49 +106,17 @@ export const EditorHeader = () => {
     if (!state.template) return;
 
     dispatch({ type: 'START_SYNCING' });
+    const result = await syncToServer(state.template, state.stagingItems);
 
-    try {
-      const result = await syncTemplateToServer(state.template);
-
-      if (result.success && result.data) {
-        const oldTemplateId = state.template.templateId;
-        const newTemplateId = result.data.templateId;
-
-        // Update template with server ID
-        dispatch({ type: 'SYNC_SUCCESS', payload: result.data });
-
-        // 이전 ID와 새 ID가 다르면 이전 localStorage 삭제
-        if (oldTemplateId !== newTemplateId) {
-          deleteTemplateFromLocalStorage(oldTemplateId);
-        }
-
-        // 새 ID로 저장 (동기화 상태 포함)
-        await saveTemplateToLocalStorage(
-          { ...result.data, syncStatus: 'synced' },
-          state.stagingItems,
-          true // synced with server
-        );
-
-        toast.success('동기화 완료', {
-          description: '템플릿이 서버에 동기화되었습니다.',
-        });
-      } else {
-        const errorMsg = getErrorMessage(result, '동기화 실패');
-        dispatch({
-          type: 'SYNC_FAILED',
-          payload: errorMsg,
-        });
-        toast.error('동기화 실패', {
-          description: errorMsg,
-        });
-      }
-    } catch (error) {
-      const errorMsg = '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.';
-      dispatch({
-        type: 'SYNC_FAILED',
-        payload: errorMsg,
+    if (result.success && result.data) {
+      dispatch({ type: 'SYNC_SUCCESS', payload: result.data });
+      toast.success('동기화 완료', {
+        description: '템플릿이 서버에 동기화되었습니다.',
       });
-      toast.error('네트워크 오류', {
+    } else {
+      const errorMsg = result.error || '동기화에 실패했습니다.';
+      dispatch({ type: 'SYNC_FAILED', payload: errorMsg });
+      toast.error('동기화 실패', {
         description: errorMsg,
       });
     }
@@ -161,23 +130,17 @@ export const EditorHeader = () => {
       return;
     }
 
-    try {
-      // publishTemplate 훅 사용 (중복 체크 포함)
-      const currentItems = state.template.items || [];
-      const result = await publishTemplate(state.template.templateId, currentItems);
+    const currentItems = state.template.items || [];
+    const result = await publishTemplate(state.template.templateId, currentItems);
 
-      if (result.success) {
-        toast.success('게시 완료', {
-          description: '템플릿이 공개 갤러리에 게시되었습니다.',
-        });
-      } else {
-        toast.error('게시 불가', {
-          description: result.error || '게시에 실패했습니다.',
-        });
-      }
-    } catch (error) {
-      toast.error('네트워크 오류', {
-        description: '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
+    if (result.success) {
+      await refreshPostedTemplates();
+      toast.success('게시 완료', {
+        description: '템플릿이 공개 갤러리에 게시되었습니다.',
+      });
+    } else {
+      toast.error('게시 실패', {
+        description: result.error || '게시에 실패했습니다.',
       });
     }
   };

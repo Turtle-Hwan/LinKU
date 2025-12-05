@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer } from '@/apis/templates';
+import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate } from '@/apis/templates';
 import type { TemplateSummary, PostedTemplateSummary, TemplateItem } from '@/types/api';
 
 // Extended type with needsSync flag
@@ -26,7 +26,9 @@ import { Plus, FileText, LayoutTemplate, Globe } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { usePostedTemplates } from '@/hooks/usePostedTemplates';
-import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage, saveTemplateToLocalStorage } from '@/utils/templateStorage';
+import { useTemplateSync } from '@/hooks/useTemplateSync';
+import { useTemplatePublish } from '@/hooks/useTemplatePublish';
+import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
 import { LinkList } from '@/constants/LinkList';
@@ -49,10 +51,14 @@ export const TemplateListPage = () => {
     postedTemplates,
     count: postedCount,
     loadPostedTemplates,
+    refreshPostedTemplates,
     unpostTemplate,
     likeTemplate,
-    publishTemplate,
   } = usePostedTemplates();
+
+  // Template sync and publish hooks (Option A style)
+  const { syncToServer } = useTemplateSync();
+  const { publishTemplate } = useTemplatePublish();
 
   useEffect(() => {
     loadTemplates();
@@ -406,67 +412,42 @@ export const TemplateListPage = () => {
   const handleSyncTemplate = async (templateId: number, templateName: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    try {
-      // Load full template data from localStorage (local-only templates don't exist on server)
-      const stored = loadTemplateFromLocalStorage(templateId);
-      if (!stored) {
-        throw new Error('로컬 템플릿을 찾을 수 없습니다.');
-      }
-
-      // Set syncStatus from metadata (template object may not have it)
-      const templateWithStatus = {
-        ...stored.template,
-        syncStatus: (stored.metadata.syncedWithServer ? 'synced' : 'local') as 'local' | 'synced',
-      };
-
-      // Sync to server
-      const syncResult = await syncTemplateToServer(templateWithStatus);
-
-      if (syncResult.success && syncResult.data) {
-        const serverTemplateId = syncResult.data.templateId;
-
-        // Delete old local template (with timestamp ID) from localStorage
-        if (serverTemplateId !== templateId) {
-          deleteTemplateFromLocalStorage(templateId);
-        }
-
-        // Save synced template with server ID to localStorage (for offline use)
-        await saveTemplateToLocalStorage(
-          { ...syncResult.data, syncStatus: 'synced' },
-          stored.stagingItems,
-          true // synced with server
-        );
-
-        // Update local state - replace old templateId with new server ID
-        setOwnedTemplates(prev =>
-          prev.map(t =>
-            t.templateId === templateId
-              ? {
-                  ...t,
-                  templateId: serverTemplateId,
-                  syncStatus: 'synced' as const,
-                  needsSync: false,
-                }
-              : t
-          )
-        );
-
-        toast({
-          title: '동기화 완료',
-          description: `"${templateName}" 템플릿이 서버에 동기화되었습니다.`,
-        });
-      } else {
-        const errorMsg = getErrorMessage(syncResult, '동기화에 실패했습니다.');
-        throw new Error(errorMsg);
-      }
-    } catch (error) {
-      console.error('Failed to sync template:', error);
-      const description = error instanceof Error
-        ? error.message
-        : '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.';
+    // Load full template data from localStorage
+    const stored = loadTemplateFromLocalStorage(templateId);
+    if (!stored) {
       toast({
         title: '동기화 실패',
-        description,
+        description: '로컬 템플릿을 찾을 수 없습니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const result = await syncToServer(stored.template, stored.stagingItems);
+
+    if (result.success && result.data) {
+      // Update local state - replace old templateId with new server ID
+      setOwnedTemplates(prev =>
+        prev.map(t =>
+          t.templateId === templateId
+            ? {
+                ...t,
+                templateId: result.data!.templateId,
+                syncStatus: 'synced' as const,
+                needsSync: false,
+              }
+            : t
+        )
+      );
+
+      toast({
+        title: '동기화 완료',
+        description: `"${templateName}" 템플릿이 서버에 동기화되었습니다.`,
+      });
+    } else {
+      toast({
+        title: '동기화 실패',
+        description: result.error || '동기화에 실패했습니다.',
         variant: 'destructive',
       });
     }
@@ -529,31 +510,22 @@ export const TemplateListPage = () => {
   const handlePublishTemplate = async (templateId: number, templateName: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    try {
-      // 현재 템플릿의 items 찾기
-      const currentTemplate = [...ownedTemplates, ...clonedTemplates].find(t => t.templateId === templateId);
-      const currentItems = currentTemplate?.items || [];
+    // 현재 템플릿의 items 찾기
+    const currentTemplate = [...ownedTemplates, ...clonedTemplates].find(t => t.templateId === templateId);
+    const currentItems = currentTemplate?.items || [];
 
-      // publishTemplate 훅 사용 (중복 체크 포함)
-      const result = await publishTemplate(templateId, currentItems);
+    const result = await publishTemplate(templateId, currentItems);
 
-      if (result.success) {
-        toast({
-          title: '게시 완료',
-          description: `"${templateName}" 템플릿이 갤러리에 게시되었습니다.`,
-        });
-      } else {
-        toast({
-          title: '게시 불가',
-          description: result.error || '게시에 실패했습니다.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to publish template:', error);
+    if (result.success) {
+      await refreshPostedTemplates();
+      toast({
+        title: '게시 완료',
+        description: `"${templateName}" 템플릿이 갤러리에 게시되었습니다.`,
+      });
+    } else {
       toast({
         title: '게시 실패',
-        description: error instanceof Error ? error.message : '템플릿 게시에 실패했습니다.',
+        description: result.error || '게시에 실패했습니다.',
         variant: 'destructive',
       });
     }
