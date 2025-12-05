@@ -9,6 +9,8 @@ import { SyncButton } from './SyncButton';
 import { PublishButton } from './PublishButton';
 import { BackButton } from './BackButton';
 import { postTemplate, syncTemplateToServer } from '@/apis/templates';
+import { getMyPostedTemplates, getPostedTemplateDetail } from '@/apis/posted-templates';
+import { areItemsEqual } from '@/utils/templateUtils';
 import { toast } from 'sonner';
 import {
   saveTemplateToLocalStorage,
@@ -160,6 +162,23 @@ export const EditorHeader = () => {
     }
 
     try {
+      // 중복 게시 체크 (내 게시 템플릿과 items 비교)
+      const currentItems = state.template.items || [];
+      const postedResult = await getMyPostedTemplates();
+      if (postedResult.success && postedResult.data && currentItems.length > 0) {
+        for (const posted of postedResult.data) {
+          const detailResult = await getPostedTemplateDetail(posted.postedTemplateId);
+          if (detailResult.success && detailResult.data?.template.items) {
+            if (areItemsEqual(currentItems, detailResult.data.template.items)) {
+              toast.error('게시 불가', {
+                description: '이미 게시된 템플릿과 동일한 내용입니다.',
+              });
+              return;
+            }
+          }
+        }
+      }
+
       const result = await postTemplate(state.template.templateId);
       if (result.success) {
         toast.success('게시 완료', {

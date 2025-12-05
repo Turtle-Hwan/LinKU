@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer, postTemplate } from '@/apis/templates';
-import { getMyPostedTemplates, deletePostedTemplate, likePostedTemplate } from '@/apis/posted-templates';
+import { getMyPostedTemplates, deletePostedTemplate, likePostedTemplate, getPostedTemplateDetail } from '@/apis/posted-templates';
 import type { TemplateSummary, PostedTemplateSummary, TemplateItem } from '@/types/api';
 
 // Extended type with needsSync flag
@@ -29,6 +29,7 @@ import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage, saveTemplateToLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
+import { areItemsEqual } from '@/utils/templateUtils';
 import { LinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
 
@@ -544,6 +545,28 @@ export const TemplateListPage = () => {
     e.stopPropagation();
 
     try {
+      // 현재 템플릿의 items 찾기
+      const currentTemplate = [...ownedTemplates, ...clonedTemplates].find(t => t.templateId === templateId);
+      const currentItems = currentTemplate?.items || [];
+
+      // 중복 게시 체크 (내 게시 템플릿과 items 비교)
+      const postedResult = await getMyPostedTemplates();
+      if (postedResult.success && postedResult.data && currentItems.length > 0) {
+        for (const posted of postedResult.data) {
+          const detailResult = await getPostedTemplateDetail(posted.postedTemplateId);
+          if (detailResult.success && detailResult.data?.template.items) {
+            if (areItemsEqual(currentItems, detailResult.data.template.items)) {
+              toast({
+                title: '게시 불가',
+                description: '이미 게시된 템플릿과 동일한 내용입니다.',
+                variant: 'destructive',
+              });
+              return;
+            }
+          }
+        }
+      }
+
       const result = await postTemplate(templateId);
 
       if (result.success) {
