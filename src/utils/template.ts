@@ -283,7 +283,11 @@ export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateIt
       siteUrl: linkItem.link,
       position: position, // Grid coordinates (0-5, 0-5)
       size: size,         // Grid size (width: 2-3, height: 1)
-      icon: icon,
+      icon: {
+        iconId: icon.id,
+        iconName: icon.name,
+        iconUrl: icon.imageUrl,
+      },
     });
   });
 

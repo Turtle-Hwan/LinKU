@@ -102,7 +102,11 @@ export const ItemPropertiesPanel = () => {
         changes: {
           name: name.trim(),
           siteUrl: url.trim(),
-          icon,
+          icon: {
+            iconId: icon.id,
+            iconName: icon.name,
+            iconUrl: icon.imageUrl,
+          },
           size: { width: clampedWidth, height: clampedHeight },
           position: { x: clampedPosX, y: clampedPosY },
         },

@@ -36,7 +36,11 @@ export const EditorSidebar = () => {
       siteUrl: url,
       position: { x: 0, y: 0 }, // Default position
       size: { width: 2, height: 1 }, // Default size
-      icon: selectedIcon,
+      icon: {
+        iconId: selectedIcon.id,
+        iconName: selectedIcon.name,
+        iconUrl: selectedIcon.imageUrl,
+      },
     };
 
     dispatch({ type: 'ADD_TO_STAGING', payload: newItem });

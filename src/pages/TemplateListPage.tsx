@@ -6,9 +6,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate, syncTemplateToServer } from '@/apis/templates';
+import { getMyPostedTemplates, deletePostedTemplate, likePostedTemplate } from '@/apis/posted-templates';
 import { getDefaultIcons } from '@/apis/icons';
-import type { TemplateSummary } from '@/types/api';
+import type { TemplateSummary, PostedTemplateSummary } from '@/types/api';
 import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
+import { PostedTemplateCard } from '@/components/Editor/TemplatePreview/PostedTemplateCard';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -17,13 +19,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, FileText, LayoutTemplate } from 'lucide-react';
+import { Plus, FileText, LayoutTemplate, Globe } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage, saveTemplateToLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
 import { LinkList } from '@/constants/LinkList';
+import { isLoggedIn } from '@/utils/oauth';
 
 export const TemplateListPage = () => {
   const navigate = useNavigate();
@@ -32,12 +35,40 @@ export const TemplateListPage = () => {
 
   const [ownedTemplates, setOwnedTemplates] = useState<TemplateSummary[]>([]);
   const [clonedTemplates, setClonedTemplates] = useState<TemplateSummary[]>([]);
+  const [postedTemplates, setPostedTemplates] = useState<PostedTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'owned' | 'cloned'>('owned');
+  const [activeTab, setActiveTab] = useState<'owned' | 'cloned' | 'posted'>('owned');
+  const [userLoggedIn, setUserLoggedIn] = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   useEffect(() => {
     loadTemplates();
+    checkAuth();
   }, []);
+
+  // Check login status
+  const checkAuth = async () => {
+    const loggedIn = await isLoggedIn();
+    setUserLoggedIn(loggedIn);
+  };
+
+  // Load posted templates when tab changes to 'posted'
+  useEffect(() => {
+    if (activeTab === 'posted' && postedTemplates.length === 0 && userLoggedIn) {
+      loadPostedTemplates();
+    }
+  }, [activeTab, userLoggedIn]);
+
+  const loadPostedTemplates = async () => {
+    try {
+      const result = await getMyPostedTemplates();
+      if (result.success && result.data) {
+        setPostedTemplates(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to load posted templates:', error);
+    }
+  };
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -407,6 +438,71 @@ export const TemplateListPage = () => {
     }
   };
 
+  // Handle unpost (게시 취소)
+  const handleUnpostTemplate = async (template: PostedTemplateSummary) => {
+    if (!confirm(`"${template.name}" 템플릿의 게시를 취소하시겠습니까?`)) {
+      return;
+    }
+
+    setActionLoading(template.postedTemplateId);
+
+    try {
+      const result = await deletePostedTemplate(template.postedTemplateId);
+
+      if (result.success) {
+        setPostedTemplates(prev =>
+          prev.filter(t => t.postedTemplateId !== template.postedTemplateId)
+        );
+
+        toast({
+          title: '게시 취소 완료',
+          description: `"${template.name}" 템플릿이 갤러리에서 제거되었습니다.`,
+        });
+      } else {
+        throw new Error(result.error?.message || '게시 취소에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to unpost template:', error);
+      toast({
+        title: '게시 취소 실패',
+        description: error instanceof Error ? error.message : '게시 취소에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle like for posted templates
+  const handleLikePostedTemplate = async (template: PostedTemplateSummary) => {
+    setActionLoading(template.postedTemplateId);
+
+    try {
+      const result = await likePostedTemplate(template.postedTemplateId);
+
+      if (result.success && result.data) {
+        setPostedTemplates(prev =>
+          prev.map(t =>
+            t.postedTemplateId === template.postedTemplateId
+              ? { ...t, isLiked: result.data!.isLiked, likeCount: result.data!.likeCount }
+              : t
+          )
+        );
+      } else {
+        throw new Error(result.error?.message || '좋아요 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to like template:', error);
+      toast({
+        title: '좋아요 실패',
+        description: error instanceof Error ? error.message : '좋아요 처리에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const renderTemplateList = (templates: TemplateSummary[]) => {
     if (loading) {
       return (
@@ -487,6 +583,54 @@ export const TemplateListPage = () => {
     );
   };
 
+  const renderPostedTemplateList = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">로딩 중...</p>
+        </div>
+      );
+    }
+
+    if (!userLoggedIn) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <p className="text-muted-foreground">로그인이 필요합니다.</p>
+          <p className="text-sm text-muted-foreground">
+            게시한 템플릿을 보려면 로그인해주세요.
+          </p>
+        </div>
+      );
+    }
+
+    if (postedTemplates.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <p className="text-muted-foreground">게시한 템플릿이 없습니다.</p>
+          <p className="text-sm text-muted-foreground">
+            템플릿 편집기에서 템플릿을 게시해보세요.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {postedTemplates.map((template) => (
+          <PostedTemplateCard
+            key={template.postedTemplateId}
+            template={template}
+            isOwner={true}
+            isLoggedIn={userLoggedIn}
+            isLoading={actionLoading === template.postedTemplateId}
+            onLike={() => handleLikePostedTemplate(template)}
+            onUnpost={() => handleUnpostTemplate(template)}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
       {/* Header */}
@@ -498,34 +642,43 @@ export const TemplateListPage = () => {
           </p>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              새 템플릿
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleCreateFromDefault}>
-              <LayoutTemplate className="h-4 w-4 mr-2" />
-              기본 템플릿에서 시작하기
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleCreateEmpty}>
-              <FileText className="h-4 w-4 mr-2" />
-              빈 템플릿에서 시작하기
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate('/gallery')}>
+            <Globe className="h-4 w-4 mr-2" />
+            갤러리
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                새 템플릿
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleCreateFromDefault}>
+                <LayoutTemplate className="h-4 w-4 mr-2" />
+                기본 템플릿에서 시작하기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCreateEmpty}>
+                <FileText className="h-4 w-4 mr-2" />
+                빈 템플릿에서 시작하기
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'owned' | 'cloned')}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'owned' | 'cloned' | 'posted')}>
         <TabsList className="mb-4">
           <TabsTrigger value="owned">
             내가 만든 템플릿 ({ownedTemplates.length})
           </TabsTrigger>
           <TabsTrigger value="cloned">
             복제한 템플릿 ({clonedTemplates.length})
+          </TabsTrigger>
+          <TabsTrigger value="posted">
+            게시한 템플릿 ({postedTemplates.length})
           </TabsTrigger>
         </TabsList>
 
@@ -535,6 +688,10 @@ export const TemplateListPage = () => {
 
         <TabsContent value="cloned">
           {renderTemplateList(clonedTemplates)}
+        </TabsContent>
+
+        <TabsContent value="posted">
+          {renderPostedTemplateList()}
         </TabsContent>
       </Tabs>
     </div>

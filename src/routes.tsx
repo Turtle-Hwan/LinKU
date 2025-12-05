@@ -10,6 +10,7 @@ import { EditorLayout } from '@/layouts/EditorLayout';
 import { MainPage } from '@/pages/MainPage';
 import { EditorPage } from '@/pages/EditorPage';
 import { TemplateListPage } from '@/pages/TemplateListPage';
+import { GalleryPage } from '@/pages/GalleryPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const routes: RouteObject[] = [
@@ -51,6 +52,17 @@ export const routes: RouteObject[] = [
           {
             index: true,
             element: <TemplateListPage />,
+          },
+        ],
+      },
+      {
+        // 공개 템플릿 갤러리
+        path: '/gallery',
+        element: <EditorLayout />,
+        children: [
+          {
+            index: true,
+            element: <GalleryPage />,
           },
         ],
       },
