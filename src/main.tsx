@@ -1,22 +1,21 @@
 /**
  * main.tsx - Application Entry Point
- * Standard React Router v6 pattern: createMemoryRouter + RouterProvider
+ * Standard React Router v6 pattern: createHashRouter + RouterProvider
  *
- * Note: Uses createMemoryRouter instead of createBrowserRouter
- * because Chrome Extensions have limitations with browser history API
+ * Note: Uses createHashRouter for Chrome Extensions
+ * - Automatically syncs route state with URL hash
+ * - Preserves route on page refresh
  */
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { createHashRouter, RouterProvider } from "react-router-dom";
 import { routes } from "./routes";
 import "./App.css";
 
-// Create memory router with hash-based initial entry
-// Hash routing allows deep linking in Chrome Extension popup
-const router = createMemoryRouter(routes, {
-  initialEntries: [window.location.hash.slice(1) || '/'],
-});
+// Create hash router for Chrome Extension
+// Hash routing allows deep linking and preserves state on refresh
+const router = createHashRouter(routes);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
