@@ -31,6 +31,18 @@ const parseRSSToAlerts = (
     const description = item.querySelector("description")?.textContent || "";
     const pubDate = item.querySelector("pubDate")?.textContent || "";
 
+    // Convert relative URL to absolute URL
+    let absoluteUrl = link;
+    if (link && !link.startsWith("http://") && !link.startsWith("https://")) {
+      try {
+        // If link is relative, convert to absolute using base URL
+        absoluteUrl = new URL(link, "https://www.konkuk.ac.kr").href;
+      } catch {
+        // If URL parsing fails, keep original link
+        absoluteUrl = link;
+      }
+    }
+
     // Convert pubDate to ISO string
     let publishedAt = new Date().toISOString();
     if (pubDate) {
@@ -46,7 +58,7 @@ const parseRSSToAlerts = (
       title,
       content: description,
       category,
-      url: link,
+      url: absoluteUrl,
       publishedAt,
       isRead: false,
     });
