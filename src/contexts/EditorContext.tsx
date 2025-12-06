@@ -499,32 +499,42 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      // Always fetch server icons first (for icon picker and template items)
-      const iconsResult = await getDefaultIcons();
+      // Fetch both default icons and user icons in parallel
+      const [iconsResult, userIconsResult] = await Promise.allSettled([
+        getDefaultIcons(),
+        getMyIcons(),
+      ]);
 
       console.log('[EditorContext] Icons API full response:', iconsResult);
 
-      // Parse icons from response
-      // client.ts already extracts 'result' field, so iconsResult.data should be Icon[]
+      // Parse default icons from response
       let defaultIcons: Icon[] = [];
 
-      if (iconsResult.success && iconsResult.data) {
-        if (Array.isArray(iconsResult.data)) {
-          defaultIcons = iconsResult.data;
-        } else if (typeof iconsResult.data === 'object' && 'items' in iconsResult.data) {
+      if (iconsResult.status === 'fulfilled' && iconsResult.value.success && iconsResult.value.data) {
+        if (Array.isArray(iconsResult.value.data)) {
+          defaultIcons = iconsResult.value.data;
+        } else if (typeof iconsResult.value.data === 'object' && 'items' in iconsResult.value.data) {
           // Handle paginated response format
-          defaultIcons = (iconsResult.data as { items: Icon[] }).items;
+          defaultIcons = (iconsResult.value.data as { items: Icon[] }).items;
         } else {
-          console.error('[EditorContext] Unexpected response structure:', iconsResult.data);
+          console.error('[EditorContext] Unexpected response structure:', iconsResult.value.data);
         }
-      } else {
-        console.error('[EditorContext] Icons API failed:', iconsResult.error);
+      } else if (iconsResult.status === 'rejected') {
+        console.error('[EditorContext] Icons API failed:', iconsResult.reason);
       }
 
       console.log('[EditorContext] Final defaultIcons count:', defaultIcons.length);
 
       // Load server icons for icon picker (even if empty)
       dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
+
+      // Load user icons for icon picker
+      if (userIconsResult.status === 'fulfilled' && userIconsResult.value.success && userIconsResult.value.data) {
+        const userIcons = Array.isArray(userIconsResult.value.data)
+          ? userIconsResult.value.data
+          : (userIconsResult.value.data as { items: Icon[] }).items || [];
+        dispatch({ type: 'LOAD_USER_ICONS', payload: userIcons });
+      }
 
       // Create template based on startFrom mode
       if (startFrom === 'empty') {
