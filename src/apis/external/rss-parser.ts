@@ -33,13 +33,12 @@ const parseRSSToAlerts = (
 
     // Convert relative URL to absolute URL
     let absoluteUrl = link;
-    if (link && !link.startsWith("http://") && !link.startsWith("https://")) {
+    if (link) {
       try {
-        // If link is relative, convert to absolute using base URL
+        // URL 생성자는 상대/절대 URL을 모두 자연스럽게 처리한다.
         absoluteUrl = new URL(link, "https://www.konkuk.ac.kr").href;
       } catch {
-        // If URL parsing fails, keep original link
-        absoluteUrl = link;
+        // 실패하면 absoluteUrl은 원래 link를 유지한다.
       }
     }
 
