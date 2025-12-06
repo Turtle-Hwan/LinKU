@@ -28,6 +28,8 @@ jobs:
         run: pnpm install
 
       - name: Build project
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: pnpm run build:local
 
       - name: Build success
