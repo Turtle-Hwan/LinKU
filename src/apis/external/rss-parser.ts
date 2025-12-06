@@ -31,6 +31,17 @@ const parseRSSToAlerts = (
     const description = item.querySelector("description")?.textContent || "";
     const pubDate = item.querySelector("pubDate")?.textContent || "";
 
+    // Convert relative URL to absolute URL
+    let absoluteUrl = link;
+    if (link) {
+      try {
+        // URL 생성자는 상대/절대 URL을 모두 자연스럽게 처리한다.
+        absoluteUrl = new URL(link, "https://www.konkuk.ac.kr").href;
+      } catch {
+        // 실패하면 absoluteUrl은 원래 link를 유지한다.
+      }
+    }
+
     // Convert pubDate to ISO string
     let publishedAt = new Date().toISOString();
     if (pubDate) {
@@ -46,7 +57,7 @@ const parseRSSToAlerts = (
       title,
       content: description,
       category,
-      url: link,
+      url: absoluteUrl,
       publishedAt,
       isRead: false,
     });
