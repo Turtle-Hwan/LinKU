@@ -366,3 +366,40 @@ export async function patch<T = unknown>(
 ): Promise<ApiResponse<T>> {
   return request<T>(url, "PATCH", data, config);
 }
+
+/**
+ * Public request function (no auth interceptor)
+ * For public endpoints that don't require authentication
+ */
+export async function publicRequest<T = unknown>(
+  url: string,
+  method: string,
+  body?: unknown,
+  config?: RequestConfig
+): Promise<ApiResponse<T>> {
+  try {
+    const { headers = {}, params } = config || {};
+
+    const urlWithParams = buildUrl(url, params);
+    const fullUrl = url.startsWith("http") ? urlWithParams : `${API_BASE_URL}${urlWithParams}`;
+
+    const response = await fetch(fullUrl, {
+      method,
+      headers: { "Content-Type": "application/json", ...headers },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, status: response.status, error: { code: "ERROR", message: data.message } };
+    }
+
+    // Extract 'result' field if present (backend response format)
+    const resultData = data && typeof data === 'object' && 'result' in data ? data.result : data;
+
+    return { success: true, status: response.status, data: resultData as T };
+  } catch (error) {
+    return { success: false, error: { code: "NETWORK_ERROR", message: String(error) } };
+  }
+}

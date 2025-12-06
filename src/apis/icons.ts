@@ -3,7 +3,7 @@
  * Icon asset management
  */
 
-import { get, post, put, del, ENDPOINTS } from './client';
+import { get, post, put, del, publicRequest, ENDPOINTS } from './client';
 import type { ApiResponse, Icon, CreateIconResponse, DeleteResponse } from '../types/api';
 
 /**
@@ -21,10 +21,10 @@ export async function createIcon(
 }
 
 /**
- * Get list of default system icons
+ * Get list of default system icons (public endpoint, no auth required)
  */
 export async function getDefaultIcons(): Promise<ApiResponse<Icon[]>> {
-  return get<Icon[]>(ENDPOINTS.ICONS.DEFAULT);
+  return publicRequest<Icon[]>(ENDPOINTS.ICONS.DEFAULT, "GET");
 }
 
 /**
