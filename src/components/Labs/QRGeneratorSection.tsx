@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Info, Download } from "lucide-react";
+import { Info, Download, Check } from "lucide-react";
 import QRCode from "qrcode";
 
 const QRGeneratorSection = () => {
-  const [url, setUrl] = useState<string>("");
+  const [inputUrl, setInputUrl] = useState<string>("");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (!url.trim()) {
+  const generateQR = async () => {
+    if (!inputUrl.trim()) {
       setQrDataUrl("");
       setError("");
       return;
@@ -18,31 +19,38 @@ const QRGeneratorSection = () => {
 
     // URL 유효성 검사
     try {
-      new URL(url);
+      new URL(inputUrl);
     } catch {
       setError("올바른 URL 형식이 아닙니다");
       setQrDataUrl("");
       return;
     }
 
-    // QR 코드 생성
-    QRCode.toDataURL(url, {
-      width: 200,
-      margin: 2,
-      color: {
-        dark: "#000000",
-        light: "#FFFFFF",
-      },
-    })
-      .then((dataUrl) => {
-        setQrDataUrl(dataUrl);
-        setError("");
-      })
-      .catch(() => {
-        setError("QR 코드 생성에 실패했습니다");
-        setQrDataUrl("");
+    setIsGenerating(true);
+    try {
+      const dataUrl = await QRCode.toDataURL(inputUrl, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
       });
-  }, [url]);
+      setQrDataUrl(dataUrl);
+      setError("");
+    } catch {
+      setError("QR 코드 생성에 실패했습니다");
+      setQrDataUrl("");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      generateQR();
+    }
+  };
 
   const handleDownload = () => {
     if (!qrDataUrl) return;
@@ -56,7 +64,7 @@ const QRGeneratorSection = () => {
   };
 
   return (
-    <div className="space-y-4 pt-4 border-t">
+    <div className="space-y-4 pt-4 mt-4 border-t">
       <h2 className="text-base font-semibold">QR 코드 생성</h2>
 
       <div className="space-y-3">
@@ -67,12 +75,24 @@ const QRGeneratorSection = () => {
           </p>
         </div>
 
-        <Input
-          type="url"
-          placeholder="https://example.com"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-        />
+        <div className="flex gap-2">
+          <Input
+            type="url"
+            placeholder="https://example.com"
+            value={inputUrl}
+            onChange={(e) => setInputUrl(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={generateQR}
+            disabled={isGenerating}
+          >
+            <Check className="h-4 w-4" />
+          </Button>
+        </div>
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 
