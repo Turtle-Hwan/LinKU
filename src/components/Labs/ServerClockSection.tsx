@@ -1,12 +1,38 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Info, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Info, RefreshCw, Check } from "lucide-react";
 import { useServerTime } from "./useServerTime";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const DEFAULT_SERVER_URL = "https://sugang.konkuk.ac.kr";
 
 const ServerClockSection = () => {
+  const [inputUrl, setInputUrl] = useState<string>(DEFAULT_SERVER_URL);
+  const [activeUrl, setActiveUrl] = useState<string>(DEFAULT_SERVER_URL);
   const { serverTime, rtt, lastSync, isLoading, error, refresh } =
-    useServerTime();
+    useServerTime(activeUrl);
+
+  const handleApplyUrl = () => {
+    if (inputUrl.trim()) {
+      setActiveUrl(inputUrl.trim());
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleApplyUrl();
+    }
+  };
+
+  // URL에서 hostname 추출
+  const getHostname = (url: string): string => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url;
+    }
+  };
 
   const formatTime = (date: Date | null): string => {
     if (!date) return "--:--:--.---";
@@ -36,10 +62,29 @@ const ServerClockSection = () => {
       <h2 className="text-base font-semibold">서버시계</h2>
 
       <div className="space-y-3">
+        <div className="flex gap-2">
+          <Input
+            type="url"
+            placeholder="https://sugang.konkuk.ac.kr"
+            value={inputUrl}
+            onChange={(e) => setInputUrl(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleApplyUrl}
+            disabled={isLoading}
+          >
+            <Check className="h-4 w-4" />
+          </Button>
+        </div>
+
         <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
           <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
           <p className="text-xs text-muted-foreground leading-relaxed">
-            건국대학교 수강신청 서버(sugang.konkuk.ac.kr)의 서버시간입니다.
+            {getHostname(activeUrl)} 사이트의 서버시간입니다.
           </p>
         </div>
 

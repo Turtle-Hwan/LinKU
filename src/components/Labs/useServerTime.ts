@@ -93,8 +93,19 @@ export function useServerTime(serverUrl: string): UseServerTimeReturn {
     await syncTime();
   }, [syncTime]);
 
-  // 초기화 및 정리
+  // 초기화 및 정리 (serverUrl 변경 시 재시작)
   useEffect(() => {
+    // 상태 초기화
+    setState({
+      serverTime: null,
+      offset: 0,
+      rtt: 0,
+      lastSync: null,
+      isLoading: true,
+      error: null,
+    });
+    offsetRef.current = 0;
+
     // 초기 동기화
     syncTime();
 
@@ -112,7 +123,7 @@ export function useServerTime(serverUrl: string): UseServerTimeReturn {
         clearInterval(syncIntervalRef.current);
       }
     };
-  }, [syncTime, updateTime]);
+  }, [serverUrl, syncTime, updateTime]);
 
   return {
     ...state,
