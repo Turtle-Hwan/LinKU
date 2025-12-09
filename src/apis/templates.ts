@@ -102,9 +102,9 @@ export async function syncTemplateToServer(
   };
 
   // Check if this is a local-only template using syncStatus
-  // Local templates have syncStatus 'local', server templates have 'synced'
+  // Templates not synced with server (syncStatus undefined or 'local') should use POST
   // Cloned templates should also create a new template (to get a new ID)
-  const shouldCreateNew = template.syncStatus === 'local' || template.cloned === true;
+  const shouldCreateNew = template.syncStatus !== 'synced' || template.cloned === true;
 
   if (shouldCreateNew) {
     // Create new template on server
