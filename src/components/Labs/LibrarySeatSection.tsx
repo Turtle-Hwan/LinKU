@@ -47,7 +47,6 @@ const LibrarySeatSection = () => {
       if (!token) {
         setNeedLogin(true);
         setError('eCampus 로그인 정보가 필요합니다.');
-        setIsLoading(false);
         return;
       }
 

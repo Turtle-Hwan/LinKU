@@ -13,6 +13,11 @@ import {
 const LIBRARY_BASE_URL = 'https://library.konkuk.ac.kr';
 const LIBRARY_API_URL = `${LIBRARY_BASE_URL}/pyxis-api`;
 
+// 도서관 쿠키 관련 상수
+// 도서관 시스템(PYXIS)에서 요구하는 고정값으로, 실제 로그인 응답에는 포함되지 않음
+const COOKIE_IS_PASSWORD_EXPIRED = false; // 비밀번호 만료 여부 (항상 false)
+const COOKIE_CHECKSUM = 58; // 쿠키 무결성 검증용 체크섬 (고정값)
+
 /**
  * 도서관 열람실 예약 페이지 URL 생성
  * @param roomId 열람실 ID
@@ -114,8 +119,16 @@ export async function getLibrarySeatRoomsAPI(
     const result: LibraryApiResponse<LibrarySeatRoomsData> =
       await response.json();
 
+    if (!result.success) {
+      return {
+        success: false,
+        needLogin: true,
+        error: result.message || '좌석 현황을 불러올 수 없습니다.',
+      };
+    }
+
     // 빈 데이터가 오면 로그인 필요
-    if (result.success && (!result.data.list || result.data.list.length === 0)) {
+    if (!result.data.list || result.data.list.length === 0) {
       return {
         success: false,
         needLogin: true,
@@ -123,18 +136,10 @@ export async function getLibrarySeatRoomsAPI(
       };
     }
 
-    if (result.success) {
-      return {
-        success: true,
-        data: result.data,
-      };
-    } else {
-      return {
-        success: false,
-        needLogin: true,
-        error: result.message || '좌석 현황을 불러올 수 없습니다.',
-      };
-    }
+    return {
+      success: true,
+      data: result.data,
+    };
   } catch (error) {
     console.error('[Library] Get seat rooms error:', error);
     return {
@@ -171,11 +176,11 @@ export async function setLibraryCookie(
       alternativeId: loginData.alternativeId,
       branch: loginData.branch,
       memberNo: loginData.memberNo,
-      isPasswordExpired: false,
+      isPasswordExpired: COOKIE_IS_PASSWORD_EXPIRED,
       patronType: loginData.patronType,
       patronState: loginData.patronState,
       dept: loginData.dept,
-      checkSum: 58,
+      checkSum: COOKIE_CHECKSUM,
       printMemberNo: loginData.printMemberNo,
       isPortalLogin: loginData.isPortalLogin,
       isFamilyLogin: loginData.isFamilyLogin,
@@ -201,9 +206,6 @@ export async function setLibraryCookie(
       sameSite: 'lax',
       expirationDate: Math.floor(expireDate.getTime() / 1000),
     });
-
-    console.log('[Library] Cookie set result:', result);
-    console.log('[Library] Cookie value length:', cookieValue.length);
 
     if (!result) {
       console.error('[Library] Cookie set returned null - setting failed');
