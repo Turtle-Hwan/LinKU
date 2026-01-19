@@ -8,6 +8,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ServerClockSection from "./Labs/ServerClockSection";
 import QRGeneratorSection from "./Labs/QRGeneratorSection";
+import LibrarySeatSection from "./Labs/LibrarySeatSection";
 
 interface LabsDialogProps {
   open: boolean;
@@ -26,7 +27,8 @@ const LabsDialog = ({ open, onOpenChange }: LabsDialogProps) => {
         </DialogHeader>
 
         <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-4 pr-4">
+          <div className="space-y-6 pr-4">
+            <LibrarySeatSection />
             <ServerClockSection />
             <QRGeneratorSection />
           </div>
