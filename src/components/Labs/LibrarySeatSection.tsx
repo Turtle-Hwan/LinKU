@@ -5,8 +5,10 @@ import {
   getLibrarySeatRoomsAPI,
   getLibraryTokenFromCookie,
   getLibraryReservationUrl,
+  libraryLoginAPI,
 } from '@/apis';
 import { LibrarySeatRoom } from '@/types/api';
+import { loadECampusCredentials } from '@/utils/credentials';
 
 const LibrarySeatSection = () => {
   const [rooms, setRooms] = useState<LibrarySeatRoom[]>([]);
@@ -20,16 +22,34 @@ const LibrarySeatSection = () => {
     setError(null);
 
     try {
-      // 쿠키에서 토큰 가져오기 시도
-      const token = await getLibraryTokenFromCookie();
+      // 1. 먼저 쿠키에서 토큰 가져오기 시도
+      let token = await getLibraryTokenFromCookie();
 
+      // 2. 쿠키에 토큰이 없으면 eCampus credentials로 로그인 시도
+      if (!token) {
+        const credentials = await loadECampusCredentials();
+
+        if (credentials) {
+          const loginResponse = await libraryLoginAPI(
+            credentials.id,
+            credentials.password
+          );
+
+          if (loginResponse.success && loginResponse.data) {
+            token = loginResponse.data.accessToken;
+          }
+        }
+      }
+
+      // 3. 토큰이 없으면 로그인 필요 표시
       if (!token) {
         setNeedLogin(true);
-        setError('도서관 사이트에 로그인이 필요합니다.');
+        setError('eCampus 로그인 정보가 필요합니다.');
         setIsLoading(false);
         return;
       }
 
+      // 4. 좌석 현황 조회
       const response = await getLibrarySeatRoomsAPI(token);
 
       if (response.success && response.data) {
@@ -38,7 +58,7 @@ const LibrarySeatSection = () => {
         setLastUpdated(new Date());
       } else if (response.needLogin) {
         setNeedLogin(true);
-        setError('도서관 사이트에 로그인이 필요합니다.');
+        setError('로그인이 필요합니다.');
       } else {
         setError(response.error || '좌석 현황을 불러올 수 없습니다.');
       }
@@ -52,13 +72,6 @@ const LibrarySeatSection = () => {
   useEffect(() => {
     fetchSeatRooms();
   }, [fetchSeatRooms]);
-
-  const handleOpenLibrarySite = () => {
-    window.open(
-      'https://library.konkuk.ac.kr/library-services/smuf/reading-rooms',
-      '_blank'
-    );
-  };
 
   const handleOpenRoom = (roomId: number) => {
     window.open(getLibraryReservationUrl(roomId), '_blank');
@@ -88,17 +101,9 @@ const LibrarySeatSection = () => {
           <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
             <p className="text-xs text-muted-foreground leading-relaxed">
-              도서관 좌석 현황을 보려면 먼저 도서관 사이트에 로그인해주세요.
+              좌석 현황을 보려면 할 일 탭에서 eCampus 로그인 정보를 등록해주세요.
             </p>
           </div>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleOpenLibrarySite}
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            도서관 사이트에서 로그인
-          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -109,7 +114,7 @@ const LibrarySeatSection = () => {
             <RefreshCw
               className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
             />
-            로그인 후 새로고침
+            새로고침
           </Button>
         </div>
       ) : error ? (
