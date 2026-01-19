@@ -58,7 +58,7 @@ const ServerClockSection = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pt-4 mt-4 border-t">
       <h2 className="text-base font-semibold">서버시계</h2>
 
       <div className="space-y-3">
