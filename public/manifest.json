@@ -21,11 +21,13 @@
     "activeTab",
     "scripting",
     "storage",
-    "identity"
+    "identity",
+    "cookies"
   ],
   "host_permissions": [
     "<all_urls>",
     "*://ecampus.konkuk.ac.kr/*",
+    "*://library.konkuk.ac.kr/*",
     "https://www.google-analytics.com/*",
     "https://ku-linku.store/*"
   ],
