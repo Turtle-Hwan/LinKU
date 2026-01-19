@@ -145,6 +145,79 @@ export async function getLibrarySeatRoomsAPI(
 }
 
 /**
+ * 도서관 인증 정보를 쿠키에 저장
+ * 웹사이트에서도 로그인 상태로 인식되도록 함
+ * @param loginData 로그인 응답 데이터
+ */
+export async function setLibraryCookie(
+  loginData: LibraryLoginData
+): Promise<boolean> {
+  try {
+    if (typeof chrome === 'undefined' || !chrome.cookies) {
+      return false;
+    }
+
+    // 만료 시간 설정 (현재 시간 + 1시간)
+    const expireDate = new Date();
+    expireDate.setHours(expireDate.getHours() + 1);
+
+    // 쿠키에 저장할 데이터 구성
+    const cookieData = {
+      id: loginData.id,
+      accessToken: loginData.accessToken,
+      name: loginData.name,
+      availableHomepages: loginData.availableHomepages,
+      disableServices: loginData.disableServices,
+      alternativeId: loginData.alternativeId,
+      branch: loginData.branch,
+      memberNo: loginData.memberNo,
+      isPasswordExpired: false,
+      patronType: loginData.patronType,
+      patronState: loginData.patronState,
+      dept: loginData.dept,
+      checkSum: 58,
+      printMemberNo: loginData.printMemberNo,
+      isPortalLogin: loginData.isPortalLogin,
+      isFamilyLogin: loginData.isFamilyLogin,
+      isPrivacyPolicyAgree: loginData.isPrivacyPolicyAgree,
+      expireDate: expireDate.toISOString(),
+    };
+
+    // URL 인코딩하여 쿠키 값 생성
+    const cookieValue = encodeURIComponent(JSON.stringify(cookieData));
+
+    // 기존 쿠키 삭제 (도메인 충돌 방지)
+    await chrome.cookies.remove({
+      url: LIBRARY_BASE_URL,
+      name: 'KONKUK_PYXIS3',
+    });
+
+    const result = await chrome.cookies.set({
+      url: LIBRARY_BASE_URL,
+      name: 'KONKUK_PYXIS3',
+      value: cookieValue,
+      path: '/',
+      secure: true,
+      sameSite: 'lax',
+      expirationDate: Math.floor(expireDate.getTime() / 1000),
+    });
+
+    console.log('[Library] Cookie set result:', result);
+    console.log('[Library] Cookie value length:', cookieValue.length);
+
+    if (!result) {
+      console.error('[Library] Cookie set returned null - setting failed');
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[Library] Failed to set cookie:', error);
+    return false;
+  }
+}
+
+/**
  * 브라우저 쿠키에서 도서관 인증 토큰 가져오기
  * 사용자가 도서관 사이트에 로그인한 상태면 쿠키에 토큰이 저장되어 있음
  * @returns accessToken 또는 null
@@ -182,4 +255,14 @@ export async function getLibraryTokenFromCookie(): Promise<string | null> {
     console.error('[Library] Failed to get token from cookie:', error);
     return null;
   }
+}
+
+/**
+ * 도서관 예약 페이지 열기
+ * 사용자가 직접 로그인하면 바로 예약 화면으로 이동됨
+ * @param roomId 열람실 ID
+ */
+export async function openLibraryReservationPage(roomId: number): Promise<void> {
+  const url = getLibraryReservationUrl(roomId);
+  await chrome.tabs.create({ url });
 }

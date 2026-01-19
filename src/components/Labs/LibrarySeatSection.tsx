@@ -4,8 +4,9 @@ import { RefreshCw, ExternalLink, Info } from 'lucide-react';
 import {
   getLibrarySeatRoomsAPI,
   getLibraryTokenFromCookie,
-  getLibraryReservationUrl,
   libraryLoginAPI,
+  setLibraryCookie,
+  openLibraryReservationPage,
 } from '@/apis';
 import { LibrarySeatRoom } from '@/types/api';
 import { loadECampusCredentials } from '@/utils/credentials';
@@ -22,22 +23,23 @@ const LibrarySeatSection = () => {
     setError(null);
 
     try {
+      // eCampus credentials 로드
+      const loadedCredentials = await loadECampusCredentials();
+
       // 1. 먼저 쿠키에서 토큰 가져오기 시도
       let token = await getLibraryTokenFromCookie();
 
       // 2. 쿠키에 토큰이 없으면 eCampus credentials로 로그인 시도
-      if (!token) {
-        const credentials = await loadECampusCredentials();
+      if (!token && loadedCredentials) {
+        const loginResponse = await libraryLoginAPI(
+          loadedCredentials.id,
+          loadedCredentials.password
+        );
 
-        if (credentials) {
-          const loginResponse = await libraryLoginAPI(
-            credentials.id,
-            credentials.password
-          );
-
-          if (loginResponse.success && loginResponse.data) {
-            token = loginResponse.data.accessToken;
-          }
+        if (loginResponse.success && loginResponse.data) {
+          token = loginResponse.data.accessToken;
+          // 웹사이트에서도 로그인 상태 유지되도록 쿠키 설정
+          await setLibraryCookie(loginResponse.data);
         }
       }
 
@@ -74,7 +76,7 @@ const LibrarySeatSection = () => {
   }, [fetchSeatRooms]);
 
   const handleOpenRoom = (roomId: number) => {
-    window.open(getLibraryReservationUrl(roomId), '_blank');
+    openLibraryReservationPage(roomId);
   };
 
   const formatLastUpdated = (date: Date | null): string => {
@@ -111,9 +113,7 @@ const LibrarySeatSection = () => {
             onClick={fetchSeatRooms}
             disabled={isLoading}
           >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
-            />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             새로고침
           </Button>
         </div>
@@ -153,15 +153,8 @@ const LibrarySeatSection = () => {
 
           {/* 하단 컨트롤 */}
           <div className="flex items-center justify-between pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchSeatRooms}
-              disabled={isLoading}
-            >
-              <RefreshCw
-                className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
-              />
+            <Button variant="outline" size="sm" onClick={fetchSeatRooms} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               새로고침
             </Button>
 
