@@ -522,3 +522,111 @@ export interface PostTemplateResponse {
   postedTemplateId: number;
   message: string;
 }
+
+// ============================================================================
+// Library
+// ============================================================================
+
+/**
+ * 도서관 로그인 요청
+ */
+export interface LibraryLoginRequest {
+  loginId: string;
+  password: string;
+  isFamilyLogin?: boolean;
+  isMobile?: boolean;
+}
+
+/**
+ * 도서관 분관 정보
+ */
+export interface LibraryBranch {
+  id: number;
+  name: string;
+  alias: string;
+  libraryCode: string;
+  sortOrder: number;
+}
+
+/**
+ * 도서관 로그인 응답 데이터
+ */
+export interface LibraryLoginData {
+  id: number;
+  accessToken: string;
+  name: string;
+  memberNo: string;
+  printMemberNo: string;
+  alternativeId: string;
+  branch: LibraryBranch;
+  dept: {
+    id: number;
+    code: string;
+    name: string;
+  };
+  patronType: {
+    id: number;
+    name: string;
+  };
+  patronState: {
+    id: number;
+    name: string;
+  };
+  isPortalLogin: boolean;
+  isFamilyLogin: boolean;
+  isExpired: boolean;
+  isPrivacyPolicyAgree: boolean;
+  availableHomepages: number[];
+  disableServices: string[];
+}
+
+/**
+ * 도서관 API 공통 응답 형식
+ */
+export interface LibraryApiResponse<T = unknown> {
+  success: boolean;
+  code: string;
+  message: string;
+  data: T;
+}
+
+/**
+ * 열람실 타입 정보
+ */
+export interface LibraryRoomType {
+  id: number;
+  name: string;
+  sortOrder: number;
+}
+
+/**
+ * 좌석 현황 정보
+ */
+export interface LibrarySeatStatus {
+  total: number;
+  occupied: number;
+  waiting: number;
+  available: number;
+}
+
+/**
+ * 열람실 정보
+ */
+export interface LibrarySeatRoom {
+  id: number;
+  name: string;
+  roomType: LibraryRoomType;
+  branch: LibraryBranch;
+  seats: LibrarySeatStatus;
+  isChargeable: boolean;
+  unableMessage: string | null;
+  waitRoomGroup: unknown | null;
+}
+
+/**
+ * 열람실 목록 응답 데이터
+ */
+export interface LibrarySeatRoomsData {
+  totalCount: number;
+  list: LibrarySeatRoom[];
+}
