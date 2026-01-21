@@ -12,11 +12,7 @@ import {
 
 const LIBRARY_BASE_URL = 'https://library.konkuk.ac.kr';
 const LIBRARY_API_URL = `${LIBRARY_BASE_URL}/pyxis-api`;
-
-// 도서관 쿠키 관련 상수
-// 도서관 시스템(PYXIS)에서 요구하는 고정값으로, 실제 로그인 응답에는 포함되지 않음
-const COOKIE_IS_PASSWORD_EXPIRED = false; // 비밀번호 만료 여부 (항상 false)
-const COOKIE_CHECKSUM = 58; // 쿠키 무결성 검증용 체크섬 (고정값)
+const LIBRARY_TOKEN_STORAGE_KEY = 'libraryToken';
 
 /**
  * 도서관 열람실 예약 페이지 URL 생성
@@ -150,15 +146,14 @@ export async function getLibrarySeatRoomsAPI(
 }
 
 /**
- * 도서관 인증 정보를 쿠키에 저장
- * 웹사이트에서도 로그인 상태로 인식되도록 함
+ * 도서관 인증 토큰을 chrome.storage에 저장
  * @param loginData 로그인 응답 데이터
  */
-export async function setLibraryCookie(
+export async function setLibraryToken(
   loginData: LibraryLoginData
 ): Promise<boolean> {
   try {
-    if (typeof chrome === 'undefined' || !chrome.cookies) {
+    if (typeof chrome === 'undefined' || !chrome.storage) {
       return false;
     }
 
@@ -166,95 +161,50 @@ export async function setLibraryCookie(
     const expireDate = new Date();
     expireDate.setHours(expireDate.getHours() + 1);
 
-    // 쿠키에 저장할 데이터 구성
-    const cookieData = {
-      id: loginData.id,
-      accessToken: loginData.accessToken,
-      name: loginData.name,
-      availableHomepages: loginData.availableHomepages,
-      disableServices: loginData.disableServices,
-      alternativeId: loginData.alternativeId,
-      branch: loginData.branch,
-      memberNo: loginData.memberNo,
-      isPasswordExpired: COOKIE_IS_PASSWORD_EXPIRED,
-      patronType: loginData.patronType,
-      patronState: loginData.patronState,
-      dept: loginData.dept,
-      checkSum: COOKIE_CHECKSUM,
-      printMemberNo: loginData.printMemberNo,
-      isPortalLogin: loginData.isPortalLogin,
-      isFamilyLogin: loginData.isFamilyLogin,
-      isPrivacyPolicyAgree: loginData.isPrivacyPolicyAgree,
-      expireDate: expireDate.toISOString(),
-    };
-
-    // URL 인코딩하여 쿠키 값 생성
-    const cookieValue = encodeURIComponent(JSON.stringify(cookieData));
-
-    // 기존 쿠키 삭제 (도메인 충돌 방지)
-    await chrome.cookies.remove({
-      url: LIBRARY_BASE_URL,
-      name: 'KONKUK_PYXIS3',
+    await chrome.storage.local.set({
+      [LIBRARY_TOKEN_STORAGE_KEY]: {
+        accessToken: loginData.accessToken,
+        expireDate: expireDate.toISOString(),
+      },
     });
-
-    const result = await chrome.cookies.set({
-      url: LIBRARY_BASE_URL,
-      name: 'KONKUK_PYXIS3',
-      value: cookieValue,
-      path: '/',
-      secure: true,
-      sameSite: 'lax',
-      expirationDate: Math.floor(expireDate.getTime() / 1000),
-    });
-
-    if (!result) {
-      console.error('[Library] Cookie set returned null - setting failed');
-      return false;
-    }
 
     return true;
   } catch (error) {
-    console.error('[Library] Failed to set cookie:', error);
+    console.error('[Library] Failed to set token:', error);
     return false;
   }
 }
 
 /**
- * 브라우저 쿠키에서 도서관 인증 토큰 가져오기
- * 사용자가 도서관 사이트에 로그인한 상태면 쿠키에 토큰이 저장되어 있음
+ * chrome.storage에서 도서관 인증 토큰 가져오기
  * @returns accessToken 또는 null
  */
-export async function getLibraryTokenFromCookie(): Promise<string | null> {
+export async function getLibraryTokenFromStorage(): Promise<string | null> {
   try {
-    // 크롬 익스텐션 환경에서만 사용 가능
-    if (typeof chrome === 'undefined' || !chrome.cookies) {
+    if (typeof chrome === 'undefined' || !chrome.storage) {
       return null;
     }
 
-    const cookie = await chrome.cookies.get({
-      url: LIBRARY_BASE_URL,
-      name: 'KONKUK_PYXIS3',
-    });
+    const result = await chrome.storage.local.get(LIBRARY_TOKEN_STORAGE_KEY);
+    const data = result[LIBRARY_TOKEN_STORAGE_KEY];
 
-    if (!cookie?.value) {
+    if (!data?.accessToken) {
       return null;
     }
-
-    // URL 디코딩 후 JSON 파싱
-    const decoded = decodeURIComponent(cookie.value);
-    const data = JSON.parse(decoded);
 
     // 만료 체크
     if (data.expireDate) {
       const expireDate = new Date(data.expireDate);
       if (expireDate < new Date()) {
-        return null; // 토큰 만료됨
+        // 만료된 토큰 삭제
+        await chrome.storage.local.remove(LIBRARY_TOKEN_STORAGE_KEY);
+        return null;
       }
     }
 
-    return data.accessToken || null;
+    return data.accessToken;
   } catch (error) {
-    console.error('[Library] Failed to get token from cookie:', error);
+    console.error('[Library] Failed to get token from storage:', error);
     return null;
   }
 }

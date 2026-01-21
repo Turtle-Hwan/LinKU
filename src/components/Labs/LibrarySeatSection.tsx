@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, ExternalLink, Info } from 'lucide-react';
 import {
   getLibrarySeatRoomsAPI,
-  getLibraryTokenFromCookie,
+  getLibraryTokenFromStorage,
   libraryLoginAPI,
-  setLibraryCookie,
+  setLibraryToken,
   openLibraryReservationPage,
 } from '@/apis';
 import { LibrarySeatRoom } from '@/types/api';
@@ -26,10 +26,10 @@ const LibrarySeatSection = () => {
       // eCampus credentials 로드
       const loadedCredentials = await loadECampusCredentials();
 
-      // 1. 먼저 쿠키에서 토큰 가져오기 시도
-      let token = await getLibraryTokenFromCookie();
+      // 1. 먼저 storage에서 토큰 가져오기 시도
+      let token = await getLibraryTokenFromStorage();
 
-      // 2. 쿠키에 토큰이 없으면 eCampus credentials로 로그인 시도
+      // 2. 토큰이 없으면 eCampus credentials로 로그인 시도
       if (!token && loadedCredentials) {
         const loginResponse = await libraryLoginAPI(
           loadedCredentials.id,
@@ -38,8 +38,8 @@ const LibrarySeatSection = () => {
 
         if (loginResponse.success && loginResponse.data) {
           token = loginResponse.data.accessToken;
-          // 웹사이트에서도 로그인 상태 유지되도록 쿠키 설정
-          await setLibraryCookie(loginResponse.data);
+          // 토큰 저장
+          await setLibraryToken(loginResponse.data);
         }
       }
 
@@ -102,7 +102,7 @@ const LibrarySeatSection = () => {
           <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
             <p className="text-xs text-muted-foreground leading-relaxed">
-              좌석 현황을 보려면 할 일 탭에서 eCampus 로그인 정보를 등록해주세요.
+              좌석 현황을 보려면 설정 탭에서 eCampus 계정 정보를 등록해주세요.
             </p>
           </div>
           <Button
