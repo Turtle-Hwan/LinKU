@@ -21,8 +21,7 @@
     "activeTab",
     "scripting",
     "storage",
-    "identity",
-    "cookies"
+    "identity"
   ],
   "host_permissions": [
     "<all_urls>",
