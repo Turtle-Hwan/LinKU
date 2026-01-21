@@ -16,3 +16,4 @@ export * from "./alerts";
 // External Integrations
 export * from "./external/ecampus";
 export * from "./external/banners";
+export * from "./external/library";
