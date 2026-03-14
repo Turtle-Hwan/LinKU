@@ -6,6 +6,7 @@ import { eCampusTodoListAPI, eCampusLoginAPI } from '@/apis';
 import { loadECampusCredentials, clearECampusCredentials } from '@/utils/credentials';
 import { ECampusTodoItem } from '@/types/todo';
 import { toast } from 'sonner';
+import { requestTodoCountRefresh } from '@/utils/todo/count';
 
 export function useECampusAuth() {
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -21,6 +22,7 @@ export function useECampusAuth() {
       const result = await eCampusTodoListAPI();
 
       if (result.success && result.data?.todoList) {
+        requestTodoCountRefresh();
         return { success: true, todos: result.data.todoList };
       }
 

@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { addStorageChangeListener, getStorage } from "@/utils/chrome";
-import { syncTodoCount } from "@/utils/todo/count";
+import {
+  TODO_COUNT_REFRESH_EVENT,
+  syncTodoCount,
+} from "@/utils/todo/count";
 
 const TodoCountBadge = () => {
   const [todoCount, setTodoCount] = useState<number>(0);
@@ -9,7 +12,7 @@ const TodoCountBadge = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const initializeTodoCount = async () => {
+    const refreshTodoCount = async () => {
       const syncedCount = await syncTodoCount();
       if (!isMounted) {
         return;
@@ -25,13 +28,17 @@ const TodoCountBadge = () => {
         setTodoCount(storedCount);
       }
     };
-    initializeTodoCount();
+    void refreshTodoCount();
 
-    // Listen for changes to todoCount in storage
     const handleStorageChange = (
       changes: Record<string, chrome.storage.StorageChange>,
       namespace: string
     ) => {
+      if (namespace === "local" && changes.customTodos) {
+        void refreshTodoCount();
+        return;
+      }
+
       if (namespace === "local" && changes.todoCount) {
         const count =
           typeof changes.todoCount.newValue === "number"
@@ -41,10 +48,16 @@ const TodoCountBadge = () => {
       }
     };
 
+    const handleRefreshRequest = () => {
+      void refreshTodoCount();
+    };
+
+    window.addEventListener(TODO_COUNT_REFRESH_EVENT, handleRefreshRequest);
     const removeListener = addStorageChangeListener(handleStorageChange);
 
     return () => {
       isMounted = false;
+      window.removeEventListener(TODO_COUNT_REFRESH_EVENT, handleRefreshRequest);
       removeListener();
     };
   }, []);

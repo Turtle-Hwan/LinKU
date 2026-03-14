@@ -10,6 +10,8 @@ interface SyncTodoCountOptions {
   ecampusTodos?: ECampusTodoItem[];
 }
 
+export const TODO_COUNT_REFRESH_EVENT = "todo-count:refresh";
+
 const loadECampusTodosForCount = async (): Promise<ECampusTodoItem[]> => {
   try {
     const initialResult = await eCampusTodoListAPI();
@@ -60,4 +62,12 @@ export const syncTodoCount = async (
     console.error("[TodoCount] Failed to sync todo count:", error);
     return 0;
   }
+};
+
+export const requestTodoCountRefresh = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent(TODO_COUNT_REFRESH_EVENT));
 };

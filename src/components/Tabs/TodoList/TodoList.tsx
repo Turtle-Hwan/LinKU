@@ -6,7 +6,6 @@ import {
   deleteCustomTodo,
   toggleCustomTodo,
 } from "@/utils/todo/customTodo";
-import { syncTodoCount } from "@/utils/todo/count";
 import { getTodoDeadline } from "@/utils/todo/dateFormat";
 import { useECampusAuth } from "@/hooks/useECampusAuth";
 import { useTodoSettings } from "@/hooks/useTodoSettings";
@@ -93,14 +92,6 @@ const TodoList = () => {
       sendTodoView(ecampusTodos.length + customTodos.length);
     }
   }, [isLoading, ecampusTodos.length, customTodos.length]);
-
-  // Update todo count in storage (eCampus + incomplete custom)
-  useEffect(() => {
-    void syncTodoCount({
-      ecampusTodos,
-      customTodos,
-    });
-  }, [ecampusTodos, customTodos]);
 
   // Initial load
   useEffect(() => {
