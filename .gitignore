@@ -12,11 +12,14 @@ dist
 dist-ssr
 gh-pages
 *.local
+*.tsbuildinfo
 
 # Environment variables
 .env
 .env.*
+!.env.example
 !.env.*.example
+.next
 
 # Editor directories and files
 .vscode/*
