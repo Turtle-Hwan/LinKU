@@ -1,0 +1,47 @@
+name: Monorepo Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build web
+        run: pnpm --filter @linku/web build
+
+      - name: Build extension
+        env:
+          VITE_ENVIRONMENT: ci
+          VITE_SITE_URL: https://www.linku.xxx
+          VITE_WEB_BASE_URL: https://www.linku.xxx
+          VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+        run: pnpm --filter @linku/extension build:local

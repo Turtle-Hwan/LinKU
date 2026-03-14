@@ -1,0 +1,61 @@
+name: Deploy Extension Draft
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/extension/**"
+      - "packages/ui/**"
+      - "packages/config/**"
+      - "packages/platform/**"
+      - "packages/shared-types/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+jobs:
+  upload-draft:
+    if: ${{ secrets.CHROME_EXTENSION_ID != '' && secrets.CHROME_CLIENT_ID != '' && secrets.CHROME_CLIENT_SECRET != '' && secrets.CHROME_REFRESH_TOKEN != '' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension
+        env:
+          VITE_ENVIRONMENT: production
+          VITE_SITE_URL: https://www.linku.xxx
+          VITE_WEB_BASE_URL: https://www.linku.xxx
+          VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+        run: pnpm --filter @linku/extension build
+
+      - name: Create extension archive
+        run: |
+          cd apps/extension/dist
+          zip -r ../../../extension.zip .
+
+      - name: Upload draft to Chrome Web Store
+        run: |
+          pnpm dlx chrome-webstore-upload-cli upload \
+            --source extension.zip \
+            --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
+            --client-id ${{ secrets.CHROME_CLIENT_ID }} \
+            --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
+            --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }}
