@@ -5,15 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config ./vite.config.ts --mode development",
-    "build": "node ../../scripts/updateVersion.js && tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --mode production",
+    "build": "node ./scripts/updateVersion.js && tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --mode production",
     "build:local": "tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --mode development",
-    "watch": "node ../../scripts/updateVersion.js && tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --watch --mode production",
+    "watch": "node ./scripts/updateVersion.js && tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --watch --mode production",
     "watch:local": "tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --watch --mode development",
     "build:gh-pages": "tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --mode gh-pages",
     "typecheck": "tsc -b ./tsconfig.json",
     "lint": "eslint .",
     "preview": "vite preview --config ./vite.config.ts",
-    "deploy": "git subtree push --prefix gh-pages origin gh-pages"
+    "deploy": "git subtree push --prefix apps/extension/gh-pages origin gh-pages"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

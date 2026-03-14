@@ -1,1 +1,3 @@
-export { default } from "../../tooling/eslint/base.mjs";
+import baseConfig from "../../tooling/eslint/base.mjs";
+
+export default baseConfig;

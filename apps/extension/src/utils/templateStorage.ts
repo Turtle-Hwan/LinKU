@@ -177,7 +177,7 @@ export function checkLocalStorageSpace(): {
     localStorage.setItem(testKey, testData);
     localStorage.removeItem(testKey);
     return { available: true };
-  } catch (error) {
+  } catch {
     return {
       available: false,
       error: 'LocalStorage 공간이 부족합니다.',

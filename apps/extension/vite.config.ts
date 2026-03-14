@@ -5,14 +5,14 @@ import path from "path";
 import svgr from "vite-plugin-svgr";
 import fs from "fs";
 
-const repoRoot = path.resolve(__dirname, "../..");
-const ghPagesDir = path.resolve(repoRoot, "gh-pages");
+const extensionRoot = __dirname;
+const ghPagesDir = path.resolve(extensionRoot, "gh-pages");
 
 export default defineConfig(({ mode }) => {
   const isChromeExtension = mode !== "gh-pages";
 
   return {
-    root: repoRoot,
+    root: extensionRoot,
     plugins: [
       react(),
       tailwindcss(),
@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: {
-        "@": path.resolve(repoRoot, "./src"),
+        "@": path.resolve(extensionRoot, "./src"),
       },
     },
     base: "",
@@ -36,8 +36,11 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: isChromeExtension
           ? {
-              main: path.resolve(repoRoot, "index.html"),
-              "background/index": path.resolve(repoRoot, "src/background/index.ts"),
+              main: path.resolve(extensionRoot, "index.html"),
+              "background/index": path.resolve(
+                extensionRoot,
+                "src/background/index.ts",
+              ),
             }
           : undefined,
         output: {
@@ -54,7 +57,7 @@ function copyBannersForGhPages() {
   return {
     name: "copy-banners-gh-pages",
     writeBundle() {
-      const sourceDir = path.resolve(repoRoot, "src/assets/banners");
+      const sourceDir = path.resolve(extensionRoot, "src/assets/banners");
       const targetDir = path.resolve(ghPagesDir, "banners");
 
       if (fs.existsSync(sourceDir)) {

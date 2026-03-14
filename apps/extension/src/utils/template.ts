@@ -157,7 +157,7 @@ function getIconIdentifier(linkItem: typeof LinkList[number]): string {
   // If icon is a Lucide component, try to get its name
   if (typeof icon === 'function') {
     // Lucide icons have displayName property
-    const lucideName = (icon as any).displayName || icon.name;
+    const lucideName = (icon as LucideIcon & { displayName?: string }).displayName || icon.name;
     if (lucideName) {
       return lucideName.toLowerCase();
     }
@@ -341,7 +341,7 @@ function tryPushInDirection(
   item: { position: Position; size: Size },
   direction: 'up' | 'down' | 'left' | 'right' | 'up-left' | 'up-right' | 'down-left' | 'down-right'
 ): Position | null {
-  let newPos = { ...item.position };
+  const newPos = { ...item.position };
 
   // Move by exactly 1 grid cell in the specified direction
   switch (direction) {

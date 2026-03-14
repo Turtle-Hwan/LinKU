@@ -2,11 +2,11 @@
   "extends": "../../tooling/typescript/react-vite.json",
   "compilerOptions": {
     "tsBuildInfoFile": "../../node_modules/.tmp/apps-extension-tsconfig.app.tsbuildinfo",
-    "baseUrl": "../..",
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
     "noImplicitAny": false
   },
-  "include": ["../../src", "../../scripts"]
+  "include": ["src", "scripts"]
 }
