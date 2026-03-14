@@ -26,9 +26,9 @@ import {
   UserProfile,
 } from "@/utils/oauth";
 import { eCampusLoginAPI } from "@/apis";
-import { Info, Palette, LogOut, Mail, User } from "lucide-react";
+import { Info, Palette, LogOut, Mail, User, Timer } from "lucide-react";
 import { toast } from "sonner";
-import { getChromeApi, getStorage } from "@/utils/chrome";
+import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
 
 interface SettingsDialogProps {
@@ -503,10 +503,80 @@ const TemplateEditorSection = () => {
   );
 };
 
+const RealtimeTimer = () => {
+  const [enabled, setEnabled] = useState(false);
+
+  // 설정 페이지 열릴 때 저장된 설정 불러오기
+  useEffect(() => {
+    loadTimerSetting();
+  }, []);
+
+  const loadTimerSetting = async () => {
+    try {
+      const saved = await getStorage<boolean>("realtimeTimerEnabled");
+      setEnabled(saved ?? true); // 기본값: true
+    } catch (error) {
+      console.error("[Settings] Load timer setting error:", error);
+    }
+  };
+
+  const handleToggle = async () => {
+    const newValue = !enabled;
+    setEnabled(newValue);
+
+    try {
+      await setStorage({ realtimeTimerEnabled: newValue });
+      sendSettingChange("realtime_timer", newValue ? "enabled" : "disabled");
+      toast.success(
+        newValue
+          ? "실시간 타이머가 활성화되었습니다."
+          : "실시간 타이머가 비활성화되었습니다."
+      );
+    } catch (error) {
+      console.error("[Settings] Save timer setting error:", error);
+      toast.error("설정 저장에 실패했습니다.");
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <Timer className="h-5 w-5" />
+          실시간 TODO 타이머
+        </h2>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">타이머 표시</p>
+              <p className="text-xs text-muted-foreground">
+                24시간 이하 남은 Todo에 실시간 카운트다운 표시
+              </p>
+            </div>
+            <button
+              onClick={handleToggle}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                enabled ? "bg-main" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  enabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>설정</DialogTitle>
           <DialogDescription className="hidden">설정</DialogDescription>
@@ -527,6 +597,9 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
           <TabsContent value="ecampus" className="space-y-4 mt-4">
             <SettingsDialog.ECampusCredential />
+            <div className="pt-4 border-t">
+              <SettingsDialog.RealtimeTimer />
+            </div>
           </TabsContent>
         </Tabs>
 
@@ -539,5 +612,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 SettingsDialog.GoogleOAuth = GoogleOAuthSection;
 SettingsDialog.ECampusCredential = ECampusCredential;
 SettingsDialog.TemplateEditor = TemplateEditorSection;
+SettingsDialog.RealtimeTimer = RealtimeTimer;
 
 export default SettingsDialog;
