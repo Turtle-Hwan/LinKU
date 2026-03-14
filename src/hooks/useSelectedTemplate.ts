@@ -9,6 +9,12 @@ import { getTemplate } from '@/apis/templates';
 import type { Template } from '@/types/api';
 import { LinkList, LinkListElement } from '@/constants/LinkList';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
+import {
+  addStorageChangeListener,
+  getStorage,
+  removeStorage,
+  setStorage,
+} from '@/utils/chrome';
 
 const STORAGE_KEY = 'selectedTemplateId';
 
@@ -63,10 +69,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       }
     };
 
-    chrome.storage.onChanged.addListener(listener);
-    return () => {
-      chrome.storage.onChanged.removeListener(listener);
-    };
+    return addStorageChangeListener(listener);
   }, []);
 
   // Load template data when selectedTemplateId changes
@@ -84,8 +87,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
   const loadSelectedTemplate = async () => {
     setIsLoading(true);
     try {
-      const result = await chrome.storage.local.get([STORAGE_KEY]);
-      const templateId = result[STORAGE_KEY];
+      const templateId = await getStorage<number>(STORAGE_KEY);
 
       console.log('[useSelectedTemplate] Loaded from storage:', {
         raw: templateId,
@@ -159,13 +161,13 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     try {
       if (templateId === null) {
         // Clear selection
-        await chrome.storage.local.remove(STORAGE_KEY);
+        await removeStorage(STORAGE_KEY);
         setSelectedTemplateId(null);
         setTemplateData(null);
         setLinkItems(LinkList);
       } else {
         // Save selection
-        await chrome.storage.local.set({ [STORAGE_KEY]: templateId });
+        await setStorage({ [STORAGE_KEY]: templateId });
         setSelectedTemplateId(templateId);
       }
     } catch (err) {

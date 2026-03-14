@@ -1,26 +1,46 @@
+const getChromeApi = (): typeof chrome | undefined => {
+  return globalThis.chrome;
+};
+
+export const isExtensionEnvironment = (): boolean => {
+  const chromeApi = getChromeApi();
+  return Boolean(chromeApi?.runtime?.id);
+};
+
 // activeTab permission
 export const getCurrentTab = async () => {
-  const queryOptions = { active: true, currentWindow: true };
-  const tabs = await chrome.tabs?.query(queryOptions);
-  if (!tabs) {
+  const chromeApi = getChromeApi();
+  if (!chromeApi?.tabs?.query) {
     return null;
   }
+
+  const queryOptions = { active: true, currentWindow: true };
+  const tabs = await chromeApi.tabs.query(queryOptions);
   const [tab] = tabs;
-  return tab;
+  return tab ?? null;
 };
 
 export const updateTabUrl = (url: string) => {
-  chrome.tabs.update({ url: url });
+  const chromeApi = getChromeApi();
+  if (!chromeApi?.tabs?.update) {
+    window.open(url, "_blank");
+    return;
+  }
+
+  chromeApi.tabs.update({ url });
 };
 
 export const executeScript = async (tabId: number, func: () => void) => {
+  const chromeApi = getChromeApi();
+  if (!chromeApi?.scripting?.executeScript) {
+    throw new Error("chrome.scripting is unavailable in this environment.");
+  }
+
   try {
-    const result = await chrome.scripting.executeScript({
+    return await chromeApi.scripting.executeScript({
       target: { tabId, allFrames: true },
-      func: func,
+      func,
     });
-    // console.log("Injection Success", result);
-    return result;
   } catch (err) {
     console.log("err", err);
     throw err;
@@ -28,27 +48,36 @@ export const executeScript = async (tabId: number, func: () => void) => {
 };
 
 export const executeScriptFile = async (tabId: number, files: string[]) => {
+  const chromeApi = getChromeApi();
+  if (!chromeApi?.scripting?.executeScript) {
+    throw new Error("chrome.scripting is unavailable in this environment.");
+  }
+
   try {
-    const result = await chrome.scripting.executeScript({
+    return await chromeApi.scripting.executeScript({
       target: { tabId, allFrames: true },
       files,
     });
-    // console.log("Injection Success", result);
-    return result;
   } catch (err) {
     console.log("err", err);
     throw err;
   }
 };
 
-// Chrome Storage API Promise 래퍼
+// Chrome Storage API Promise wrapper
 export const getStorage = <T>(key: string): Promise<T | undefined> => {
   return new Promise((resolve, reject) => {
-    chrome?.storage?.local?.get(key, (data) => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    const chromeApi = getChromeApi();
+    if (!chromeApi?.storage?.local) {
+      resolve(undefined);
+      return;
+    }
+
+    chromeApi.storage.local.get(key, (data) => {
+      if (chromeApi.runtime?.lastError) {
+        reject(chromeApi.runtime.lastError);
       } else {
-        resolve(data[key]);
+        resolve(data[key] as T | undefined);
       }
     });
   });
@@ -58,9 +87,15 @@ export const setStorage = <T extends Record<string, unknown>>(
   data: T
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
-    chrome?.storage?.local?.set(data, () => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    const chromeApi = getChromeApi();
+    if (!chromeApi?.storage?.local) {
+      resolve();
+      return;
+    }
+
+    chromeApi.storage.local.set(data, () => {
+      if (chromeApi.runtime?.lastError) {
+        reject(chromeApi.runtime.lastError);
       } else {
         resolve();
       }
@@ -68,14 +103,36 @@ export const setStorage = <T extends Record<string, unknown>>(
   });
 };
 
-export const removeStorage = (key: string): Promise<void> => {
+export const removeStorage = (key: string | string[]): Promise<void> => {
   return new Promise((resolve, reject) => {
-    chrome?.storage?.local?.remove(key, () => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    const chromeApi = getChromeApi();
+    if (!chromeApi?.storage?.local) {
+      resolve();
+      return;
+    }
+
+    chromeApi.storage.local.remove(key, () => {
+      if (chromeApi.runtime?.lastError) {
+        reject(chromeApi.runtime.lastError);
       } else {
         resolve();
       }
     });
   });
 };
+
+export const addStorageChangeListener = (
+  listener: (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => void
+) => {
+  const chromeApi = getChromeApi();
+  if (!chromeApi?.storage?.onChanged?.addListener) {
+    return () => {};
+  }
+
+  chromeApi.storage.onChanged.addListener(listener);
+  return () => {
+    chromeApi.storage.onChanged.removeListener(listener);
+  };
+};
+
+export { getChromeApi };

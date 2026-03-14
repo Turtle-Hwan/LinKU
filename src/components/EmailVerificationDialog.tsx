@@ -21,6 +21,7 @@ import {
   validateKonkukEmail,
   validateAuthCode,
 } from '@/utils/formValidation';
+import { setStorage } from '@/utils/chrome';
 
 interface EmailVerificationDialogProps {
   open: boolean;
@@ -100,7 +101,7 @@ export function EmailVerificationDialog({
       if (response.success) {
         toast.success('이메일 인증이 완료되었습니다!');
         // Store verified email
-        await chrome.storage.local.set({ kuMail });
+        await setStorage({ kuMail });
         // Trigger re-login to get member token
         onVerificationComplete();
         handleClose();

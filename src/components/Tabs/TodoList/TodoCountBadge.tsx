@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
+import { addStorageChangeListener, getStorage } from "@/utils/chrome";
 
 const TodoCountBadge = () => {
   const [todoCount, setTodoCount] = useState<number>(0);
 
   useEffect(() => {
-    // Initial load of count from storage
-    chrome?.storage?.local?.get("todoCount", (data) => {
-      if (data.todoCount !== undefined) {
-        setTodoCount(data.todoCount);
+    const loadTodoCount = async () => {
+      const count = await getStorage<number>("todoCount");
+      if (count !== undefined) {
+        setTodoCount(count);
       }
-    });
+    };
+    loadTodoCount();
 
     // Listen for changes to todoCount in storage
     const handleStorageChange = (
@@ -22,11 +24,7 @@ const TodoCountBadge = () => {
       }
     };
 
-    chrome?.storage?.onChanged?.addListener(handleStorageChange);
-
-    return () => {
-      chrome?.storage?.onChanged?.removeListener(handleStorageChange);
-    };
+    return addStorageChangeListener(handleStorageChange);
   }, []);
 
   if (todoCount === 0) return null;

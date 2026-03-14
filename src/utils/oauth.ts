@@ -8,6 +8,7 @@
 
 import { BackgroundMessageType } from '../background/types';
 import type { GoogleLoginResponse } from '../background/types';
+import { getChromeApi, getStorage, removeStorage } from './chrome';
 
 /**
  * User profile stored in chrome.storage.local
@@ -22,16 +23,16 @@ export interface UserProfile {
  * Get access token from chrome.storage.local
  */
 export async function getAccessToken(): Promise<string | null> {
-  const result = await chrome.storage.local.get(['accessToken']);
-  return result.accessToken || null;
+  const token = await getStorage<string>('accessToken');
+  return token || null;
 }
 
 /**
  * Get user profile from chrome.storage.local
  */
 export async function getUserProfile(): Promise<UserProfile | null> {
-  const result = await chrome.storage.local.get(['userProfile']);
-  return result.userProfile || null;
+  const userProfile = await getStorage<UserProfile>('userProfile');
+  return userProfile || null;
 }
 
 
@@ -39,7 +40,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
  * Clear all tokens and user profile from chrome.storage.local
  */
 export async function clearTokens(): Promise<void> {
-  await chrome.storage.local.remove([
+  await removeStorage([
     'accessToken',
     'refreshToken',
     'guestToken',
@@ -61,9 +62,10 @@ export async function isLoggedIn(): Promise<boolean> {
  * Check if current user is a guest (needs email verification)
  */
 export async function isGuestUser(): Promise<boolean> {
-  const result = await chrome.storage.local.get(['isGuest', 'refreshToken']);
+  const isGuest = await getStorage<boolean>('isGuest');
+  const refreshToken = await getStorage<string>('refreshToken');
   // Guest if isGuest flag is true OR no refreshToken
-  return result.isGuest === true || !result.refreshToken;
+  return isGuest === true || !refreshToken;
 }
 
 /**
@@ -73,11 +75,19 @@ export async function isGuestUser(): Promise<boolean> {
  * Background service worker has access to chrome.identity API
  */
 export async function startGoogleLogin(): Promise<GoogleLoginResponse> {
+  const chromeApi = getChromeApi();
+  if (!chromeApi?.runtime?.sendMessage) {
+    return {
+      success: false,
+      error: 'Chrome extension environment is unavailable.',
+    };
+  }
+
   try {
     console.log('[Popup] Sending Google login request to background');
 
     // Send message to background service worker
-    const response = await chrome.runtime.sendMessage({
+    const response = await chromeApi.runtime.sendMessage({
       type: BackgroundMessageType.GOOGLE_LOGIN,
     });
 
