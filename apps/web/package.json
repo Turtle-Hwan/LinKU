@@ -6,16 +6,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit --incremental false"
   },
   "dependencies": {
     "@linku/config": "workspace:*",
     "@linku/core": "workspace:*",
     "@linku/platform": "workspace:*",
     "@linku/seo": "workspace:*",
+    "@linku/shared-types": "workspace:^",
     "@linku/ui": "workspace:*",
     "lucide-react": "^0.475.0",
     "next": "16.1.6",
+    "next-auth": "5.0.0-beta.30",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
