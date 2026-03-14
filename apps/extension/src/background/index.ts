@@ -131,13 +131,18 @@ function updateBadge(count: number) {
 
 // Initialize badge on service worker start
 chrome.storage.local.get('todoCount', (data) => {
-  updateBadge(data.todoCount || 0);
+  const todoCount = typeof data.todoCount === 'number' ? data.todoCount : 0;
+  updateBadge(todoCount);
 });
 
 // Listen for todoCount changes
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes.todoCount) {
-    updateBadge(changes.todoCount.newValue || 0);
+    const todoCount =
+      typeof changes.todoCount.newValue === 'number'
+        ? changes.todoCount.newValue
+        : 0;
+    updateBadge(todoCount);
   }
 });
 

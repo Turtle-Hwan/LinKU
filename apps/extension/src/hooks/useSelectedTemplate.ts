@@ -57,7 +57,12 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
           type: typeof newValue,
         });
         // 0 값도 null로 변환 (기본 템플릿)
-        const normalizedValue = newValue === 0 || newValue === undefined ? null : newValue;
+        const normalizedValue =
+          newValue === 0 || newValue === undefined
+            ? null
+            : typeof newValue === 'number'
+              ? newValue
+              : null;
         console.log('[useSelectedTemplate] Normalized value:', normalizedValue);
         setSelectedTemplateId(normalizedValue);
       }
@@ -84,7 +89,9 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
   const loadSelectedTemplate = async () => {
     setIsLoading(true);
     try {
-      const result = await chrome.storage.local.get([STORAGE_KEY]);
+      const result = (await chrome.storage.local.get({
+        [STORAGE_KEY]: null as number | null,
+      })) as Record<string, number | null>;
       const templateId = result[STORAGE_KEY];
 
       console.log('[useSelectedTemplate] Loaded from storage:', {

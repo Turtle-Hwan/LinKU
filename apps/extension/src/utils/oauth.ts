@@ -22,16 +22,20 @@ export interface UserProfile {
  * Get access token from chrome.storage.local
  */
 export async function getAccessToken(): Promise<string | null> {
-  const result = await chrome.storage.local.get(['accessToken']);
-  return result.accessToken || null;
+  const { accessToken } = (await chrome.storage.local.get({
+    accessToken: null as string | null,
+  })) as { accessToken: string | null };
+  return accessToken;
 }
 
 /**
  * Get user profile from chrome.storage.local
  */
 export async function getUserProfile(): Promise<UserProfile | null> {
-  const result = await chrome.storage.local.get(['userProfile']);
-  return result.userProfile || null;
+  const { userProfile } = (await chrome.storage.local.get({
+    userProfile: null as UserProfile | null,
+  })) as { userProfile: UserProfile | null };
+  return userProfile;
 }
 
 
@@ -61,7 +65,10 @@ export async function isLoggedIn(): Promise<boolean> {
  * Check if current user is a guest (needs email verification)
  */
 export async function isGuestUser(): Promise<boolean> {
-  const result = await chrome.storage.local.get(['isGuest', 'refreshToken']);
+  const result = await chrome.storage.local.get({
+    isGuest: false,
+    refreshToken: null as string | null,
+  });
   // Guest if isGuest flag is true OR no refreshToken
   return result.isGuest === true || !result.refreshToken;
 }

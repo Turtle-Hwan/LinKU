@@ -28,6 +28,8 @@ tooling/
 
 ## Local development
 
+Use Node 24 LTS and pnpm 10.32.1 for local work. `.nvmrc`, `.node-version`, and `engines` are aligned to the same baseline.
+
 ```bash
 pnpm install
 

@@ -14,6 +14,11 @@ const LIBRARY_BASE_URL = 'https://library.konkuk.ac.kr';
 const LIBRARY_API_URL = `${LIBRARY_BASE_URL}/pyxis-api`;
 const LIBRARY_TOKEN_STORAGE_KEY = 'libraryToken';
 
+interface StoredLibraryToken {
+  accessToken: string;
+  expireDate: string;
+}
+
 /**
  * 도서관 열람실 예약 페이지 URL 생성
  * @param roomId 열람실 ID
@@ -185,7 +190,9 @@ export async function getLibraryTokenFromStorage(): Promise<string | null> {
       return null;
     }
 
-    const result = await chrome.storage.local.get(LIBRARY_TOKEN_STORAGE_KEY);
+    const result = (await chrome.storage.local.get({
+      [LIBRARY_TOKEN_STORAGE_KEY]: null as StoredLibraryToken | null,
+    })) as Record<string, StoredLibraryToken | null>;
     const data = result[LIBRARY_TOKEN_STORAGE_KEY];
 
     if (!data?.accessToken) {

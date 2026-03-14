@@ -48,7 +48,7 @@ export const getStorage = <T>(key: string): Promise<T | undefined> => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {
-        resolve(data[key]);
+        resolve(data[key] as T | undefined);
       }
     });
   });

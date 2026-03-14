@@ -47,7 +47,7 @@ const ECampusCredential = () => {
   }, []);
 
   // 저장된 인증 정보 불러오기
-  const loadSavedCredentials = async () => {
+  async function loadSavedCredentials() {
     try {
       const credentials = await loadECampusCredentials();
 
@@ -65,7 +65,7 @@ const ECampusCredential = () => {
       console.error("[Settings] Load credentials error:", error);
       toast.error("인증 정보를 불러오는데 실패했습니다.");
     }
-  };
+  }
 
   // 인증 정보 저장하기
   const saveCredentials = async () => {
@@ -230,9 +230,11 @@ const GoogleOAuthSection = () => {
       setUserProfile(profile);
 
       // Load verified email if exists
-      const storage = await chrome.storage.local.get(['kuMail']);
-      if (storage.kuMail) {
-        setVerifiedEmail(storage.kuMail);
+      const { kuMail } = (await chrome.storage.local.get({
+        kuMail: null as string | null,
+      })) as { kuMail: string | null };
+      if (kuMail) {
+        setVerifiedEmail(kuMail);
       }
     }
   };
@@ -285,9 +287,11 @@ const GoogleOAuthSection = () => {
         setUserProfile(result.response.profile);
 
         // Load verified email
-        const storage = await chrome.storage.local.get(['kuMail']);
-        if (storage.kuMail) {
-          setVerifiedEmail(storage.kuMail);
+        const { kuMail } = (await chrome.storage.local.get({
+          kuMail: null as string | null,
+        })) as { kuMail: string | null };
+        if (kuMail) {
+          setVerifiedEmail(kuMail);
         }
 
         toast.success("회원가입 완료!", {

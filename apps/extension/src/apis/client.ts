@@ -77,8 +77,10 @@ export const ENDPOINTS = {
  * Using chrome.storage.local for persistent token storage
  */
 async function getAccessToken(): Promise<string | null> {
-  const result = await chrome.storage.local.get(["accessToken"]);
-  return result.accessToken || null;
+  const { accessToken } = (await chrome.storage.local.get({
+    accessToken: null as string | null,
+  })) as { accessToken: string | null };
+  return accessToken;
 }
 
 async function clearAccessToken(): Promise<void> {
