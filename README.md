@@ -35,6 +35,7 @@ pnpm install
 
 # extension
 pnpm dev:extension
+pnpm build:extension:validate
 pnpm build:extension:local
 
 # web
@@ -47,7 +48,7 @@ pnpm typecheck
 pnpm validate
 ```
 
-`pnpm build` runs the public/authenticated web build plus a non-version-bumping extension build.
+`pnpm build` runs the public/authenticated web build plus a production-mode extension validation build without bumping the manifest version.
 
 ## Environment variables
 

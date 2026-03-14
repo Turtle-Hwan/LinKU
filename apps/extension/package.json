@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite --config ./vite.config.ts --mode development",
     "build": "node ./scripts/updateVersion.js && tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --mode production",
+    "build:validate": "tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --mode production",
     "build:local": "tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --mode development",
     "watch": "node ./scripts/updateVersion.js && tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --watch --mode production",
     "watch:local": "tsc -b ./tsconfig.json && vite build --config ./vite.config.ts --watch --mode development",

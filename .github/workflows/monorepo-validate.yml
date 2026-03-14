@@ -9,6 +9,11 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SITE_URL: https://www.linku.xxx
+      NEXT_PUBLIC_EXTENSION_URL: https://chromewebstore.google.com/detail/replace-with-extension-id
+      NEXT_PUBLIC_EXTENSION_ID: replace-with-extension-id
+      AUTH_SECRET: ci-build-only-auth-secret
 
     steps:
       - name: Checkout
@@ -44,4 +49,4 @@ jobs:
           VITE_WEB_BASE_URL: https://www.linku.xxx
           VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-        run: pnpm --filter @linku/extension build:local
+        run: pnpm --filter @linku/extension build:validate

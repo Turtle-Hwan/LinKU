@@ -8,6 +8,7 @@ on:
       - "apps/web/**"
       - "packages/ui/**"
       - "packages/core/**"
+      - "packages/platform/**"
       - "packages/seo/**"
       - "packages/config/**"
       - "packages/shared-types/**"
@@ -43,6 +44,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate web build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://www.linku.xxx
+          NEXT_PUBLIC_EXTENSION_URL: https://chromewebstore.google.com/detail/replace-with-extension-id
+          NEXT_PUBLIC_EXTENSION_ID: replace-with-extension-id
+          AUTH_SECRET: ci-build-only-auth-secret
         run: pnpm --filter @linku/web build
 
       - name: Pull Vercel project settings

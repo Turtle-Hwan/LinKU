@@ -4,6 +4,10 @@ import { readAuthEnv } from "@linku/config";
 
 const authEnv = readAuthEnv(process.env);
 
+if (!authEnv.authSecret) {
+  throw new Error("AUTH_SECRET is required to initialize the LinKU web auth layer.");
+}
+
 export const authRuntime = {
   googleConfigured:
     authEnv.googleClientId.length > 0 && authEnv.googleClientSecret.length > 0,
@@ -22,7 +26,7 @@ const providers = authRuntime.googleConfigured
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   trustHost: true,
-  secret: authEnv.authSecret || "linku-development-auth-secret",
+  secret: authEnv.authSecret,
   session: {
     strategy: "jwt",
   },
