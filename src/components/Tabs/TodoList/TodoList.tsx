@@ -14,6 +14,7 @@ import {
   deleteCustomTodo,
   toggleCustomTodo,
 } from "@/utils/todo/customTodo";
+import { syncTodoCount } from "@/utils/todo/count";
 import TodoItem from "./TodoItem";
 import TodoAddButton from "./TodoAddButton";
 import LoginDialog from "./LoginDialog";
@@ -171,6 +172,14 @@ const TodoList = () => {
   useEffect(() => {
     loadTodoList();
   }, [loadTodoList]);
+
+  // Keep shared todoCount in sync for popup badge and extension badge
+  useEffect(() => {
+    void syncTodoCount({
+      ecampusTodos,
+      customTodos,
+    });
+  }, [ecampusTodos, customTodos]);
 
   // 정렬 방식 불러오기
   useEffect(() => {
