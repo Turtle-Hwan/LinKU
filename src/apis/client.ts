@@ -6,6 +6,7 @@
 import type { ApiResponse, RequestConfig } from "../types/api";
 import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
+import { getChromeApi, getStorage, removeStorage } from "../utils/chrome";
 import { debugLog, errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
 
 /**
@@ -79,13 +80,12 @@ export const ENDPOINTS = {
  * Using chrome.storage.local for persistent token storage
  */
 async function getAccessToken(): Promise<string | null> {
-  const result = await chrome.storage.local.get(["accessToken"]);
-  const token = result.accessToken;
+  const token = await getStorage<unknown>("accessToken");
   return typeof token === "string" ? token : null;
 }
 
 async function clearAccessToken(): Promise<void> {
-  await chrome.storage.local.remove([
+  await removeStorage([
     "accessToken",
     "refreshToken",
     "guestToken",
@@ -107,10 +107,15 @@ async function handleTokenExpired(): Promise<boolean> {
 
   debugLog("[API Client] Token expired (5004), attempting silent reauth...");
 
+  const chromeApi = getChromeApi();
+  if (!chromeApi?.runtime?.sendMessage) {
+    return false;
+  }
+
   isReauthenticating = true;
   reauthPromise = (async () => {
     try {
-      const response = await chrome.runtime.sendMessage<
+      const response = await chromeApi.runtime.sendMessage<
         { type: BackgroundMessageType.SILENT_REAUTH },
         SilentReauthResponse
       >({

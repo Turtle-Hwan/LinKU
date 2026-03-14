@@ -41,7 +41,7 @@
  */
 
 import { getOrCreateClientId } from "./clientId";
-import { getStorage, setStorage } from "./chrome";
+import { getStorage, isExtensionEnvironment, setStorage } from "./chrome";
 import { debugLog, warnLog, errorLog } from "@/utils/logger";
 
 /** GA4 이벤트 파라미터 타입 — string, number, boolean만 허용 */
@@ -124,6 +124,13 @@ async function sendGAEvent(
   eventName: string,
   eventParams: Record<string, GAEventParam> = {}
 ): Promise<void> {
+  if (!isExtensionEnvironment()) {
+    if (DEBUG_MODE) {
+      debugLog("[GA] Skipping event outside extension context:", eventName);
+    }
+    return;
+  }
+
   if (!API_SECRET) {
     warnLog("[GA] API Secret not configured. Event not sent:", eventName);
     return;
