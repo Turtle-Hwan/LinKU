@@ -5,47 +5,9 @@
 
 import { getStorage, setStorage } from "../chrome";
 import { CustomTodoItem } from "@/types/todo";
+import { calculateDDay } from "./dateFormat";
 
 const CUSTOM_TODOS_KEY = "customTodos";
-
-/**
- * D-Day 계산 함수
- * @param dueDate 마감 날짜 (YYYY.MM.DD 또는 YYYY-MM-DD 형식)
- * @param _dueTime 마감 시간 (HH:mm 형식) - D-Day 계산에는 사용하지 않음 (자정 기준)
- * @returns D-Day 문자열 (예: "D-3", "D-Day", "D+2")
- */
-function calculateDDay(dueDate: string, _dueTime: string): string {
-  try {
-    // 날짜 형식 정규화: YYYY-MM-DD → YYYY.MM.DD
-    const normalizedDate = dueDate.replace(/-/g, ".");
-    const [year, month, day] = normalizedDate.split(".").map(Number);
-
-    // 유효성 검사
-    if (!year || !month || !day) {
-      console.error(`[calculateDDay] Invalid date format: ${dueDate}`);
-      return "D-Day";
-    }
-
-    // 자정 기준으로 날짜 차이 계산
-    const dueDay = new Date(year, month - 1, day);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const diffTime = dueDay.getTime() - today.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return "D-Day";
-    } else if (diffDays > 0) {
-      return `D-${diffDays}`;
-    } else {
-      return `D+${Math.abs(diffDays)}`;
-    }
-  } catch (error) {
-    console.error(`[calculateDDay] Error calculating D-Day:`, error);
-    return "D-Day";
-  }
-}
 
 /**
  * 모든 사용자 정의 Todo 가져오기
@@ -58,21 +20,15 @@ export async function getCustomTodos(): Promise<CustomTodoItem[]> {
       return [];
     }
 
-    // 마이그레이션: 기존 todo에 새 필드가 없다면 추가
-    let needsMigration = false;
-    const migratedTodos = todos.map((todo) => {
-      // 새 필드가 이미 있다면 그대로 반환
-      if (todo.dDay && todo.dueTime && todo.dueDate.includes(".")) {
-        return todo;
-      }
-
-      needsMigration = true;
-
+    // 매번 D-Day를 재계산하여 반환
+    const updatedTodos = todos.map((todo) => {
       // 날짜 형식 정규화: YYYY-MM-DD → YYYY.MM.DD
       const normalizedDate = todo.dueDate.replace(/-/g, ".");
 
       // 기존 dueDate가 시간을 포함하지 않으면 기본 시간 설정
       const dueTime = todo.dueTime || "23:59";
+
+      // D-Day를 매번 재계산
       const dDay = calculateDDay(normalizedDate, dueTime);
 
       return {
@@ -84,14 +40,7 @@ export async function getCustomTodos(): Promise<CustomTodoItem[]> {
       };
     });
 
-    // 마이그레이션이 필요했다면 저장
-    if (needsMigration) {
-      await setStorage({
-        [CUSTOM_TODOS_KEY]: migratedTodos,
-      });
-    }
-
-    return migratedTodos;
+    return updatedTodos;
   } catch (error) {
     console.error("[CustomTodo] Error getting custom todos:", error);
     return [];
