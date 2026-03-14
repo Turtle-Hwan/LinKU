@@ -4,16 +4,20 @@
   "type": "module",
   "packageManager": "pnpm@10.4.0",
   "scripts": {
-    "dev": "pnpm --filter @linku/extension dev",
-    "build": "pnpm --filter @linku/extension build",
-    "build:local": "pnpm --filter @linku/extension build:local",
+    "dev": "pnpm run dev:extension",
+    "dev:extension": "pnpm --filter @linku/extension dev",
+    "dev:web": "pnpm --filter @linku/web dev",
+    "build": "pnpm run build:web && pnpm run build:extension:local",
+    "build:web": "pnpm --filter @linku/web build",
+    "build:extension": "pnpm --filter @linku/extension build",
+    "build:extension:local": "pnpm --filter @linku/extension build:local",
+    "build:local": "pnpm run build:extension:local",
     "watch": "pnpm --filter @linku/extension watch",
     "watch:local": "pnpm --filter @linku/extension watch:local",
-    "build:gh-pages": "pnpm --filter @linku/extension build:gh-pages",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "preview": "pnpm --filter @linku/extension preview",
-    "deploy": "pnpm --filter @linku/extension deploy"
+    "preview:extension": "pnpm --filter @linku/extension preview",
+    "validate": "pnpm lint && pnpm typecheck && pnpm build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
