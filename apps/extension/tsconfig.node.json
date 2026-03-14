@@ -1,0 +1,9 @@
+{
+  "extends": "../../tooling/typescript/base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../../node_modules/.tmp/apps-extension-tsconfig.node.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2023"]
+  },
+  "include": ["./vite.config.ts"]
+}
