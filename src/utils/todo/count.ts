@@ -1,7 +1,6 @@
-import { eCampusLoginAPI, eCampusTodoListAPI } from "@/apis";
 import { type ECampusTodoItem } from "@/types/todo";
+import { loadECampusTodos } from "@/utils/ecampus/todos";
 import { setStorage } from "@/utils/chrome";
-import { loadECampusCredentials } from "@/utils/credentials";
 
 import { getCustomTodos } from "./customTodo";
 
@@ -13,36 +12,12 @@ interface SyncTodoCountOptions {
 export const TODO_COUNT_REFRESH_EVENT = "todo-count:refresh";
 
 const loadECampusTodosForCount = async (): Promise<ECampusTodoItem[]> => {
-  try {
-    const initialResult = await eCampusTodoListAPI();
-    if (initialResult.success && initialResult.data?.todoList) {
-      return initialResult.data.todoList;
-    }
+  const result = await loadECampusTodos({
+    allowAutoLogin: true,
+    clearExpiredCredentials: true,
+  });
 
-    if (!initialResult.needLogin) {
-      return [];
-    }
-
-    const credentials = await loadECampusCredentials();
-    if (!credentials) {
-      return [];
-    }
-
-    const loginResult = await eCampusLoginAPI(credentials.id, credentials.password);
-    if (!loginResult.success) {
-      return [];
-    }
-
-    const todoResult = await eCampusTodoListAPI();
-    if (todoResult.success && todoResult.data?.todoList) {
-      return todoResult.data.todoList;
-    }
-
-    return [];
-  } catch (error) {
-    console.error("[TodoCount] Failed to load eCampus todos:", error);
-    return [];
-  }
+  return result.success ? result.todos : [];
 };
 
 export const syncTodoCount = async (
