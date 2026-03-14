@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import {
   createWorkspaceCookieResponse,
+  getWorkspaceOwnerKey,
   readWorkspaceState,
   type LinkuUserSettings,
 } from "@/lib/workspace-store";
@@ -17,7 +18,8 @@ export async function GET() {
     return unauthorized();
   }
 
-  const state = await readWorkspaceState();
+  const ownerKey = getWorkspaceOwnerKey(session);
+  const state = await readWorkspaceState(ownerKey);
   return NextResponse.json(state.settings);
 }
 
@@ -28,8 +30,9 @@ export async function PATCH(request: Request) {
     return unauthorized();
   }
 
+  const ownerKey = getWorkspaceOwnerKey(session);
   const body = (await request.json()) as Partial<LinkuUserSettings>;
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(ownerKey);
 
   const nextSettings: LinkuUserSettings = {
     defaultLandingRoute:
@@ -51,5 +54,5 @@ export async function PATCH(request: Request) {
     settings: nextSettings,
   };
 
-  return createWorkspaceCookieResponse(nextState, nextState.settings);
+  return createWorkspaceCookieResponse(ownerKey, nextState, nextState.settings);
 }

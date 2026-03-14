@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createPageMetadata } from "@linku/seo";
+import { auth } from "@/auth";
 import { appNavLinks, siteEnv } from "@/lib/site";
-import { readWorkspaceState } from "@/lib/workspace-store";
+import { getWorkspaceOwnerKey, readWorkspaceState } from "@/lib/workspace-store";
 
 export const metadata = createPageMetadata({
   title: "Dashboard",
@@ -12,7 +13,7 @@ export const metadata = createPageMetadata({
 });
 
 export default async function DashboardPage() {
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(getWorkspaceOwnerKey(await auth()));
 
   const summaryCards = [
     { label: "Favorites", value: String(state.favorites.length) },

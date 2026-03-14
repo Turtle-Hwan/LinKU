@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import {
   createWorkspaceCookieResponse,
+  getWorkspaceOwnerKey,
   readWorkspaceState,
   type PersonalLinkItem,
 } from "@/lib/workspace-store";
@@ -17,7 +18,8 @@ export async function GET() {
     return unauthorized();
   }
 
-  const state = await readWorkspaceState();
+  const ownerKey = getWorkspaceOwnerKey(session);
+  const state = await readWorkspaceState(ownerKey);
   return NextResponse.json(state.links);
 }
 
@@ -28,6 +30,7 @@ export async function POST(request: Request) {
     return unauthorized();
   }
 
+  const ownerKey = getWorkspaceOwnerKey(session);
   const body = (await request.json()) as Partial<PersonalLinkItem>;
   const label = body.label?.trim();
   const url = body.url?.trim();
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Label and URL are required." }, { status: 400 });
   }
 
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(ownerKey);
   const nextLinks = [
     {
       id: crypto.randomUUID(),
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
     links: nextLinks,
   };
 
-  return createWorkspaceCookieResponse(nextState, nextState.links);
+  return createWorkspaceCookieResponse(ownerKey, nextState, nextState.links);
 }
 
 export async function DELETE(request: Request) {
@@ -61,18 +64,19 @@ export async function DELETE(request: Request) {
     return unauthorized();
   }
 
+  const ownerKey = getWorkspaceOwnerKey(session);
   const body = (await request.json()) as { id?: string };
 
   if (!body.id) {
     return NextResponse.json({ message: "Link id is required." }, { status: 400 });
   }
 
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(ownerKey);
 
   const nextState = {
     ...state,
     links: state.links.filter((item) => item.id !== body.id),
   };
 
-  return createWorkspaceCookieResponse(nextState, nextState.links);
+  return createWorkspaceCookieResponse(ownerKey, nextState, nextState.links);
 }

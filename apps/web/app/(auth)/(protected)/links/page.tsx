@@ -1,7 +1,8 @@
 import { createPageMetadata } from "@linku/seo";
+import { auth } from "@/auth";
 import { LinksManager } from "@/components/links-manager";
 import { siteEnv } from "@/lib/site";
-import { readWorkspaceState } from "@/lib/workspace-store";
+import { getWorkspaceOwnerKey, readWorkspaceState } from "@/lib/workspace-store";
 
 export const metadata = createPageMetadata({
   title: "Links",
@@ -12,7 +13,7 @@ export const metadata = createPageMetadata({
 });
 
 export default async function LinksPage() {
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(getWorkspaceOwnerKey(await auth()));
 
   return (
     <div className="space-y-8">

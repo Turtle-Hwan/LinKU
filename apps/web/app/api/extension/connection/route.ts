@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createWorkspaceCookieResponse, readWorkspaceState } from "@/lib/workspace-store";
+import {
+  createWorkspaceCookieResponse,
+  getWorkspaceOwnerKey,
+  readWorkspaceState,
+} from "@/lib/workspace-store";
 
 function unauthorized() {
   return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -13,7 +17,8 @@ export async function GET() {
     return unauthorized();
   }
 
-  const state = await readWorkspaceState();
+  const ownerKey = getWorkspaceOwnerKey(session);
+  const state = await readWorkspaceState(ownerKey);
   return NextResponse.json(state.extension);
 }
 
@@ -24,11 +29,12 @@ export async function PATCH(request: Request) {
     return unauthorized();
   }
 
+  const ownerKey = getWorkspaceOwnerKey(session);
   const body = (await request.json()) as {
     connected?: boolean;
     extensionId?: string;
   };
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(ownerKey);
 
   const nextState = {
     ...state,
@@ -39,5 +45,5 @@ export async function PATCH(request: Request) {
     },
   };
 
-  return createWorkspaceCookieResponse(nextState, nextState.extension);
+  return createWorkspaceCookieResponse(ownerKey, nextState, nextState.extension);
 }

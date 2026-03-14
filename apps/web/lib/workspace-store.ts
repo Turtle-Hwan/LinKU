@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import type { Session } from "next-auth";
 import type { ExtensionConnectionState } from "@linku/shared-types";
 
 export interface FavoriteItem {
@@ -29,6 +30,7 @@ export interface LinkuWorkspaceState {
 
 const WORKSPACE_COOKIE_NAME = "linku_workspace";
 const WORKSPACE_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+const ANONYMOUS_WORKSPACE_OWNER = "anonymous-workspace";
 
 const DEFAULT_WORKSPACE_STATE: LinkuWorkspaceState = {
   favorites: [],
@@ -125,39 +127,93 @@ function normalizeState(value: unknown): LinkuWorkspaceState {
   };
 }
 
-export function parseWorkspaceState(rawValue?: string | null): LinkuWorkspaceState {
+interface StoredWorkspaceState {
+  ownerKey: string;
+  state: LinkuWorkspaceState;
+}
+
+type WorkspaceSession = Pick<Session, "user"> | null | undefined;
+
+function isStoredWorkspaceState(value: unknown): value is StoredWorkspaceState {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as StoredWorkspaceState).ownerKey === "string" &&
+    "state" in value
+  );
+}
+
+export function getWorkspaceOwnerKey(session: WorkspaceSession): string {
+  const candidate = session?.user?.id ?? session?.user?.email;
+
+  return typeof candidate === "string" && candidate.trim().length > 0
+    ? candidate.trim()
+    : ANONYMOUS_WORKSPACE_OWNER;
+}
+
+export function parseWorkspaceState(
+  rawValue: string | null | undefined,
+  ownerKey: string,
+): LinkuWorkspaceState {
+  if (ownerKey === ANONYMOUS_WORKSPACE_OWNER) {
+    return cloneDefaultState();
+  }
+
   if (!rawValue) {
     return cloneDefaultState();
   }
 
   try {
-    return normalizeState(JSON.parse(rawValue));
+    const parsed = JSON.parse(rawValue) as unknown;
+
+    if (!isStoredWorkspaceState(parsed)) {
+      return cloneDefaultState();
+    }
+
+    if (parsed.ownerKey !== ownerKey) {
+      return cloneDefaultState();
+    }
+
+    return normalizeState(parsed.state);
   } catch {
     return cloneDefaultState();
   }
 }
 
-export async function readWorkspaceState(): Promise<LinkuWorkspaceState> {
+export async function readWorkspaceState(ownerKey: string): Promise<LinkuWorkspaceState> {
   const cookieStore = await cookies();
   const rawValue = cookieStore.get(WORKSPACE_COOKIE_NAME)?.value;
 
-  return parseWorkspaceState(rawValue);
+  return parseWorkspaceState(rawValue, ownerKey);
 }
 
 export function createWorkspaceCookieResponse<TPayload>(
+  ownerKey: string,
   state: LinkuWorkspaceState,
   payload: TPayload,
   init?: ResponseInit,
 ) {
   const response = NextResponse.json(payload, init);
 
-  response.cookies.set(WORKSPACE_COOKIE_NAME, JSON.stringify(state), {
+  response.cookies.set(
+    WORKSPACE_COOKIE_NAME,
+    JSON.stringify({
+      ownerKey,
+      state,
+    } satisfies StoredWorkspaceState),
+    {
     httpOnly: true,
     maxAge: WORKSPACE_COOKIE_MAX_AGE,
     sameSite: "lax",
     path: "/",
     secure: process.env.NODE_ENV === "production",
-  });
+    },
+  );
 
   return response;
+}
+
+export async function clearWorkspaceState() {
+  const cookieStore = await cookies();
+  cookieStore.delete(WORKSPACE_COOKIE_NAME);
 }

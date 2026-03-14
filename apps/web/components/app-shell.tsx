@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 import { APP_NAV_LINKS } from "@linku/core";
 import { Button } from "@linku/ui";
 import { signOut } from "@/auth";
+import { clearWorkspaceState } from "@/lib/workspace-store";
 
 interface AppShellProps {
   session: Session;
@@ -15,6 +16,7 @@ export function AppShell({ session, children }: AppShellProps) {
   async function handleSignOut() {
     "use server";
 
+    await clearWorkspaceState();
     await signOut({ redirectTo: "/" });
   }
 

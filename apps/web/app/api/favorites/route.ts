@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import {
   createWorkspaceCookieResponse,
+  getWorkspaceOwnerKey,
   readWorkspaceState,
   type FavoriteItem,
 } from "@/lib/workspace-store";
@@ -17,7 +18,8 @@ export async function GET() {
     return unauthorized();
   }
 
-  const state = await readWorkspaceState();
+  const ownerKey = getWorkspaceOwnerKey(session);
+  const state = await readWorkspaceState(ownerKey);
   return NextResponse.json(state.favorites);
 }
 
@@ -28,6 +30,7 @@ export async function POST(request: Request) {
     return unauthorized();
   }
 
+  const ownerKey = getWorkspaceOwnerKey(session);
   const body = (await request.json()) as Partial<FavoriteItem>;
   const title = body.title?.trim();
   const path = body.path?.trim();
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Title and path are required." }, { status: 400 });
   }
 
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(ownerKey);
   const nextFavorites = [
     {
       id: crypto.randomUUID(),
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
     favorites: nextFavorites,
   };
 
-  return createWorkspaceCookieResponse(nextState, nextState.favorites);
+  return createWorkspaceCookieResponse(ownerKey, nextState, nextState.favorites);
 }
 
 export async function DELETE(request: Request) {
@@ -61,18 +64,19 @@ export async function DELETE(request: Request) {
     return unauthorized();
   }
 
+  const ownerKey = getWorkspaceOwnerKey(session);
   const body = (await request.json()) as { id?: string };
 
   if (!body.id) {
     return NextResponse.json({ message: "Favorite id is required." }, { status: 400 });
   }
 
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(ownerKey);
 
   const nextState = {
     ...state,
     favorites: state.favorites.filter((item) => item.id !== body.id),
   };
 
-  return createWorkspaceCookieResponse(nextState, nextState.favorites);
+  return createWorkspaceCookieResponse(ownerKey, nextState, nextState.favorites);
 }

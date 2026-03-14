@@ -1,8 +1,9 @@
 import { SERVICES } from "@linku/core";
 import { createPageMetadata } from "@linku/seo";
+import { auth } from "@/auth";
 import { FavoritesManager } from "@/components/favorites-manager";
 import { siteEnv } from "@/lib/site";
-import { readWorkspaceState } from "@/lib/workspace-store";
+import { getWorkspaceOwnerKey, readWorkspaceState } from "@/lib/workspace-store";
 
 export const metadata = createPageMetadata({
   title: "Favorites",
@@ -13,7 +14,7 @@ export const metadata = createPageMetadata({
 });
 
 export default async function FavoritesPage() {
-  const state = await readWorkspaceState();
+  const state = await readWorkspaceState(getWorkspaceOwnerKey(await auth()));
 
   return (
     <div className="space-y-8">
