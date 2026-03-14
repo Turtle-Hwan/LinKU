@@ -1,11 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, ListFilter } from "lucide-react";
 import { TodoItem } from "@/types/todo";
+import type { FilterMode, SortMethod } from "@/hooks/useTodoSettings";
 import TodoAddButton from "./TodoAddButton";
 import TodoExportButton from "./TodoExportButton";
-
-type SortMethod = 'dday-asc' | 'dday-desc';
-type FilterMode = 'all' | 'incomplete';
 
 interface TodoControlBarProps {
   sortMethod: SortMethod;
