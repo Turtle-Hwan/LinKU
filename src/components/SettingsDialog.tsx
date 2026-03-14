@@ -28,6 +28,7 @@ import {
 import { eCampusLoginAPI } from "@/apis";
 import { Info, Palette, LogOut, Mail, User } from "lucide-react";
 import { toast } from "sonner";
+import { getChromeApi, getStorage } from "@/utils/chrome";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
 
 interface SettingsDialogProps {
@@ -230,9 +231,9 @@ const GoogleOAuthSection = () => {
       setUserProfile(profile);
 
       // Load verified email if exists
-      const storage = await chrome.storage.local.get(['kuMail']);
-      if (storage.kuMail) {
-        setVerifiedEmail(storage.kuMail);
+      const kuMail = await getStorage<string>('kuMail');
+      if (kuMail) {
+        setVerifiedEmail(kuMail);
       }
     }
   };
@@ -285,9 +286,9 @@ const GoogleOAuthSection = () => {
         setUserProfile(result.response.profile);
 
         // Load verified email
-        const storage = await chrome.storage.local.get(['kuMail']);
-        if (storage.kuMail) {
-          setVerifiedEmail(storage.kuMail);
+        const kuMail = await getStorage<string>('kuMail');
+        if (kuMail) {
+          setVerifiedEmail(kuMail);
         }
 
         toast.success("회원가입 완료!", {
@@ -439,10 +440,16 @@ const TemplateEditorSection = () => {
   const handleOpenEditor = () => {
     sendButtonClick("open_template_editor", "settings_dialog");
 
-    // 새 탭에서 템플릿 에디터 열기
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('index.html#/editor')
-    });
+    const chromeApi = getChromeApi();
+    const editorUrl = chromeApi?.runtime?.getURL
+      ? chromeApi.runtime.getURL('index.html#/editor')
+      : `${window.location.origin}/#/editor`;
+
+    if (chromeApi?.tabs?.create) {
+      chromeApi.tabs.create({ url: editorUrl });
+    } else {
+      window.open(editorUrl, "_blank");
+    }
 
     toast.success("템플릿 에디터를 새 탭에서 열었습니다.");
   };
@@ -450,10 +457,16 @@ const TemplateEditorSection = () => {
   const handleOpenTemplateList = () => {
     sendButtonClick("open_template_list", "settings_dialog");
 
-    // 새 탭에서 템플릿 목록 열기
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('index.html#/templates')
-    });
+    const chromeApi = getChromeApi();
+    const templateListUrl = chromeApi?.runtime?.getURL
+      ? chromeApi.runtime.getURL('index.html#/templates')
+      : `${window.location.origin}/#/templates`;
+
+    if (chromeApi?.tabs?.create) {
+      chromeApi.tabs.create({ url: templateListUrl });
+    } else {
+      window.open(templateListUrl, "_blank");
+    }
 
     toast.success("템플릿 목록을 새 탭에서 열었습니다.");
   };
