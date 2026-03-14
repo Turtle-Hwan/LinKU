@@ -3,6 +3,7 @@ import {
   eCampusTodoListAPI,
   eCampusGoLectureAPI,
   eCampusLoginAPI,
+  LOCAL_SAMPLE_LECTURE_URL,
   ECampusTodoResponse,
 } from "@/apis";
 import { TodoItem as TodoItemType, ECampusTodoItem } from "@/types/todo";
@@ -229,7 +230,9 @@ const TodoList = () => {
       setIsLoading(true);
       const result = await eCampusGoLectureAPI(seq, kj, gubun);
 
-      if (result.success) {
+      if (result.success && result.message === LOCAL_SAMPLE_LECTURE_URL) {
+        toast.info("로컬 예시 eCampus 항목입니다. 실제 강의 페이지로는 이동하지 않습니다.");
+      } else if (result.success) {
         // 성공 시 해당 URL로 이동 (이캠퍼스 페이지 열기)
         const lectureUrl = `https://ecampus.konkuk.ac.kr${result.message}`;
         window.open(lectureUrl, "_blank");
