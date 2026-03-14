@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { eCampusLoginAPI, ECampusLoginResponse } from "@/apis/eCampusAPI";
+import { eCampusLoginAPI, ECampusLoginResponse } from "@/apis";
 import { saveECampusCredentials } from "@/utils/credentials";
 
 interface LoginDialogProps {

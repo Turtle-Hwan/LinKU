@@ -4,7 +4,7 @@ import {
   eCampusGoLectureAPI,
   eCampusLoginAPI,
   ECampusTodoResponse,
-} from "@/apis/eCampusAPI";
+} from "@/apis";
 import { TodoItem as TodoItemType, ECampusTodoItem } from "@/types/todo";
 import { getStorage, setStorage } from "@/utils/chrome";
 import { loadECampusCredentials } from "@/utils/credentials";

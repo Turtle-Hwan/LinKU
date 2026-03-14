@@ -6,6 +6,9 @@ import svgr from "vite-plugin-svgr";
 import fs from "fs";
 
 export default defineConfig(({ mode }) => {
+  // Chrome Extension build configuration
+  const isChromeExtension = mode !== "gh-pages";
+
   return {
     plugins: [
       react(),
@@ -28,6 +31,14 @@ export default defineConfig(({ mode }) => {
       // public 폴더의 파일들을 dist로 복사
       copyPublicDir: true,
       rollupOptions: {
+        input: isChromeExtension
+          ? {
+              // Popup entry point
+              main: path.resolve(__dirname, "index.html"),
+              // Background service worker entry point
+              "background/index": path.resolve(__dirname, "src/background/index.ts"),
+            }
+          : undefined,
         output: {
           assetFileNames: "[name][extname]",
           chunkFileNames: "[name].js",

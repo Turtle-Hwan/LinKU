@@ -1,16 +1,18 @@
 import React, { Suspense, useState } from "react";
+import { Outlet } from "react-router-dom";
 import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
-import { Search, Settings } from "lucide-react";
+import { Search, Settings, FlaskConical } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
+import LabsDialog from "./LabsDialog";
 import { sendButtonClick, sendGAEvent } from "@/utils/analytics";
 
-const MainLayout = ({ children }) => {
+const MainLayout = () => {
   return (
     <div className="w-[500px] h-[600px] flex flex-col bg-white overflow-hidden">
       <MainLayout.Header />
-      {children}
+      <Outlet />
       <MainLayout.Banner />
     </div>
   );
@@ -19,6 +21,7 @@ const MainLayout = ({ children }) => {
 const Header = () => {
   const [text, setText] = React.useState<string>("");
   const [showSettings, setShowSettings] = useState(false);
+  const [showLabs, setShowLabs] = useState(false);
 
   return (
     <header className="px-4 py-3">
@@ -50,7 +53,14 @@ const Header = () => {
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <FlaskConical
+            className="w-5 h-5 text-gray-600 cursor-pointer"
+            onClick={() => {
+              sendButtonClick("labs_icon", "header");
+              setShowLabs(true);
+            }}
+          />
           <Settings
             className="w-5 h-5 text-gray-600 cursor-pointer"
             onClick={() => {
@@ -67,6 +77,9 @@ const Header = () => {
           />
         </div>
       </div>
+
+      {/* 실험실 다이얼로그 */}
+      <LabsDialog open={showLabs} onOpenChange={setShowLabs} />
 
       {/* 설정 다이얼로그 */}
       <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
