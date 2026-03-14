@@ -4,8 +4,12 @@ export function createPingMessage(): ExtensionBridgeMessage {
   return { type: "PING" };
 }
 
+export function createOpenWebRouteMessage(path: string): ExtensionBridgeMessage {
+  return { type: "OPEN_WEB_ROUTE", path };
+}
+
 export function createOpenAppRouteMessage(path: string): ExtensionBridgeMessage {
-  return { type: "OPEN_APP_ROUTE", path };
+  return createOpenWebRouteMessage(path);
 }
 
 export function isExtensionBridgeMessage(

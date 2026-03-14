@@ -1,0 +1,11 @@
+{
+  "extends": "../../tooling/typescript/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@linku/config": ["../config/src/index.ts"]
+    },
+    "tsBuildInfoFile": "../../node_modules/.tmp/packages-seo.tsbuildinfo"
+  },
+  "include": ["src"]
+}

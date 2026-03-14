@@ -1,5 +1,4 @@
 import {
-  DEFAULT_APP_URL,
   DEFAULT_EXTENSION_URL,
   DEFAULT_SITE_URL,
 } from "@linku/config";
@@ -16,8 +15,8 @@ export function buildSiteUrl(path = "/", siteUrl = DEFAULT_SITE_URL): string {
   return new URL(path, ensureTrailingSlash(normalizeBaseUrl(siteUrl))).toString();
 }
 
-export function buildAppUrl(path = "/", appUrl = DEFAULT_APP_URL): string {
-  return new URL(path, ensureTrailingSlash(normalizeBaseUrl(appUrl))).toString();
+export function buildWebUrl(path = "/", siteUrl = DEFAULT_SITE_URL): string {
+  return buildSiteUrl(path, siteUrl);
 }
 
 export function buildInstallUrl(extensionUrl = DEFAULT_EXTENSION_URL): string {
