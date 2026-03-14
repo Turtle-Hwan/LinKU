@@ -3,10 +3,11 @@ import { Outlet } from "react-router-dom";
 import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
-import { Search, Settings, FlaskConical } from "lucide-react";
+import { Globe, Search, Settings, FlaskConical } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 import LabsDialog from "./LabsDialog";
 import { sendButtonClick, sendGAEvent } from "@/utils/analytics";
+import { WEB_LOGIN_URL } from "@/constants/URL";
 
 const MainLayout = () => {
   return (
@@ -59,6 +60,13 @@ const Header = () => {
             onClick={() => {
               sendButtonClick("labs_icon", "header");
               setShowLabs(true);
+            }}
+          />
+          <Globe
+            className="w-5 h-5 text-gray-600 cursor-pointer"
+            onClick={() => {
+              sendButtonClick("web_login_icon", "header");
+              window.open(WEB_LOGIN_URL);
             }}
           />
           <Settings
