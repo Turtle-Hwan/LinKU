@@ -1,0 +1,12 @@
+{
+  "extends": "../../tooling/typescript/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@linku/config": ["../config/src/index.ts"],
+      "@linku/shared-types": ["../shared-types/src/index.ts"]
+    },
+    "tsBuildInfoFile": "../../node_modules/.tmp/packages-platform.tsbuildinfo"
+  },
+  "include": ["src"]
+}
