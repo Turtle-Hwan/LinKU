@@ -20,6 +20,14 @@ export async function AppShell({ session, children, locale }: AppShellProps) {
   const appNavLinks = translateAppNavLinks(t);
   const parityLinks = [
     {
+      href: "/labs",
+      title: locale === "ko" ? "Labs" : "Labs",
+      summary:
+        locale === "ko"
+          ? "도서관 좌석, 서버 시계, QR 생성기 같은 보조 도구를 엽니다"
+          : "Open library seats, server clock, and QR tools",
+    },
+    {
       href: "/templates",
       title: locale === "ko" ? "템플릿" : "Templates",
       summary:

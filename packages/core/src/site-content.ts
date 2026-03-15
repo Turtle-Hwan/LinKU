@@ -283,6 +283,7 @@ export const PUBLIC_ROUTE_PATHS = [
 export const AUTH_ROUTE_PATHS = [
   "/login",
   "/dashboard",
+  "/labs",
   "/templates",
   "/editor",
   "/gallery",
