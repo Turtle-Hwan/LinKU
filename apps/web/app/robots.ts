@@ -7,6 +7,9 @@ export default function robots() {
     .filter((locale) => locale !== routing.defaultLocale)
     .flatMap((locale) => [
       `/${locale}/dashboard`,
+      `/${locale}/templates`,
+      `/${locale}/editor`,
+      `/${locale}/gallery`,
       `/${locale}/links`,
       `/${locale}/favorites`,
       `/${locale}/settings`,
@@ -17,6 +20,9 @@ export default function robots() {
   return createRobots(siteEnv.siteUrl, [
     "/api/",
     "/dashboard",
+    "/templates",
+    "/editor",
+    "/gallery",
     "/links",
     "/favorites",
     "/settings",

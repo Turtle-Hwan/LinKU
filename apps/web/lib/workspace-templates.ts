@@ -1,0 +1,202 @@
+import {
+  DEFAULT_WORKSPACE_TEMPLATE,
+  WORKSPACE_TEMPLATE_PRESETS,
+  localizeWorkspaceText,
+  type WorkspaceLocale,
+  type WorkspaceTemplatePreset,
+} from "@linku/platform";
+
+export interface WorkspaceTemplateRecord {
+  id: string;
+  name: string;
+  description: string;
+  shortcutIds: string[];
+  source: "default" | "custom" | "gallery";
+  createdAt: string;
+  updatedAt: string;
+}
+
+const STORAGE_KEY = "linku.web.templates.v1";
+const SELECTED_TEMPLATE_KEY = "linku.web.selected-template.v1";
+
+function isTemplateRecord(value: unknown): value is WorkspaceTemplateRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as WorkspaceTemplateRecord).id === "string" &&
+    typeof (value as WorkspaceTemplateRecord).name === "string" &&
+    typeof (value as WorkspaceTemplateRecord).description === "string" &&
+    Array.isArray((value as WorkspaceTemplateRecord).shortcutIds) &&
+    typeof (value as WorkspaceTemplateRecord).source === "string" &&
+    typeof (value as WorkspaceTemplateRecord).createdAt === "string" &&
+    typeof (value as WorkspaceTemplateRecord).updatedAt === "string"
+  );
+}
+
+function canUseStorage() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function readStorageTemplates(): WorkspaceTemplateRecord[] {
+  if (!canUseStorage()) {
+    return [];
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(STORAGE_KEY);
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawValue) as unknown;
+    return Array.isArray(parsed) ? parsed.filter(isTemplateRecord) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStorageTemplates(templates: WorkspaceTemplateRecord[]) {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+}
+
+function createRecordFromPreset(
+  preset: WorkspaceTemplatePreset,
+  locale: WorkspaceLocale,
+  source: "default" | "gallery",
+): WorkspaceTemplateRecord {
+  const timestamp = new Date().toISOString();
+
+  return {
+    id: preset.id,
+    name: localizeWorkspaceText(preset.title, locale),
+    description: localizeWorkspaceText(preset.description, locale),
+    shortcutIds: preset.shortcutIds,
+    source,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+export function getDefaultWorkspaceTemplate(locale: WorkspaceLocale) {
+  return createRecordFromPreset(DEFAULT_WORKSPACE_TEMPLATE, locale, "default");
+}
+
+export function getGalleryWorkspaceTemplates(locale: WorkspaceLocale) {
+  return WORKSPACE_TEMPLATE_PRESETS.slice(1).map((preset) =>
+    createRecordFromPreset(preset, locale, "gallery"),
+  );
+}
+
+export function getStoredWorkspaceTemplates() {
+  return readStorageTemplates().sort((left, right) =>
+    right.updatedAt.localeCompare(left.updatedAt),
+  );
+}
+
+export function listWorkspaceTemplates(locale: WorkspaceLocale) {
+  return [getDefaultWorkspaceTemplate(locale), ...getStoredWorkspaceTemplates()];
+}
+
+export function getWorkspaceTemplateById(id: string, locale: WorkspaceLocale) {
+  if (id === DEFAULT_WORKSPACE_TEMPLATE.id) {
+    return getDefaultWorkspaceTemplate(locale);
+  }
+
+  return getStoredWorkspaceTemplates().find((item) => item.id === id) ?? null;
+}
+
+export function getSelectedWorkspaceTemplateId(locale: WorkspaceLocale) {
+  if (!canUseStorage()) {
+    return getDefaultWorkspaceTemplate(locale).id;
+  }
+
+  const rawValue = window.localStorage.getItem(SELECTED_TEMPLATE_KEY);
+  return rawValue && rawValue.length > 0 ? rawValue : getDefaultWorkspaceTemplate(locale).id;
+}
+
+export function setSelectedWorkspaceTemplateId(id: string) {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  window.localStorage.setItem(SELECTED_TEMPLATE_KEY, id);
+}
+
+export function saveWorkspaceTemplate(template: WorkspaceTemplateRecord) {
+  const existing = getStoredWorkspaceTemplates();
+  const nextTemplates = existing.filter((item) => item.id !== template.id);
+  nextTemplates.unshift(template);
+  writeStorageTemplates(nextTemplates);
+  return template;
+}
+
+export function createWorkspaceTemplate(
+  locale: WorkspaceLocale,
+  mode: "empty" | "default" = "empty",
+): WorkspaceTemplateRecord {
+  const timestamp = new Date().toISOString();
+
+  return {
+    id: `template-${Date.now()}`,
+    name: locale === "ko" ? "새 템플릿" : "New template",
+    description:
+      mode === "default"
+        ? locale === "ko"
+          ? "LinKU 기본 바로가기를 바탕으로 시작"
+          : "Starts from the LinKU default shortcut set"
+        : locale === "ko"
+          ? "직접 바로가기를 골라 만든 구성"
+          : "A custom shortcut setup built on the web",
+    shortcutIds:
+      mode === "default" ? DEFAULT_WORKSPACE_TEMPLATE.shortcutIds.slice(0, 10) : [],
+    source: "custom",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+export function cloneWorkspaceTemplate(
+  template: WorkspaceTemplateRecord,
+  locale: WorkspaceLocale,
+) {
+  const timestamp = new Date().toISOString();
+  const clonedTemplate: WorkspaceTemplateRecord = {
+    ...template,
+    id: `template-${Date.now()}`,
+    name:
+      locale === "ko"
+        ? `${template.name} 사본`
+        : `${template.name} copy`,
+    source: "custom",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  saveWorkspaceTemplate(clonedTemplate);
+  return clonedTemplate;
+}
+
+export function deleteWorkspaceTemplate(id: string) {
+  const nextTemplates = getStoredWorkspaceTemplates().filter((item) => item.id !== id);
+  writeStorageTemplates(nextTemplates);
+
+  if (canUseStorage() && window.localStorage.getItem(SELECTED_TEMPLATE_KEY) === id) {
+    window.localStorage.removeItem(SELECTED_TEMPLATE_KEY);
+  }
+}
+
+export function cloneGalleryPresetToTemplate(
+  presetId: string,
+  locale: WorkspaceLocale,
+) {
+  const preset = getGalleryWorkspaceTemplates(locale).find((item) => item.id === presetId);
+  if (!preset) {
+    return null;
+  }
+
+  return cloneWorkspaceTemplate(preset, locale);
+}
