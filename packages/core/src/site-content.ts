@@ -267,6 +267,7 @@ export const APP_NAV_LINKS: LinkuAppNavItem[] = [
 
 export const PUBLIC_ROUTE_PATHS = [
   "/",
+  "/intro",
   "/install",
   "/features",
   ...FEATURES.map((feature) => feature.path),
@@ -282,6 +283,9 @@ export const PUBLIC_ROUTE_PATHS = [
 export const AUTH_ROUTE_PATHS = [
   "/login",
   "/dashboard",
+  "/templates",
+  "/editor",
+  "/gallery",
   "/links",
   "/favorites",
   "/settings",

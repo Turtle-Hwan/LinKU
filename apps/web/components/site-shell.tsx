@@ -29,6 +29,9 @@ export async function SiteShell({ children, locale }: SiteShellProps) {
                 {item.title}
               </Link>
             ))}
+            <Link href="/intro" className="transition hover:text-[var(--ink)]">
+              {locale === "ko" ? "소개" : "Intro"}
+            </Link>
             <Link href="/login" className="rounded-full border border-black/10 px-4 py-2 text-[var(--ink)]">
               {t("shell.site.login")}
             </Link>
