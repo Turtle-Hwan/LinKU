@@ -44,7 +44,7 @@ export default async function SettingsPage({
         </p>
       </div>
 
-      <SettingsPanel initialSettings={state.settings} />
+      <SettingsPanel initialSettings={state.settings} locale={locale} />
     </div>
   );
 }

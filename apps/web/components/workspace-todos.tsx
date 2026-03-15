@@ -13,6 +13,12 @@ import {
 } from "@linku/ui";
 import type { AppLocale } from "@/i18n/routing";
 import { getWorkspaceCopy } from "@/lib/workspace-copy";
+import {
+  hasStoredECampusCredentials,
+  loadECampusCredentials,
+  saveECampusCredentials,
+  type SecureCredentials,
+} from "@/lib/secure-credentials";
 
 interface PersonalTodoItem {
   id: string;
@@ -78,6 +84,43 @@ function compareTodoDates(left: WorkspaceTodoItem, right: WorkspaceTodoItem) {
   return leftDate - rightDate;
 }
 
+function convertTodosToMarkdown(todos: WorkspaceTodoItem[], locale: AppLocale) {
+  if (todos.length === 0) {
+    return locale === "ko" ? "할 일이 없습니다." : "There are no todos.";
+  }
+
+  const ecampusTodos = todos.filter(
+    (todo): todo is EcampusTodoItem => todo.type === "ecampus",
+  );
+  const personalTodos = todos.filter(
+    (todo): todo is PersonalTodoItem => todo.type === "personal",
+  );
+  const sections: string[] = [];
+
+  if (ecampusTodos.length > 0) {
+    const items = ecampusTodos
+      .map((item) => `- [ ] ${item.title} | ${item.subject} | ${item.dueDate}`)
+      .join("\n");
+    sections.push(
+      locale === "ko" ? `## eCampus Todo\n${items}` : `## eCampus todos\n${items}`,
+    );
+  }
+
+  if (personalTodos.length > 0) {
+    const items = personalTodos
+      .map(
+        (item) =>
+          `- [${item.completed ? "x" : " "}] ${item.title} - ${item.dueDate}`,
+      )
+      .join("\n");
+    sections.push(
+      locale === "ko" ? `## 개인 Todo\n${items}` : `## Personal todos\n${items}`,
+    );
+  }
+
+  return sections.join("\n\n");
+}
+
 export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
   const copy = getWorkspaceCopy(locale);
   const [personalTodos, setPersonalTodos] = useState<PersonalTodoItem[]>([]);
@@ -89,9 +132,34 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [rememberCredentials, setRememberCredentials] = useState(false);
+  const [savedCredentials, setSavedCredentials] = useState<SecureCredentials | null>(null);
 
   useEffect(() => {
-    setPersonalTodos(readPersonalTodos());
+    let cancelled = false;
+
+    async function initialize() {
+      setPersonalTodos(readPersonalTodos());
+      const credentials = await loadECampusCredentials();
+      if (cancelled) {
+        return;
+      }
+
+      setSavedCredentials(credentials);
+      setRememberCredentials(hasStoredECampusCredentials());
+
+      if (credentials) {
+        setStudentId(credentials.id);
+        setPassword(credentials.password);
+      }
+    }
+
+    void initialize();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const mergedTodos = useMemo(
@@ -138,14 +206,28 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
   async function loadEcampusTodos() {
     setLoading(true);
     setError("");
+    setMessage("");
 
     try {
+      const credentials =
+        studentId.trim() && password
+          ? { id: studentId.trim(), password }
+          : savedCredentials;
+
+      if (!credentials?.id || !credentials.password) {
+        throw new Error(
+          locale === "ko"
+            ? "eCampus 계정을 입력하거나 저장된 계정을 불러와 주세요."
+            : "Provide eCampus credentials or use a saved account first.",
+        );
+      }
+
       const response = await fetch("/api/ecampus/todos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId: studentId, password }),
+        body: JSON.stringify({ userId: credentials.id, password: credentials.password }),
       });
 
       const data = (await response.json()) as
@@ -162,11 +244,20 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
         );
       }
 
+      if (rememberCredentials) {
+        await saveECampusCredentials(credentials);
+        setSavedCredentials(credentials);
+      }
+
       setEcampusTodos(
         (data as EcampusTodoItem[]).map((item) => ({ ...item, type: "ecampus" })),
       );
       setOpenDialog(false);
-      setPassword("");
+      setMessage(
+        locale === "ko"
+          ? "eCampus Todo를 불러왔습니다."
+          : "Loaded eCampus todos.",
+      );
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -175,6 +266,21 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function copyMarkdown() {
+    const markdown = convertTodosToMarkdown(mergedTodos, locale);
+
+    try {
+      await navigator.clipboard.writeText(markdown);
+      setMessage(
+        locale === "ko"
+          ? "Todo 목록을 마크다운으로 복사했습니다."
+          : "Copied todos as markdown.",
+      );
+    } catch {
+      setMessage(markdown);
     }
   }
 
@@ -187,13 +293,18 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
             {copy.todos.description}
           </p>
         </div>
-        <Button
-          type="button"
-          className="rounded-full"
-          onClick={() => setOpenDialog(true)}
-        >
-          {copy.todos.syncButton}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" className="rounded-full" onClick={() => void copyMarkdown()}>
+            {locale === "ko" ? "마크다운 복사" : "Copy markdown"}
+          </Button>
+          <Button
+            type="button"
+            className="rounded-full"
+            onClick={() => setOpenDialog(true)}
+          >
+            {copy.todos.syncButton}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-[1fr_180px_auto]">
@@ -215,6 +326,11 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
         </Button>
       </div>
 
+      {message ? (
+        <p className="rounded-[1.2rem] border border-[#b0c38f] bg-[#eff8df] p-4 text-sm text-[#30411e]">
+          {message}
+        </p>
+      ) : null}
       {error ? (
         <p className="rounded-[1.2rem] border border-[#d18d7b] bg-[#fff3ef] p-4 text-sm text-[#8a3d2c]">
           {error}
@@ -274,9 +390,7 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
                       className="rounded-full"
                       onClick={() => toggleTodo(todo.id)}
                     >
-                      {todo.completed
-                        ? copy.todos.markUndone
-                        : copy.todos.markDone}
+                      {todo.completed ? copy.todos.markUndone : copy.todos.markDone}
                     </Button>
                     <Button
                       type="button"
@@ -313,11 +427,28 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
               onChange={(event) => setPassword(event.target.value)}
               placeholder={copy.todos.password}
             />
+            <label className="flex items-center gap-3 text-sm text-[var(--muted)]">
+              <input
+                type="checkbox"
+                checked={rememberCredentials}
+                onChange={(event) => setRememberCredentials(event.target.checked)}
+              />
+              {locale === "ko"
+                ? "이 계정을 브라우저에 암호화해 저장"
+                : "Save these credentials with browser-side encryption"}
+            </label>
+            {savedCredentials ? (
+              <p className="text-sm text-[var(--muted)]">
+                {locale === "ko"
+                  ? "저장된 계정을 불러와 바로 사용할 수 있습니다."
+                  : "A saved account is available for quick reuse."}
+              </p>
+            ) : null}
             <Button
               type="button"
               className="w-full rounded-full"
               disabled={loading}
-              onClick={loadEcampusTodos}
+              onClick={() => void loadEcampusTodos()}
             >
               {loading
                 ? locale === "ko"

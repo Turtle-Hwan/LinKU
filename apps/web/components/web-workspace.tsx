@@ -8,6 +8,7 @@ import { WorkspaceAlerts } from "@/components/workspace-alerts";
 import { WorkspaceShortcutGrid } from "@/components/workspace-shortcut-grid";
 import { WorkspaceTemplateCard } from "@/components/workspace-template-card";
 import { WorkspaceTodos } from "@/components/workspace-todos";
+import { getLabsCopy } from "@/lib/labs-copy";
 import { getWorkspaceCopy } from "@/lib/workspace-copy";
 import {
   getSelectedWorkspaceTemplateId,
@@ -16,6 +17,7 @@ import {
 
 export function WebWorkspace({ locale }: { locale: AppLocale }) {
   const copy = getWorkspaceCopy(locale);
+  const labsCopy = getLabsCopy(locale);
   const [searchQuery, setSearchQuery] = useState("");
 
   const { templates, activeTemplate } = useMemo(() => {
@@ -43,7 +45,7 @@ export function WebWorkspace({ locale }: { locale: AppLocale }) {
           {copy.workspace.heroBody}
         </p>
 
-        <div className="mt-6 grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
+        <div className="mt-6 grid gap-3 lg:grid-cols-[1fr_auto_auto_auto_auto]">
           <form
             className="flex gap-2"
             onSubmit={(event) => {
@@ -79,6 +81,9 @@ export function WebWorkspace({ locale }: { locale: AppLocale }) {
           <Button asChild className="rounded-full">
             <Link href="/gallery">{copy.workspace.openGallery}</Link>
           </Button>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/labs">{locale === "ko" ? "Labs 열기" : "Open Labs"}</Link>
+          </Button>
         </div>
       </section>
 
@@ -87,6 +92,7 @@ export function WebWorkspace({ locale }: { locale: AppLocale }) {
           <TabsTrigger value="shortcuts">{copy.workspace.tabs.shortcuts}</TabsTrigger>
           <TabsTrigger value="alerts">{copy.workspace.tabs.alerts}</TabsTrigger>
           <TabsTrigger value="todos">{copy.workspace.tabs.todos}</TabsTrigger>
+          <TabsTrigger value="timetable">{labsCopy.timetable.title}</TabsTrigger>
           <TabsTrigger value="templates">{copy.workspace.tabs.templates}</TabsTrigger>
         </TabsList>
 
@@ -110,6 +116,20 @@ export function WebWorkspace({ locale }: { locale: AppLocale }) {
 
         <TabsContent value="todos">
           <WorkspaceTodos locale={locale} />
+        </TabsContent>
+
+        <TabsContent value="timetable">
+          <div className="rounded-[1.6rem] border border-dashed border-black/10 bg-white/70 p-6">
+            <h3 className="text-2xl tracking-[-0.04em]">{labsCopy.timetable.title}</h3>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--muted)]">
+              {labsCopy.timetable.body}
+            </p>
+            <div className="mt-5">
+              <Button asChild variant="secondary" className="rounded-full">
+                <Link href="/labs">{locale === "ko" ? "보조 도구 열기" : "Open tools"}</Link>
+              </Button>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-5">
