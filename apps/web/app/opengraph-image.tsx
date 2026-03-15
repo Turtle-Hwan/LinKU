@@ -27,9 +27,12 @@ export default function OpenGraphImage() {
           LinKU
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <div style={{ fontSize: 82, lineHeight: 0.95 }}>Campus work, opened faster.</div>
+          <div style={{ fontSize: 82, lineHeight: 0.95 }}>
+            캠퍼스 동선을 더 빠르게 정리하세요
+          </div>
           <div style={{ fontSize: 30, color: "rgba(247,242,232,0.78)" }}>
-            Install guides, service landing pages, and path-based account routes on one canonical domain.
+            설치 가이드, 서비스 소개, 로그인형 워크스페이스를 하나의 단일 도메인에서
+            제공합니다.
           </div>
         </div>
       </div>

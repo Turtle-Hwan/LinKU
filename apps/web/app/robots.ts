@@ -1,6 +1,27 @@
 import { createRobots } from "@linku/seo";
+import { routing } from "@/i18n/routing";
 import { siteEnv } from "@/lib/site";
 
 export default function robots() {
-  return createRobots(siteEnv.siteUrl);
+  const localizedProtectedPaths = routing.locales
+    .filter((locale) => locale !== routing.defaultLocale)
+    .flatMap((locale) => [
+      `/${locale}/dashboard`,
+      `/${locale}/links`,
+      `/${locale}/favorites`,
+      `/${locale}/settings`,
+      `/${locale}/account`,
+      `/${locale}/extension/connect`,
+    ]);
+
+  return createRobots(siteEnv.siteUrl, [
+    "/api/",
+    "/dashboard",
+    "/links",
+    "/favorites",
+    "/settings",
+    "/account",
+    "/extension/connect",
+    ...localizedProtectedPaths,
+  ]);
 }

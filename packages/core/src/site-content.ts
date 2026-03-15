@@ -1,34 +1,35 @@
 export interface LinkuPageSummary {
   slug: string;
-  title: string;
-  summary: string;
   path: string;
+  titleKey: string;
+  summaryKey: string;
 }
 
 export interface LinkuFeature extends LinkuPageSummary {
-  highlights: string[];
+  highlightKeys: string[];
 }
 
 export interface LinkuService extends LinkuPageSummary {
-  audience: string;
-  tasks: string[];
+  audienceKey: string;
+  taskKeys: string[];
 }
 
 export interface LinkuGuide extends LinkuPageSummary {
-  steps: string[];
+  stepKeys: string[];
 }
 
 export interface LinkuUpdateEntry {
   slug: string;
-  title: string;
   publishedAt: string;
-  summary: string;
-  bullets: string[];
+  titleKey: string;
+  summaryKey: string;
+  bulletKeys: string[];
 }
 
 export interface LinkuFaqItem {
-  question: string;
-  answer: string;
+  slug: string;
+  questionKey: string;
+  answerKey: string;
 }
 
 export type LinkuAppNavItem = LinkuPageSummary;
@@ -36,38 +37,35 @@ export type LinkuAppNavItem = LinkuPageSummary;
 export const FEATURES: LinkuFeature[] = [
   {
     slug: "todo",
-    title: "Todo overview",
-    summary:
-      "See campus deadlines and personal tasks together, then jump back into work from the extension popup.",
     path: "/features/todo",
-    highlights: [
-      "Capture lightweight todos without leaving the popup card.",
-      "Track personal tasks alongside the school workflows you repeat every week.",
-      "Use web guides and extension shortcuts together instead of memorizing campus paths.",
+    titleKey: "site.features.todo.title",
+    summaryKey: "site.features.todo.summary",
+    highlightKeys: [
+      "site.features.todo.highlight1",
+      "site.features.todo.highlight2",
+      "site.features.todo.highlight3",
     ],
   },
   {
     slug: "ecampus",
-    title: "eCampus launcher",
-    summary:
-      "Open Konkuk eCampus in fewer clicks, keep key routes nearby, and reduce tab hunting during busy weeks.",
     path: "/features/ecampus",
-    highlights: [
-      "Jump from the popup to eCampus, portal, and calendar routes without extra search.",
-      "Keep the extension focused on browser-native workflows that the web app should not duplicate.",
-      "Pair installation guides on the public site with direct extension entry for real usage.",
+    titleKey: "site.features.ecampus.title",
+    summaryKey: "site.features.ecampus.summary",
+    highlightKeys: [
+      "site.features.ecampus.highlight1",
+      "site.features.ecampus.highlight2",
+      "site.features.ecampus.highlight3",
     ],
   },
   {
     slug: "bookmarks",
-    title: "Campus bookmarks",
-    summary:
-      "Bundle the pages students reopen every day, then prepare for favorites and personalized links on the web surface.",
     path: "/features/bookmarks",
-    highlights: [
-      "Organize your most-used campus pages in one predictable place.",
-      "Use service landing pages as SEO-friendly entry points before installation.",
-      "Prepare for authenticated favorites and personal link groups on the single-domain web app.",
+    titleKey: "site.features.bookmarks.title",
+    summaryKey: "site.features.bookmarks.summary",
+    highlightKeys: [
+      "site.features.bookmarks.highlight1",
+      "site.features.bookmarks.highlight2",
+      "site.features.bookmarks.highlight3",
     ],
   },
 ];
@@ -75,41 +73,38 @@ export const FEATURES: LinkuFeature[] = [
 export const SERVICES: LinkuService[] = [
   {
     slug: "ecampus",
-    title: "Konkuk eCampus",
-    summary:
-      "Navigate lectures, notices, and assignment checkpoints with less friction around the busiest student workflows.",
     path: "/services/ecampus",
-    audience: "Students who revisit eCampus multiple times a day",
-    tasks: [
-      "Open lecture materials faster",
-      "Check assignments before deadlines",
-      "Review announcements without digging through menus",
+    titleKey: "site.services.ecampus.title",
+    summaryKey: "site.services.ecampus.summary",
+    audienceKey: "site.services.ecampus.audience",
+    taskKeys: [
+      "site.services.ecampus.task1",
+      "site.services.ecampus.task2",
+      "site.services.ecampus.task3",
     ],
   },
   {
     slug: "konkuk-portal",
-    title: "Konkuk portal",
-    summary:
-      "Keep the academic portal, timetable, and core student services within easy reach from both public guides and extension entry points.",
     path: "/services/konkuk-portal",
-    audience: "Students checking grades, registration, and campus admin flows",
-    tasks: [
-      "Review grades and registration windows",
-      "Find admin tools without repeated navigation",
-      "Move between portal and supporting services quickly",
+    titleKey: "site.services.konkukPortal.title",
+    summaryKey: "site.services.konkukPortal.summary",
+    audienceKey: "site.services.konkukPortal.audience",
+    taskKeys: [
+      "site.services.konkukPortal.task1",
+      "site.services.konkukPortal.task2",
+      "site.services.konkukPortal.task3",
     ],
   },
   {
     slug: "academic-calendar",
-    title: "Academic calendar",
-    summary:
-      "Track the semester rhythm, from registration milestones to exam windows, with fewer missed campus dates.",
     path: "/services/academic-calendar",
-    audience: "Students planning around official school deadlines",
-    tasks: [
-      "Check course registration windows",
-      "See add-drop and withdrawal dates",
-      "Plan around midterm and final exam periods",
+    titleKey: "site.services.academicCalendar.title",
+    summaryKey: "site.services.academicCalendar.summary",
+    audienceKey: "site.services.academicCalendar.audience",
+    taskKeys: [
+      "site.services.academicCalendar.task1",
+      "site.services.academicCalendar.task2",
+      "site.services.academicCalendar.task3",
     ],
   },
 ];
@@ -117,81 +112,77 @@ export const SERVICES: LinkuService[] = [
 export const GUIDES: LinkuGuide[] = [
   {
     slug: "install-extension",
-    title: "Install the extension",
-    summary:
-      "Go from Chrome Web Store install to daily usage in the popup card without guessing which step comes next.",
     path: "/guides/install-extension",
-    steps: [
-      "Open the LinKU Chrome Web Store page.",
-      "Add the extension to Chrome and pin it to the toolbar.",
-      "Open the popup and start from the campus shortcuts you use most often.",
+    titleKey: "site.guides.installExtension.title",
+    summaryKey: "site.guides.installExtension.summary",
+    stepKeys: [
+      "site.guides.installExtension.step1",
+      "site.guides.installExtension.step2",
+      "site.guides.installExtension.step3",
     ],
   },
   {
     slug: "how-to-use-linku",
-    title: "How to use LinKU",
-    summary:
-      "Learn the first useful workflow after install, from shortcut discovery to favorites and extension connection.",
     path: "/guides/how-to-use-linku",
-    steps: [
-      "Open frequently used campus pages through the popup instead of manual navigation.",
-      "Review guides and service pages on the web surface when you need more context.",
-      "Sign in on the web to prepare favorites, settings, and extension connection flows.",
+    titleKey: "site.guides.howToUseLinku.title",
+    summaryKey: "site.guides.howToUseLinku.summary",
+    stepKeys: [
+      "site.guides.howToUseLinku.step1",
+      "site.guides.howToUseLinku.step2",
+      "site.guides.howToUseLinku.step3",
     ],
   },
 ];
 
 export const FAQ_ITEMS: LinkuFaqItem[] = [
   {
-    question: "What is LinKU?",
-    answer:
-      "LinKU is a Chrome-extension-first companion for Konkuk University workflows, paired with a public SEO site and authenticated web routes on the same canonical domain.",
+    slug: "what-is-linku",
+    questionKey: "site.faq.whatIsLinku.question",
+    answerKey: "site.faq.whatIsLinku.answer",
   },
   {
-    question: "Can I use LinKU without installing the extension?",
-    answer:
-      "Yes for guides, install help, feature overviews, FAQs, and service landing pages. The fastest campus workflows still live in the Chrome extension.",
+    slug: "without-extension",
+    questionKey: "site.faq.withoutExtension.question",
+    answerKey: "site.faq.withoutExtension.answer",
   },
   {
-    question: "What is the authenticated web surface for?",
-    answer:
-      "It handles Google sign-in, personal favorites, settings, account management, and extension connection status inside path-based routes such as /login and /dashboard.",
+    slug: "authenticated-surface",
+    questionKey: "site.faq.authenticatedSurface.question",
+    answerKey: "site.faq.authenticatedSurface.answer",
   },
   {
-    question: "Which browser is supported first?",
-    answer:
-      "This MVP is designed around Chrome and Chrome Web Store distribution because the core flows depend on browser extension capabilities.",
+    slug: "supported-browser",
+    questionKey: "site.faq.supportedBrowser.question",
+    answerKey: "site.faq.supportedBrowser.answer",
   },
   {
-    question: "How are the domains organized now?",
-    answer:
-      "The public pages and authenticated routes both live on the single canonical domain https://www.linku.xxx, while the apex domain redirects there and api.linku.xxx remains optional for a future BFF split.",
+    slug: "domain-policy",
+    questionKey: "site.faq.domainPolicy.question",
+    answerKey: "site.faq.domainPolicy.answer",
   },
 ];
 
 export const UPDATE_ENTRIES: LinkuUpdateEntry[] = [
   {
     slug: "monorepo-foundation",
-    title: "Monorepo foundation",
     publishedAt: "2026-03-14",
-    summary:
-      "The workspace now separates the extension, shared packages, and the upcoming single-domain web surface.",
-    bullets: [
-      "The existing Chrome extension lives in apps/extension.",
-      "Shared UI, config, platform, SEO, and type packages are now part of the workspace.",
-      "Public web content and authenticated route helpers are being prepared around a single canonical domain.",
+    titleKey: "site.updates.monorepoFoundation.title",
+    summaryKey: "site.updates.monorepoFoundation.summary",
+    bulletKeys: [
+      "site.updates.monorepoFoundation.bullet1",
+      "site.updates.monorepoFoundation.bullet2",
+      "site.updates.monorepoFoundation.bullet3",
     ],
   },
   {
     slug: "single-domain-web",
-    title: "Single-domain web direction",
     publishedAt: "2026-03-14",
-    summary:
-      "The split between www and app subdomains was removed in favor of one Next.js app on the canonical web domain.",
-    bullets: [
-      "Public SEO routes and authenticated routes will both run on www.linku.xxx.",
-      "Canonical URLs, OAuth callbacks, and session handling now share the same base URL.",
-      "Authenticated routes follow a noindex policy by default.",
+    titleKey: "site.updates.singleDomainWeb.title",
+    summaryKey: "site.updates.singleDomainWeb.summary",
+    bulletKeys: [
+      "site.updates.singleDomainWeb.bullet1",
+      "site.updates.singleDomainWeb.bullet2",
+      "site.updates.singleDomainWeb.bullet3",
     ],
   },
 ];
@@ -199,78 +190,78 @@ export const UPDATE_ENTRIES: LinkuUpdateEntry[] = [
 export const TOP_NAV_LINKS: LinkuPageSummary[] = [
   {
     slug: "install",
-    title: "Install",
-    summary: "Install the extension",
     path: "/install",
+    titleKey: "site.navigation.top.install.title",
+    summaryKey: "site.navigation.top.install.summary",
   },
   {
     slug: "features",
-    title: "Features",
-    summary: "Feature overviews",
     path: "/features",
+    titleKey: "site.navigation.top.features.title",
+    summaryKey: "site.navigation.top.features.summary",
   },
   {
     slug: "services",
-    title: "Services",
-    summary: "Campus service landing pages",
     path: "/services",
+    titleKey: "site.navigation.top.services.title",
+    summaryKey: "site.navigation.top.services.summary",
   },
   {
     slug: "guides",
-    title: "Guides",
-    summary: "Setup and usage docs",
     path: "/guides",
+    titleKey: "site.navigation.top.guides.title",
+    summaryKey: "site.navigation.top.guides.summary",
   },
   {
     slug: "faq",
-    title: "FAQ",
-    summary: "Common questions",
     path: "/faq",
+    titleKey: "site.navigation.top.faq.title",
+    summaryKey: "site.navigation.top.faq.summary",
   },
   {
     slug: "updates",
-    title: "Updates",
-    summary: "Release notes and changes",
     path: "/updates",
+    titleKey: "site.navigation.top.updates.title",
+    summaryKey: "site.navigation.top.updates.summary",
   },
 ];
 
 export const APP_NAV_LINKS: LinkuAppNavItem[] = [
   {
     slug: "dashboard",
-    title: "Dashboard",
-    summary: "Signed-in overview and next steps",
     path: "/dashboard",
+    titleKey: "site.navigation.app.dashboard.title",
+    summaryKey: "site.navigation.app.dashboard.summary",
   },
   {
     slug: "links",
-    title: "Links",
-    summary: "Personal shortcut collection",
     path: "/links",
+    titleKey: "site.navigation.app.links.title",
+    summaryKey: "site.navigation.app.links.summary",
   },
   {
     slug: "favorites",
-    title: "Favorites",
-    summary: "Saved campus pages and guides",
     path: "/favorites",
+    titleKey: "site.navigation.app.favorites.title",
+    summaryKey: "site.navigation.app.favorites.summary",
   },
   {
     slug: "settings",
-    title: "Settings",
-    summary: "Preferences and defaults",
     path: "/settings",
+    titleKey: "site.navigation.app.settings.title",
+    summaryKey: "site.navigation.app.settings.summary",
   },
   {
     slug: "account",
-    title: "Account",
-    summary: "Profile and session information",
     path: "/account",
+    titleKey: "site.navigation.app.account.title",
+    summaryKey: "site.navigation.app.account.summary",
   },
   {
     slug: "extension-connect",
-    title: "Extension",
-    summary: "Check extension connection state",
     path: "/extension/connect",
+    titleKey: "site.navigation.app.extensionConnect.title",
+    summaryKey: "site.navigation.app.extensionConnect.summary",
   },
 ];
 

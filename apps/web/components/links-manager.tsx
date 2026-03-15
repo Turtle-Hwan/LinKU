@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { PersonalLinkItem } from "@/lib/workspace-store";
 
@@ -8,6 +9,7 @@ interface LinksManagerProps {
 }
 
 export function LinksManager({ initialItems }: LinksManagerProps) {
+  const t = useTranslations();
   const [items, setItems] = useState(initialItems);
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
@@ -30,17 +32,25 @@ export function LinksManager({ initialItems }: LinksManagerProps) {
         }),
       });
 
-      const data = (await response.json()) as PersonalLinkItem[];
+      const data = (await response.json()) as PersonalLinkItem[] | { message?: string };
 
       if (!response.ok) {
-        throw new Error("Unable to save personal link.");
+        throw new Error(
+          "message" in data && typeof data.message === "string"
+            ? t(data.message)
+            : t("components.linksManager.saveError"),
+        );
       }
 
-      setItems(data);
+      setItems(data as PersonalLinkItem[]);
       setLabel("");
       setUrl("");
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to save personal link.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : t("components.linksManager.saveError"),
+      );
     } finally {
       setPending(false);
     }
@@ -59,15 +69,23 @@ export function LinksManager({ initialItems }: LinksManagerProps) {
         body: JSON.stringify({ id }),
       });
 
-      const data = (await response.json()) as PersonalLinkItem[];
+      const data = (await response.json()) as PersonalLinkItem[] | { message?: string };
 
       if (!response.ok) {
-        throw new Error("Unable to remove personal link.");
+        throw new Error(
+          "message" in data && typeof data.message === "string"
+            ? t(data.message)
+            : t("components.linksManager.removeError"),
+        );
       }
 
-      setItems(data);
+      setItems(data as PersonalLinkItem[]);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to remove personal link.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : t("components.linksManager.removeError"),
+      );
     } finally {
       setPending(false);
     }
@@ -85,13 +103,13 @@ export function LinksManager({ initialItems }: LinksManagerProps) {
         <input
           value={label}
           onChange={(event) => setLabel(event.target.value)}
-          placeholder="Portal shortcut"
+          placeholder={t("components.linksManager.labelPlaceholder")}
           className="rounded-full border border-black/10 bg-white px-4 py-3 text-sm"
         />
         <input
           value={url}
           onChange={(event) => setUrl(event.target.value)}
-          placeholder="https://..."
+          placeholder={t("components.linksManager.urlPlaceholder")}
           className="rounded-full border border-black/10 bg-white px-4 py-3 text-sm"
         />
         <button
@@ -99,7 +117,7 @@ export function LinksManager({ initialItems }: LinksManagerProps) {
           disabled={pending}
           className="rounded-full bg-[#132a22] px-5 py-3 text-sm text-white disabled:opacity-50"
         >
-          Save link
+          {t("components.linksManager.save")}
         </button>
       </form>
 
@@ -112,7 +130,7 @@ export function LinksManager({ initialItems }: LinksManagerProps) {
       <div className="grid gap-4">
         {items.length === 0 ? (
           <p className="rounded-[1.2rem] border border-dashed border-black/15 bg-white/60 p-5 text-sm leading-7 text-[var(--muted)]">
-            No personal links saved yet. Keep this list for the routes that matter to you more than the default catalog.
+            {t("components.linksManager.empty")}
           </p>
         ) : (
           items.map((item) => (
@@ -129,7 +147,7 @@ export function LinksManager({ initialItems }: LinksManagerProps) {
                 onClick={async () => removeLink(item.id)}
                 className="rounded-full border border-black/10 px-4 py-2 text-sm"
               >
-                Remove
+                {t("components.linksManager.remove")}
               </button>
             </article>
           ))

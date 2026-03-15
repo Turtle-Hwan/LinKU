@@ -8,7 +8,7 @@ import {
 } from "@/lib/workspace-store";
 
 function unauthorized() {
-  return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  return NextResponse.json({ message: "api.errors.unauthorized" }, { status: 401 });
 }
 
 export async function GET() {
@@ -36,7 +36,10 @@ export async function POST(request: Request) {
   const url = body.url?.trim();
 
   if (!label || !url) {
-    return NextResponse.json({ message: "Label and URL are required." }, { status: 400 });
+    return NextResponse.json(
+      { message: "api.errors.labelAndUrlRequired" },
+      { status: 400 },
+    );
   }
 
   const state = await readWorkspaceState(ownerKey);
@@ -68,7 +71,10 @@ export async function DELETE(request: Request) {
   const body = (await request.json()) as { id?: string };
 
   if (!body.id) {
-    return NextResponse.json({ message: "Link id is required." }, { status: 400 });
+    return NextResponse.json(
+      { message: "api.errors.linkIdRequired" },
+      { status: 400 },
+    );
   }
 
   const state = await readWorkspaceState(ownerKey);

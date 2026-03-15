@@ -8,7 +8,7 @@ import {
 } from "@/lib/workspace-store";
 
 function unauthorized() {
-  return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  return NextResponse.json({ message: "api.errors.unauthorized" }, { status: 401 });
 }
 
 export async function GET() {
@@ -36,7 +36,10 @@ export async function POST(request: Request) {
   const path = body.path?.trim();
 
   if (!title || !path) {
-    return NextResponse.json({ message: "Title and path are required." }, { status: 400 });
+    return NextResponse.json(
+      { message: "api.errors.titleAndPathRequired" },
+      { status: 400 },
+    );
   }
 
   const state = await readWorkspaceState(ownerKey);
@@ -68,7 +71,10 @@ export async function DELETE(request: Request) {
   const body = (await request.json()) as { id?: string };
 
   if (!body.id) {
-    return NextResponse.json({ message: "Favorite id is required." }, { status: 400 });
+    return NextResponse.json(
+      { message: "api.errors.favoriteIdRequired" },
+      { status: 400 },
+    );
   }
 
   const state = await readWorkspaceState(ownerKey);

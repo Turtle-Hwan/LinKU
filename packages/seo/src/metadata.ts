@@ -7,6 +7,7 @@ export interface LinkuMetadataInput {
   siteUrl?: string;
   imagePath?: string;
   index?: boolean;
+  languages?: Record<string, string>;
 }
 
 export function buildCanonicalUrl(
@@ -23,15 +24,26 @@ export function createPageMetadata({
   siteUrl = DEFAULT_SITE_URL,
   imagePath = "/opengraph-image",
   index = true,
+  languages,
 }: LinkuMetadataInput) {
   const canonical = buildCanonicalUrl(path, siteUrl);
   const imageUrl = buildCanonicalUrl(imagePath, siteUrl);
+  const alternates =
+    languages &&
+    Object.fromEntries(
+      Object.entries(languages).map(([locale, localePath]) => [
+        locale,
+        buildCanonicalUrl(localePath, siteUrl),
+      ]),
+    );
 
   return {
+    metadataBase: new URL(siteUrl),
     title,
     description,
     alternates: {
       canonical,
+      languages: alternates,
     },
     openGraph: {
       title,

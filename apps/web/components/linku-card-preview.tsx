@@ -1,19 +1,30 @@
-import { FEATURES, SERVICES } from "@linku/core";
+import { getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
+import { translateFeatures, translateServices } from "@/lib/site";
 
-export function LinkuCardPreview() {
+interface LinkuCardPreviewProps {
+  locale: AppLocale;
+}
+
+export async function LinkuCardPreview({ locale }: LinkuCardPreviewProps) {
+  const t = await getTranslations({ locale });
+  const features = translateFeatures(t);
+  const services = translateServices(t);
   const items = [
-    FEATURES[0].title,
-    FEATURES[1].title,
-    SERVICES[0].title,
-    SERVICES[1].title,
-    SERVICES[2].title,
-    "Library seats",
-  ];
+    features[0]?.title,
+    features[1]?.title,
+    services[0]?.title,
+    services[1]?.title,
+    services[2]?.title,
+    t("components.linkuCardPreview.librarySeats"),
+  ].filter(Boolean) as string[];
 
   return (
     <div className="relative mx-auto flex h-[600px] w-full max-w-[500px] flex-col overflow-hidden rounded-[2rem] border border-white/50 bg-[linear-gradient(180deg,rgba(19,58,44,0.98),rgba(11,28,22,0.98))] p-5 shadow-[0_40px_140px_rgba(10,22,18,0.45)]">
       <div className="mb-4 flex items-center justify-between rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white/80">
-        <span className="font-medium uppercase tracking-[0.18em]">LinKU Popup</span>
+        <span className="font-medium uppercase tracking-[0.18em]">
+          {t("components.linkuCardPreview.popup")}
+        </span>
         <span>500 x 600</span>
       </div>
       <div className="grid flex-1 grid-cols-2 gap-3">
@@ -27,7 +38,7 @@ export function LinkuCardPreview() {
             }`}
           >
             <div className="mb-8 text-xs uppercase tracking-[0.18em] opacity-70">
-              quick access
+              {t("components.linkuCardPreview.quickAccess")}
             </div>
             <div className="text-lg font-semibold leading-tight">{item}</div>
           </div>

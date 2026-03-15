@@ -1,0 +1,485 @@
+{
+  "layout": {
+    "meta": {
+      "description": "건국대 웹 동선을 더 빠르게 여는 LinKU. 설치 가이드, 서비스 안내, FAQ, 계정 진입을 하나의 도메인에서 제공합니다."
+    }
+  },
+  "common": {
+    "brand": "LinKU",
+    "switchLanguage": "언어",
+    "locale": {
+      "ko": "한국어",
+      "en": "English"
+    },
+    "yes": "예",
+    "no": "아니오",
+    "step": "단계",
+    "guide": "가이드",
+    "feature": "기능",
+    "service": "서비스",
+    "connected": "연결됨",
+    "notConnected": "연결되지 않음"
+  },
+  "site": {
+    "features": {
+      "todo": {
+        "title": "할 일 한눈에 보기",
+        "summary": "캠퍼스 마감 일정과 개인 할 일을 함께 보고, 확장 프로그램 팝업에서 바로 다음 작업으로 이어가세요.",
+        "highlight1": "팝업을 벗어나지 않고도 가벼운 할 일을 빠르게 기록할 수 있습니다.",
+        "highlight2": "매주 반복되는 학교 동선과 개인 할 일을 한 흐름에서 관리할 수 있습니다.",
+        "highlight3": "캠퍼스 경로를 외우지 않아도 웹 가이드와 확장 프로그램 바로가기를 함께 사용할 수 있습니다."
+      },
+      "ecampus": {
+        "title": "eCampus 빠른 실행",
+        "summary": "건국대 eCampus를 더 적은 클릭으로 열고, 바쁜 학기에도 자주 쓰는 경로를 가까이에 유지하세요.",
+        "highlight1": "팝업에서 eCampus, 포털, 학사일정 경로로 빠르게 이동할 수 있습니다.",
+        "highlight2": "웹 앱이 굳이 복제하지 않아야 할 브라우저 네이티브 동선은 확장 프로그램에 남겨 둡니다.",
+        "highlight3": "공개 웹의 설치 가이드와 실제 사용을 위한 확장 프로그램 진입점을 자연스럽게 연결합니다."
+      },
+      "bookmarks": {
+        "title": "캠퍼스 북마크",
+        "summary": "매일 다시 여는 학교 페이지를 한데 묶고, 웹에서는 즐겨찾기와 개인 링크로 확장할 준비를 마칩니다.",
+        "highlight1": "자주 쓰는 캠퍼스 페이지를 예측 가능한 한 곳에 정리할 수 있습니다.",
+        "highlight2": "설치 전에도 서비스 랜딩 페이지를 SEO 친화적인 진입점으로 활용할 수 있습니다.",
+        "highlight3": "단일 도메인 웹 앱의 로그인형 즐겨찾기와 개인 링크 묶음 흐름을 미리 준비합니다."
+      }
+    },
+    "services": {
+      "ecampus": {
+        "title": "건국대 eCampus",
+        "summary": "강의, 공지, 과제 확인이 몰리는 순간에도 더 적은 마찰로 핵심 경로를 따라갈 수 있습니다.",
+        "audience": "하루에도 여러 번 eCampus를 다시 여는 학생",
+        "task1": "강의 자료를 더 빠르게 열기",
+        "task2": "마감 전에 과제를 확인하기",
+        "task3": "복잡한 메뉴를 뒤지지 않고 공지 확인하기"
+      },
+      "konkukPortal": {
+        "title": "건국대 포털",
+        "summary": "학사 포털, 시간표, 주요 행정 서비스를 공개 가이드와 확장 프로그램 진입점 양쪽에서 가깝게 유지합니다.",
+        "audience": "성적, 수강신청, 학사 행정 흐름을 자주 확인하는 학생",
+        "task1": "성적과 수강신청 일정을 빠르게 확인하기",
+        "task2": "반복 탐색 없이 행정 도구 찾기",
+        "task3": "포털과 연계 서비스 사이를 빠르게 이동하기"
+      },
+      "academicCalendar": {
+        "title": "학사일정",
+        "summary": "수강신청, 시험, 정정 기간 같은 학기 리듬을 놓치지 않도록 공식 일정 진입점을 정리합니다.",
+        "audience": "학교 공식 마감일을 기준으로 일정을 계획하는 학생",
+        "task1": "수강신청 기간 확인하기",
+        "task2": "정정·철회 일정을 확인하기",
+        "task3": "중간·기말 시험 기간에 맞춰 계획 세우기"
+      }
+    },
+    "guides": {
+      "installExtension": {
+        "title": "확장 프로그램 설치하기",
+        "summary": "Chrome 웹 스토어 설치부터 팝업 카드의 첫 사용까지, 다음 단계가 헷갈리지 않도록 안내합니다.",
+        "step1": "LinKU Chrome 웹 스토어 페이지를 엽니다.",
+        "step2": "확장 프로그램을 설치하고 브라우저 툴바에 고정합니다.",
+        "step3": "팝업을 열고 가장 자주 쓰는 캠퍼스 바로가기부터 사용을 시작합니다."
+      },
+      "howToUseLinku": {
+        "title": "LinKU 사용법",
+        "summary": "설치 직후 가장 먼저 유용한 흐름부터 익혀서 즐겨찾기와 확장 프로그램 연결까지 자연스럽게 이어갑니다.",
+        "step1": "반복해서 여는 학교 페이지를 수동 탐색 대신 팝업에서 바로 엽니다.",
+        "step2": "더 많은 맥락이 필요할 때는 웹의 가이드와 서비스 페이지를 함께 참고합니다.",
+        "step3": "웹에 로그인해 즐겨찾기, 설정, 확장 프로그램 연결 흐름을 준비합니다."
+      }
+    },
+    "faq": {
+      "whatIsLinku": {
+        "question": "LinKU는 무엇인가요?",
+        "answer": "LinKU는 건국대 학내 동선을 더 빠르게 이어주는 Chrome 확장 프로그램 중심 도구이며, 같은 대표 도메인 위에 공개 SEO 사이트와 로그인형 웹 라우트를 함께 둡니다."
+      },
+      "withoutExtension": {
+        "question": "확장 프로그램을 설치하지 않아도 LinKU를 사용할 수 있나요?",
+        "answer": "가이드, 설치 도움말, 기능 소개, FAQ, 서비스 랜딩 페이지는 사용할 수 있습니다. 다만 가장 빠른 캠퍼스 동선은 여전히 Chrome 확장 프로그램 안에 있습니다."
+      },
+      "authenticatedSurface": {
+        "question": "로그인형 웹 영역은 어떤 용도인가요?",
+        "answer": "Google 로그인, 개인 즐겨찾기, 설정, 계정 정보, 확장 프로그램 연결 상태를 /login, /dashboard 같은 path 기반 라우트 안에서 처리합니다."
+      },
+      "supportedBrowser": {
+        "question": "우선 지원하는 브라우저는 무엇인가요?",
+        "answer": "현재 MVP는 브라우저 확장 기능에 핵심 흐름이 의존하므로 Chrome과 Chrome 웹 스토어 배포를 기준으로 설계되어 있습니다."
+      },
+      "domainPolicy": {
+        "question": "도메인 구조는 어떻게 되나요?",
+        "answer": "공개 페이지와 로그인형 라우트는 모두 단일 canonical 도메인 https://www.linku.xxx 아래에 있으며, apex 도메인은 이쪽으로 리다이렉트됩니다. api.linku.xxx는 향후 BFF 분리를 위해 선택적으로 남겨 둡니다."
+      }
+    },
+    "updates": {
+      "monorepoFoundation": {
+        "title": "모노레포 기반 정비",
+        "summary": "워크스페이스가 확장 프로그램, 공용 패키지, 단일 도메인 웹 표면을 기준으로 다시 정리되었습니다.",
+        "bullet1": "기존 Chrome 확장 프로그램은 apps/extension에 위치합니다.",
+        "bullet2": "공용 UI, config, platform, SEO, type 패키지가 워크스페이스에 포함되었습니다.",
+        "bullet3": "공개 웹 콘텐츠와 로그인형 라우트 헬퍼가 하나의 canonical 도메인을 기준으로 준비되고 있습니다."
+      },
+      "singleDomainWeb": {
+        "title": "단일 도메인 웹 방향",
+        "summary": "www와 app 서브도메인 분리는 제거되고, canonical 웹 도메인 위의 단일 Next.js 앱으로 정리되었습니다.",
+        "bullet1": "공개 SEO 라우트와 로그인형 라우트가 모두 www.linku.xxx에서 동작합니다.",
+        "bullet2": "Canonical URL, OAuth callback, 세션 처리가 하나의 base URL을 공유합니다.",
+        "bullet3": "로그인형 라우트는 기본적으로 noindex 정책을 따릅니다."
+      }
+    },
+    "navigation": {
+      "top": {
+        "install": {
+          "title": "설치",
+          "summary": "확장 프로그램 설치하기"
+        },
+        "features": {
+          "title": "기능",
+          "summary": "주요 기능 살펴보기"
+        },
+        "services": {
+          "title": "서비스",
+          "summary": "캠퍼스 서비스 진입 페이지"
+        },
+        "guides": {
+          "title": "가이드",
+          "summary": "설치와 사용 문서"
+        },
+        "faq": {
+          "title": "FAQ",
+          "summary": "자주 묻는 질문"
+        },
+        "updates": {
+          "title": "업데이트",
+          "summary": "릴리스 노트와 변경 사항"
+        }
+      },
+      "app": {
+        "dashboard": {
+          "title": "대시보드",
+          "summary": "로그인 후 개요와 다음 단계"
+        },
+        "links": {
+          "title": "링크",
+          "summary": "개인 바로가기 모음"
+        },
+        "favorites": {
+          "title": "즐겨찾기",
+          "summary": "저장한 캠퍼스 페이지와 가이드"
+        },
+        "settings": {
+          "title": "설정",
+          "summary": "기본값과 선호 설정"
+        },
+        "account": {
+          "title": "계정",
+          "summary": "프로필과 세션 정보"
+        },
+        "extensionConnect": {
+          "title": "확장 프로그램 연결",
+          "summary": "확장 프로그램 연결 상태 확인"
+        }
+      }
+    }
+  },
+  "shell": {
+    "site": {
+      "login": "로그인",
+      "footerBlurb": "LinKU는 공개 SEO 페이지와 로그인형 진입 라우트를 하나의 canonical 웹 도메인에서 함께 운영합니다.",
+      "privacy": "개인정보 처리방침",
+      "updates": "업데이트",
+      "faq": "FAQ"
+    },
+    "auth": {
+      "install": "설치",
+      "guide": "가이드"
+    },
+    "app": {
+      "eyebrow": "로그인된 영역",
+      "summary": "공개 SEO 표면과 같은 canonical 도메인 위에서 로그인 상태를 유지합니다.",
+      "signOut": "로그아웃",
+      "workspace": "워크스페이스",
+      "fallbackUserName": "LinKU 계정"
+    }
+  },
+  "pages": {
+    "home": {
+      "meta": {
+        "title": "LinKU",
+        "description": "건국대 웹 동선을 더 빠르게 여는 LinKU. 설치 가이드, 기능 페이지, 서비스 진입점, 로그인형 계정 라우트를 한 도메인에서 제공합니다."
+      },
+      "eyebrow": "단일 도메인 공개 웹 + 확장 프로그램 중심 워크플로",
+      "headline": "캠퍼스 동선을 더 빠르게, 루틴 전체를 바꾸지 않고.",
+      "body": "LinKU는 학생이 실제로 자주 쓰는 브라우저 네이티브 바로가기는 확장 프로그램에 남기고, 웹에서는 탐색, 설치 안내, FAQ, 그리고 앞으로 확장될 계정 기능을 같은 canonical 도메인에서 맡습니다.",
+      "ctaInstall": "확장 프로그램 설치하기",
+      "ctaLogin": "로그인 열기",
+      "ctaGuide": "설치 가이드 보기",
+      "quickStats": {
+        "domainLabel": "대표 도메인",
+        "domainValue": "www.linku.xxx",
+        "installLabel": "설치 경로",
+        "installValue": "Chrome 웹 스토어",
+        "authLabel": "로그인 경로",
+        "authValue": "/login"
+      },
+      "featureCta": "기능 자세히 보기",
+      "servicesEyebrow": "캠퍼스 서비스",
+      "servicesHeadline": "학생이 실제로 자주 다시 여는 경로를 위한 검색 친화형 랜딩 페이지.",
+      "latestUpdateEyebrow": "최근 업데이트",
+      "readUpdates": "업데이트 보기",
+      "seeFaq": "FAQ 보기"
+    },
+    "install": {
+      "meta": {
+        "title": "설치",
+        "description": "LinKU Chrome 확장 프로그램을 설치하고 툴바에 고정한 뒤, 단일 도메인 LinKU 웹 경험과 함께 사용하세요."
+      },
+      "eyebrow": "설치",
+      "headline": "LinKU를 Chrome에 추가하고 캠퍼스 바로가기를 가까이에 두세요.",
+      "body": "LinKU는 확장 프로그램 중심으로 설계되었습니다. 한 번 설치해 툴바에 고정하고, 웹에서는 더 풍부한 가이드와 서비스 탐색, 계정 진입을 같은 canonical 도메인에서 활용하세요.",
+      "ctaStore": "Chrome 웹 스토어 열기",
+      "ctaLogin": "로그인으로 이동",
+      "reason1": "브라우저 네이티브 캠퍼스 바로가기를 한 번의 클릭 거리로 유지합니다.",
+      "reason2": "웹 표면은 탐색, 가이드, FAQ, 계정 진입에 집중합니다.",
+      "reason3": "/login, /dashboard 같은 단일 도메인 라우트가 이후에도 자연스럽게 확장됩니다."
+    },
+    "features": {
+      "meta": {
+        "title": "기능",
+        "description": "할 일 관리, eCampus 빠른 실행, 캠퍼스 북마크처럼 반복되는 학생 동선을 기준으로 한 LinKU 기능을 살펴보세요."
+      },
+      "eyebrow": "기능",
+      "headline": "빠른 동작은 확장 프로그램에, 맥락 설명은 웹에 남깁니다.",
+      "body": "각 기능 페이지는 검색과 온보딩을 지원하고, 실제 빠른 경로는 브라우저 안의 확장 프로그램이 맡습니다.",
+      "openDetail": "상세 보기"
+    },
+    "featureDetail": {
+      "notFoundTitle": "기능을 찾을 수 없습니다",
+      "notFoundDescription": "요청한 기능 페이지가 존재하지 않습니다.",
+      "ctaInstall": "LinKU 설치하기",
+      "ctaGuide": "사용 가이드 보기"
+    },
+    "services": {
+      "meta": {
+        "title": "서비스",
+        "description": "건국대 eCampus, 포털, 학사일정 같은 주요 서비스 진입점을 LinKU 공개 랜딩 페이지에서 확인하세요."
+      },
+      "eyebrow": "서비스",
+      "headline": "학생이 자주 다시 찾는 캠퍼스 서비스를 위한 공개 진입 페이지.",
+      "body": "이 페이지들은 검색, 안내, 내부 링크를 위한 역할을 맡고, 실제 빠른 진입 경험은 확장 프로그램이 이어받습니다.",
+      "audiencePrefix": "주요 사용자"
+    },
+    "serviceDetail": {
+      "notFoundTitle": "서비스를 찾을 수 없습니다",
+      "notFoundDescription": "요청한 서비스 페이지가 존재하지 않습니다.",
+      "commonTasks": "자주 하는 작업",
+      "ctaInstall": "확장 프로그램 설치하기",
+      "ctaFeature": "관련 기능 보기"
+    },
+    "guides": {
+      "meta": {
+        "title": "가이드",
+        "description": "확장 프로그램 설치, 첫 사용 흐름, 계정 진입까지 LinKU 설정과 사용 가이드를 읽어보세요."
+      },
+      "eyebrow": "가이드",
+      "headline": "한 번 설치한 뒤, 반복되는 캠퍼스 작업으로 가는 가장 짧은 길을 익히세요.",
+      "body": "이 가이드는 온보딩과 검색을 돕고, 웹이 대신할 수 없는 브라우저 권한 작업은 확장 프로그램이 맡습니다."
+    },
+    "guideDetail": {
+      "notFoundTitle": "가이드를 찾을 수 없습니다",
+      "notFoundDescription": "요청한 가이드 페이지가 존재하지 않습니다.",
+      "ctaInstall": "LinKU 설치하기",
+      "ctaLogin": "로그인으로 이동"
+    },
+    "faq": {
+      "meta": {
+        "title": "FAQ",
+        "description": "LinKU 설치 흐름, 브라우저 지원, 로그인형 라우트, 단일 도메인 정책에 대한 답변을 확인하세요."
+      },
+      "eyebrow": "FAQ",
+      "headline": "설치하거나 로그인하기 전에 먼저 확인할 짧은 답변들.",
+      "body": "LinKU는 공개 페이지와 계정 진입 라우트를 같은 canonical 호스트에 두고 있으므로, 기본적인 질문도 제품 자체만큼 쉽게 찾을 수 있어야 합니다."
+    },
+    "updates": {
+      "meta": {
+        "title": "업데이트",
+        "description": "모노레포 정비, 공용 패키지 계층, 단일 도메인 웹 방향까지 LinKU의 변화를 확인하세요."
+      },
+      "eyebrow": "업데이트",
+      "headline": "제품 방향, 구현 이정표, 구조 변화 기록.",
+      "body": "이 로그는 모노레포, 공용 패키지 계층, 단일 canonical 웹 도메인으로의 정리를 추적합니다."
+    },
+    "privacy": {
+      "meta": {
+        "title": "개인정보 처리방침",
+        "description": "LinKU 공개 페이지, 로그인형 라우트, 확장 프로그램 인접 흐름에 대한 개인정보 처리 기준을 확인하세요."
+      },
+      "eyebrow": "개인정보 처리방침",
+      "headline": "단일 도메인 LinKU 배포를 위한 실용적인 개인정보 처리 기준.",
+      "body": "공개 페이지, 로그인형 라우트, 확장 프로그램과 연결된 흐름은 같은 도메인 위에 있어도 서로 다른 데이터 요구를 가집니다.",
+      "point1": "공개 페이지는 로그인이나 클라이언트 전용 렌더링 없이도 읽을 수 있어야 합니다.",
+      "point2": "로그인형 라우트는 서버에서 검증 가능한 세션, 최소한의 시크릿 노출, noindex 규칙을 사용해야 합니다.",
+      "point3": "확장 프로그램 전용 토큰과 브라우저 권한 API는 공개 웹이 아니라 Chrome 확장 프로그램 안에 남겨 둡니다."
+    },
+    "login": {
+      "meta": {
+        "title": "로그인",
+        "description": "공개 SEO 페이지와 설치 가이드를 제공하는 같은 canonical 도메인에서 LinKU 로그인 영역으로 진입하세요."
+      },
+      "eyebrow": "Path 기반 인증 진입",
+      "headline": "canonical LinKU 도메인을 벗어나지 않고 로그인하세요.",
+      "body": "공개 탐색 페이지, 설치 가이드, 계정 라우트가 이제 한곳에 있습니다. Google OAuth는 여기서 시작해 /dashboard, /favorites, /settings, /extension/connect까지 세션을 이어갑니다.",
+      "ctaHome": "홈으로 돌아가기",
+      "ctaGuide": "설치 가이드 보기",
+      "cardEyebrow": "계정 진입",
+      "cardTitle": "Google로 계속하기",
+      "cardBody": "Auth.js가 이곳에서 동일 도메인 세션 껍질을 담당합니다. 아직 Google 자격 증명이 구성되지 않았더라도 라우트는 렌더되고 noindex를 유지하므로 나머지 앱 구조를 안전하게 검증할 수 있습니다.",
+      "continue": "Google로 계속하기",
+      "configure": "Google OAuth를 구성하면 로그인을 사용할 수 있습니다",
+      "siteUrl": "Canonical 사이트 URL",
+      "providerReady": "Google provider 준비 여부",
+      "authSecret": "Auth secret 설정 여부"
+    },
+    "dashboard": {
+      "meta": {
+        "title": "대시보드",
+        "description": "LinKU 로그인 영역에서 즐겨찾기, 개인 링크, 설정, 확장 프로그램 연결 상태를 한곳에서 확인하세요."
+      },
+      "eyebrow": "대시보드",
+      "headline": "공개 SEO 사이트와 나란히 놓인 하나의 로그인형 웹 영역.",
+      "body": "이 대시보드는 같은 Next.js 앱 안의 로그인 홈입니다. 도메인을 나누지 않고 즐겨찾기, 개인 링크, 설정, 확장 프로그램 상태를 정리할 수 있습니다.",
+      "stats": {
+        "favorites": "즐겨찾기",
+        "personalLinks": "개인 링크",
+        "extension": "확장 프로그램",
+        "extensionConnected": "연결됨",
+        "extensionNotConnected": "연결되지 않음"
+      }
+    },
+    "links": {
+      "meta": {
+        "title": "링크",
+        "description": "LinKU 로그인 영역에서 개인 바로가기 링크를 저장하고 다시 사용하세요."
+      },
+      "eyebrow": "링크",
+      "headline": "공용 캠퍼스 카탈로그 옆에 두는 개인 바로가기.",
+      "body": "공개 서비스 목록과 구분해 두고 싶은 URL을 이곳에 저장하세요. 강의 페이지, 참고 문서, 계정별 목적지 모두 가능합니다."
+    },
+    "favorites": {
+      "meta": {
+        "title": "즐겨찾기",
+        "description": "LinKU 로그인 웹 영역에서 자주 다시 여는 라우트와 서비스 페이지를 저장하세요."
+      },
+      "eyebrow": "즐겨찾기",
+      "headline": "다시 찾고 싶지 않은 경로를 저장해 두세요.",
+      "body": "이 MVP는 나중에 데이터베이스로 교체할 수 있도록, 지금은 쿠키 기반 워크스페이스 계층에 즐겨찾기를 저장합니다."
+    },
+    "settings": {
+      "meta": {
+        "title": "설정",
+        "description": "LinKU 로그인 영역의 기본 진입 경로, 링크 동작, 이후 확장될 알림형 설정을 관리하세요."
+      },
+      "eyebrow": "설정",
+      "headline": "로그인 후 기본값을 처음부터 명시적으로 관리하세요.",
+      "body": "아직 완전한 백엔드가 없더라도, 설정 인터페이스는 이후 저장소 구현을 바꿀 수 있도록 분리된 경계 뒤에 배치되어 있습니다."
+    },
+    "account": {
+      "meta": {
+        "title": "계정",
+        "description": "LinKU의 세션 사용자 정보, provider 준비 상태, canonical 도메인 계정 정보를 확인하세요."
+      },
+      "eyebrow": "계정",
+      "headline": "하나의 canonical 호스트에서 보는 세션 정보와 provider 준비 상태.",
+      "body": "이 페이지는 OAuth 시크릿과 확장 프로그램 식별자가 나중에 환경 변수로 채워지더라도, 계정 기본 정보를 먼저 확인할 수 있게 합니다.",
+      "user": "사용자",
+      "signedInUser": "로그인한 사용자",
+      "noEmail": "이메일이 없습니다",
+      "sessionUserId": "세션 사용자 ID",
+      "notAvailable": "없음",
+      "environment": "환경",
+      "authRuntime": "인증 런타임",
+      "canonicalSite": "Canonical 사이트",
+      "googleOAuthReady": "Google OAuth 준비 여부",
+      "extensionId": "확장 프로그램 ID"
+    },
+    "extensionConnect": {
+      "meta": {
+        "title": "확장 프로그램 연결",
+        "description": "같은 LinKU 로그인 웹 영역에서 확장 프로그램 연결 상태를 확인하고 업데이트하세요."
+      },
+      "eyebrow": "확장 프로그램 연결",
+      "headline": "확장 프로그램 handoff를 위한 path 기반 상태 페이지.",
+      "body": "브라우저 권한이 필요한 핵심 표면은 여전히 확장 프로그램이지만, 이 라우트는 로그인한 사용자가 canonical 웹 도메인 안에서 연결 상태를 확인할 수 있는 단일 진입점을 제공합니다."
+    },
+    "notFound": {
+      "eyebrow": "404",
+      "headline": "이 경로는 존재하지 않습니다.",
+      "body": "메인 랜딩 페이지, 설치 가이드, 기능 페이지, 서비스 랜딩 페이지, 로그인 진입 경로를 다시 확인해 보세요.",
+      "ctaHome": "홈으로 돌아가기",
+      "ctaLogin": "로그인으로 이동"
+    }
+  },
+  "components": {
+    "favoritesManager": {
+      "titlePlaceholder": "즐겨찾기 이름",
+      "pathPlaceholder": "/services/ecampus",
+      "add": "즐겨찾기 추가",
+      "quickAddPrefix": "{title} 추가",
+      "empty": "아직 저장한 즐겨찾기가 없습니다. 같은 canonical 도메인을 벗어나지 않고 다시 찾을 경로를 저장해 두세요.",
+      "remove": "삭제",
+      "saveError": "즐겨찾기를 저장하지 못했습니다.",
+      "removeError": "즐겨찾기를 삭제하지 못했습니다."
+    },
+    "linksManager": {
+      "labelPlaceholder": "포털 바로가기",
+      "urlPlaceholder": "https://...",
+      "save": "링크 저장",
+      "empty": "아직 저장한 개인 링크가 없습니다. 기본 카탈로그보다 더 중요한 경로를 이 목록에 보관하세요.",
+      "remove": "삭제",
+      "saveError": "개인 링크를 저장하지 못했습니다.",
+      "removeError": "개인 링크를 삭제하지 못했습니다."
+    },
+    "settingsPanel": {
+      "save": "설정 저장",
+      "saved": "설정이 저장되었습니다.",
+      "saveError": "설정을 저장하지 못했습니다.",
+      "openNewTabTitle": "저장한 링크를 새 탭에서 열기",
+      "openNewTabDescription": "개인 링크 실행이 현재 작업을 끊지 않도록 별도 탭으로 엽니다.",
+      "weeklyDigestTitle": "주간 요약 자리표시자",
+      "weeklyDigestDescription": "이후 요약형 알림이나 회고 흐름을 위한 설정 자리를 미리 확보합니다.",
+      "defaultLandingTitle": "기본 진입 경로",
+      "defaultLandingDescription": "같은 앱 안에서 로그인 후 홈처럼 사용할 페이지를 선택하세요."
+    },
+    "extensionConnectCard": {
+      "eyebrow": "연결 상태",
+      "connectedTitle": "확장 프로그램이 연결되었습니다",
+      "disconnectedTitle": "확장 프로그램이 연결되지 않았습니다",
+      "body": "이 페이지는 앞으로 확장 프로그램이 shared bridge contract를 통해 상태를 보고할 단일 도메인 상태 표면으로 사용할 수 있습니다.",
+      "extensionId": "확장 프로그램 ID",
+      "markConnected": "연결 상태로 표시",
+      "clearConnection": "연결 해제",
+      "connectedLabel": "연결 여부",
+      "lastChecked": "마지막 확인 시각",
+      "notSet": "설정 안 됨",
+      "notRecorded": "기록 없음",
+      "updateError": "확장 프로그램 연결 상태를 업데이트하지 못했습니다.",
+      "connectedMessage": "확장 프로그램을 연결된 상태로 표시했습니다.",
+      "disconnectedMessage": "확장 프로그램 연결을 해제했습니다."
+    },
+    "linkuCardPreview": {
+      "popup": "LinKU 팝업",
+      "quickAccess": "빠른 진입",
+      "librarySeats": "도서관 좌석"
+    }
+  },
+  "api": {
+    "errors": {
+      "unauthorized": "인증이 필요합니다.",
+      "titleAndPathRequired": "제목과 경로는 필수입니다.",
+      "favoriteIdRequired": "즐겨찾기 ID가 필요합니다.",
+      "labelAndUrlRequired": "이름과 URL은 필수입니다.",
+      "linkIdRequired": "링크 ID가 필요합니다."
+    }
+  },
+  "og": {
+    "headline": "캠퍼스 동선을 더 빠르게 여세요.",
+    "body": "설치 가이드, 서비스 랜딩 페이지, 로그인형 계정 라우트를 하나의 canonical 도메인에서 제공합니다."
+  }
+}

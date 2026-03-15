@@ -12,7 +12,7 @@ const DEFAULT_DISALLOWED_PATHS = [
 
 export function createRobots(
   siteUrl = DEFAULT_SITE_URL,
-  disallow = DEFAULT_DISALLOWED_PATHS,
+  disallow: readonly string[] = DEFAULT_DISALLOWED_PATHS,
 ) {
   return {
     rules: [

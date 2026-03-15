@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { FavoriteItem } from "@/lib/workspace-store";
 
@@ -15,6 +16,7 @@ export function FavoritesManager({
   initialItems,
   suggestions,
 }: FavoritesManagerProps) {
+  const t = useTranslations();
   const [items, setItems] = useState(initialItems);
   const [title, setTitle] = useState("");
   const [path, setPath] = useState("");
@@ -37,17 +39,25 @@ export function FavoritesManager({
         }),
       });
 
-      const data = (await response.json()) as FavoriteItem[];
+      const data = (await response.json()) as FavoriteItem[] | { message?: string };
 
       if (!response.ok) {
-        throw new Error("Unable to save favorite.");
+        throw new Error(
+          "message" in data && typeof data.message === "string"
+            ? t(data.message)
+            : t("components.favoritesManager.saveError"),
+        );
       }
 
-      setItems(data);
+      setItems(data as FavoriteItem[]);
       setTitle("");
       setPath("");
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to save favorite.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : t("components.favoritesManager.saveError"),
+      );
     } finally {
       setPending(false);
     }
@@ -66,15 +76,23 @@ export function FavoritesManager({
         body: JSON.stringify({ id }),
       });
 
-      const data = (await response.json()) as FavoriteItem[];
+      const data = (await response.json()) as FavoriteItem[] | { message?: string };
 
       if (!response.ok) {
-        throw new Error("Unable to remove favorite.");
+        throw new Error(
+          "message" in data && typeof data.message === "string"
+            ? t(data.message)
+            : t("components.favoritesManager.removeError"),
+        );
       }
 
-      setItems(data);
+      setItems(data as FavoriteItem[]);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to remove favorite.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : t("components.favoritesManager.removeError"),
+      );
     } finally {
       setPending(false);
     }
@@ -92,13 +110,13 @@ export function FavoritesManager({
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Favorite title"
+          placeholder={t("components.favoritesManager.titlePlaceholder")}
           className="rounded-full border border-black/10 bg-white px-4 py-3 text-sm"
         />
         <input
           value={path}
           onChange={(event) => setPath(event.target.value)}
-          placeholder="/services/ecampus"
+          placeholder={t("components.favoritesManager.pathPlaceholder")}
           className="rounded-full border border-black/10 bg-white px-4 py-3 text-sm"
         />
         <button
@@ -106,7 +124,7 @@ export function FavoritesManager({
           disabled={pending}
           className="rounded-full bg-[#132a22] px-5 py-3 text-sm text-white disabled:opacity-50"
         >
-          Add favorite
+          {t("components.favoritesManager.add")}
         </button>
       </form>
 
@@ -124,7 +142,9 @@ export function FavoritesManager({
             onClick={async () => addFavorite(suggestion.title, suggestion.path)}
             className="rounded-full border border-black/10 px-4 py-2 text-sm"
           >
-            Add {suggestion.title}
+            {t("components.favoritesManager.quickAddPrefix", {
+              title: suggestion.title,
+            })}
           </button>
         ))}
       </div>
@@ -132,7 +152,7 @@ export function FavoritesManager({
       <div className="grid gap-4">
         {items.length === 0 ? (
           <p className="rounded-[1.2rem] border border-dashed border-black/15 bg-white/60 p-5 text-sm leading-7 text-[var(--muted)]">
-            No favorites yet. Save the routes you want to revisit without leaving the same canonical domain.
+            {t("components.favoritesManager.empty")}
           </p>
         ) : (
           items.map((item) => (
@@ -149,7 +169,7 @@ export function FavoritesManager({
                 onClick={async () => removeFavorite(item.id)}
                 className="rounded-full border border-black/10 px-4 py-2 text-sm"
               >
-                Remove
+                {t("components.favoritesManager.remove")}
               </button>
             </article>
           ))

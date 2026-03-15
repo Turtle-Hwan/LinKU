@@ -1,0 +1,485 @@
+{
+  "layout": {
+    "meta": {
+      "description": "LinKU helps Konkuk University students open campus workflows faster with install guides, service pages, FAQ, and account entry on one domain."
+    }
+  },
+  "common": {
+    "brand": "LinKU",
+    "switchLanguage": "Language",
+    "locale": {
+      "ko": "한국어",
+      "en": "English"
+    },
+    "yes": "yes",
+    "no": "no",
+    "step": "Step",
+    "guide": "Guide",
+    "feature": "Feature",
+    "service": "Service",
+    "connected": "Connected",
+    "notConnected": "Not connected"
+  },
+  "site": {
+    "features": {
+      "todo": {
+        "title": "Todo overview",
+        "summary": "See campus deadlines and personal tasks together, then jump back into work from the extension popup.",
+        "highlight1": "Capture lightweight todos without leaving the popup card.",
+        "highlight2": "Track personal tasks alongside the school workflows you repeat every week.",
+        "highlight3": "Use web guides and extension shortcuts together instead of memorizing campus paths."
+      },
+      "ecampus": {
+        "title": "eCampus launcher",
+        "summary": "Open Konkuk eCampus in fewer clicks, keep key routes nearby, and reduce tab hunting during busy weeks.",
+        "highlight1": "Jump from the popup to eCampus, portal, and academic calendar routes without extra search.",
+        "highlight2": "Keep browser-native workflows in the extension instead of duplicating them in the web app.",
+        "highlight3": "Pair public install guides with direct extension entry for real usage."
+      },
+      "bookmarks": {
+        "title": "Campus bookmarks",
+        "summary": "Bundle the pages students reopen every day, then prepare for favorites and personalized links on the web surface.",
+        "highlight1": "Organize your most-used campus pages in one predictable place.",
+        "highlight2": "Use service landing pages as SEO-friendly entry points before installation.",
+        "highlight3": "Prepare for authenticated favorites and personal link groups on the single-domain web app."
+      }
+    },
+    "services": {
+      "ecampus": {
+        "title": "Konkuk eCampus",
+        "summary": "Navigate lectures, notices, and assignment checkpoints with less friction around the busiest student workflows.",
+        "audience": "Students who revisit eCampus multiple times a day",
+        "task1": "Open lecture materials faster",
+        "task2": "Check assignments before deadlines",
+        "task3": "Review announcements without digging through menus"
+      },
+      "konkukPortal": {
+        "title": "Konkuk portal",
+        "summary": "Keep the academic portal, timetable, and core student services within easy reach from both public guides and extension entry points.",
+        "audience": "Students checking grades, registration, and campus admin flows",
+        "task1": "Review grades and registration windows",
+        "task2": "Find admin tools without repeated navigation",
+        "task3": "Move between the portal and supporting services quickly"
+      },
+      "academicCalendar": {
+        "title": "Academic calendar",
+        "summary": "Track the semester rhythm, from registration milestones to exam windows, with fewer missed campus dates.",
+        "audience": "Students planning around official school deadlines",
+        "task1": "Check course registration windows",
+        "task2": "See add-drop and withdrawal dates",
+        "task3": "Plan around midterm and final exam periods"
+      }
+    },
+    "guides": {
+      "installExtension": {
+        "title": "Install the extension",
+        "summary": "Go from Chrome Web Store install to daily usage in the popup card without guessing which step comes next.",
+        "step1": "Open the LinKU Chrome Web Store page.",
+        "step2": "Add the extension to Chrome and pin it to the toolbar.",
+        "step3": "Open the popup and start from the campus shortcuts you use most often."
+      },
+      "howToUseLinku": {
+        "title": "How to use LinKU",
+        "summary": "Learn the first useful workflow after install, from shortcut discovery to favorites and extension connection.",
+        "step1": "Open frequently used campus pages through the popup instead of manual navigation.",
+        "step2": "Review guides and service pages on the web surface when you need more context.",
+        "step3": "Sign in on the web to prepare favorites, settings, and extension connection flows."
+      }
+    },
+    "faq": {
+      "whatIsLinku": {
+        "question": "What is LinKU?",
+        "answer": "LinKU is a Chrome-extension-first companion for Konkuk University workflows, paired with a public SEO site and authenticated web routes on the same canonical domain."
+      },
+      "withoutExtension": {
+        "question": "Can I use LinKU without installing the extension?",
+        "answer": "Yes for guides, install help, feature overviews, FAQs, and service landing pages. The fastest campus workflows still live in the Chrome extension."
+      },
+      "authenticatedSurface": {
+        "question": "What is the authenticated web surface for?",
+        "answer": "It handles Google sign-in, personal favorites, settings, account management, and extension connection status inside path-based routes such as /login and /dashboard."
+      },
+      "supportedBrowser": {
+        "question": "Which browser is supported first?",
+        "answer": "This MVP is designed around Chrome and Chrome Web Store distribution because the core flows depend on browser extension capabilities."
+      },
+      "domainPolicy": {
+        "question": "How are the domains organized now?",
+        "answer": "The public pages and authenticated routes both live on the single canonical domain https://www.linku.xxx, while the apex domain redirects there and api.linku.xxx remains optional for a future BFF split."
+      }
+    },
+    "updates": {
+      "monorepoFoundation": {
+        "title": "Monorepo foundation",
+        "summary": "The workspace now separates the extension, shared packages, and the upcoming single-domain web surface.",
+        "bullet1": "The existing Chrome extension lives in apps/extension.",
+        "bullet2": "Shared UI, config, platform, SEO, and type packages are now part of the workspace.",
+        "bullet3": "Public web content and authenticated route helpers are being prepared around a single canonical domain."
+      },
+      "singleDomainWeb": {
+        "title": "Single-domain web direction",
+        "summary": "The split between www and app subdomains was removed in favor of one Next.js app on the canonical web domain.",
+        "bullet1": "Public SEO routes and authenticated routes will both run on www.linku.xxx.",
+        "bullet2": "Canonical URLs, OAuth callbacks, and session handling now share the same base URL.",
+        "bullet3": "Authenticated routes follow a noindex policy by default."
+      }
+    },
+    "navigation": {
+      "top": {
+        "install": {
+          "title": "Install",
+          "summary": "Install the extension"
+        },
+        "features": {
+          "title": "Features",
+          "summary": "Feature overviews"
+        },
+        "services": {
+          "title": "Services",
+          "summary": "Campus service landing pages"
+        },
+        "guides": {
+          "title": "Guides",
+          "summary": "Setup and usage docs"
+        },
+        "faq": {
+          "title": "FAQ",
+          "summary": "Common questions"
+        },
+        "updates": {
+          "title": "Updates",
+          "summary": "Release notes and changes"
+        }
+      },
+      "app": {
+        "dashboard": {
+          "title": "Dashboard",
+          "summary": "Signed-in overview and next steps"
+        },
+        "links": {
+          "title": "Links",
+          "summary": "Personal shortcut collection"
+        },
+        "favorites": {
+          "title": "Favorites",
+          "summary": "Saved campus pages and guides"
+        },
+        "settings": {
+          "title": "Settings",
+          "summary": "Preferences and defaults"
+        },
+        "account": {
+          "title": "Account",
+          "summary": "Profile and session information"
+        },
+        "extensionConnect": {
+          "title": "Extension connect",
+          "summary": "Check extension connection state"
+        }
+      }
+    }
+  },
+  "shell": {
+    "site": {
+      "login": "Login",
+      "footerBlurb": "LinKU runs public SEO pages and authenticated entry routes on the same canonical web domain.",
+      "privacy": "Privacy",
+      "updates": "Updates",
+      "faq": "FAQ"
+    },
+    "auth": {
+      "install": "Install",
+      "guide": "Guide"
+    },
+    "app": {
+      "eyebrow": "Authenticated surface",
+      "summary": "Signed in on the same canonical domain used by the public SEO surface.",
+      "signOut": "Sign out",
+      "workspace": "Workspace",
+      "fallbackUserName": "LinKU account"
+    }
+  },
+  "pages": {
+    "home": {
+      "meta": {
+        "title": "LinKU",
+        "description": "Discover LinKU, a Chrome-extension-first companion for Konkuk University with install guides, feature pages, service landing pages, and path-based account routes."
+      },
+      "eyebrow": "Single-domain public web + extension-first workflow",
+      "headline": "Faster campus paths, without rebuilding your whole routine.",
+      "body": "LinKU keeps the Chrome extension focused on the browser-native shortcuts students actually use, while the web surface handles discovery, install guidance, FAQ, and future account features on the same canonical domain.",
+      "ctaInstall": "Install the extension",
+      "ctaLogin": "Open login route",
+      "ctaGuide": "Read the install guide",
+      "quickStats": {
+        "domainLabel": "Canonical domain",
+        "domainValue": "www.linku.xxx",
+        "installLabel": "Install flow",
+        "installValue": "Chrome Web Store",
+        "authLabel": "Auth entry",
+        "authValue": "/login"
+      },
+      "featureCta": "Read feature detail",
+      "servicesEyebrow": "Campus services",
+      "servicesHeadline": "Search-friendly landing pages for the routes students actually reopen.",
+      "latestUpdateEyebrow": "Latest update",
+      "readUpdates": "Read updates",
+      "seeFaq": "See FAQ"
+    },
+    "install": {
+      "meta": {
+        "title": "Install",
+        "description": "Install the LinKU Chrome extension, pin it to your toolbar, and pair it with the single-domain LinKU web experience."
+      },
+      "eyebrow": "Install",
+      "headline": "Add LinKU to Chrome and keep campus shortcuts close.",
+      "body": "LinKU is extension-first by design. Install once, pin it, and use the web surface for richer guidance, route discovery, and account entry on the same canonical domain.",
+      "ctaStore": "Open Chrome Web Store",
+      "ctaLogin": "Visit the login route",
+      "reason1": "The extension keeps browser-native campus shortcuts one click away.",
+      "reason2": "The web surface stays focused on discovery, guides, FAQ, and account entry.",
+      "reason3": "Single-domain routes such as /login and /dashboard can grow without splitting domains later."
+    },
+    "features": {
+      "meta": {
+        "title": "Features",
+        "description": "Explore LinKU features for todo tracking, eCampus launch shortcuts, and campus bookmarks built around repeat student workflows."
+      },
+      "eyebrow": "Features",
+      "headline": "The extension keeps the quick actions. The web explains why they matter.",
+      "body": "Each feature page supports discovery, search intent, and onboarding, while the extension keeps the real fast path inside the browser.",
+      "openDetail": "Open detail"
+    },
+    "featureDetail": {
+      "notFoundTitle": "Feature not found",
+      "notFoundDescription": "The requested feature page does not exist.",
+      "ctaInstall": "Install LinKU",
+      "ctaGuide": "Read usage guide"
+    },
+    "services": {
+      "meta": {
+        "title": "Services",
+        "description": "Browse LinKU service landing pages for Konkuk eCampus, campus portal routes, and academic calendar entry points."
+      },
+      "eyebrow": "Services",
+      "headline": "Public landing pages for the campus services students revisit most.",
+      "body": "These pages exist for search, orientation, and fast internal linking before the extension takes over the actual quick-entry experience.",
+      "audiencePrefix": "Audience"
+    },
+    "serviceDetail": {
+      "notFoundTitle": "Service not found",
+      "notFoundDescription": "The requested service page does not exist.",
+      "commonTasks": "Common tasks",
+      "ctaInstall": "Install extension",
+      "ctaFeature": "See feature context"
+    },
+    "guides": {
+      "meta": {
+        "title": "Guides",
+        "description": "Read LinKU setup and usage guides for extension install, first-run workflow, and future account entry on the same domain."
+      },
+      "eyebrow": "Guides",
+      "headline": "Install once, then learn the shortest path to repeated campus work.",
+      "body": "These authored guides support onboarding and search, while the extension handles the privileged browser work the web should not fake."
+    },
+    "guideDetail": {
+      "notFoundTitle": "Guide not found",
+      "notFoundDescription": "The requested guide page does not exist.",
+      "ctaInstall": "Install LinKU",
+      "ctaLogin": "Visit login"
+    },
+    "faq": {
+      "meta": {
+        "title": "FAQ",
+        "description": "Find answers about LinKU install flow, browser support, authenticated routes, and the single-domain canonical setup."
+      },
+      "eyebrow": "FAQ",
+      "headline": "The short answers before you install or sign in.",
+      "body": "LinKU now keeps public pages and account entry routes together on the same canonical host, so the basic questions should be just as easy to find as the product itself."
+    },
+    "updates": {
+      "meta": {
+        "title": "Updates",
+        "description": "Follow LinKU changes across the monorepo foundation, shared packages, and single-domain web direction."
+      },
+      "eyebrow": "Updates",
+      "headline": "Product direction, implementation milestones, and structural changes.",
+      "body": "This log tracks the monorepo, the shared package layer, and the move to a single canonical web domain."
+    },
+    "privacy": {
+      "meta": {
+        "title": "Privacy",
+        "description": "Read the privacy baseline for LinKU public pages, authenticated routes, and extension-adjacent account flows."
+      },
+      "eyebrow": "Privacy",
+      "headline": "A practical privacy baseline for a single-domain LinKU deployment.",
+      "body": "Public pages, authenticated routes, and extension-adjacent flows have different data needs even when they live on the same canonical domain.",
+      "point1": "Public pages should stay readable without requiring sign-in or client-only rendering.",
+      "point2": "Authenticated routes should use server-verifiable sessions, minimal secrets exposure, and noindex rules.",
+      "point3": "Extension-specific tokens and privileged browser APIs remain in the Chrome extension instead of the public web surface."
+    },
+    "login": {
+      "meta": {
+        "title": "Login",
+        "description": "Enter the authenticated LinKU surface on the same canonical domain used for public SEO pages and install guidance."
+      },
+      "eyebrow": "Path-based auth entry",
+      "headline": "Sign in without leaving the canonical LinKU domain.",
+      "body": "Public discovery pages, install guidance, and account routes now live together. Google OAuth lands here first, then carries the session forward to /dashboard, /favorites, /settings, and /extension/connect.",
+      "ctaHome": "Back to homepage",
+      "ctaGuide": "Read install guide",
+      "cardEyebrow": "Account entry",
+      "cardTitle": "Continue with Google",
+      "cardBody": "Auth.js handles the same-domain session shell here. If Google credentials are not configured yet, the route still renders and stays noindex so the rest of the app can be validated safely.",
+      "continue": "Continue with Google",
+      "configure": "Configure Google OAuth to enable sign-in",
+      "siteUrl": "Canonical site URL",
+      "providerReady": "Google provider ready",
+      "authSecret": "Auth secret configured"
+    },
+    "dashboard": {
+      "meta": {
+        "title": "Dashboard",
+        "description": "Review favorites, personal links, settings, and extension connection status inside the authenticated LinKU surface."
+      },
+      "eyebrow": "Dashboard",
+      "headline": "One authenticated surface, kept alongside the public SEO site.",
+      "body": "This dashboard is the signed-in home for the same Next.js app. Use it to organize favorites, personal links, settings, and extension status without splitting domains.",
+      "stats": {
+        "favorites": "Favorites",
+        "personalLinks": "Personal links",
+        "extension": "Extension",
+        "extensionConnected": "Connected",
+        "extensionNotConnected": "Not connected"
+      }
+    },
+    "links": {
+      "meta": {
+        "title": "Links",
+        "description": "Store personal shortcut links and reuse them across the authenticated LinKU surface."
+      },
+      "eyebrow": "Links",
+      "headline": "Personal shortcuts that sit beside the shared campus catalog.",
+      "body": "Use this space for the URLs you want to keep separate from the public services list, whether they are course pages, reference docs, or account-specific destinations."
+    },
+    "favorites": {
+      "meta": {
+        "title": "Favorites",
+        "description": "Save frequently revisited LinKU routes and service landing pages inside the authenticated web surface."
+      },
+      "eyebrow": "Favorites",
+      "headline": "Keep the routes you never want to re-find.",
+      "body": "This MVP stores favorites in a replaceable cookie-backed workspace layer so the interface is ready for a future database-backed implementation."
+    },
+    "settings": {
+      "meta": {
+        "title": "Settings",
+        "description": "Control the authenticated LinKU defaults for landing route, link behavior, and future notification-style preferences."
+      },
+      "eyebrow": "Settings",
+      "headline": "Keep the signed-in defaults explicit from the start.",
+      "body": "Even without a full backend yet, the settings interface is already separated behind a replaceable data boundary so we can swap storage implementations later."
+    },
+    "account": {
+      "meta": {
+        "title": "Account",
+        "description": "Review session identity, provider readiness, and canonical-domain account details for LinKU."
+      },
+      "eyebrow": "Account",
+      "headline": "Session identity and provider readiness on one canonical host.",
+      "body": "This page keeps the account basics visible while OAuth secrets and extension identifiers may still be supplied later through environment configuration.",
+      "user": "User",
+      "signedInUser": "Signed-in user",
+      "noEmail": "No email available",
+      "sessionUserId": "Session user ID",
+      "notAvailable": "not available",
+      "environment": "Environment",
+      "authRuntime": "Auth runtime",
+      "canonicalSite": "Canonical site",
+      "googleOAuthReady": "Google OAuth ready",
+      "extensionId": "Extension ID"
+    },
+    "extensionConnect": {
+      "meta": {
+        "title": "Extension connect",
+        "description": "Review and update the extension connection state from the same authenticated LinKU web surface."
+      },
+      "eyebrow": "Extension connect",
+      "headline": "A path-based status page for extension handoff.",
+      "body": "The extension remains the privileged browser surface, but this route gives the signed-in user one place to confirm connection state without leaving the canonical web domain."
+    },
+    "notFound": {
+      "eyebrow": "404",
+      "headline": "This route does not exist.",
+      "body": "Try the main landing page, install guide, feature pages, service landing pages, or the login entry route.",
+      "ctaHome": "Back home",
+      "ctaLogin": "Go to login"
+    }
+  },
+  "components": {
+    "favoritesManager": {
+      "titlePlaceholder": "Favorite title",
+      "pathPlaceholder": "/services/ecampus",
+      "add": "Add favorite",
+      "quickAddPrefix": "Add {title}",
+      "empty": "No favorites yet. Save the routes you want to revisit without leaving the same canonical domain.",
+      "remove": "Remove",
+      "saveError": "Unable to save favorite.",
+      "removeError": "Unable to remove favorite."
+    },
+    "linksManager": {
+      "labelPlaceholder": "Portal shortcut",
+      "urlPlaceholder": "https://...",
+      "save": "Save link",
+      "empty": "No personal links saved yet. Keep this list for the routes that matter to you more than the default catalog.",
+      "remove": "Remove",
+      "saveError": "Unable to save personal link.",
+      "removeError": "Unable to remove personal link."
+    },
+    "settingsPanel": {
+      "save": "Save settings",
+      "saved": "Settings saved.",
+      "saveError": "Unable to save settings.",
+      "openNewTabTitle": "Open saved links in a new tab",
+      "openNewTabDescription": "Keep personal link launches separate from your current task.",
+      "weeklyDigestTitle": "Weekly digest placeholder",
+      "weeklyDigestDescription": "Reserve a setting for summary-style notifications or review flows later.",
+      "defaultLandingTitle": "Default landing route",
+      "defaultLandingDescription": "Choose the page you want to treat as your signed-in home inside the same app."
+    },
+    "extensionConnectCard": {
+      "eyebrow": "Connection",
+      "connectedTitle": "Extension connected",
+      "disconnectedTitle": "Extension not connected",
+      "body": "Use this page as the same-domain status surface that the extension can eventually report into through the shared bridge contract.",
+      "extensionId": "Extension ID",
+      "markConnected": "Mark connected",
+      "clearConnection": "Clear connection",
+      "connectedLabel": "Connected",
+      "lastChecked": "Last checked",
+      "notSet": "not set",
+      "notRecorded": "not recorded",
+      "updateError": "Unable to update extension connection state.",
+      "connectedMessage": "Extension marked as connected.",
+      "disconnectedMessage": "Extension disconnected."
+    },
+    "linkuCardPreview": {
+      "popup": "LinKU Popup",
+      "quickAccess": "quick access",
+      "librarySeats": "Library seats"
+    }
+  },
+  "api": {
+    "errors": {
+      "unauthorized": "Unauthorized",
+      "titleAndPathRequired": "Title and path are required.",
+      "favoriteIdRequired": "Favorite id is required.",
+      "labelAndUrlRequired": "Label and URL are required.",
+      "linkIdRequired": "Link id is required."
+    }
+  },
+  "og": {
+    "headline": "Campus work, opened faster.",
+    "body": "Install guides, service landing pages, and path-based account routes on one canonical domain."
+  }
+}

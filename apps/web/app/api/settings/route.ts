@@ -8,7 +8,7 @@ import {
 } from "@/lib/workspace-store";
 
 function unauthorized() {
-  return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  return NextResponse.json({ message: "api.errors.unauthorized" }, { status: 401 });
 }
 
 export async function GET() {

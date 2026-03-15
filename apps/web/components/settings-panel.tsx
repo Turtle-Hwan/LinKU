@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { LinkuUserSettings } from "@/lib/workspace-store";
 
@@ -8,6 +9,7 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ initialSettings }: SettingsPanelProps) {
+  const t = useTranslations();
   const [settings, setSettings] = useState(initialSettings);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
@@ -25,16 +27,24 @@ export function SettingsPanel({ initialSettings }: SettingsPanelProps) {
         body: JSON.stringify(nextSettings),
       });
 
-      const data = (await response.json()) as LinkuUserSettings;
+      const data = (await response.json()) as LinkuUserSettings | { message?: string };
 
       if (!response.ok) {
-        throw new Error("Unable to save settings.");
+        throw new Error(
+          "message" in data && typeof data.message === "string"
+            ? t(data.message)
+            : t("components.settingsPanel.saveError"),
+        );
       }
 
-      setSettings(data);
-      setMessage("Settings saved.");
+      setSettings(data as LinkuUserSettings);
+      setMessage(t("components.settingsPanel.saved"));
     } catch (caughtError) {
-      setMessage(caughtError instanceof Error ? caughtError.message : "Unable to save settings.");
+      setMessage(
+        caughtError instanceof Error
+          ? caughtError.message
+          : t("components.settingsPanel.saveError"),
+      );
     } finally {
       setPending(false);
     }
@@ -50,9 +60,11 @@ export function SettingsPanel({ initialSettings }: SettingsPanelProps) {
     >
       <label className="flex items-center justify-between rounded-[1.2rem] border border-black/8 bg-white p-5">
         <div>
-          <div className="font-medium">Open saved links in a new tab</div>
+          <div className="font-medium">
+            {t("components.settingsPanel.openNewTabTitle")}
+          </div>
           <div className="mt-1 text-sm text-[var(--muted)]">
-            Keep personal link launches separate from your current task.
+            {t("components.settingsPanel.openNewTabDescription")}
           </div>
         </div>
         <input
@@ -69,9 +81,11 @@ export function SettingsPanel({ initialSettings }: SettingsPanelProps) {
 
       <label className="flex items-center justify-between rounded-[1.2rem] border border-black/8 bg-white p-5">
         <div>
-          <div className="font-medium">Weekly digest placeholder</div>
+          <div className="font-medium">
+            {t("components.settingsPanel.weeklyDigestTitle")}
+          </div>
           <div className="mt-1 text-sm text-[var(--muted)]">
-            Reserve a setting for summary-style notifications or review flows later.
+            {t("components.settingsPanel.weeklyDigestDescription")}
           </div>
         </div>
         <input
@@ -87,9 +101,11 @@ export function SettingsPanel({ initialSettings }: SettingsPanelProps) {
       </label>
 
       <label className="block rounded-[1.2rem] border border-black/8 bg-white p-5">
-        <div className="font-medium">Default landing route</div>
+        <div className="font-medium">
+          {t("components.settingsPanel.defaultLandingTitle")}
+        </div>
         <div className="mt-1 text-sm text-[var(--muted)]">
-          Choose the page you want to treat as your signed-in home inside the same app.
+          {t("components.settingsPanel.defaultLandingDescription")}
         </div>
         <input
           value={settings.defaultLandingRoute}
@@ -109,7 +125,7 @@ export function SettingsPanel({ initialSettings }: SettingsPanelProps) {
           disabled={pending}
           className="rounded-full bg-[#132a22] px-5 py-3 text-sm text-white disabled:opacity-50"
         >
-          Save settings
+          {t("components.settingsPanel.save")}
         </button>
         {message ? <p className="text-sm text-[var(--muted)]">{message}</p> : null}
       </div>
