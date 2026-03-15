@@ -36,6 +36,16 @@ export function readAuthEnv(env: EnvSource) {
   };
 }
 
+export function readBackendEnv(env: EnvSource) {
+  return {
+    apiBaseUrl:
+      env.LINKU_API_BASE_URL?.trim() ||
+      env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
+      env.VITE_API_BASE_URL?.trim() ||
+      "",
+  };
+}
+
 export function readExtensionEnv(env: EnvSource) {
   const siteUrl = readValue(env, "VITE_SITE_URL", DEFAULT_SITE_URL);
 
