@@ -1,17 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@linku/ui";
+import type { Template } from "@linku/shared-types";
 import type { AppLocale } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { WorkspaceAlerts } from "@/components/workspace-alerts";
 import { WorkspaceShortcutGrid } from "@/components/workspace-shortcut-grid";
 import { WorkspaceTemplateCard } from "@/components/workspace-template-card";
+import { WorkspaceTemplateGrid } from "@/components/workspace-template-grid";
 import { WorkspaceTodos } from "@/components/workspace-todos";
 import { getLabsCopy } from "@/lib/labs-copy";
+import { getRemoteTemplate } from "@/lib/remote-template-client";
 import { getWorkspaceCopy } from "@/lib/workspace-copy";
 import {
-  getSelectedWorkspaceTemplateId,
+  getSelectedWorkspaceTemplateSelection,
   listWorkspaceTemplates,
 } from "@/lib/workspace-templates";
 
@@ -19,18 +22,72 @@ export function WebWorkspace({ locale }: { locale: AppLocale }) {
   const copy = getWorkspaceCopy(locale);
   const labsCopy = getLabsCopy(locale);
   const [searchQuery, setSearchQuery] = useState("");
+  const [remoteTemplateDetail, setRemoteTemplateDetail] = useState<{
+    templateId: number;
+    template: Template;
+  } | null>(null);
+  const selection = useMemo(
+    () => getSelectedWorkspaceTemplateSelection(locale),
+    [locale],
+  );
 
   const { templates, activeTemplate } = useMemo(() => {
     const allTemplates = listWorkspaceTemplates(locale);
-    const selectedId = getSelectedWorkspaceTemplateId(locale);
     const selectedTemplate =
-      allTemplates.find((item) => item.id === selectedId) ?? allTemplates[0] ?? null;
+      selection.kind === "local"
+        ? allTemplates.find((item) => item.id === selection.templateId) ?? allTemplates[0] ?? null
+        : null;
 
     return {
       templates: allTemplates,
       activeTemplate: selectedTemplate,
     };
-  }, [locale]);
+  }, [locale, selection]);
+
+  const remoteTemplate = useMemo(() => {
+    if (selection.kind !== "remote") {
+      return null;
+    }
+
+    if (
+      remoteTemplateDetail &&
+      remoteTemplateDetail.templateId === selection.templateId
+    ) {
+      return remoteTemplateDetail.template;
+    }
+
+    if (selection.cachedItems && selection.cachedItems.length > 0) {
+      return {
+        id: `remote-${selection.templateId}`,
+        templateId: selection.templateId,
+        name: selection.cachedName || "Remote template",
+        height: selection.cachedHeight || 6,
+        cloned: false,
+        items: selection.cachedItems,
+        createdAt: "",
+        updatedAt: "",
+      } satisfies Template;
+    }
+
+    return null;
+  }, [remoteTemplateDetail, selection]);
+
+  useEffect(() => {
+    if (selection.kind !== "remote") {
+      return;
+    }
+
+    void getRemoteTemplate(selection.templateId)
+      .then((template) => {
+        setRemoteTemplateDetail({
+          templateId: selection.templateId,
+          template,
+        });
+      })
+      .catch(() => {
+        // Keep the cached template if the latest fetch fails.
+      });
+  }, [selection]);
 
   return (
     <div className="space-y-8">
@@ -97,7 +154,30 @@ export function WebWorkspace({ locale }: { locale: AppLocale }) {
         </TabsList>
 
         <TabsContent value="shortcuts" className="space-y-5">
-          {activeTemplate ? (
+          {selection.kind === "remote" && remoteTemplate ? (
+            <>
+              <WorkspaceTemplateCard
+                template={{
+                  name: remoteTemplate.name,
+                  description:
+                    locale === "ko"
+                      ? "LinKU backend 템플릿이 웹 대시보드에 적용된 상태입니다."
+                      : "A LinKU backend template is currently applied on the web dashboard.",
+                }}
+                locale={locale}
+                active
+                badges={[locale === "ko" ? "현재 대시보드 구성" : "Current dashboard set"]}
+                preview={<WorkspaceTemplateGrid items={remoteTemplate.items} rows={remoteTemplate.height} />}
+                itemCount={remoteTemplate.items.length}
+              />
+              {remoteTemplate === null ? (
+                <div className="rounded-[1.2rem] border border-black/8 bg-white p-5 text-sm text-[var(--muted)]">
+                  {locale === "ko" ? "remote template을 동기화하는 중입니다." : "Syncing the remote template."}
+                </div>
+              ) : null}
+              <WorkspaceTemplateGrid items={remoteTemplate.items} rows={remoteTemplate.height} interactive />
+            </>
+          ) : activeTemplate ? (
             <>
               <WorkspaceTemplateCard
                 template={activeTemplate}

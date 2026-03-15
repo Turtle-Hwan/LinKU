@@ -2,15 +2,22 @@
 
 import { Badge, Button } from "@linku/ui";
 import type { AppLocale } from "@/i18n/routing";
-import type { WorkspaceTemplateRecord } from "@/lib/workspace-templates";
 import { WorkspaceShortcutGrid } from "@/components/workspace-shortcut-grid";
 
+interface WorkspaceTemplateCardData {
+  name: string;
+  description: string;
+  shortcutIds?: string[];
+}
+
 interface WorkspaceTemplateCardProps {
-  template: WorkspaceTemplateRecord;
+  template: WorkspaceTemplateCardData;
   locale: AppLocale;
   active?: boolean;
   badges?: string[];
   actions?: React.ReactNode;
+  preview?: React.ReactNode;
+  itemCount?: number;
 }
 
 export function WorkspaceTemplateCard({
@@ -19,7 +26,11 @@ export function WorkspaceTemplateCard({
   active = false,
   badges = [],
   actions,
+  preview,
+  itemCount,
 }: WorkspaceTemplateCardProps) {
+  const resolvedItemCount = itemCount ?? template.shortcutIds?.length ?? 0;
+
   return (
     <article className="rounded-[1.6rem] border border-black/8 bg-white p-5 shadow-[0_20px_50px_rgba(19,42,34,0.05)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -42,14 +53,22 @@ export function WorkspaceTemplateCard({
       </div>
 
       <div className="mt-5">
-        <WorkspaceShortcutGrid shortcutIds={template.shortcutIds} locale={locale} compact />
+        {preview ? (
+          preview
+        ) : (
+          <WorkspaceShortcutGrid
+            shortcutIds={template.shortcutIds ?? []}
+            locale={locale}
+            compact
+          />
+        )}
       </div>
 
       <div className="mt-4 flex justify-end">
         <Button variant="ghost" className="rounded-full text-xs text-[var(--muted)]">
           {locale === "ko"
-            ? `${template.shortcutIds.length}개 바로가기`
-            : `${template.shortcutIds.length} shortcuts`}
+            ? `${resolvedItemCount}개 바로가기`
+            : `${resolvedItemCount} shortcuts`}
         </Button>
       </div>
     </article>
