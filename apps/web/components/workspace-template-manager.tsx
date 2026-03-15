@@ -10,6 +10,7 @@ import type {
 import type { AppLocale } from "@/i18n/routing";
 import { useRouter } from "@/i18n/navigation";
 import {
+  deleteRemoteTemplate,
   deletePostedTemplate,
   getClonedRemoteTemplates,
   getMyPostedTemplates,
@@ -19,7 +20,12 @@ import {
   publishRemoteTemplate,
   toggleLikePostedTemplate,
 } from "@/lib/remote-template-client";
-import { setSelectedWorkspaceTemplateSelection } from "@/lib/workspace-templates";
+import {
+  getDefaultWorkspaceTemplate,
+  getSelectedWorkspaceTemplateSelection,
+  setSelectedWorkspaceTemplateId,
+  setSelectedWorkspaceTemplateSelection,
+} from "@/lib/workspace-templates";
 import { WorkspaceLocalTemplateManager } from "@/components/workspace-local-template-manager";
 import { WorkspaceTemplateCard } from "@/components/workspace-template-card";
 import { WorkspaceTemplateGrid } from "@/components/workspace-template-grid";
@@ -34,17 +40,30 @@ interface PostedTemplateSummaryWithItems extends PostedTemplateSummary {
   detailItems?: NonNullable<PostedTemplateSummary["detailItems"]>;
 }
 
-export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
+export function WorkspaceTemplateManager({
+  locale,
+  remoteAccess,
+}: {
+  locale: AppLocale;
+  remoteAccess: {
+    webSession: boolean;
+    backendConfigured: boolean;
+    backendConnected: boolean;
+  };
+}) {
   const router = useRouter();
+  const canLoadRemote =
+    remoteAccess.webSession &&
+    remoteAccess.backendConfigured &&
+    remoteAccess.backendConnected;
   const [activeTab, setActiveTab] = useState<LibraryTab>("local");
   const [ownedTemplates, setOwnedTemplates] = useState<TemplateSummaryWithItems[]>([]);
   const [clonedTemplates, setClonedTemplates] = useState<TemplateSummaryWithItems[]>([]);
   const [postedTemplates, setPostedTemplates] = useState<PostedTemplateSummaryWithItems[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(canLoadRemote);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-
   const copy = useMemo(
     () => ({
       title: locale === "ko" ? "템플릿 허브" : "Template hub",
@@ -56,8 +75,21 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
         locale === "ko"
           ? "LinKU backend를 연결하면 extension에서 쓰던 템플릿 서버 기능을 web에서도 그대로 사용할 수 있습니다."
           : "Connect the LinKU backend to unlock the same server template flows on the web.",
+      remoteNeedsLogin:
+        locale === "ko"
+          ? "backend 템플릿 라이브러리를 보려면 LinKU 웹 로그인이 필요합니다."
+          : "Sign in to LinKU web to access the backend template library.",
+      remoteNeedsConfig:
+        locale === "ko"
+          ? "LINKU_API_BASE_URL이 비어 있어 backend 템플릿 기능을 아직 열 수 없습니다."
+          : "LINKU_API_BASE_URL is missing, so backend template features are not available yet.",
+      remoteNeedsBackendConnection:
+        locale === "ko"
+          ? "LinKU backend를 먼저 연결해야 owned, cloned, posted 템플릿을 불러올 수 있습니다."
+          : "Connect the LinKU backend before loading owned, cloned, and posted templates.",
       apply: locale === "ko" ? "적용" : "Apply",
       openGallery: locale === "ko" ? "공개 갤러리 열기" : "Open public gallery",
+      delete: locale === "ko" ? "삭제" : "Delete",
       postedBy: locale === "ko" ? "게시자" : "Posted by",
       likes: locale === "ko" ? "좋아요" : "Likes",
       clones: locale === "ko" ? "복제" : "Clones",
@@ -79,6 +111,14 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
     }),
     [locale],
   );
+  const remoteStatusMessage =
+    !remoteAccess.webSession
+      ? copy.remoteNeedsLogin
+      : !remoteAccess.backendConfigured
+        ? copy.remoteNeedsConfig
+        : !remoteAccess.backendConnected
+          ? copy.remoteNeedsBackendConnection
+        : "";
 
   async function enrichTemplateList(list: TemplateSummary[]) {
     return Promise.all(
@@ -113,6 +153,11 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
   }
 
   async function loadRemoteLibraries() {
+    if (!canLoadRemote) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -146,8 +191,12 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
   }
 
   useEffect(() => {
+    if (!canLoadRemote) {
+      return;
+    }
+
     void loadRemoteLibraries();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canLoadRemote]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function applyRemoteTemplate(template: TemplateSummaryWithItems) {
     let resolvedItems = template.detailItems;
@@ -194,6 +243,36 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
           : locale === "ko"
             ? "템플릿 게시에 실패했습니다."
             : "Failed to publish the template.",
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function handleDeleteTemplate(template: TemplateSummaryWithItems) {
+    setBusyKey(`delete-${template.templateId}`);
+    setMessage("");
+    setError("");
+
+    try {
+      await deleteRemoteTemplate(template.templateId);
+      const selection = getSelectedWorkspaceTemplateSelection(locale);
+      if (selection.kind === "remote" && selection.templateId === template.templateId) {
+        setSelectedWorkspaceTemplateId(getDefaultWorkspaceTemplate(locale).id);
+      }
+      await loadRemoteLibraries();
+      setMessage(
+        locale === "ko"
+          ? `"${template.name}" 템플릿을 backend 라이브러리에서 삭제했습니다.`
+          : `Deleted "${template.name}" from the backend library.`,
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : locale === "ko"
+            ? "템플릿 삭제에 실패했습니다."
+            : "Failed to delete the template.",
       );
     } finally {
       setBusyKey(null);
@@ -330,6 +409,15 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
                     {copy.publish}
                   </Button>
                 ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="rounded-full"
+                  disabled={busyKey === `delete-${template.templateId}`}
+                  onClick={() => void handleDeleteTemplate(template)}
+                >
+                  {copy.delete}
+                </Button>
               </>
             }
           />
@@ -426,6 +514,7 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
             type="button"
             variant="secondary"
             className="rounded-full"
+            disabled={!canLoadRemote}
             onClick={() => void loadRemoteLibraries()}
           >
             {copy.refresh}
@@ -443,6 +532,12 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
       <div className="rounded-[1.2rem] border border-black/8 bg-[#f6f0e1] p-5 text-sm leading-7 text-[var(--muted)]">
         {copy.backendNote}
       </div>
+
+      {remoteStatusMessage ? (
+        <div className="rounded-[1.2rem] border border-black/8 bg-white p-4 text-sm text-[var(--muted)]">
+          {remoteStatusMessage}
+        </div>
+      ) : null}
 
       {message ? (
         <div className="rounded-[1.2rem] border border-[#b0c38f] bg-[#eff8df] p-4 text-sm text-[#30411e]">
@@ -473,7 +568,7 @@ export function WorkspaceTemplateManager({ locale }: { locale: AppLocale }) {
         </TabsList>
 
         <TabsContent value="local" className="mt-6">
-          <WorkspaceLocalTemplateManager locale={locale} />
+          <WorkspaceLocalTemplateManager locale={locale} remoteAccess={remoteAccess} />
         </TabsContent>
 
         <TabsContent value="owned" className="mt-6">

@@ -13,6 +13,9 @@ export interface WorkspaceTemplateRecord {
   description: string;
   shortcutIds: string[];
   source: "default" | "custom" | "gallery";
+  serverTemplateId?: number;
+  syncStatus?: "local" | "synced";
+  postedTemplateId?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +47,13 @@ function isTemplateRecord(value: unknown): value is WorkspaceTemplateRecord {
     typeof (value as WorkspaceTemplateRecord).description === "string" &&
     Array.isArray((value as WorkspaceTemplateRecord).shortcutIds) &&
     typeof (value as WorkspaceTemplateRecord).source === "string" &&
+    (typeof (value as WorkspaceTemplateRecord).serverTemplateId === "number" ||
+      (value as WorkspaceTemplateRecord).serverTemplateId === undefined) &&
+    ((value as WorkspaceTemplateRecord).syncStatus === "local" ||
+      (value as WorkspaceTemplateRecord).syncStatus === "synced" ||
+      (value as WorkspaceTemplateRecord).syncStatus === undefined) &&
+    (typeof (value as WorkspaceTemplateRecord).postedTemplateId === "number" ||
+      (value as WorkspaceTemplateRecord).postedTemplateId === undefined) &&
     typeof (value as WorkspaceTemplateRecord).createdAt === "string" &&
     typeof (value as WorkspaceTemplateRecord).updatedAt === "string"
   );
@@ -105,6 +115,7 @@ function createRecordFromPreset(
     description: localizeWorkspaceText(preset.description, locale),
     shortcutIds: preset.shortcutIds,
     source,
+    syncStatus: source === "gallery" ? "local" : undefined,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -245,6 +256,7 @@ export function createWorkspaceTemplate(
     shortcutIds:
       mode === "default" ? DEFAULT_WORKSPACE_TEMPLATE.shortcutIds.slice(0, 10) : [],
     source: "custom",
+    syncStatus: "local",
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -263,6 +275,9 @@ export function cloneWorkspaceTemplate(
         ? `${template.name} 사본`
         : `${template.name} copy`,
     source: "custom",
+    serverTemplateId: undefined,
+    syncStatus: "local",
+    postedTemplateId: undefined,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -275,8 +290,26 @@ export function deleteWorkspaceTemplate(id: string) {
   const nextTemplates = getStoredWorkspaceTemplates().filter((item) => item.id !== id);
   writeStorageTemplates(nextTemplates);
 
-  if (canUseStorage() && window.localStorage.getItem(SELECTED_TEMPLATE_KEY) === id) {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  if (window.localStorage.getItem(SELECTED_TEMPLATE_KEY) === id) {
     window.localStorage.removeItem(SELECTED_TEMPLATE_KEY);
+  }
+
+  try {
+    const rawSelection = window.localStorage.getItem(SELECTED_TEMPLATE_TARGET_KEY);
+    if (!rawSelection) {
+      return;
+    }
+
+    const parsed = JSON.parse(rawSelection) as unknown;
+    if (isTemplateSelection(parsed) && parsed.kind === "local" && parsed.templateId === id) {
+      clearSelectedWorkspaceTemplateSelection();
+    }
+  } catch {
+    clearSelectedWorkspaceTemplateSelection();
   }
 }
 

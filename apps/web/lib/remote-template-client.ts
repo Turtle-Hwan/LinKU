@@ -2,6 +2,7 @@
 
 import type {
   CloneTemplateResponse,
+  Icon,
   LikeTemplateResponse,
   PostedTemplate,
   PostedTemplateListParams,
@@ -78,6 +79,10 @@ export function getClonedRemoteTemplates(params?: TemplateListParams) {
   return requestJson<TemplateSummary[]>(
     `/api/templates/cloned${buildQueryString(params as Record<string, string | number | undefined>)}`,
   );
+}
+
+export function getDefaultRemoteIcons() {
+  return requestJson<Icon[]>("/api/icons/default");
 }
 
 export function getRemoteTemplate(templateId: number) {

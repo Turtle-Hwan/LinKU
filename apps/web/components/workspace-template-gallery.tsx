@@ -41,11 +41,22 @@ function getSortLabel(option: SortOption, locale: AppLocale) {
   }
 }
 
-export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
+export function WorkspaceTemplateGallery({
+  locale,
+  backendConfigured,
+  backendConnected,
+  webSession,
+}: {
+  locale: AppLocale;
+  backendConfigured: boolean;
+  backendConnected: boolean;
+  webSession: boolean;
+}) {
+  const canInteract = backendConfigured && backendConnected && webSession;
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<SortOption>("newest");
   const [templates, setTemplates] = useState<PostedTemplateSummaryWithItems[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(backendConfigured);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -61,6 +72,18 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
       searchPlaceholder:
         locale === "ko" ? "템플릿 이름 검색" : "Search template names",
       refresh: locale === "ko" ? "새로고침" : "Refresh",
+      missingConfig:
+        locale === "ko"
+          ? "LINKU_API_BASE_URL이 비어 있어 공개 backend 갤러리를 불러올 수 없습니다."
+          : "LINKU_API_BASE_URL is missing, so the public backend gallery is unavailable.",
+      interactionNeedsBackend:
+        locale === "ko"
+          ? "좋아요와 복제를 하려면 먼저 LinKU backend를 연결해야 합니다."
+          : "Connect the LinKU backend before liking or cloning templates.",
+      interactionNeedsLogin:
+        locale === "ko"
+          ? "좋아요와 복제를 하려면 LinKU 웹 로그인이 필요합니다."
+          : "Sign in to LinKU web before liking or cloning templates.",
       likes: locale === "ko" ? "좋아요" : "Likes",
       clones: locale === "ko" ? "복제" : "Clones",
       clone: locale === "ko" ? "내 템플릿으로 복제" : "Clone to my templates",
@@ -75,6 +98,11 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
   );
 
   async function loadGallery() {
+    if (!backendConfigured) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -115,8 +143,12 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
   }
 
   useEffect(() => {
+    if (!backendConfigured) {
+      return;
+    }
+
     void loadGallery();
-  }, [sort]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [backendConfigured, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -124,6 +156,13 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
   }
 
   async function handleClone(template: PostedTemplateSummaryWithItems) {
+    if (!canInteract) {
+      setError(
+        !webSession ? copy.interactionNeedsLogin : copy.interactionNeedsBackend,
+      );
+      return;
+    }
+
     setBusyKey(`clone-${template.postedTemplateId}`);
     setMessage("");
     setError("");
@@ -159,6 +198,13 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
   }
 
   async function handleLike(template: PostedTemplateSummaryWithItems) {
+    if (!canInteract) {
+      setError(
+        !webSession ? copy.interactionNeedsLogin : copy.interactionNeedsBackend,
+      );
+      return;
+    }
+
     setBusyKey(`like-${template.postedTemplateId}`);
     setMessage("");
     setError("");
@@ -216,6 +262,7 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
         <select
           value={sort}
           onChange={(event) => setSort(event.target.value as SortOption)}
+          disabled={!backendConfigured}
           className="h-11 rounded-full border border-black/10 bg-white px-4 text-sm text-[var(--ink)]"
         >
           {SORT_OPTIONS.map((option) => (
@@ -224,17 +271,33 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
             </option>
           ))}
         </select>
-        <Button type="submit" variant="secondary" className="rounded-full">
+        <Button
+          type="submit"
+          variant="secondary"
+          className="rounded-full"
+          disabled={!backendConfigured}
+        >
           {locale === "ko" ? "검색" : "Search"}
         </Button>
         <Button
           type="button"
           className="rounded-full"
+          disabled={!backendConfigured}
           onClick={() => void loadGallery()}
         >
           {copy.refresh}
         </Button>
       </form>
+
+      {!backendConfigured ? (
+        <div className="rounded-[1.2rem] border border-black/8 bg-white p-4 text-sm text-[var(--muted)]">
+          {copy.missingConfig}
+        </div>
+      ) : !canInteract ? (
+        <div className="rounded-[1.2rem] border border-black/8 bg-white p-4 text-sm text-[var(--muted)]">
+          {!webSession ? copy.interactionNeedsLogin : copy.interactionNeedsBackend}
+        </div>
+      ) : null}
 
       {message ? (
         <div className="rounded-[1.2rem] border border-[#b0c38f] bg-[#eff8df] p-4 text-sm text-[#30411e]">
@@ -282,7 +345,7 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
                     type="button"
                     variant="outline"
                     className="rounded-full"
-                    disabled={busyKey === `like-${template.postedTemplateId}`}
+                    disabled={!canInteract || busyKey === `like-${template.postedTemplateId}`}
                     onClick={() => void handleLike(template)}
                   >
                     {template.isLiked ? copy.unlike : copy.like}
@@ -290,7 +353,7 @@ export function WorkspaceTemplateGallery({ locale }: { locale: AppLocale }) {
                   <Button
                     type="button"
                     className="rounded-full"
-                    disabled={busyKey === `clone-${template.postedTemplateId}`}
+                    disabled={!canInteract || busyKey === `clone-${template.postedTemplateId}`}
                     onClick={() => void handleClone(template)}
                   >
                     {copy.clone}

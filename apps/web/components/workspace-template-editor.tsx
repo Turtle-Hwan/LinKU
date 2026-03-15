@@ -103,6 +103,8 @@ export function WorkspaceTemplateEditor({
     const savedTemplate = saveWorkspaceTemplate({
       ...template,
       source: "custom",
+      syncStatus: template.serverTemplateId ? "local" : (template.syncStatus ?? "local"),
+      postedTemplateId: template.serverTemplateId ? undefined : template.postedTemplateId,
       updatedAt: new Date().toISOString(),
     });
 
