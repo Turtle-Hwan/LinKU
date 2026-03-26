@@ -1,7 +1,7 @@
 // 수강신청
 export const sugangRefreshBtn = () => {
   const refreshBtn = document.querySelectorAll<HTMLButtonElement>(
-    "#btnRefresh.btn-sm.btn-sub.btn-mode"
+    "div.is-active #btnRefresh.btn-sm.btn-sub.btn-mode"
   );
   refreshBtn.forEach((btn) => {
     btn.click();
