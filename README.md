@@ -24,6 +24,8 @@
   - Web, App 제공
 - **[언제볼까 :: 빠른 모임 날짜 약속]** [링크](https://when-will-we-meet.com/)
   - Web 제공
+- **[쿠맵 :: 건국대학교 배리어프리 지도]** [링크](https://github.com/KU-Barrier-Free/)
+  - Android, iOS 앱 제공
 
 ## Preview
 
