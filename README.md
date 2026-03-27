@@ -17,9 +17,9 @@
 ### Students Made Services of Konkuk University
 
 - **[ku-ring :: 건국대학교 공지 알리미, 쿠링]** [링크](https://github.com/ku-ring)
-  - Android, IOS 앱 제공
+  - Android, iOS 앱 제공
 - **[PlayKUround :: 캠퍼스 안의 작은 놀이터, 플레이쿠라운드]** [링크](https://github.com/playkuround)
-  - Android, IOS 앱 제공
+  - Android, iOS 앱 제공
 - **[KUstaurant :: 건대 맛집 탐색 쿠스토랑]** [링크](https://kustaurant.com/)
   - Web, App 제공
 - **[언제볼까 :: 빠른 모임 날짜 약속]** [링크](https://when-will-we-meet.com/)
