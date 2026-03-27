@@ -38,13 +38,13 @@ jobs:
         if: steps.check_release.outputs.exists == 'false'
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Setup Node.js
         if: steps.check_release.outputs.exists == 'false'
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -56,7 +56,7 @@ jobs:
         env:
           VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-        run: tsc -b && pnpm exec vite build --mode production
+        run: pnpm exec tsc -b && pnpm exec vite build --mode production
 
       - name: Create dist.zip
         if: steps.check_release.outputs.exists == 'false'

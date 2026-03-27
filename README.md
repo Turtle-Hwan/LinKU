@@ -49,6 +49,11 @@ LinKU 확장 프로그램을 빠르게 열 수 있는 단축키:
 
 ## How to Contribute
 
+### 개발 환경 요구사항
+
+- Node.js 24 LTS
+- pnpm
+
 ```bash
 git clone https://github.com/Turtle-Hwan/LinKU.git
 cd LinKU
