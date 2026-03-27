@@ -42,6 +42,24 @@ export interface LibrarySeatRoomsResponse {
   error?: string;
 }
 
+interface LibraryTokenStorageData {
+  accessToken: string;
+  expireDate?: string;
+}
+
+function isLibraryTokenStorageData(value: unknown): value is LibraryTokenStorageData {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const tokenData = value as Record<string, unknown>;
+  if (typeof tokenData.accessToken !== 'string') {
+    return false;
+  }
+
+  return tokenData.expireDate === undefined || typeof tokenData.expireDate === 'string';
+}
+
 /**
  * 도서관 로그인
  * @param loginId 사용자 ID (학번)
@@ -186,9 +204,15 @@ export async function getLibraryTokenFromStorage(): Promise<string | null> {
     }
 
     const result = await chrome.storage.local.get(LIBRARY_TOKEN_STORAGE_KEY);
-    const data = result[LIBRARY_TOKEN_STORAGE_KEY];
+    const rawData = result[LIBRARY_TOKEN_STORAGE_KEY];
 
-    if (!data?.accessToken) {
+    if (!isLibraryTokenStorageData(rawData)) {
+      return null;
+    }
+
+    const data = rawData;
+
+    if (!data.accessToken) {
       return null;
     }
 

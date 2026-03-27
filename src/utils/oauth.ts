@@ -18,12 +18,26 @@ export interface UserProfile {
   picture: string;
 }
 
+function isUserProfile(value: unknown): value is UserProfile {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const profile = value as Record<string, unknown>;
+  return (
+    typeof profile.email === 'string' &&
+    typeof profile.name === 'string' &&
+    typeof profile.picture === 'string'
+  );
+}
+
 /**
  * Get access token from chrome.storage.local
  */
 export async function getAccessToken(): Promise<string | null> {
   const result = await chrome.storage.local.get(['accessToken']);
-  return result.accessToken || null;
+  const token = result.accessToken;
+  return typeof token === 'string' ? token : null;
 }
 
 /**
@@ -31,7 +45,8 @@ export async function getAccessToken(): Promise<string | null> {
  */
 export async function getUserProfile(): Promise<UserProfile | null> {
   const result = await chrome.storage.local.get(['userProfile']);
-  return result.userProfile || null;
+  const profile = result.userProfile;
+  return isUserProfile(profile) ? profile : null;
 }
 
 

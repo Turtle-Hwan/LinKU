@@ -56,8 +56,9 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
           raw: newValue,
           type: typeof newValue,
         });
-        // 0 값도 null로 변환 (기본 템플릿)
-        const normalizedValue = newValue === 0 || newValue === undefined ? null : newValue;
+        // 0 값, undefined, 숫자가 아닌 값은 null로 변환 (기본 템플릿)
+        const normalizedValue =
+          newValue === 0 || typeof newValue !== 'number' ? null : newValue;
         console.log('[useSelectedTemplate] Normalized value:', normalizedValue);
         setSelectedTemplateId(normalizedValue);
       }

@@ -78,7 +78,8 @@ export const ENDPOINTS = {
  */
 async function getAccessToken(): Promise<string | null> {
   const result = await chrome.storage.local.get(["accessToken"]);
-  return result.accessToken || null;
+  const token = result.accessToken;
+  return typeof token === "string" ? token : null;
 }
 
 async function clearAccessToken(): Promise<void> {

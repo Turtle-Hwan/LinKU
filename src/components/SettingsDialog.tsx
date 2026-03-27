@@ -231,7 +231,7 @@ const GoogleOAuthSection = () => {
 
       // Load verified email if exists
       const storage = await chrome.storage.local.get(['kuMail']);
-      if (storage.kuMail) {
+      if (typeof storage.kuMail === 'string') {
         setVerifiedEmail(storage.kuMail);
       }
     }
@@ -286,7 +286,7 @@ const GoogleOAuthSection = () => {
 
         // Load verified email
         const storage = await chrome.storage.local.get(['kuMail']);
-        if (storage.kuMail) {
+        if (typeof storage.kuMail === 'string') {
           setVerifiedEmail(storage.kuMail);
         }
 
