@@ -55,7 +55,7 @@ export const getStorage = <T>(key: string): Promise<T | undefined> => {
 };
 
 export const setStorage = <T extends Record<string, unknown>>(
-  data: T
+  data: T,
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
     chrome?.storage?.local?.set(data, () => {
