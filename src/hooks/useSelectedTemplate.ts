@@ -12,6 +12,10 @@ import { loadTemplateFromLocalStorage } from "@/utils/templateStorage";
 
 const STORAGE_KEY = "selectedTemplateId";
 
+function getChromeStorage() {
+  return globalThis.chrome?.storage;
+}
+
 /**
  * Convert Template to LinkListElement[] format
  */
@@ -51,6 +55,11 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
 
   // Listen for storage changes from other contexts (real-time sync)
   useEffect(() => {
+    const storage = getChromeStorage();
+    if (!storage?.onChanged) {
+      return;
+    }
+
     const listener = (
       changes: { [key: string]: chrome.storage.StorageChange },
       areaName: string,
@@ -69,9 +78,9 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       }
     };
 
-    chrome.storage.onChanged.addListener(listener);
+    storage.onChanged.addListener(listener);
     return () => {
-      chrome.storage.onChanged.removeListener(listener);
+      storage.onChanged.removeListener(listener);
     };
   }, []);
 
@@ -90,7 +99,14 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
   const loadSelectedTemplate = async () => {
     setIsLoading(true);
     try {
-      const result = await chrome.storage.local.get([STORAGE_KEY]);
+      const storage = getChromeStorage();
+      if (!storage?.local) {
+        setSelectedTemplateId(null);
+        setLinkItems(LinkList);
+        return;
+      }
+
+      const result = await storage.local.get([STORAGE_KEY]);
       const templateId = result[STORAGE_KEY];
 
       console.log("[useSelectedTemplate] Loaded from storage:", {
@@ -173,15 +189,25 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
 
   const selectTemplate = async (templateId: number | null) => {
     try {
+      const storage = getChromeStorage();
+      if (!storage?.local) {
+        setSelectedTemplateId(templateId);
+        if (templateId === null) {
+          setTemplateData(null);
+          setLinkItems(LinkList);
+        }
+        return;
+      }
+
       if (templateId === null) {
         // Clear selection
-        await chrome.storage.local.remove(STORAGE_KEY);
+        await storage.local.remove(STORAGE_KEY);
         setSelectedTemplateId(null);
         setTemplateData(null);
         setLinkItems(LinkList);
       } else {
         // Save selection
-        await chrome.storage.local.set({ [STORAGE_KEY]: templateId });
+        await storage.local.set({ [STORAGE_KEY]: templateId });
         setSelectedTemplateId(templateId);
       }
     } catch (err) {
