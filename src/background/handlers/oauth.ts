@@ -66,10 +66,6 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const extensionId = chrome.runtime.id;
     const redirectUri = `https://${extensionId}.chromiumapp.org/`;
 
-    console.log("[Background] Extension ID:", extensionId);
-    console.log("[Background] Redirect URI:", redirectUri);
-    console.log("[Background] Backend URL:", BACKEND_URL);
-
     if (!BACKEND_URL) {
       return {
         success: false,
@@ -81,15 +77,11 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const authUrl = new URL(`${BACKEND_URL}/api/oauth2/google`);
     authUrl.searchParams.set("redirectUri", redirectUri);
 
-    console.log("[Background] Auth URL:", authUrl.toString());
-
     // 3. Launch OAuth flow using chrome.identity API
     const responseUrl = await chrome.identity.launchWebAuthFlow({
       url: authUrl.toString(),
       interactive: true,
     });
-
-    console.log("[Background] Response URL:", responseUrl);
 
     if (!responseUrl) {
       return { success: false, error: "인증이 취소되었습니다." };
@@ -124,8 +116,6 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     tokenUrl.searchParams.set("redirectUri", redirectUri);
     tokenUrl.searchParams.set("code", code);
 
-    console.log("[Background] Token URL:", tokenUrl.toString());
-
     const tokenResponse = await fetch(tokenUrl.toString(), {
       method: "GET",
       headers: {
@@ -136,8 +126,8 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     console.log("[Background] Token Response Status:", tokenResponse.status);
 
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error("[Background] Token exchange failed:", errorText);
+      await tokenResponse.text();
+      console.error("[Background] Token exchange failed");
       return {
         success: false,
         error: `토큰 교환 실패: ${tokenResponse.status} ${tokenResponse.statusText}`,
@@ -145,7 +135,6 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     }
 
     const tokenData = await tokenResponse.json();
-    console.log("[Background] Token Data:", JSON.stringify(tokenData, null, 2));
 
     // 6. Parse backend response
     // 응답 형식: { code: 1000, message: "SUCCESS", result: { accessToken, refreshToken } }
@@ -159,7 +148,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const { accessToken, refreshToken } = tokenData.result || {};
 
     if (!accessToken) {
-      console.error("[Background] No accessToken in response:", tokenData);
+      console.error("[Background] No accessToken in response");
       return {
         success: false,
         error: "백엔드 응답에서 토큰을 찾을 수 없습니다.",

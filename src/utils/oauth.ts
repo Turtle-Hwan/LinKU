@@ -95,8 +95,6 @@ export async function startGoogleLogin(): Promise<GoogleLoginResponse> {
       type: BackgroundMessageType.GOOGLE_LOGIN,
     });
 
-    console.log("[Popup] Received response from background:", response);
-
     return response as GoogleLoginResponse;
   } catch (error) {
     console.error("[Popup] Failed to communicate with background:", error);
