@@ -18,6 +18,14 @@
 
 import type { GoogleLoginResponse } from "../types";
 
+const IS_DEV = import.meta.env.DEV;
+
+function debugLog(message: string, ...args: unknown[]) {
+  if (IS_DEV) {
+    console.log(message, ...args);
+  }
+}
+
 // Backend URL from environment
 const BACKEND_URL = (() => {
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -60,7 +68,7 @@ async function saveTokens(
  */
 export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
   try {
-    console.log("[Background] Starting Google OAuth flow");
+    debugLog("[Background] Starting Google OAuth flow");
 
     // 1. Get extension ID and construct redirect URI
     const extensionId = chrome.runtime.id;
@@ -92,7 +100,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const code = url.searchParams.get("code");
     const error = url.searchParams.get("error");
 
-    console.log("[Background] Extracted code:", code ? "있음" : "없음");
+    debugLog("[Background] Extracted code:", code ? "있음" : "없음");
 
     if (error) {
       console.error("[Background] OAuth error:", error);
@@ -110,7 +118,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     }
 
     // 5. Exchange code for token via backend (새 API 스펙)
-    console.log("[Background] Exchanging code for token...");
+    debugLog("[Background] Exchanging code for token...");
 
     const tokenUrl = new URL(`${BACKEND_URL}/api/oauth2/google/login`);
     tokenUrl.searchParams.set("redirectUri", redirectUri);
@@ -123,7 +131,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
       },
     });
 
-    console.log("[Background] Token Response Status:", tokenResponse.status);
+    debugLog("[Background] Token Response Status:", tokenResponse.status);
 
     if (!tokenResponse.ok) {
       await tokenResponse.text();
@@ -157,7 +165,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
 
     // 7. Save tokens
     await saveTokens(accessToken, refreshToken);
-    console.log("[Background] Tokens saved successfully");
+    debugLog("[Background] Tokens saved successfully");
 
     // 8. Return success response
     // refreshToken이 없으면 게스트(신규 회원)
@@ -186,7 +194,9 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
         error.message.includes("interrupted"));
 
     if (isUserCancellation) {
-      console.warn("[Background] OAuth cancelled by user:", (error as Error).message);
+      if (IS_DEV) {
+        console.warn("[Background] OAuth cancelled by user:", (error as Error).message);
+      }
     } else {
       console.error("[Background] OAuth error:", error);
     }
