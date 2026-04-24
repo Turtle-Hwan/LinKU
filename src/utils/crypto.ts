@@ -130,7 +130,9 @@ export async function encryptPassword(password: string): Promise<string> {
     return `${saltHex}:${ivHex}:${encryptedBase64}`;
   } catch (error) {
     console.error("[Crypto] Encryption error:", error);
-    throw new Error("비밀번호 암호화에 실패했습니다.");
+    throw Object.assign(new Error("비밀번호 암호화에 실패했습니다."), {
+      cause: error,
+    });
   }
 }
 
@@ -175,6 +177,8 @@ export async function decryptPassword(encryptedData: string): Promise<string> {
     return decoder.decode(decryptedData);
   } catch (error) {
     console.error("[Crypto] Decryption error:", error);
-    throw new Error("비밀번호 복호화에 실패했습니다.");
+    throw Object.assign(new Error("비밀번호 복호화에 실패했습니다."), {
+      cause: error,
+    });
   }
 }

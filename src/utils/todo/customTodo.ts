@@ -11,10 +11,9 @@ const CUSTOM_TODOS_KEY = "customTodos";
 /**
  * D-Day 계산 함수
  * @param dueDate 마감 날짜 (YYYY.MM.DD 또는 YYYY-MM-DD 형식)
- * @param _dueTime 마감 시간 (HH:mm 형식) - D-Day 계산에는 사용하지 않음 (자정 기준)
  * @returns D-Day 문자열 (예: "D-3", "D-Day", "D+2")
  */
-function calculateDDay(dueDate: string, _dueTime: string): string {
+function calculateDDay(dueDate: string): string {
   try {
     // 날짜 형식 정규화: YYYY-MM-DD → YYYY.MM.DD
     const normalizedDate = dueDate.replace(/-/g, ".");
@@ -73,7 +72,7 @@ export async function getCustomTodos(): Promise<CustomTodoItem[]> {
 
       // 기존 dueDate가 시간을 포함하지 않으면 기본 시간 설정
       const dueTime = todo.dueTime || "23:59";
-      const dDay = calculateDDay(normalizedDate, dueTime);
+      const dDay = calculateDDay(normalizedDate);
 
       return {
         ...todo,
@@ -109,7 +108,7 @@ export async function addCustomTodo(
 ): Promise<void> {
   try {
     const todos = await getCustomTodos();
-    const dDay = calculateDDay(dueDate, dueTime);
+    const dDay = calculateDDay(dueDate);
 
     const newTodo: CustomTodoItem = {
       type: "custom",

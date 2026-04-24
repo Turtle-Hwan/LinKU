@@ -3,7 +3,7 @@
  * Allows editing name, URL, icon, size, and position
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useEditorContext } from '@/contexts/EditorContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { GRID_CONFIG } from '@/utils/template';
 import { validateLinkForm } from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
-import type { TemplateIcon } from '@/types/api';
+import type { TemplateIcon, TemplateItem } from '@/types/api';
 import { InputGroup } from '@/components/Editor/shared/InputGroup';
 
 export const ItemPropertiesPanel = () => {
@@ -30,28 +30,6 @@ export const ItemPropertiesPanel = () => {
   const selectedItem = selectedCanvasItem || selectedStagingItem;
   const isFromStaging = !!selectedStagingItem;
 
-  // Local state for form fields
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [selectedIconId, setSelectedIconId] = useState<number | null>(null);
-  const [width, setWidth] = useState('2');
-  const [height, setHeight] = useState('1');
-  const [posX, setPosX] = useState('0');
-  const [posY, setPosY] = useState('0');
-
-  // Update form when selected item changes
-  useEffect(() => {
-    if (selectedItem) {
-      setName(selectedItem.name);
-      setUrl(selectedItem.siteUrl);
-      setSelectedIconId(selectedItem.icon.iconId);
-      setWidth(selectedItem.size.width.toString());
-      setHeight(selectedItem.size.height.toString());
-      setPosX(selectedItem.position.x.toString());
-      setPosY(selectedItem.position.y.toString());
-    }
-  }, [selectedItem]);
-
   // No item selected
   if (!selectedItem) {
     return (
@@ -65,9 +43,58 @@ export const ItemPropertiesPanel = () => {
     );
   }
 
-  const handleSave = () => {
-    if (!selectedItem) return;
+  return (
+    <ItemPropertiesPanelForm
+      key={getSelectedItemKey(selectedItem)}
+      selectedItem={selectedItem}
+      isFromStaging={isFromStaging}
+      defaultIcons={state.defaultIcons}
+      userIcons={state.userIcons}
+      dispatch={dispatch}
+    />
+  );
+};
 
+interface ItemPropertiesPanelFormProps {
+  selectedItem: TemplateItem;
+  isFromStaging: boolean;
+  defaultIcons: ReturnType<typeof useEditorContext>['state']['defaultIcons'];
+  userIcons: ReturnType<typeof useEditorContext>['state']['userIcons'];
+  dispatch: ReturnType<typeof useEditorContext>['dispatch'];
+}
+
+function getSelectedItemKey(item: TemplateItem): string {
+  return [
+    item.templateItemId,
+    item.name,
+    item.siteUrl,
+    item.icon.iconId,
+    item.size.width,
+    item.size.height,
+    item.position.x,
+    item.position.y,
+  ].join(':');
+}
+
+const ItemPropertiesPanelForm = ({
+  selectedItem,
+  isFromStaging,
+  defaultIcons,
+  userIcons,
+  dispatch,
+}: ItemPropertiesPanelFormProps) => {
+  // Local state for form fields
+  const [name, setName] = useState(selectedItem.name);
+  const [url, setUrl] = useState(selectedItem.siteUrl);
+  const [selectedIconId, setSelectedIconId] = useState<number | null>(
+    selectedItem.icon.iconId
+  );
+  const [width, setWidth] = useState(selectedItem.size.width.toString());
+  const [height, setHeight] = useState(selectedItem.size.height.toString());
+  const [posX, setPosX] = useState(selectedItem.position.x.toString());
+  const [posY, setPosY] = useState(selectedItem.position.y.toString());
+
+  const handleSave = () => {
     // Validate form using centralized validation
     const validation = validateLinkForm(name, url, selectedIconId, 15);
     if (!validation.valid) {
@@ -76,7 +103,7 @@ export const ItemPropertiesPanel = () => {
     }
 
     // Find selected icon
-    const allIcons = [...state.defaultIcons, ...state.userIcons];
+    const allIcons = [...defaultIcons, ...userIcons];
     const icon = allIcons.find((i) => i.id === selectedIconId);
     if (!icon) {
       toast.error('선택한 아이콘을 찾을 수 없습니다.');
@@ -118,8 +145,6 @@ export const ItemPropertiesPanel = () => {
   };
 
   const handleDelete = () => {
-    if (!selectedItem) return;
-
     if (isFromStaging) {
       // Permanently delete from staging
       dispatch({ type: 'REMOVE_FROM_STAGING', payload: selectedItem.templateItemId });
@@ -132,11 +157,10 @@ export const ItemPropertiesPanel = () => {
   };
 
   const handleMoveToCanvas = () => {
-    if (!selectedItem || !isFromStaging) return;
+    if (!isFromStaging) return;
     dispatch({ type: 'MOVE_TO_CANVAS', payload: selectedItem.templateItemId });
     toast.success('아이템이 캔버스에 추가되었습니다.');
   };
-
 
   return (
     <aside className="w-72 border-l bg-background overflow-y-auto">
@@ -186,16 +210,16 @@ export const ItemPropertiesPanel = () => {
           <Tabs defaultValue="default" className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-8">
               <TabsTrigger value="default" className="text-xs">
-                기본 ({state.defaultIcons.length})
+                기본 ({defaultIcons.length})
               </TabsTrigger>
               <TabsTrigger value="user" className="text-xs">
-                내 아이콘 ({state.userIcons.length})
+                내 아이콘 ({userIcons.length})
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="default" className="mt-2">
               <IconGrid
-                icons={state.defaultIcons}
+                icons={defaultIcons}
                 selectedIconId={selectedIconId}
                 onSelectIcon={setSelectedIconId}
                 columns={4}
@@ -204,7 +228,7 @@ export const ItemPropertiesPanel = () => {
 
             <TabsContent value="user" className="mt-2">
               <IconGrid
-                icons={state.userIcons}
+                icons={userIcons}
                 selectedIconId={selectedIconId}
                 onSelectIcon={setSelectedIconId}
                 columns={4}

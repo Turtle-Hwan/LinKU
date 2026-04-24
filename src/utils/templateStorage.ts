@@ -59,7 +59,7 @@ export async function saveTemplateToLocalStorage(
     await updateTemplateIndex(template, syncedWithServer);
   } catch (error) {
     console.error('Failed to save template to localStorage:', error);
-    throw new Error('LocalStorage 저장 실패');
+    throw Object.assign(new Error('LocalStorage 저장 실패'), { cause: error });
   }
 }
 
@@ -177,7 +177,7 @@ export function checkLocalStorageSpace(): {
     localStorage.setItem(testKey, testData);
     localStorage.removeItem(testKey);
     return { available: true };
-  } catch (error) {
+  } catch {
     return {
       available: false,
       error: 'LocalStorage 공간이 부족합니다.',

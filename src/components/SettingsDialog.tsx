@@ -43,29 +43,32 @@ const ECampusCredential = () => {
 
   // 설정 페이지 열릴 때 저장된 계정 정보 불러오기
   useEffect(() => {
-    loadSavedCredentials();
+    let isMounted = true;
+
+    loadECampusCredentials()
+      .then((credentials) => {
+        if (!isMounted) return;
+
+        if (!credentials) {
+          setSavedId("");
+          setSavedPassword("");
+          setHasCredentials(false);
+          return;
+        }
+
+        setSavedId(credentials.id);
+        setSavedPassword(credentials.password);
+        setHasCredentials(true);
+      })
+      .catch((error) => {
+        console.error("[Settings] Load credentials error:", error);
+        toast.error("인증 정보를 불러오는데 실패했습니다.");
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  // 저장된 인증 정보 불러오기
-  const loadSavedCredentials = async () => {
-    try {
-      const credentials = await loadECampusCredentials();
-
-      if (!credentials) {
-        setSavedId("");
-        setSavedPassword("");
-        setHasCredentials(false);
-        return;
-      }
-
-      setSavedId(credentials.id);
-      setSavedPassword(credentials.password);
-      setHasCredentials(true);
-    } catch (error) {
-      console.error("[Settings] Load credentials error:", error);
-      toast.error("인증 정보를 불러오는데 실패했습니다.");
-    }
-  };
 
   // 인증 정보 저장하기
   const saveCredentials = async () => {

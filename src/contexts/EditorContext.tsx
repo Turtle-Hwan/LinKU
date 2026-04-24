@@ -94,7 +94,7 @@ const initialState: EditorState = {
  */
 const editorReducer = (state: EditorState, action: EditorAction): EditorState => {
   switch (action.type) {
-    case 'LOAD_TEMPLATE':
+    case 'LOAD_TEMPLATE': {
       // templateItemId 유효성 검증 (SYNC_SUCCESS와 동일한 처리)
       const loadedTemplate = {
         ...action.payload,
@@ -110,6 +110,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isLoading: false,
         isDirty: false,
       };
+    }
 
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
@@ -244,7 +245,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         ),
       };
 
-    case 'MOVE_TO_CANVAS':
+    case 'MOVE_TO_CANVAS': {
       if (!state.template) return state;
       const itemToMove = state.stagingItems.find(
         (item) => item.templateItemId === action.payload
@@ -288,8 +289,9 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         ),
         isDirty: true,
       };
+    }
 
-    case 'MOVE_TO_STAGING':
+    case 'MOVE_TO_STAGING': {
       if (!state.template) return state;
       const itemToStage = state.template.items.find(
         (item) => item.templateItemId === action.payload
@@ -307,6 +309,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         selectedItemId: state.selectedItemId === action.payload ? null : state.selectedItemId,
         isDirty: true,
       };
+    }
 
     case 'UPDATE_STAGING_ITEM':
       return {
@@ -343,7 +346,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isSyncing: true,
       };
 
-    case 'SYNC_SUCCESS':
+    case 'SYNC_SUCCESS': {
       // 서버 응답의 아이템에 templateItemId가 없을 경우 임시 ID 생성
       const processedTemplate = {
         ...action.payload,
@@ -360,6 +363,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isDirty: false,
         selectedItemId: null,  // 동기화 후 선택 상태 초기화
       };
+    }
 
     case 'SYNC_FAILED':
       return {
@@ -420,16 +424,6 @@ interface EditorProviderProps {
  */
 export const EditorProvider = ({ children, templateId, startFrom }: EditorProviderProps) => {
   const [state, dispatch] = useReducer(editorReducer, initialState);
-
-  // Template loading effect
-  useEffect(() => {
-    if (templateId) {
-      loadTemplate(templateId);
-    } else {
-      initializeNewTemplate(startFrom);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId, startFrom]);
 
   /**
    * Load existing template
@@ -600,6 +594,15 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
     }
   };
+
+  // Template loading effect
+  useEffect(() => {
+    if (templateId) {
+      loadTemplate(templateId);
+    } else {
+      initializeNewTemplate(startFrom);
+    }
+  }, [templateId, startFrom]);
 
   return (
     <EditorContext.Provider value={{ state, dispatch }}>
