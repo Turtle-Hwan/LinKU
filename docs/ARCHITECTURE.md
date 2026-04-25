@@ -15,6 +15,21 @@ Extension입니다. 확장 프로그램은 두 개의 런타임 영역을 가집
 UI나 logic을 주입하지 않습니다. 대부분의 user interaction은 popup 내부에서
 일어납니다.
 
+## Backend 의존성
+
+LinKU는 frontend-only extension이 아닙니다. auth, template sync, posted
+template, icons, alerts 같은 backend 연동 기능은 `VITE_API_BASE_URL`이
+올바르게 설정되어야 동작합니다.
+
+로컬 개발 환경에서 `VITE_API_BASE_URL`이 없거나 placeholder 값으로 남아
+있다면, 다음 기능은 정상적으로 동작하지 않을 수 있습니다.
+
+- Google OAuth login
+- template sync와 posted-template API
+- icons API
+- alerts subscription API
+- `src/apis/` 아래 LinKU backend를 호출하는 기타 기능
+
 ## 빌드 모델
 
 `vite.config.ts`는 extension mode에서 multi-entry build를 설정합니다.
@@ -242,4 +257,3 @@ main branch는 release-sensitive합니다. versioning과 deployment behavior는
 
 이 항목들은 별도 cleanup PR로 다루기 좋습니다. unrelated feature work에 섞지
 마세요.
-

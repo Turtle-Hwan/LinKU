@@ -93,6 +93,11 @@ pnpm run build:local
   아닙니다.
 - `VITE_ENVIRONMENT`: analytics 동작에서 사용하는 environment flag입니다.
 
+`VITE_API_BASE_URL`이 없거나 placeholder 값으로 남아 있으면, local build를
+해도 Google OAuth login과 `src/apis/` 기반 backend API 검증은 정상적으로
+진행되지 않습니다. auth, templates, icons, alerts 같은 기능을 확인하려면
+실제 backend URL이 필요합니다.
+
 실제 secret을 commit하지 마세요. `.env.*` 파일은 example file을 제외하고
 ignore됩니다.
 
