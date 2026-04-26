@@ -3,7 +3,7 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { useEditorContext } from '@/contexts/editor-context';
+import { useEditorContext } from '@/hooks/useEditorContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 

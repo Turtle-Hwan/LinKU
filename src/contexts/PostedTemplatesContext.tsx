@@ -5,7 +5,7 @@
 
 import { useReducer, ReactNode } from 'react';
 import type { PostedTemplateSummary } from '@/types/api';
-import { PostedTemplatesContext } from './posted-templates-context';
+import { PostedTemplatesContext } from './PostedTemplatesContextObject';
 
 /**
  * Posted templates state interface

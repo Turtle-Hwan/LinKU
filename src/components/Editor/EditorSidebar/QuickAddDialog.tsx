@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useEditorContext } from '@/contexts/editor-context';
+import { useEditorContext } from '@/hooks/useEditorContext';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { validateLinkForm } from '@/utils/formValidation';

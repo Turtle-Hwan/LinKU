@@ -11,7 +11,7 @@ import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { toast } from 'sonner';
 import { debugLog, errorLog } from '@/utils/logger';
-import { EditorContext } from './editor-context';
+import { EditorContext } from './EditorContextObject';
 
 /**
  * Editor state interface
