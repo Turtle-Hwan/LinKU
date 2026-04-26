@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
+import { errorLog } from '@/utils/logger';
 
 /**
  * 클립보드 복사 기능을 제공하는 커스텀 훅
@@ -32,7 +33,7 @@ export const useClipboardCopy = () => {
       const errorMessage =
         error instanceof Error ? error.message : "알 수 없는 오류";
       toast.error(`복사 실패: ${errorMessage}`);
-      console.error("Failed to copy to clipboard:", error);
+      errorLog("Failed to copy to clipboard:", error);
     }
   }, []);
 

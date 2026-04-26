@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Info, Download, Check, Upload, X } from "lucide-react";
 import QRCode from "qrcode";
+import { warnLog } from '@/utils/logger';
 
 // LinKU 로고 (public/assets/icon128.png) - 고해상도 사용
 const LINKU_LOGO_URL = "/assets/icon128.png";
@@ -70,7 +71,7 @@ const QRGeneratorSection = () => {
             ctx.drawImage(logo, position, position, logoSize, logoSize);
           }
         } catch {
-          console.warn("로고 로드 실패, 로고 없이 생성");
+          warnLog("로고 로드 실패, 로고 없이 생성");
         }
       }
 

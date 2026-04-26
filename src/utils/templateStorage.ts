@@ -4,6 +4,7 @@
  */
 
 import type { Template, TemplateItem } from '@/types/api';
+import { errorLog } from '@/utils/logger';
 
 export interface StoredTemplate {
   template: Template;
@@ -58,7 +59,7 @@ export async function saveTemplateToLocalStorage(
     // Update index
     await updateTemplateIndex(template, syncedWithServer);
   } catch (error) {
-    console.error('Failed to save template to localStorage:', error);
+    errorLog('Failed to save template to localStorage:', error);
     throw Object.assign(new Error('LocalStorage 저장 실패'), { cause: error });
   }
 }
@@ -78,7 +79,7 @@ export function loadTemplateFromLocalStorage(
 
     return JSON.parse(data) as StoredTemplate;
   } catch (error) {
-    console.error('Failed to load template from localStorage:', error);
+    errorLog('Failed to load template from localStorage:', error);
     return null;
   }
 }
@@ -126,7 +127,7 @@ async function updateTemplateIndex(
 
     localStorage.setItem(INDEX_KEY, JSON.stringify(index));
   } catch (error) {
-    console.error('Failed to update template index:', error);
+    errorLog('Failed to update template index:', error);
   }
 }
 
@@ -138,7 +139,7 @@ export function getTemplatesIndex(): TemplateIndexEntry[] {
     const data = localStorage.getItem(INDEX_KEY);
     return data ? JSON.parse(data) : [];
   } catch (error) {
-    console.error('Failed to load templates index:', error);
+    errorLog('Failed to load templates index:', error);
     return [];
   }
 }
@@ -159,7 +160,7 @@ export function deleteTemplateFromLocalStorage(templateId: number): void {
       localStorage.setItem(INDEX_KEY, JSON.stringify(filtered));
     }
   } catch (error) {
-    console.error('Failed to delete template from localStorage:', error);
+    errorLog('Failed to delete template from localStorage:', error);
   }
 }
 
@@ -216,6 +217,6 @@ export function updateTemplateSyncStatus(
       }
     }
   } catch (error) {
-    console.error('Failed to update sync status:', error);
+    errorLog('Failed to update sync status:', error);
   }
 }

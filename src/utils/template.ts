@@ -9,6 +9,7 @@ import { LinkList } from '@/constants/LinkList';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { LucideIcon } from 'lucide-react';
+import { warnLog, errorLog } from '@/utils/logger';
 
 /**
  * Grid configuration (6 columns × 6 rows)
@@ -174,7 +175,7 @@ function getIconIdentifier(linkItem: typeof LinkList[number]): string {
 function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[]): Icon | null {
   // Ensure defaultIcons is an array with valid server icons
   if (!Array.isArray(defaultIcons) || defaultIcons.length === 0) {
-    console.warn('findMatchingIcon: No server icons available');
+    warnLog('findMatchingIcon: No server icons available');
     return null;
   }
 
@@ -241,7 +242,7 @@ function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[
   }
 
   // Use first server icon as fallback if no match found
-  console.warn(`findMatchingIcon: No match for "${linkItem.label}", using first server icon`);
+  warnLog(`findMatchingIcon: No match for "${linkItem.label}", using first server icon`);
   return defaultIcons[0];
 }
 
@@ -252,12 +253,12 @@ function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[
 export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateItem[] {
   // Validate that defaultIcons is an array
   if (!Array.isArray(defaultIcons)) {
-    console.error('convertLinkListToTemplateItems: defaultIcons is not an array', defaultIcons);
+    errorLog('convertLinkListToTemplateItems: defaultIcons is not an array', defaultIcons);
     return [];
   }
 
   if (defaultIcons.length === 0) {
-    console.warn('convertLinkListToTemplateItems: No server icons available');
+    warnLog('convertLinkListToTemplateItems: No server icons available');
     return [];
   }
 
@@ -269,7 +270,7 @@ export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateIt
 
     // Skip items without valid server icon
     if (!icon) {
-      console.warn(`convertLinkListToTemplateItems: Skipping "${linkItem.label}" - no valid server icon`);
+      warnLog(`convertLinkListToTemplateItems: Skipping "${linkItem.label}" - no valid server icon`);
       return;
     }
 
@@ -555,7 +556,7 @@ export function resolveCollisions(
       )) {
         // Items still overlap after resolution - this should never happen
         // but if it does, reject the entire operation
-        console.error('Collision resolution failed: items still overlap', finalItems[i], finalItems[j]);
+        errorLog('Collision resolution failed: items still overlap', finalItems[i], finalItems[j]);
         return null;
       }
     }
@@ -590,7 +591,7 @@ export function convertLucideIconToDataUri(
     const base64 = btoa(svgString);
     return `data:image/svg+xml;base64,${base64}`;
   } catch (error) {
-    console.error('Failed to convert Lucide icon to data URI:', error);
+    errorLog('Failed to convert Lucide icon to data URI:', error);
     // Return a placeholder data URI on error
     return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==';
   }

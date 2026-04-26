@@ -4,6 +4,7 @@
  */
 
 import { ECampusTodoItem } from '@/types/todo';
+import { errorLog } from '@/utils/logger';
 
 export interface ECampusLoginResponse {
   success: boolean;
@@ -75,7 +76,7 @@ export async function eCampusLoginAPI(
       data,
     };
   } catch (error) {
-    console.error('Login error:', error);
+    errorLog('Login error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -158,7 +159,7 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
       },
     };
   } catch (error) {
-    console.error('Failed to fetch todo list:', error);
+    errorLog('Failed to fetch todo list:', error);
     return { success: false, needLogin: true, error };
   }
 }
@@ -184,7 +185,7 @@ export async function eCampusGoLectureAPI(
       message: lectureUrl,
     };
   } catch (error) {
-    console.error('Failed to access lecture:', error);
+    errorLog('Failed to access lecture:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),

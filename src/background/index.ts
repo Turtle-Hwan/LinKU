@@ -13,20 +13,13 @@ import {
   isGoogleLoginMessage,
   isSilentReauthMessage,
 } from "./types";
+import { debugLog, getErrorLogDetails, warnLog } from "@/utils/logger";
 import type {
   BackgroundMessage,
   GoogleLoginResponse,
   SilentReauthResponse,
 } from "./types";
 import { handleGoogleLogin } from "./handlers/oauth";
-
-const IS_DEV = import.meta.env.DEV;
-
-function debugLog(message: string, ...args: unknown[]) {
-  if (IS_DEV) {
-    console.log(message, ...args);
-  }
-}
 
 debugLog("[Background] Service worker initialized");
 
@@ -64,7 +57,10 @@ chrome.runtime.onMessage.addListener(
           sendResponse(response);
         })
         .catch((error: unknown) => {
-          console.warn("[Background] OAuth handler error:", error);
+          warnLog(
+            "[Background] OAuth handler error",
+            getErrorLogDetails(error),
+          );
           sendResponse({
             success: false,
             error:
@@ -100,7 +96,10 @@ chrome.runtime.onMessage.addListener(
           sendResponse(reauthResponse);
         })
         .catch((error: unknown) => {
-          console.warn("[Background] Silent reauth error:", error);
+          warnLog(
+            "[Background] Silent reauth error",
+            getErrorLogDetails(error),
+          );
           sendResponse({
             success: false,
             error:
@@ -113,7 +112,7 @@ chrome.runtime.onMessage.addListener(
 
     // Unknown message type
     const unknownType = (message as { type: string }).type;
-    console.warn("[Background] Unknown message type:", unknownType);
+    warnLog("[Background] Unknown message type", { type: unknownType });
     sendResponse({
       success: false,
       error: `Unknown message type: ${unknownType}`,

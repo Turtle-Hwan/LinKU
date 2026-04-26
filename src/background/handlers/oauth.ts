@@ -17,14 +17,13 @@
  */
 
 import type { GoogleLoginResponse } from "../types";
-
-const IS_DEV = import.meta.env.DEV;
-
-function debugLog(message: string, ...args: unknown[]) {
-  if (IS_DEV) {
-    console.log(message, ...args);
-  }
-}
+import {
+  debugLog,
+  errorLog,
+  getErrorLogDetails,
+  getHttpErrorLogDetails,
+  warnLog,
+} from "@/utils/logger";
 
 // Backend URL from environment
 const BACKEND_URL = (() => {
@@ -103,7 +102,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     debugLog("[Background] Extracted code:", code ? "있음" : "없음");
 
     if (error) {
-      console.error("[Background] OAuth error:", error);
+      warnLog("[Background] OAuth error returned from provider", { error });
       return {
         success: false,
         error: `OAuth 오류: ${error}`,
@@ -134,8 +133,15 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     debugLog("[Background] Token Response Status:", tokenResponse.status);
 
     if (!tokenResponse.ok) {
-      await tokenResponse.text();
-      console.error("[Background] Token exchange failed");
+      const errorBody = await tokenResponse.text();
+      errorLog(
+        "[Background] Token exchange failed",
+        getHttpErrorLogDetails(
+          tokenResponse.status,
+          tokenResponse.statusText,
+          errorBody,
+        ),
+      );
       return {
         success: false,
         error: `토큰 교환 실패: ${tokenResponse.status} ${tokenResponse.statusText}`,
@@ -147,6 +153,11 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     // 6. Parse backend response
     // 응답 형식: { code: 1000, message: "SUCCESS", result: { accessToken, refreshToken } }
     if (tokenData.code !== 1000) {
+      warnLog("[Background] Backend rejected token exchange", {
+        status: tokenResponse.status,
+        code: tokenData.code,
+        message: tokenData.message,
+      });
       return {
         success: false,
         error: tokenData.message || "토큰 교환에 실패했습니다.",
@@ -156,7 +167,10 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const { accessToken, refreshToken } = tokenData.result || {};
 
     if (!accessToken) {
-      console.error("[Background] No accessToken in response");
+      errorLog("[Background] No accessToken in OAuth response", {
+        status: tokenResponse.status,
+        code: tokenData.code,
+      });
       return {
         success: false,
         error: "백엔드 응답에서 토큰을 찾을 수 없습니다.",
@@ -194,11 +208,11 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
         error.message.includes("interrupted"));
 
     if (isUserCancellation) {
-      if (IS_DEV) {
-        console.warn("[Background] OAuth cancelled by user:", (error as Error).message);
-      }
+      debugLog("[Background] OAuth cancelled by user", {
+        message: error instanceof Error ? error.message : String(error),
+      });
     } else {
-      console.error("[Background] OAuth error:", error);
+      errorLog("[Background] OAuth error", getErrorLogDetails(error));
     }
 
     // User closed the popup or cancelled

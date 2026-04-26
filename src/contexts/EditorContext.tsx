@@ -10,6 +10,7 @@ import { getDefaultIcons, getMyIcons } from '@/apis/icons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { toast } from 'sonner';
+import { debugLog, errorLog } from '@/utils/logger';
 
 /**
  * Editor state interface
@@ -462,7 +463,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           dispatch({ type: 'ADD_TO_STAGING', payload: item });
         });
 
-        console.log('[EditorContext] Loaded template from localStorage', id);
+        debugLog('[EditorContext] Loaded template from localStorage', id);
         return;
       }
 
@@ -481,7 +482,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         type: 'SET_ERROR',
         payload: '템플릿 로딩 중 오류가 발생했습니다.',
       });
-      console.error('Failed to load template:', error);
+      errorLog('Failed to load template:', error);
     }
   };
 
@@ -499,7 +500,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         getMyIcons(),
       ]);
 
-      console.log('[EditorContext] Icons API full response:', iconsResult);
+      debugLog('[EditorContext] Icons API full response:', iconsResult);
 
       // Parse default icons from response
       let defaultIcons: Icon[] = [];
@@ -511,13 +512,13 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           // Handle paginated response format
           defaultIcons = (iconsResult.value.data as { items: Icon[] }).items;
         } else {
-          console.error('[EditorContext] Unexpected response structure:', iconsResult.value.data);
+          errorLog('[EditorContext] Unexpected response structure:', iconsResult.value.data);
         }
       } else if (iconsResult.status === 'rejected') {
-        console.error('[EditorContext] Icons API failed:', iconsResult.reason);
+        errorLog('[EditorContext] Icons API failed:', iconsResult.reason);
       }
 
-      console.log('[EditorContext] Final defaultIcons count:', defaultIcons.length);
+      debugLog('[EditorContext] Final defaultIcons count:', defaultIcons.length);
 
       // Load server icons for icon picker (even if empty)
       dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
@@ -579,7 +580,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         }
       }
     } catch (error) {
-      console.error('[EditorContext] Failed to initialize template:', error);
+      errorLog('[EditorContext] Failed to initialize template:', error);
       // Fallback: create empty template (still saveable locally)
       const emptyTemplate: Template = {
         templateId: 0,

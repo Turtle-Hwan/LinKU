@@ -9,6 +9,7 @@ import { getTemplate } from "@/apis/templates";
 import type { Template } from "@/types/api";
 import { LinkList, LinkListElement } from "@/constants/LinkList";
 import { loadTemplateFromLocalStorage } from "@/utils/templateStorage";
+import { debugLog, errorLog } from '@/utils/logger';
 
 const STORAGE_KEY = "selectedTemplateId";
 
@@ -66,14 +67,14 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     ) => {
       if (areaName === "local" && changes[STORAGE_KEY]) {
         const newValue = changes[STORAGE_KEY].newValue;
-        console.log("[useSelectedTemplate] Storage changed:", {
+        debugLog("[useSelectedTemplate] Storage changed:", {
           raw: newValue,
           type: typeof newValue,
         });
         // 0 값, undefined, 숫자가 아닌 값은 null로 변환 (기본 템플릿)
         const normalizedValue =
           newValue === 0 || typeof newValue !== "number" ? null : newValue;
-        console.log("[useSelectedTemplate] Normalized value:", normalizedValue);
+        debugLog("[useSelectedTemplate] Normalized value:", normalizedValue);
         setSelectedTemplateId(normalizedValue);
       }
     };
@@ -109,31 +110,31 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       const result = await storage.local.get([STORAGE_KEY]);
       const templateId = result[STORAGE_KEY];
 
-      console.log("[useSelectedTemplate] Loaded from storage:", {
+      debugLog("[useSelectedTemplate] Loaded from storage:", {
         raw: templateId,
         type: typeof templateId,
       });
 
       if (templateId === 0) {
         // templateId가 0이면 기본 템플릿 → null로 변환
-        console.log(
+        debugLog(
           "[useSelectedTemplate] Converting 0 to null (default template)",
         );
         setSelectedTemplateId(null);
         setLinkItems(LinkList);
       } else if (templateId && typeof templateId === "number") {
-        console.log("[useSelectedTemplate] Setting templateId:", templateId);
+        debugLog("[useSelectedTemplate] Setting templateId:", templateId);
         setSelectedTemplateId(templateId);
       } else {
         // No template selected - use default
-        console.log(
+        debugLog(
           "[useSelectedTemplate] No template selected, using default",
         );
         setSelectedTemplateId(null);
         setLinkItems(LinkList);
       }
     } catch (err) {
-      console.error("Failed to load selected template:", err);
+      errorLog("Failed to load selected template:", err);
       setError("템플릿을 불러오는데 실패했습니다.");
       setLinkItems(LinkList);
       setSelectedTemplateId(null);
@@ -150,7 +151,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       // Try loading from localStorage first (for local-only templates)
       const localData = loadTemplateFromLocalStorage(templateId);
       if (localData) {
-        console.log(
+        debugLog(
           "[useSelectedTemplate] Loaded template from localStorage:",
           templateId,
         );
@@ -164,7 +165,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       const result = await getTemplate(templateId);
 
       if (result.success && result.data) {
-        console.log(
+        debugLog(
           "[useSelectedTemplate] Loaded template from server:",
           templateId,
         );
@@ -172,13 +173,13 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         setLinkItems(convertTemplateToLinkList(result.data));
       } else {
         // Failed to load template - fallback to default
-        console.error("Failed to load template:", result.error);
+        errorLog("Failed to load template:", result.error);
         setError(result.error?.message || "템플릿을 불러올 수 없습니다.");
         setSelectedTemplateId(null);
         setLinkItems(LinkList);
       }
     } catch (err) {
-      console.error("Error loading template:", err);
+      errorLog("Error loading template:", err);
       setError("템플릿 로딩 중 오류가 발생했습니다.");
       setSelectedTemplateId(null);
       setLinkItems(LinkList);
@@ -211,7 +212,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         setSelectedTemplateId(templateId);
       }
     } catch (err) {
-      console.error("Failed to save template selection:", err);
+      errorLog("Failed to save template selection:", err);
       setError("템플릿 선택을 저장하는데 실패했습니다.");
     }
   };

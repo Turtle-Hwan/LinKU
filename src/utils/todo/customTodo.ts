@@ -5,6 +5,7 @@
 
 import { getStorage, setStorage } from "../chrome";
 import { CustomTodoItem } from "@/types/todo";
+import { errorLog } from '@/utils/logger';
 
 const CUSTOM_TODOS_KEY = "customTodos";
 
@@ -21,7 +22,7 @@ function calculateDDay(dueDate: string): string {
 
     // 유효성 검사
     if (!year || !month || !day) {
-      console.error(`[calculateDDay] Invalid date format: ${dueDate}`);
+      errorLog(`[calculateDDay] Invalid date format: ${dueDate}`);
       return "D-Day";
     }
 
@@ -41,7 +42,7 @@ function calculateDDay(dueDate: string): string {
       return `D+${Math.abs(diffDays)}`;
     }
   } catch (error) {
-    console.error(`[calculateDDay] Error calculating D-Day:`, error);
+    errorLog(`[calculateDDay] Error calculating D-Day:`, error);
     return "D-Day";
   }
 }
@@ -92,7 +93,7 @@ export async function getCustomTodos(): Promise<CustomTodoItem[]> {
 
     return migratedTodos;
   } catch (error) {
-    console.error("[CustomTodo] Error getting custom todos:", error);
+    errorLog("[CustomTodo] Error getting custom todos:", error);
     return [];
   }
 }
@@ -126,7 +127,7 @@ export async function addCustomTodo(
       [CUSTOM_TODOS_KEY]: [...todos, newTodo],
     });
   } catch (error) {
-    console.error("[CustomTodo] Error adding custom todo:", error);
+    errorLog("[CustomTodo] Error adding custom todo:", error);
     throw error;
   }
 }
@@ -148,7 +149,7 @@ export async function updateCustomTodo(
       [CUSTOM_TODOS_KEY]: updatedTodos,
     });
   } catch (error) {
-    console.error("[CustomTodo] Error updating custom todo:", error);
+    errorLog("[CustomTodo] Error updating custom todo:", error);
     throw error;
   }
 }
@@ -165,7 +166,7 @@ export async function deleteCustomTodo(id: string): Promise<void> {
       [CUSTOM_TODOS_KEY]: filteredTodos,
     });
   } catch (error) {
-    console.error("[CustomTodo] Error deleting custom todo:", error);
+    errorLog("[CustomTodo] Error deleting custom todo:", error);
     throw error;
   }
 }
@@ -184,7 +185,7 @@ export async function toggleCustomTodo(id: string): Promise<void> {
       [CUSTOM_TODOS_KEY]: updatedTodos,
     });
   } catch (error) {
-    console.error("[CustomTodo] Error toggling custom todo:", error);
+    errorLog("[CustomTodo] Error toggling custom todo:", error);
     throw error;
   }
 }

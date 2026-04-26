@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { eCampusLoginAPI, ECampusLoginResponse } from "@/apis";
 import { saveECampusCredentials } from "@/utils/credentials";
+import { errorLog } from '@/utils/logger';
 
 interface LoginDialogProps {
   isOpen: boolean;
@@ -58,7 +59,7 @@ const LoginDialog = ({
           try {
             await saveECampusCredentials(userId, userPw);
           } catch (error) {
-            console.error("Failed to save credentials:", error);
+            errorLog("Failed to save credentials:", error);
           }
         }
 
@@ -74,7 +75,7 @@ const LoginDialog = ({
         setError(errorMsg);
       }
     } catch (error) {
-      console.error("Login error:", error);
+      errorLog("Login error:", error);
       setError("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsLoading(false);

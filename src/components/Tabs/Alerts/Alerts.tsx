@@ -8,6 +8,7 @@ import AlertItem from "./AlertItem";
 import AlertFilter from "./AlertFilter";
 import MyAlertsView from "./MyAlertsView";
 import { Badge } from "@/components/ui/badge";
+import { errorLog } from '@/utils/logger';
 
 type AlertViewMode = "all" | "my";
 
@@ -54,7 +55,7 @@ const Alerts = () => {
         toast.error(result.error?.message || "공지사항을 불러오는데 실패했습니다.");
       }
     } catch (error) {
-      console.error("Error fetching alerts:", error);
+      errorLog("Error fetching alerts:", error);
       toast.error("공지사항을 불러오는 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);

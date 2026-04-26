@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { addCustomTodo } from "@/utils/todo/customTodo";
 import { toast } from "sonner";
+import { errorLog } from '@/utils/logger';
 
 interface TodoAddDialogProps {
   open: boolean;
@@ -69,7 +70,7 @@ const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) =>
       // 부모 컴포넌트에 성공 알림
       onSuccess();
     } catch (error) {
-      console.error("Failed to add todo:", error);
+      errorLog("Failed to add todo:", error);
       toast.error("할 일 추가에 실패했습니다.");
     } finally {
       setIsSubmitting(false);

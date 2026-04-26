@@ -25,6 +25,7 @@ import {
 import { X, Bell, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import AlertItem from "./AlertItem";
+import { errorLog } from '@/utils/logger';
 
 const MyAlertsView = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -69,7 +70,7 @@ const MyAlertsView = () => {
         setMyAlerts(alertsResult.data);
       }
     } catch (error) {
-      console.error("Failed to load my data:", error);
+      errorLog("Failed to load my data:", error);
       toast.error("데이터를 불러오는데 실패했습니다.");
     } finally {
       setIsLoading(false);
@@ -107,7 +108,7 @@ const MyAlertsView = () => {
         toast.error(result.error?.message || "구독에 실패했습니다.");
       }
     } catch (error) {
-      console.error("Subscribe error:", error);
+      errorLog("Subscribe error:", error);
       toast.error("구독 중 오류가 발생했습니다.");
     } finally {
       setIsSubscribing(false);
@@ -125,7 +126,7 @@ const MyAlertsView = () => {
         toast.error(result.error?.message || "구독 취소에 실패했습니다.");
       }
     } catch (error) {
-      console.error("Unsubscribe error:", error);
+      errorLog("Unsubscribe error:", error);
       toast.error("구독 취소 중 오류가 발생했습니다.");
     }
   };

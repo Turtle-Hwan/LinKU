@@ -8,14 +8,7 @@
 
 import { BackgroundMessageType } from "../background/types";
 import type { GoogleLoginResponse } from "../background/types";
-
-const IS_DEV = import.meta.env.DEV;
-
-function debugLog(message: string, ...args: unknown[]) {
-  if (IS_DEV) {
-    console.log(message, ...args);
-  }
-}
+import { debugLog, errorLog, getErrorLogDetails } from "@/utils/logger";
 
 /**
  * User profile stored in chrome.storage.local
@@ -105,7 +98,10 @@ export async function startGoogleLogin(): Promise<GoogleLoginResponse> {
 
     return response as GoogleLoginResponse;
   } catch (error) {
-    console.error("[Popup] Failed to communicate with background:", error);
+    errorLog(
+      "[Popup] Failed to communicate with background",
+      getErrorLogDetails(error),
+    );
 
     return {
       success: false,

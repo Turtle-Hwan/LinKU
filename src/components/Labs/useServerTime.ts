@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { errorLog } from '@/utils/logger';
 
 interface ServerTimeState {
   serverTime: Date | null;
@@ -68,7 +69,7 @@ export function useServerTime(serverUrl: string): UseServerTimeReturn {
         error: null,
       }));
     } catch (error) {
-      console.error("[ServerClock] Sync error:", error);
+      errorLog("[ServerClock] Sync error:", error);
       setState((prev) => ({
         ...prev,
         isLoading: false,

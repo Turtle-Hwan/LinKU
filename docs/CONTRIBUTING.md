@@ -210,6 +210,21 @@ permission change는 추가 검토가 필요합니다.
 넓은 access보다 domain-specific `host_permissions`를 선호하세요. `<all_urls>`는
 legacy 또는 temporary permission으로 보고, 가볍게 확장하지 마세요.
 
+## 로깅 규칙
+
+runtime log는 필요한 최소한만 남기고, 정책은 `src/utils/logger.ts`를 기준으로
+일관되게 적용합니다.
+
+- `console.log`, `console.warn`, `console.error`, `console.info`를 직접 호출하지
+  말고 공통 logger를 사용하세요.
+- `debug`/`info` 수준 로그는 개발 환경에서만 출력되도록 유지하세요.
+- 운영 환경에는 장애 원인 파악에 필요한 `warn`/`error`만 남기고, 동일한 실패를
+  여러 계층에서 중복 기록하지 마세요.
+- access token, refresh token, auth code, secret, authorization header,
+  private user data 같은 민감정보를 로그에 남기지 마세요.
+- 외부 응답 본문이나 큰 object 전체 dump 대신, 상태 코드와 비민감 핵심 필드만
+  선택적으로 기록하세요.
+
 ## 외부 사이트 연동
 
 `src/apis/external/` 아래 파일은 external markup 또는 API에 의존합니다. 이
