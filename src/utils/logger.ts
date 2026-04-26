@@ -5,6 +5,8 @@ const MAX_ARRAY_LENGTH = 20;
 const MAX_OBJECT_KEYS = 20;
 const MAX_DEPTH = 4;
 const REDACTED = "[REDACTED]";
+const TRUNCATED_ARRAY_META_KEY = "__truncated_items__";
+const TRUNCATED_OBJECT_META_KEY = "__truncated_keys__";
 
 const EMAIL_PATTERN =
   /\b([A-Z0-9._%+-])([A-Z0-9._%+-]*)(@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
@@ -86,9 +88,18 @@ function sanitizeValue(
   }
 
   if (Array.isArray(value)) {
-    return value
+    const sanitizedEntries = value
       .slice(0, MAX_ARRAY_LENGTH)
       .map((entry) => sanitizeValue(entry, depth + 1, seen));
+    const omittedCount = value.length - sanitizedEntries.length;
+
+    if (omittedCount > 0) {
+      sanitizedEntries.push({
+        [TRUNCATED_ARRAY_META_KEY]: omittedCount,
+      });
+    }
+
+    return sanitizedEntries;
   }
 
   if (typeof value === "object") {
@@ -103,12 +114,19 @@ function sanitizeValue(
     }
 
     const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
-    return entries.reduce<Record<string, unknown>>((acc, [key, entryValue]) => {
+    const sanitizedObject = entries.reduce<Record<string, unknown>>((acc, [key, entryValue]) => {
       acc[key] = SENSITIVE_KEY_PATTERN.test(key)
         ? REDACTED
         : sanitizeValue(entryValue, depth + 1, seen);
       return acc;
     }, {});
+    const omittedCount = Object.keys(value).length - entries.length;
+
+    if (omittedCount > 0) {
+      sanitizedObject[TRUNCATED_OBJECT_META_KEY] = omittedCount;
+    }
+
+    return sanitizedObject;
   }
 
   return sanitizeString(String(value));

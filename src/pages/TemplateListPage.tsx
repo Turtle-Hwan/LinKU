@@ -3,7 +3,7 @@
  * Displays user's owned and cloned templates
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate } from '@/apis/templates';
 import type { TemplateSummary, PostedTemplateSummary } from '@/types/api';
@@ -40,6 +40,7 @@ export const TemplateListPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { selectedTemplateId, selectTemplate } = useSelectedTemplate();
+  const toastRef = useRef(toast);
 
   const [ownedTemplates, setOwnedTemplates] = useState<TemplateSummaryWithSync[]>([]);
   const [clonedTemplates, setClonedTemplates] = useState<TemplateSummaryWithSync[]>([]);
@@ -59,6 +60,10 @@ export const TemplateListPage = () => {
   // Template sync and publish hooks (Option A style)
   const { syncToServer } = useTemplateSync();
   const { publishTemplate } = useTemplatePublish();
+
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
@@ -263,7 +268,7 @@ export const TemplateListPage = () => {
       }
     } catch (error) {
       errorLog('Failed to load templates:', error);
-      toast({
+      toastRef.current({
         title: '네트워크 오류',
         description: '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
         variant: 'destructive',
@@ -271,7 +276,7 @@ export const TemplateListPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [loadPostedTemplates, toast]);
+  }, [loadPostedTemplates]);
 
   useEffect(() => {
     loadTemplates();
