@@ -3,7 +3,7 @@
  * Allows editing name, URL, icon, size, and position
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +45,6 @@ export const ItemPropertiesPanel = () => {
 
   return (
     <ItemPropertiesPanelForm
-      key={getSelectedItemKey(selectedItem)}
       selectedItem={selectedItem}
       isFromStaging={isFromStaging}
       defaultIcons={state.defaultIcons}
@@ -61,19 +60,6 @@ interface ItemPropertiesPanelFormProps {
   defaultIcons: ReturnType<typeof useEditorContext>['state']['defaultIcons'];
   userIcons: ReturnType<typeof useEditorContext>['state']['userIcons'];
   dispatch: ReturnType<typeof useEditorContext>['dispatch'];
-}
-
-function getSelectedItemKey(item: TemplateItem): string {
-  return [
-    item.templateItemId,
-    item.name,
-    item.siteUrl,
-    item.icon.iconId,
-    item.size.width,
-    item.size.height,
-    item.position.x,
-    item.position.y,
-  ].join(':');
 }
 
 const ItemPropertiesPanelForm = ({
@@ -93,6 +79,16 @@ const ItemPropertiesPanelForm = ({
   const [height, setHeight] = useState(selectedItem.size.height.toString());
   const [posX, setPosX] = useState(selectedItem.position.x.toString());
   const [posY, setPosY] = useState(selectedItem.position.y.toString());
+
+  useEffect(() => {
+    setName(selectedItem.name);
+    setUrl(selectedItem.siteUrl);
+    setSelectedIconId(selectedItem.icon.iconId);
+    setWidth(selectedItem.size.width.toString());
+    setHeight(selectedItem.size.height.toString());
+    setPosX(selectedItem.position.x.toString());
+    setPosY(selectedItem.position.y.toString());
+  }, [selectedItem]);
 
   const handleSave = () => {
     // Validate form using centralized validation
