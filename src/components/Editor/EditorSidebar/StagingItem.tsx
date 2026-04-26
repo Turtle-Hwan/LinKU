@@ -6,7 +6,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { TemplateItem } from '@/types/api';
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/contexts/editor-context';
 import { cn } from '@/lib/utils';
 import { Trash2 } from 'lucide-react';
 

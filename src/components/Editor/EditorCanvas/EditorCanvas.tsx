@@ -5,7 +5,7 @@
  */
 
 import { useDroppable } from '@dnd-kit/core';
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/contexts/editor-context';
 import { DraggableItem } from './DraggableItem';
 import { CanvasGrid } from './CanvasGrid';
 

@@ -5,7 +5,7 @@
  */
 
 import { useCallback } from 'react';
-import { usePostedTemplatesContext } from '@/contexts/PostedTemplatesContext';
+import { usePostedTemplatesContext } from '@/contexts/posted-templates-context';
 import {
   getMyPostedTemplates,
   getPostedTemplateDetail,

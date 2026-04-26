@@ -3,7 +3,7 @@
  * Displays user's owned and cloned templates
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate } from '@/apis/templates';
 import type { TemplateSummary, PostedTemplateSummary } from '@/types/api';
@@ -60,18 +60,7 @@ export const TemplateListPage = () => {
   const { syncToServer } = useTemplateSync();
   const { publishTemplate } = useTemplatePublish();
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  // Load posted templates when tab changes to 'posted'
-  useEffect(() => {
-    if (activeTab === 'posted' && postedTemplates.length === 0 && userLoggedIn) {
-      loadPostedTemplates();
-    }
-  }, [activeTab, userLoggedIn, postedTemplates.length, loadPostedTemplates]);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
       // 1. 로그인 상태 확인 - 비로그인 시 서버 API 호출 스킵
@@ -282,7 +271,18 @@ export const TemplateListPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadPostedTemplates, toast]);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  // Load posted templates when tab changes to 'posted'
+  useEffect(() => {
+    if (activeTab === 'posted' && postedTemplates.length === 0 && userLoggedIn) {
+      loadPostedTemplates();
+    }
+  }, [activeTab, userLoggedIn, postedTemplates.length, loadPostedTemplates]);
 
   const handleCreateFromDefault = () => {
     navigate('/editor?from=default');

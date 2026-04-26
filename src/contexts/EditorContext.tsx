@@ -3,7 +3,7 @@
  * Uses useReducer pattern for complex state management
  */
 
-import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { useReducer, useEffect, ReactNode } from 'react';
 import type { Template, TemplateItem, Icon } from '@/types/api';
 import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons, getMyIcons } from '@/apis/icons';
@@ -11,6 +11,7 @@ import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { toast } from 'sonner';
 import { debugLog, errorLog } from '@/utils/logger';
+import { EditorContext } from './editor-context';
 
 /**
  * Editor state interface
@@ -388,27 +389,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
     default:
       return state;
   }
-};
-
-/**
- * Editor context value
- */
-interface EditorContextValue {
-  state: EditorState;
-  dispatch: React.Dispatch<EditorAction>;
-}
-
-const EditorContext = createContext<EditorContextValue | undefined>(undefined);
-
-/**
- * useEditorContext hook
- */
-export const useEditorContext = () => {
-  const context = useContext(EditorContext);
-  if (!context) {
-    throw new Error('useEditorContext must be used within EditorProvider');
-  }
-  return context;
 };
 
 /**

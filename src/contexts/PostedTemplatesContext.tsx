@@ -3,8 +3,9 @@
  * Uses useReducer pattern for state management (consistent with EditorContext)
  */
 
-import { createContext, useContext, useReducer, ReactNode } from 'react';
+import { useReducer, ReactNode } from 'react';
 import type { PostedTemplateSummary } from '@/types/api';
+import { PostedTemplatesContext } from './posted-templates-context';
 
 /**
  * Posted templates state interface
@@ -79,27 +80,6 @@ const postedTemplatesReducer = (
     default:
       return state;
   }
-};
-
-/**
- * Posted templates context value
- */
-interface PostedTemplatesContextValue {
-  state: PostedTemplatesState;
-  dispatch: React.Dispatch<PostedTemplatesAction>;
-}
-
-const PostedTemplatesContext = createContext<PostedTemplatesContextValue | undefined>(undefined);
-
-/**
- * usePostedTemplatesContext hook
- */
-export const usePostedTemplatesContext = () => {
-  const context = useContext(PostedTemplatesContext);
-  if (!context) {
-    throw new Error('usePostedTemplatesContext must be used within PostedTemplatesProvider');
-  }
-  return context;
 };
 
 /**

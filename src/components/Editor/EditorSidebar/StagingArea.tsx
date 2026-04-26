@@ -3,7 +3,7 @@
  * Items can be dragged to canvas or deleted permanently
  */
 
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/contexts/editor-context';
 import { StagingItem } from './StagingItem';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';

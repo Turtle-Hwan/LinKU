@@ -2,7 +2,7 @@
  * Editor Header - Top bar with template name, save, and publish controls
  */
 
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/contexts/editor-context';
 import { Input } from '@/components/ui/input';
 import { SaveButton } from './SaveButton';
 import { SyncButton } from './SyncButton';
