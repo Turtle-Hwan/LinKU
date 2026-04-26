@@ -10,9 +10,9 @@ const TRUNCATED_OBJECT_META_KEY = "__truncated_keys__";
 
 const EMAIL_PATTERN =
   /\b([A-Z0-9._%+-])([A-Z0-9._%+-]*)(@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
-const BEARER_PATTERN = /Bearer\s+[A-Z0-9._~+/-]+=*/gi;
+const BEARER_PATTERN = /Bearer\s+[-A-Z0-9._~+/=]+/gi;
 const TOKEN_QUERY_PATTERN =
-  /([?&])(code|access_token|refresh_token|id_token|token)=([^&\s]+)/gi;
+  /([?&#])(code|access_token|refresh_token|id_token|token)=([^&#\s]+)/gi;
 const SENSITIVE_KEY_PATTERN =
   /accessToken|refreshToken|guestToken|idToken|secret|authorization|cookie|password|apiKey/i;
 
@@ -88,6 +88,12 @@ function sanitizeValue(
   }
 
   if (Array.isArray(value)) {
+    if (seen.has(value)) {
+      return "[Circular]";
+    }
+
+    seen.add(value);
+
     const sanitizedEntries = value
       .slice(0, MAX_ARRAY_LENGTH)
       .map((entry) => sanitizeValue(entry, depth + 1, seen));
@@ -145,20 +151,21 @@ function emitLog(level: LogLevel, message: string, args: unknown[]): void {
     return;
   }
 
+  const sanitizedMessage = sanitizeString(message);
   const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
 
   switch (level) {
     case "debug":
-      console.log(message, ...sanitizedArgs);
+      console.log(sanitizedMessage, ...sanitizedArgs);
       break;
     case "info":
-      console.info(message, ...sanitizedArgs);
+      console.info(sanitizedMessage, ...sanitizedArgs);
       break;
     case "warn":
-      console.warn(message, ...sanitizedArgs);
+      console.warn(sanitizedMessage, ...sanitizedArgs);
       break;
     case "error":
-      console.error(message, ...sanitizedArgs);
+      console.error(sanitizedMessage, ...sanitizedArgs);
       break;
   }
 }
