@@ -356,3 +356,360 @@ export async function sendButtonClick(
     ...(buttonLocation && { button_location: buttonLocation }),
   });
 }
+
+// ─── Auth (success / fail) ────────────────────────────────────────────────
+
+/**
+ * 로그인 성공 이벤트 전송
+ * @param provider 인증 제공자 (예: "google")
+ * @param isGuest 게스트 계정 여부
+ */
+export async function sendAuthLoginSuccess(
+  provider: string,
+  isGuest: boolean
+): Promise<void> {
+  await sendGAEvent("auth_login_success", {
+    provider,
+    is_guest: isGuest,
+  });
+}
+
+/**
+ * 로그인 실패 이벤트 전송
+ * @param provider 인증 제공자 (예: "google")
+ * @param errorCode 에러 식별 코드
+ * @param errorMessage 사람이 읽는 에러 설명
+ */
+export async function sendAuthLoginFail(
+  provider: string,
+  errorCode: string,
+  errorMessage: string
+): Promise<void> {
+  await sendGAEvent("auth_login_fail", {
+    provider,
+    error_code: errorCode,
+    error_message: errorMessage,
+  });
+}
+
+/**
+ * 이메일 인증 시작 이벤트 전송 (게스트 → 정회원 전환 시작)
+ * @param uiLocation 버튼이 위치한 UI (예: "settings_dialog")
+ */
+export async function sendAuthEmailVerificationStart(
+  uiLocation: string
+): Promise<void> {
+  await sendGAEvent("auth_email_verification_start", {
+    ui_location: uiLocation,
+  });
+}
+
+/**
+ * 이메일 인증 완료 이벤트 전송 (게스트 → 정회원 전환 완료)
+ * @param domainType 인증된 이메일 도메인 유형 (예: "konkuk.ac.kr")
+ */
+export async function sendAuthEmailVerificationSuccess(
+  domainType: string
+): Promise<void> {
+  await sendGAEvent("auth_email_verification_success", { domain_type: domainType });
+}
+
+// ─── Template ─────────────────────────────────────────────────────────────
+
+/**
+ * 템플릿 에디터 진입 이벤트 전송
+ * @param templateOrigin 템플릿 출처 ("default" | "owned" | "cloned" | "posted" | "local_only")
+ * @param templateId 템플릿 식별자 (선택)
+ */
+export async function sendTemplateEditorOpen(
+  templateOrigin: string,
+  templateId?: number
+): Promise<void> {
+  await sendGAEvent("template_editor_open", {
+    template_origin: templateOrigin,
+    ...(templateId !== undefined && { template_id: templateId }),
+  });
+}
+
+/**
+ * 템플릿 아이템 추가 이벤트 전송
+ * @param addMethod 추가 방식 (예: "drag", "button")
+ * @param templateId 템플릿 식별자 (선택)
+ */
+export async function sendTemplateItemAdd(
+  addMethod: string,
+  templateId?: number
+): Promise<void> {
+  await sendGAEvent("template_item_add", {
+    add_method: addMethod,
+    ...(templateId !== undefined && { template_id: templateId }),
+  });
+}
+
+/**
+ * 템플릿 로컬 저장 성공 이벤트 전송
+ * @param templateId 템플릿 식별자
+ * @param templateOrigin 템플릿 출처
+ * @param itemCount 저장된 아이템 수
+ */
+export async function sendTemplateSaveSuccess(
+  templateId: number,
+  templateOrigin: string,
+  itemCount: number
+): Promise<void> {
+  await sendGAEvent("template_save_success", {
+    template_id: templateId,
+    template_origin: templateOrigin,
+    item_count: itemCount,
+  });
+}
+
+/**
+ * 템플릿 로컬 저장 실패 이벤트 전송
+ * @param templateId 템플릿 식별자
+ * @param errorCode 에러 식별 코드
+ * @param errorMessage 사람이 읽는 에러 설명
+ */
+export async function sendTemplateSaveFail(
+  templateId: number,
+  errorCode: string,
+  errorMessage: string
+): Promise<void> {
+  await sendGAEvent("template_save_fail", {
+    template_id: templateId,
+    error_code: errorCode,
+    error_message: errorMessage,
+  });
+}
+
+/**
+ * 템플릿 서버 동기화 성공 이벤트 전송
+ * @param templateId 템플릿 식별자
+ * @param itemCount 동기화된 아이템 수
+ */
+export async function sendTemplateSyncSuccess(
+  templateId: number,
+  itemCount: number
+): Promise<void> {
+  await sendGAEvent("template_sync_success", {
+    template_id: templateId,
+    item_count: itemCount,
+  });
+}
+
+/**
+ * 템플릿 서버 동기화 실패 이벤트 전송
+ * @param templateId 템플릿 식별자
+ * @param errorCode 에러 식별 코드
+ * @param errorMessage 사람이 읽는 에러 설명
+ */
+export async function sendTemplateSyncFail(
+  templateId: number,
+  errorCode: string,
+  errorMessage: string
+): Promise<void> {
+  await sendGAEvent("template_sync_fail", {
+    template_id: templateId,
+    error_code: errorCode,
+    error_message: errorMessage,
+  });
+}
+
+/**
+ * 템플릿 갤러리 게시 성공 이벤트 전송
+ * @param templateId 템플릿 식별자
+ * @param itemCount 게시된 아이템 수
+ */
+export async function sendTemplatePublishSuccess(
+  templateId: number,
+  itemCount: number
+): Promise<void> {
+  await sendGAEvent("template_publish_success", {
+    template_id: templateId,
+    item_count: itemCount,
+  });
+}
+
+/**
+ * 템플릿 갤러리 게시 실패 이벤트 전송
+ * @param templateId 템플릿 식별자
+ * @param errorCode 에러 식별 코드
+ * @param errorMessage 사람이 읽는 에러 설명
+ */
+export async function sendTemplatePublishFail(
+  templateId: number,
+  errorCode: string,
+  errorMessage: string
+): Promise<void> {
+  await sendGAEvent("template_publish_fail", {
+    template_id: templateId,
+    error_code: errorCode,
+    error_message: errorMessage,
+  });
+}
+
+/**
+ * 템플릿 메인 화면 적용 이벤트 전송 — 핵심 가치 행동
+ * @param templateId 템플릿 식별자
+ * @param templateOrigin 템플릿 출처
+ * @param isDefault 기본 템플릿 여부
+ */
+export async function sendTemplateApply(
+  templateId: number,
+  templateOrigin: string,
+  isDefault: boolean
+): Promise<void> {
+  await sendGAEvent("template_apply", {
+    template_id: templateId,
+    template_origin: templateOrigin,
+    is_default: isDefault,
+  });
+}
+
+// ─── Template Gallery ──────────────────────────────────────────────────────
+
+/**
+ * 템플릿 갤러리 진입 이벤트 전송
+ * @param entryPoint 진입 경로 (예: "settings_dialog", "popup")
+ */
+export async function sendTemplateGalleryOpen(entryPoint: string): Promise<void> {
+  await sendGAEvent("template_gallery_open", { entry_point: entryPoint });
+}
+
+/**
+ * 갤러리 검색 이벤트 전송
+ * @param queryLength 검색어 길이
+ * @param sortOption 현재 정렬 옵션
+ */
+export async function sendTemplateGallerySearch(
+  queryLength: number,
+  sortOption: string
+): Promise<void> {
+  await sendGAEvent("template_gallery_search", {
+    query_length: queryLength,
+    sort_option: sortOption,
+  });
+}
+
+/**
+ * 갤러리 정렬 변경 이벤트 전송
+ * @param sortOption 선택한 정렬 옵션
+ */
+export async function sendTemplateGallerySortChange(sortOption: string): Promise<void> {
+  await sendGAEvent("template_gallery_sort_change", { sort_option: sortOption });
+}
+
+/**
+ * 갤러리 템플릿 복제 성공 이벤트 전송
+ * @param postedTemplateId 게시된 템플릿 식별자
+ * @param authorIdPresent 작성자 ID 포함 여부
+ */
+export async function sendTemplateCloneSuccess(
+  postedTemplateId: number,
+  authorIdPresent: boolean
+): Promise<void> {
+  await sendGAEvent("template_clone_success", {
+    posted_template_id: postedTemplateId,
+    author_id_present: authorIdPresent,
+  });
+}
+
+/**
+ * 갤러리 템플릿 복제 실패 이벤트 전송
+ * @param postedTemplateId 게시된 템플릿 식별자
+ * @param errorCode 에러 식별 코드
+ */
+export async function sendTemplateCloneFail(
+  postedTemplateId: number,
+  errorCode: string
+): Promise<void> {
+  await sendGAEvent("template_clone_fail", {
+    posted_template_id: postedTemplateId,
+    error_code: errorCode,
+  });
+}
+
+/**
+ * 좋아요 토글 이벤트 전송
+ * @param postedTemplateId 게시된 템플릿 식별자
+ * @param liked 좋아요 여부 (true: 좋아요, false: 취소)
+ */
+export async function sendTemplateLikeToggle(
+  postedTemplateId: number,
+  liked: boolean
+): Promise<void> {
+  await sendGAEvent("template_like_toggle", {
+    posted_template_id: postedTemplateId,
+    liked,
+  });
+}
+
+// ─── Alerts ───────────────────────────────────────────────────────────────
+
+/**
+ * 공지사항 탭 진입 이벤트 전송
+ * @param viewMode 현재 보기 모드 (예: "all", "my")
+ * @param category 선택된 카테고리
+ */
+export async function sendAlertsViewOpen(
+  viewMode: string,
+  category: string
+): Promise<void> {
+  await sendGAEvent("alerts_view_open", { view_mode: viewMode, category });
+}
+
+/**
+ * 공지사항 아이템 클릭 이벤트 전송
+ * @param alertId 공지 식별자
+ * @param category 공지 카테고리
+ * @param source 공지 출처 (예: "konkuk", "ecampus")
+ */
+export async function sendAlertsItemOpen(
+  alertId: string | number,
+  category: string,
+  source: string
+): Promise<void> {
+  await sendGAEvent("alerts_item_open", {
+    alert_id: String(alertId),
+    category,
+    source,
+  });
+}
+
+// ─── Todo ─────────────────────────────────────────────────────────────────
+
+/**
+ * Todo 탭 진입 이벤트 전송
+ * @param todoCount 현재 Todo 아이템 수
+ */
+export async function sendTodoViewOpen(todoCount: number): Promise<void> {
+  await sendGAEvent("todo_view_open", { todo_count: todoCount });
+}
+
+/**
+ * Todo 아이템 생성 이벤트 전송
+ * @param source 생성 경로 (예: "dialog")
+ * @param hasDueDate 마감일 설정 여부
+ */
+export async function sendTodoItemCreate(
+  source: string,
+  hasDueDate: boolean
+): Promise<void> {
+  await sendGAEvent("todo_item_create", { source, has_due_date: hasDueDate });
+}
+
+/**
+ * Todo 아이템 완료 토글 이벤트 전송
+ * @param itemType Todo 유형 (예: "custom", "ecampus")
+ */
+export async function sendTodoItemComplete(itemType: string): Promise<void> {
+  await sendGAEvent("todo_item_complete", { item_type: itemType });
+}
+
+/**
+ * Todo 아이템 삭제 이벤트 전송
+ * @param itemType Todo 유형 (예: "custom", "ecampus")
+ */
+export async function sendTodoItemDelete(itemType: string): Promise<void> {
+  await sendGAEvent("todo_item_delete", { item_type: itemType });
+}
