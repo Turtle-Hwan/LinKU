@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 import { Search, Settings, FlaskConical } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 import LabsDialog from "./LabsDialog";
-import { sendButtonClick, sendGAEvent } from "@/utils/analytics";
+import { sendButtonClick, sendSearchSubmit } from "@/utils/analytics";
 
 const MainLayout = () => {
   return (
@@ -41,10 +41,7 @@ const Header = () => {
             onChange={(e) => setText((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                sendGAEvent("search", {
-                  search_term: text,
-                  search_location: "header"
-                });
+                sendSearchSubmit(text, "header");
                 window.open(
                   `https://search.konkuk.ac.kr/main.do?keyword=${text}`
                 );
