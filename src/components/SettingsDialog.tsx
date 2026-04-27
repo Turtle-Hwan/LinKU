@@ -11,7 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { DialogDescription } from "@radix-ui/react-dialog";
-import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
+import {
+  sendButtonClick,
+  sendAuthLoginStart,
+  sendAuthLogout,
+  sendSettingsCredentialsSaved,
+  sendSettingsCredentialsDeleted,
+} from "@/utils/analytics";
 import {
   saveECampusCredentials,
   loadECampusCredentials,
@@ -83,7 +89,7 @@ const ECampusCredential = () => {
       await saveECampusCredentials(savedId, savedPassword);
 
       setHasCredentials(true);
-      sendSettingChange("credentials", "saved");
+      sendSettingsCredentialsSaved();
       toast.success("인증 정보가 저장되었습니다.");
 
       // 2. 로그인 검증 (백그라운드)
@@ -110,7 +116,7 @@ const ECampusCredential = () => {
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);
-      sendSettingChange("credentials", "deleted");
+      sendSettingsCredentialsDeleted();
       toast.success("인증 정보가 삭제되었습니다.");
     } catch (error) {
       errorLog("[Settings] Delete credentials error:", error);
@@ -243,7 +249,7 @@ const GoogleOAuthSection = () => {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
-    sendButtonClick("google_login", "settings_dialog");
+    sendAuthLoginStart("google", "settings_dialog");
 
     try {
       const result = await startGoogleLogin();
@@ -310,7 +316,7 @@ const GoogleOAuthSection = () => {
   };
 
   const handleLogout = async () => {
-    sendButtonClick("google_logout", "settings_dialog");
+    sendAuthLogout("settings_dialog");
 
     await logout();
     setLoggedIn(false);
