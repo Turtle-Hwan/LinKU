@@ -618,14 +618,17 @@ export async function sendTemplateCloneSuccess(
  * 갤러리 템플릿 복제 실패 이벤트 전송
  * @param postedTemplateId 게시된 템플릿 식별자
  * @param errorCode 에러 식별 코드
+ * @param errorMessage 사람이 읽는 에러 설명 (선택)
  */
 export async function sendTemplateCloneFail(
   postedTemplateId: number,
-  errorCode: string
+  errorCode: string,
+  errorMessage?: string
 ): Promise<void> {
   await sendGAEvent("template_clone_fail", {
     posted_template_id: postedTemplateId,
     error_code: errorCode,
+    ...(errorMessage && { error_message: errorMessage }),
   });
 }
 

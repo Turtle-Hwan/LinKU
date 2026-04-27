@@ -270,7 +270,7 @@ export const GalleryPage = () => {
       }
     } catch (error) {
       errorLog('Failed to clone template:', error);
-      sendTemplateCloneFail(id, error instanceof Error ? error.message : 'clone_failed');
+      sendTemplateCloneFail(id, 'clone_failed', error instanceof Error ? error.message : undefined);
       toast({
         title: '복제 실패',
         description: error instanceof Error ? error.message : '템플릿 복제에 실패했습니다.',
