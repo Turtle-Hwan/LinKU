@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   eCampusTodoListAPI,
   eCampusGoLectureAPI,
@@ -22,6 +22,7 @@ import { ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import KUGoodjob from "@/assets/KU_goodjob.png";
 import { errorLog } from '@/utils/logger';
+import { sendTodoViewOpen, sendTodoItemComplete, sendTodoItemDelete } from '@/utils/analytics';
 
 type SortMethod = 'dday-asc' | 'dday-desc';
 
@@ -44,6 +45,7 @@ function parseDDay(dDay: string): number {
 }
 
 const TodoList = () => {
+  const viewOpenSentRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [ecampusTodos, setECampusTodos] = useState<ECampusTodoItem[]>([]);
   const [customTodos, setCustomTodos] = useState<TodoItemType[]>([]);
@@ -164,13 +166,19 @@ const TodoList = () => {
       setShowLoginModal(true);
     } finally {
       setIsLoading(false);
+      // 탭 진입 이벤트는 최초 로드 완료 시 1회만 전송
+      if (!viewOpenSentRef.current) {
+        viewOpenSentRef.current = true;
+        sendTodoViewOpen(allTodos.length);
+      }
     }
-  }, [fetchTodoList, tryLoginWithSavedCredentials, loadCustomTodos]);
+  }, [fetchTodoList, tryLoginWithSavedCredentials, loadCustomTodos, allTodos.length]);
 
   // 초기 로드 시 Todo 목록 가져오기
   useEffect(() => {
     loadTodoList();
   }, [loadTodoList]);
+
 
   // 정렬 방식 불러오기
   useEffect(() => {
@@ -197,6 +205,7 @@ const TodoList = () => {
     try {
       await toggleCustomTodo(id);
       await loadCustomTodos();
+      sendTodoItemComplete("custom");
     } catch (error) {
       errorLog("Failed to toggle todo:", error);
       toast.error("상태 변경에 실패했습니다.");
@@ -208,6 +217,7 @@ const TodoList = () => {
     try {
       await deleteCustomTodo(id);
       await loadCustomTodos();
+      sendTodoItemDelete("custom");
       toast.success("할 일이 삭제되었습니다.");
     } catch (error) {
       errorLog("Failed to delete todo:", error);
