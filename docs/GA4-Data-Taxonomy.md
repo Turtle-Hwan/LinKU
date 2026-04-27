@@ -83,7 +83,6 @@ Retention과 기본 활성 사용자 분석을 위해 가장 먼저 도입해야
 | `extension_first_open` | 구현됨 | 첫 사용 cohort 정의 | `firstOpenSent` 플래그 없을 때 1회 | `screen_name`, `entry_point` | P0 |
 | `extension_session_start` | 구현됨 | 재방문/세션 기준 정의 | 30분 초과로 새 `session_id` 생성 시 | `screen_name`, `entry_point` | P0 |
 | `extension_open` | 구현됨 | 실제 사용 시작 기록 | popup mount 시 매번 | `screen_name`, `entry_point` | P0 |
-| `extension_close` | 미구현 | 세션 종료 추정 보조 | popup unload/visibility 종료 시 가능하면 | `screen_name` | P2 |
 
 ## Core Product Events
 
