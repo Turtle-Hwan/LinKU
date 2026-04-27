@@ -1,4 +1,29 @@
-const IS_DEV = import.meta.env.DEV;
+/**
+ * 개발 환경 여부 — debug/info 로그 출력 기준
+ *
+ * ## 왜 import.meta.env.DEV를 쓰지 않는가
+ *
+ * Vite의 `import.meta.env.DEV`는 실행 **명령(command)** 을 기준으로 결정된다.
+ * - `vite` (dev server 실행) → DEV = true
+ * - `vite build`            → DEV = false  ← --mode development를 붙여도 마찬가지
+ *
+ * Vite는 빌드 시 `import.meta.env.*`를 정적 문자열로 치환(static replace)하는데,
+ * DEV/PROD의 치환 기준이 mode가 아닌 command이기 때문에 build 산출물에서는
+ * 항상 false가 된다.
+ *
+ * 결과적으로 `pnpm run build:local` (--mode development) 로 빌드한
+ * 확장 프로그램에서 debugLog/infoLog가 전부 묵음이 되는 버그가 발생한다.
+ *
+ * ## 왜 import.meta.env.MODE를 쓰는가
+ *
+ * `import.meta.env.MODE`는 `--mode` 플래그 값을 그대로 반영한다.
+ * - `vite build --mode development` → MODE = "development"  ✓
+ * - `vite build --mode production`  → MODE = "production"
+ * - `vite build` (기본값)           → MODE = "production"
+ *
+ * 이를 통해 build:local 환경에서 debug 로그가 정상 출력된다.
+ */
+const IS_DEV = import.meta.env.MODE === 'development';
 
 const MAX_STRING_LENGTH = 400;
 const MAX_ARRAY_LENGTH = 20;
