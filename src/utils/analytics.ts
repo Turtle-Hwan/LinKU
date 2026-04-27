@@ -156,16 +156,8 @@ async function sendGAEvent(
     if (DEBUG_MODE) {
       debugLog("[GA] Event sent:", eventName, eventParams);
       debugLog("[GA] Payload:", JSON.stringify(payload, null, 2));
+      // production endpoint(/mp/collect)는 204 No Content를 반환하므로 response.json() 호출 불가
       debugLog("[GA] Response status:", response.status, response.statusText);
-
-      // debug endpoint는 응답 본문에 검증 결과를 포함하므로 파싱해서 출력
-      if (response.ok) {
-        const debugResponse = await response.json();
-        debugLog("[GA] Debug response:", debugResponse);
-      } else {
-        const errorText = await response.text();
-        errorLog("[GA] Response error:", errorText);
-      }
     }
   } catch (error) {
     errorLog("[GA] Error sending event:", error);
@@ -245,7 +237,6 @@ export async function sendExtensionOpen(
     if (DEBUG_MODE) {
       debugLog("[GA] Lifecycle events sent:", events.map((e) => e.name));
       debugLog("[GA] Response status:", response.status, response.statusText);
-      if (response.ok) debugLog("[GA] Debug response:", await response.json());
     }
   } catch (error) {
     errorLog("[GA] Error sending lifecycle events:", error);
