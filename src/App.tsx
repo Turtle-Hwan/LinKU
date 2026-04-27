@@ -13,7 +13,7 @@ import { debugLog } from "@/utils/logger";
 import "./App.css";
 
 function App() {
-  // Google Analytics: Extension 열릴 때 페이지뷰 전송
+  // GA4: popup mount 시 first_open / session_start / extension_open 자동 전송
   useEffect(() => {
     debugLog(
       "%c여길 열어보시다니...\n이 참에 직접 코드 기여도 해주시는 건 어떤가요?",
