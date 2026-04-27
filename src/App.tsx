@@ -8,7 +8,7 @@ import { Outlet } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
-import { sendPageView } from "./utils/analytics";
+import { sendExtensionOpen } from "./utils/analytics";
 import { debugLog } from "@/utils/logger";
 import "./App.css";
 
@@ -20,7 +20,7 @@ function App() {
       "font-family: Nanum Gothic; color: darkgreen; padding: 6px; border-radius: 4px; font-size:14px",
     );
     debugLog("https://github.com/Turtle-Hwan/LinKU");
-    sendPageView("LinKU Extension - Popup", "chrome-extension://linku/popup");
+    sendExtensionOpen("popup_home", "popup");
   }, []);
 
   return (
