@@ -9,6 +9,7 @@ import type { Department, Subscription } from "@/types/api";
 import { Check, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { errorLog } from '@/utils/logger';
+import { sendAlertsSubscriptionChange } from '@/utils/analytics';
 
 interface SubscriptionManagerProps {
   onUpdate?: () => void;
@@ -61,6 +62,7 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
       const result = await subscribeDepartment(departmentId);
 
       if (result.success) {
+        sendAlertsSubscriptionChange(departmentName, 'subscribe');
         toast.success(`${departmentName} 구독이 완료되었습니다.`);
         await fetchData();
         onUpdate?.();
@@ -79,6 +81,7 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
       const result = await unsubscribeDepartment(departmentId);
 
       if (result.success) {
+        sendAlertsSubscriptionChange(departmentName, 'unsubscribe');
         toast.success(`${departmentName} 구독이 취소되었습니다.`);
         await fetchData();
         onUpdate?.();
