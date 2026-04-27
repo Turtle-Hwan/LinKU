@@ -1,9 +1,34 @@
 /**
  * Google Analytics 4 Measurement Protocol for Chrome Extension
- * Manifest V3 호환 - CSP 제약 없이 Analytics 사용
+ * Manifest V3 호환 — CSP 제약 없이 직접 fetch로 이벤트를 전송한다.
  *
- * 이벤트 네이밍은 GA4-Data-Taxonomy.md 기준을 따른다.
- * 전송 흐름: 각 헬퍼 → sendGAEvent → GA4 MP endpoint (fetch)
+ * ## 설계 원칙
+ * 이벤트 네이밍과 파라미터는 GA4-Data-Taxonomy.md 기준을 따른다.
+ * 모든 이벤트 정의는 이 파일 안에서만 이루어지며, 호출 지점(call site)은
+ * 아래 도메인 헬퍼만 import해서 사용한다. sendGAEvent를 외부에서 직접
+ * 호출하면 taxonomy 강제(naming enforcement)가 깨지므로 export하지 않는다.
+ *
+ * ## 도메인 헬퍼 목록
+ * - Lifecycle  : sendExtensionOpen
+ * - Navigation : sendNavigationTabSelect
+ * - Search     : sendSearchSubmit
+ * - Link       : sendLinkOpen
+ * - Auth       : sendAuthLoginStart, sendAuthLoginSuccess, sendAuthLoginFail,
+ *                sendAuthLogout, sendAuthEmailVerificationStart/Success
+ * - Settings   : sendSettingsCredentialsSaved, sendSettingsCredentialsDeleted
+ * - Template   : sendTemplateEditorOpen, sendTemplateItemAdd,
+ *                sendTemplateSaveSuccess/Fail, sendTemplateSyncSuccess/Fail,
+ *                sendTemplatePublishSuccess/Fail, sendTemplateApply
+ * - Gallery    : sendTemplateGalleryOpen, sendTemplateGallerySearch,
+ *                sendTemplateGallerySortChange, sendTemplateCloneSuccess/Fail,
+ *                sendTemplateLikeToggle
+ * - Alerts     : sendAlertsViewOpen, sendAlertsItemOpen
+ * - Todo       : sendTodoViewOpen, sendTodoItemCreate,
+ *                sendTodoItemComplete, sendTodoItemDelete
+ * - Generic    : sendButtonClick (header 버튼 등 별도 이벤트가 없는 범용 클릭)
+ *
+ * ## 전송 흐름
+ * 각 헬퍼 → sendGAEvent (internal) → GA4 MP endpoint (fetch)
  */
 
 import { getOrCreateClientId } from "./clientId";
@@ -51,6 +76,7 @@ async function getOrCreateSessionId(): Promise<SessionResult> {
     const sessionTimestamp = await getStorage<number>("sessionTimestamp");
     const now = Date.now();
 
+    // 세션이 존재하고 30분 이내라면 타임스탬프만 갱신해 세션 유지
     if (sessionId && sessionTimestamp) {
       const timeSinceLastActivity = now - sessionTimestamp;
       if (timeSinceLastActivity < SESSION_TIMEOUT_MS) {
@@ -59,6 +85,7 @@ async function getOrCreateSessionId(): Promise<SessionResult> {
       }
     }
 
+    // 세션 없음 또는 타임아웃 → 새 세션 생성
     const newSessionId = now.toString();
     await setStorage({ sessionId: newSessionId, sessionTimestamp: now });
 
@@ -68,6 +95,7 @@ async function getOrCreateSessionId(): Promise<SessionResult> {
 
     return { sessionId: newSessionId, isNewSession: true };
   } catch (error) {
+    // storage 접근 실패 시 fallback — 이 세션은 저장되지 않아 다음 호출에서도 새 세션으로 취급됨
     errorLog("[GA] Error getting/creating session ID:", error);
     return { sessionId: Date.now().toString(), isNewSession: false };
   }
@@ -76,15 +104,15 @@ async function getOrCreateSessionId(): Promise<SessionResult> {
 // ─── Base sender ──────────────────────────────────────────────────────────
 
 /**
- * Google Analytics 이벤트 전송 (내부 베이스 함수)
+ * GA4 MP 이벤트 전송 — 모든 도메인 헬퍼의 내부 베이스 함수
  *
- * 모든 도메인 헬퍼가 이 함수를 통해 GA4 MP로 이벤트를 전송한다.
+ * 이 함수는 파일 외부에 export되지 않는다. 호출 지점에서는 도메인 헬퍼만 사용할 것.
  * API Secret이 없거나 fetch 실패 시 에러를 throw하지 않고 로그만 남긴다.
  *
  * @param eventName 이벤트 이름 (최대 40자, 영문/숫자/언더스코어)
  * @param eventParams 이벤트 파라미터 객체
  */
-export async function sendGAEvent(
+async function sendGAEvent(
   eventName: string,
   eventParams: Record<string, GAEventParam> = {}
 ): Promise<void> {
@@ -109,8 +137,8 @@ export async function sendGAEvent(
           name: eventName,
           params: {
             session_id: sessionId,
-            engagement_time_msec: 100, // GA4 권장 최솟값
-            ...(DEBUG_MODE && { debug_mode: 1 }), // DebugView 활성화
+            engagement_time_msec: 100, // GA4 세션 참여도 집계를 위한 권장 최솟값
+            ...(DEBUG_MODE && { debug_mode: 1 }), // GA4 DebugView에서 실시간 확인용
             ...eventParams,
           },
         },
@@ -133,6 +161,7 @@ export async function sendGAEvent(
       debugLog("[GA] Payload:", JSON.stringify(payload, null, 2));
       debugLog("[GA] Response status:", response.status, response.statusText);
 
+      // debug endpoint는 응답 본문에 검증 결과를 포함하므로 파싱해서 출력
       if (response.ok) {
         const debugResponse = await response.json();
         debugLog("[GA] Debug response:", debugResponse);
@@ -177,6 +206,7 @@ export async function sendExtensionOpen(
     const clientId = await getOrCreateClientId();
     const { sessionId, isNewSession } = await getOrCreateSessionId();
 
+    // 모든 lifecycle 이벤트에 공통으로 붙는 파라미터
     const baseParams: Record<string, GAEventParam> = {
       session_id: sessionId,
       engagement_time_msec: 100,
@@ -188,8 +218,10 @@ export async function sendExtensionOpen(
     const endpoint = DEBUG_MODE ? GA_DEBUG_ENDPOINT : GA_ENDPOINT;
     const url = `${endpoint}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`;
 
+    // 전송할 이벤트를 조건에 따라 배열로 누적 — GA4 MP는 단일 요청에 이벤트 배열 지원
     const events: { name: string; params: Record<string, GAEventParam> }[] = [];
 
+    // 기기 최초 설치 후 첫 실행에만 1회 전송 (chrome.storage에 플래그 영구 저장)
     const firstOpenSent = await getStorage<boolean>("firstOpenSent");
     if (!firstOpenSent) {
       events.push({ name: "extension_first_open", params: baseParams });
@@ -197,11 +229,13 @@ export async function sendExtensionOpen(
       if (DEBUG_MODE) debugLog("[GA] extension_first_open queued");
     }
 
+    // 30분 비활동 후 새 세션이 생성된 경우에만 전송
     if (isNewSession) {
       events.push({ name: "extension_session_start", params: baseParams });
       if (DEBUG_MODE) debugLog("[GA] extension_session_start queued");
     }
 
+    // 팝업 열릴 때마다 항상 전송
     events.push({ name: "extension_open", params: baseParams });
 
     const payload = { client_id: clientId, events };
@@ -341,8 +375,8 @@ export async function sendSystemError(
 /**
  * 버튼 클릭 이벤트 전송
  *
- * taxonomy 관점에서 제품 의미가 큰 버튼은 개별 이벤트(sendAuthLoginStart 등)로 승격하고,
- * 당장 별도 이벤트가 없는 header 버튼 등 범용 클릭에만 사용한다.
+ * 제품 의미가 큰 버튼은 개별 이벤트(sendAuthLoginStart 등)로 승격하고,
+ * 별도 이벤트가 없는 header 버튼 등 범용 클릭에만 사용한다.
  *
  * @param buttonName 버튼 식별 이름 (예: "settings_icon", "labs_icon")
  * @param buttonLocation 버튼이 위치한 UI (선택, 예: "header", "settings_dialog")
@@ -356,8 +390,6 @@ export async function sendButtonClick(
     ...(buttonLocation && { button_location: buttonLocation }),
   });
 }
-
-// ─── Auth (success / fail) ────────────────────────────────────────────────
 
 /**
  * 로그인 성공 이벤트 전송
