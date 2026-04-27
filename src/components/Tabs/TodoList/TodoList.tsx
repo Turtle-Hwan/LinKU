@@ -166,19 +166,21 @@ const TodoList = () => {
       setShowLoginModal(true);
     } finally {
       setIsLoading(false);
-      // 탭 진입 이벤트는 최초 로드 완료 시 1회만 전송
-      if (!viewOpenSentRef.current) {
-        viewOpenSentRef.current = true;
-        sendTodoViewOpen(allTodos.length);
-      }
     }
-  }, [fetchTodoList, tryLoginWithSavedCredentials, loadCustomTodos, allTodos.length]);
+  }, [fetchTodoList, tryLoginWithSavedCredentials, loadCustomTodos]);
 
   // 초기 로드 시 Todo 목록 가져오기
   useEffect(() => {
     loadTodoList();
   }, [loadTodoList]);
 
+  // 탭 진입 이벤트 — 로딩 완료 후 1회만 전송
+  useEffect(() => {
+    if (!isLoading && !viewOpenSentRef.current) {
+      viewOpenSentRef.current = true;
+      sendTodoViewOpen(ecampusTodos.length + customTodos.length);
+    }
+  }, [isLoading, ecampusTodos.length, customTodos.length]);
 
   // 정렬 방식 불러오기
   useEffect(() => {
