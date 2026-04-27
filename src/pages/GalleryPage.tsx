@@ -105,7 +105,7 @@ export const GalleryPage = () => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, sort]);
 
   // Load templates
   const loadTemplates = useCallback(async (pageNum: number, reset: boolean = false) => {
