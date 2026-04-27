@@ -14,6 +14,8 @@ import { DialogDescription } from "@radix-ui/react-dialog";
 import {
   sendButtonClick,
   sendAuthLoginStart,
+  sendAuthLoginSuccess,
+  sendAuthLoginFail,
   sendAuthLogout,
   sendSettingsCredentialsSaved,
   sendSettingsCredentialsDeleted,
@@ -260,21 +262,26 @@ const GoogleOAuthSection = () => {
         // Check if this is a guest (requires signup)
         if (result.response.requiresSignup) {
           setIsGuest(true);
+          sendAuthLoginSuccess("google", true);
           // Auto-open email verification dialog for guests
           setShowEmailVerification(true);
           toast.info("건국대 이메일 인증이 필요합니다.");
         } else {
           setIsGuest(false);
           setUserProfile(result.response.profile);
+          sendAuthLoginSuccess("google", false);
           toast.success("로그인 성공!");
         }
       } else {
+        sendAuthLoginFail("google", "login_failed", result.error || "알 수 없는 오류");
         toast.error("로그인 실패", {
           description: result.error,
         });
       }
     } catch (error) {
       errorLog("Login error:", error);
+      const errMsg = error instanceof Error ? error.message : "로그인 중 오류가 발생했습니다.";
+      sendAuthLoginFail("google", "exception", errMsg);
       toast.error("오류", {
         description: "로그인 중 오류가 발생했습니다.",
       });
