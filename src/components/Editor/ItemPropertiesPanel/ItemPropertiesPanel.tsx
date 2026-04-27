@@ -16,6 +16,7 @@ import { validateLinkForm } from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
 import type { TemplateIcon, TemplateItem } from '@/types/api';
 import { InputGroup } from '@/components/Editor/shared/InputGroup';
+import { sendTemplateItemAdd } from '@/utils/analytics';
 
 export const ItemPropertiesPanel = () => {
   const { state, dispatch } = useEditorContext();
@@ -156,6 +157,7 @@ const ItemPropertiesPanelForm = ({
   const handleMoveToCanvas = () => {
     if (!isFromStaging) return;
     dispatch({ type: 'MOVE_TO_CANVAS', payload: selectedItem.templateItemId });
+    sendTemplateItemAdd('button', selectedItem.templateItemId);
     toast.success('아이템이 캔버스에 추가되었습니다.');
   };
 

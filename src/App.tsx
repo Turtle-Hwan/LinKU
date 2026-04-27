@@ -8,7 +8,7 @@ import { Outlet } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
-import { sendExtensionOpen } from "./utils/analytics";
+import { sendExtensionOpen, sendSystemError } from "./utils/analytics";
 import { debugLog } from "@/utils/logger";
 import "./App.css";
 
@@ -25,6 +25,10 @@ function App() {
 
   return (
     <ErrorBoundary
+      onError={(error: unknown) => {
+        const msg = error instanceof Error ? error.message : String(error);
+        sendSystemError("react_error_boundary", msg, "popup_home");
+      }}
       fallback={
         <div className="w-[500px] h-[600px] flex items-center justify-center p-8">
           <div className="text-center space-y-4">
