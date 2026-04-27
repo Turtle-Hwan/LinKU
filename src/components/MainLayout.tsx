@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 import { Search, Settings, FlaskConical } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 import LabsDialog from "./LabsDialog";
-import { sendButtonClick, sendSearchSubmit } from "@/utils/analytics";
+import { sendButtonClick, sendSearchSubmit, sendSettingsOpen } from "@/utils/analytics";
 
 const MainLayout = () => {
   return (
@@ -62,6 +62,7 @@ const Header = () => {
             className="w-5 h-5 text-gray-600 cursor-pointer"
             onClick={() => {
               sendButtonClick("settings_icon", "header");
+              sendSettingsOpen("header");
               setShowSettings(true);
             }}
           />

@@ -35,7 +35,7 @@ import { areItemsEqual } from '@/utils/templateUtils';
 import { LinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
 import { warnLog, errorLog } from '@/utils/logger';
-import { sendTemplateApply } from '@/utils/analytics';
+import { sendTemplateApply, sendTemplateCreateStart, sendTemplateDelete } from '@/utils/analytics';
 
 export const TemplateListPage = () => {
   const navigate = useNavigate();
@@ -291,10 +291,12 @@ export const TemplateListPage = () => {
   }, [activeTab, userLoggedIn, postedTemplates.length, loadPostedTemplates]);
 
   const handleCreateFromDefault = () => {
+    sendTemplateCreateStart('default');
     navigate('/editor?from=default');
   };
 
   const handleCreateEmpty = () => {
+    sendTemplateCreateStart('empty');
     navigate('/editor?from=empty');
   };
 
@@ -345,6 +347,9 @@ export const TemplateListPage = () => {
       if (syncStatus === 'local') {
         deleteTemplateFromLocalStorage(templateId);
 
+        const origin = clonedTemplates.some(t => t.templateId === templateId) ? 'cloned' : 'owned';
+        sendTemplateDelete(templateId, origin, 'local');
+
         toast({
           title: '삭제 완료',
           description: '로컬 템플릿이 삭제되었습니다.',
@@ -367,6 +372,9 @@ export const TemplateListPage = () => {
       if (result.success) {
         // Also delete from localStorage if exists
         deleteTemplateFromLocalStorage(templateId);
+
+        const origin = clonedTemplates.some(t => t.templateId === templateId) ? 'cloned' : 'owned';
+        sendTemplateDelete(templateId, origin, 'synced');
 
         toast({
           title: '삭제 완료',
