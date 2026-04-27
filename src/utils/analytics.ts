@@ -16,15 +16,19 @@
  * - Auth       : sendAuthLoginStart, sendAuthLoginSuccess, sendAuthLoginFail,
  *                sendAuthLogout, sendAuthEmailVerificationStart/Success
  * - Settings   : sendSettingsCredentialsSaved, sendSettingsCredentialsDeleted
- * - Template   : sendTemplateEditorOpen, sendTemplateItemAdd,
+ * - Template   : sendTemplateEditorOpen, sendTemplateCreateStart,
+ *                sendTemplateNameEdit, sendTemplateItemAdd,
+ *                sendTemplateItemUpdate, sendTemplateItemDelete,
  *                sendTemplateSaveSuccess/Fail, sendTemplateSyncSuccess/Fail,
- *                sendTemplatePublishSuccess/Fail, sendTemplateApply
+ *                sendTemplatePublishSuccess/Fail, sendTemplateApply, sendTemplateDelete
  * - Gallery    : sendTemplateGalleryOpen, sendTemplateGallerySearch,
  *                sendTemplateGallerySortChange, sendTemplateCloneSuccess/Fail,
  *                sendTemplateLikeToggle
- * - Alerts     : sendAlertsViewOpen, sendAlertsItemOpen
+ * - Banner     : sendBannerOpen
+ * - Alerts     : sendAlertsViewOpen, sendAlertsItemOpen, sendAlertsSubscriptionChange
  * - Todo       : sendTodoViewOpen, sendTodoItemCreate,
  *                sendTodoItemComplete, sendTodoItemDelete
+ * - Labs       : sendLabsViewOpen, sendLabsFeatureUse
  * - Generic    : sendButtonClick (header 버튼 등 별도 이벤트가 없는 범용 클릭)
  *
  * ## 전송 흐름
@@ -327,6 +331,14 @@ export async function sendAuthLogout(uiLocation: string): Promise<void> {
 
 // ─── Settings ─────────────────────────────────────────────────────────────
 
+/**
+ * 설정 다이얼로그 진입 이벤트 전송
+ * @param entryPoint 진입 경로 (예: "header")
+ */
+export async function sendSettingsOpen(entryPoint: string): Promise<void> {
+  await sendGAEvent("settings_open", { entry_point: entryPoint });
+}
+
 /** eCampus 인증정보 저장 완료 이벤트 전송 */
 export async function sendSettingsCredentialsSaved(): Promise<void> {
   await sendGAEvent("settings_credentials_saved", { result: "success" });
@@ -568,6 +580,74 @@ export async function sendTemplatePublishFail(
 }
 
 /**
+ * 새 템플릿 만들기 진입 이벤트 전송
+ * @param templateOrigin 생성 출처 ("default" | "empty")
+ */
+export async function sendTemplateCreateStart(templateOrigin: string): Promise<void> {
+  await sendGAEvent("template_create_start", { template_origin: templateOrigin });
+}
+
+/**
+ * 템플릿 이름 편집 이벤트 전송
+ *
+ * 매 keystroke가 아닌 타이핑 정지 후(debounce) 호출해야 한다.
+ * @param templateId 편집 중인 템플릿 식별자 (선택)
+ */
+export async function sendTemplateNameEdit(templateId?: number): Promise<void> {
+  await sendGAEvent("template_name_edit", {
+    ...(templateId !== undefined && { template_id: templateId }),
+  });
+}
+
+/**
+ * 템플릿 아이템 속성 저장 이벤트 전송
+ * @param updateType 업데이트 유형 (예: "properties")
+ * @param templateId 템플릿 식별자 (선택)
+ */
+export async function sendTemplateItemUpdate(
+  updateType: string,
+  templateId?: number
+): Promise<void> {
+  await sendGAEvent("template_item_update", {
+    update_type: updateType,
+    ...(templateId !== undefined && { template_id: templateId }),
+  });
+}
+
+/**
+ * 템플릿 아이템 삭제 이벤트 전송
+ * @param deleteSource 삭제 경로 ("canvas" = 임시저장으로 이동, "staging" = 영구 삭제)
+ * @param templateId 템플릿 식별자 (선택)
+ */
+export async function sendTemplateItemDelete(
+  deleteSource: string,
+  templateId?: number
+): Promise<void> {
+  await sendGAEvent("template_item_delete", {
+    delete_source: deleteSource,
+    ...(templateId !== undefined && { template_id: templateId }),
+  });
+}
+
+/**
+ * 템플릿 삭제 이벤트 전송
+ * @param templateId 템플릿 식별자
+ * @param templateOrigin 템플릿 출처 ("owned" | "cloned")
+ * @param syncStatus 동기화 상태 ("local" | "synced")
+ */
+export async function sendTemplateDelete(
+  templateId: number,
+  templateOrigin: string,
+  syncStatus: string
+): Promise<void> {
+  await sendGAEvent("template_delete", {
+    template_id: templateId,
+    template_origin: templateOrigin,
+    sync_status: syncStatus,
+  });
+}
+
+/**
  * 템플릿 메인 화면 적용 이벤트 전송 — 핵심 가치 행동
  * @param templateId 템플릿 식별자
  * @param templateOrigin 템플릿 출처
@@ -681,6 +761,24 @@ export async function sendAlertsViewOpen(
 }
 
 /**
+ * 배너 클릭 이벤트 전송
+ * @param bannerId 배너 식별자 (이미지 파일명)
+ * @param bannerTitle 배너 제목 (alt 텍스트)
+ * @param bannerPosition 배너 위치 (슬라이드 인덱스, 0-based)
+ */
+export async function sendBannerOpen(
+  bannerId: string,
+  bannerTitle: string,
+  bannerPosition: number
+): Promise<void> {
+  await sendGAEvent("banner_open", {
+    banner_id: bannerId,
+    banner_title: bannerTitle,
+    banner_position: bannerPosition,
+  });
+}
+
+/**
  * 공지사항 아이템 클릭 이벤트 전송
  * @param alertId 공지 식별자
  * @param category 공지 카테고리
@@ -696,6 +794,18 @@ export async function sendAlertsItemOpen(
     category,
     source,
   });
+}
+
+/**
+ * 학과 구독 변경 이벤트 전송
+ * @param category 구독 변경된 학과명
+ * @param result 변경 결과 ("subscribe" | "unsubscribe")
+ */
+export async function sendAlertsSubscriptionChange(
+  category: string,
+  result: string
+): Promise<void> {
+  await sendGAEvent("alerts_subscription_change", { category, result });
 }
 
 // ─── Todo ─────────────────────────────────────────────────────────────────
@@ -734,4 +844,26 @@ export async function sendTodoItemComplete(itemType: string): Promise<void> {
  */
 export async function sendTodoItemDelete(itemType: string): Promise<void> {
   await sendGAEvent("todo_item_delete", { item_type: itemType });
+}
+
+// ─── Labs ─────────────────────────────────────────────────────────────────
+
+/** Labs 다이얼로그 진입 이벤트 전송 */
+export async function sendLabsViewOpen(): Promise<void> {
+  await sendGAEvent("labs_view_open", {});
+}
+
+/**
+ * Labs 개별 기능 사용 이벤트 전송
+ * @param featureName 사용한 기능 식별자 (예: "qr_generator", "library_seat")
+ * @param result 결과 (선택, 예: "success", "fail")
+ */
+export async function sendLabsFeatureUse(
+  featureName: string,
+  result?: string
+): Promise<void> {
+  await sendGAEvent("labs_feature_use", {
+    feature_name: featureName,
+    ...(result && { result }),
+  });
 }
