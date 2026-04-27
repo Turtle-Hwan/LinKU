@@ -38,4 +38,10 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
+  {
+    files: ['src/components/ui/button.tsx', 'src/components/ui/badge.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 )

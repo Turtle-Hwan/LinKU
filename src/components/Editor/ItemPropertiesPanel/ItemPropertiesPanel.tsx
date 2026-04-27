@@ -45,6 +45,7 @@ export const ItemPropertiesPanel = () => {
 
   return (
     <ItemPropertiesPanelForm
+      key={selectedItem.templateItemId}
       selectedItem={selectedItem}
       isFromStaging={isFromStaging}
       defaultIcons={state.defaultIcons}
