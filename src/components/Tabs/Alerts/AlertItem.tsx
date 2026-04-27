@@ -41,8 +41,14 @@ const AlertItem = ({ alert }: AlertItemProps) => {
 
   const handleClick = () => {
     if (!alert.url) return;
-    const category = "category" in alert ? String(alert.category) : "department";
-    const source = "department" in alert ? "department" : "general";
+    // category 필드가 표준 카테고리 외 값(학과명)이면 학과 공지로 분류
+    const isDept =
+      "department" in alert ||
+      ("category" in alert && !standardCategories.has(alert.category));
+    const source = isDept ? "department" : "general";
+    const category = isDept
+      ? ("category" in alert ? String(alert.category) : alert.department.name)
+      : String(alert.category);
     sendAlertsItemOpen(alert.alertId, category, source);
     window.open(alert.url, "_blank");
   };
