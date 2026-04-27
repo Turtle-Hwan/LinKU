@@ -1,6 +1,7 @@
 import type { Alert, AlertCategory } from "@/types/api";
 import { ExternalLink, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sendAlertsItemOpen } from "@/utils/analytics";
 
 interface AlertItemProps {
   alert: Alert;
@@ -39,9 +40,11 @@ const AlertItem = ({ alert }: AlertItemProps) => {
   };
 
   const handleClick = () => {
-    if (alert.url) {
-      window.open(alert.url, "_blank");
-    }
+    if (!alert.url) return;
+    const category = "category" in alert ? String(alert.category) : "department";
+    const source = "department" in alert ? "department" : "general";
+    sendAlertsItemOpen(alert.alertId, category, source);
+    window.open(alert.url, "_blank");
   };
 
   const isClickable = Boolean(alert.url);
