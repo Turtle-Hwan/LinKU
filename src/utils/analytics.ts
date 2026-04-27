@@ -39,7 +39,6 @@ import { debugLog, warnLog, errorLog } from "@/utils/logger";
 type GAEventParam = string | number | boolean;
 
 const GA_ENDPOINT = "https://www.google-analytics.com/mp/collect";
-const GA_DEBUG_ENDPOINT = "https://www.google-analytics.com/debug/mp/collect";
 const MEASUREMENT_ID = "G-ECMY8N9FX4";
 
 /** 빌드 시 .env에서 주입 */
@@ -145,10 +144,8 @@ async function sendGAEvent(
       ],
     };
 
-    const endpoint = DEBUG_MODE ? GA_DEBUG_ENDPOINT : GA_ENDPOINT;
-
     const response = await fetch(
-      `${endpoint}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
+      `${GA_ENDPOINT}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -215,8 +212,7 @@ export async function sendExtensionOpen(
       ...(DEBUG_MODE && { debug_mode: 1 }),
     };
 
-    const endpoint = DEBUG_MODE ? GA_DEBUG_ENDPOINT : GA_ENDPOINT;
-    const url = `${endpoint}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`;
+    const url = `${GA_ENDPOINT}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`;
 
     // 전송할 이벤트를 조건에 따라 배열로 누적 — GA4 MP는 단일 요청에 이벤트 배열 지원
     const events: { name: string; params: Record<string, GAEventParam> }[] = [];
