@@ -140,21 +140,33 @@ function sanitizeValue(
 
     seen.add(value);
 
-    if (!isPlainObject(value)) {
-      return sanitizeString(String(value));
-    }
+    // non-plain 객체(커스텀 클래스, chrome API 객체 등)는 isPlainObject를 통과 못 해
+    // String() 변환 시 "[object Object]"가 되어 디버깅 불가.
+    // Object.getOwnPropertyNames로 non-enumerable 포함 own property를 추출한다.
+    // (예: chrome.runtime.lastError.message는 non-enumerable이라 Object.keys에 안 잡힘)
+    const allKeys = isPlainObject(value)
+      ? Object.keys(value)
+      : Object.getOwnPropertyNames(value as object);
 
-    const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
-    const sanitizedObject = entries.reduce<Record<string, unknown>>((acc, [key, entryValue]) => {
+    const keys = allKeys.slice(0, MAX_OBJECT_KEYS);
+    const sanitizedObject = keys.reduce<Record<string, unknown>>((acc, key) => {
       acc[key] = SENSITIVE_KEY_PATTERN.test(key)
         ? REDACTED
-        : sanitizeValue(entryValue, depth + 1, seen);
+        : sanitizeValue((value as Record<string, unknown>)[key], depth + 1, seen);
       return acc;
     }, {});
-    const omittedCount = Object.keys(value).length - entries.length;
 
+    const omittedCount = allKeys.length - keys.length;
     if (omittedCount > 0) {
       sanitizedObject[TRUNCATED_OBJECT_META_KEY] = omittedCount;
+    }
+
+    // 클래스 인스턴스라면 타입 힌트 추가
+    if (!isPlainObject(value)) {
+      const typeName = (value as object).constructor?.name;
+      if (typeName && typeName !== "Object") {
+        sanitizedObject["[type]"] = typeName;
+      }
     }
 
     return sanitizedObject;
