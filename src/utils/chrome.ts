@@ -1,3 +1,4 @@
+import { errorLog } from '@/utils/logger';
 // activeTab permission
 export const getCurrentTab = async () => {
   const queryOptions = { active: true, currentWindow: true };
@@ -19,10 +20,10 @@ export const executeScript = async (tabId: number, func: () => void) => {
       target: { tabId, allFrames: true },
       func: func,
     });
-    // console.log("Injection Success", result);
+    // debugLog("Injection Success", result);
     return result;
   } catch (err) {
-    console.log("err", err);
+    errorLog("[Chrome] Failed to execute inline script", err);
     throw err;
   }
 };
@@ -33,10 +34,10 @@ export const executeScriptFile = async (tabId: number, files: string[]) => {
       target: { tabId, allFrames: true },
       files,
     });
-    // console.log("Injection Success", result);
+    // debugLog("Injection Success", result);
     return result;
   } catch (err) {
-    console.log("err", err);
+    errorLog("[Chrome] Failed to execute script file", err);
     throw err;
   }
 };

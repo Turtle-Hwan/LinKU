@@ -1,4 +1,5 @@
 import type { GeneralAlert } from "../../types/api";
+import { debugLog, warnLog, errorLog } from '@/utils/logger';
 
 const CAREER_URL = "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do";
 
@@ -51,7 +52,7 @@ const parseHTMLToAlerts = (
 
     // Debug logging
     if (!url) {
-      console.warn("Failed to parse URL from href:", hrefAttr, "Title:", title);
+      warnLog("Failed to parse URL from href:", hrefAttr, "Title:", title);
     }
 
     // Convert date to ISO string (format: YYYY.MM.DD)
@@ -87,7 +88,7 @@ export const getCareerAlertsFromHTML = async (
   startId: number = 3001
 ): Promise<GeneralAlert[]> => {
   try {
-    console.log("Fetching career alerts from:", CAREER_URL);
+    debugLog("Fetching career alerts from:", CAREER_URL);
     const response = await fetch(CAREER_URL);
 
     if (!response.ok) {
@@ -96,10 +97,10 @@ export const getCareerAlertsFromHTML = async (
 
     const htmlText = await response.text();
     const alerts = parseHTMLToAlerts(htmlText, startId);
-    console.log(`Parsed ${alerts.length} career alerts, sample:`, alerts[0]);
+    debugLog(`Parsed ${alerts.length} career alerts, sample:`, alerts[0]);
     return alerts;
   } catch (error) {
-    console.error("Error fetching career HTML:", error);
+    errorLog("Error fetching career HTML:", error);
     return []; // Return empty array on error
   }
 };

@@ -5,6 +5,7 @@
 
 import { getStorage, setStorage, removeStorage } from "./chrome";
 import { encryptPassword, decryptPassword } from "./crypto";
+import { errorLog } from '@/utils/logger';
 
 export interface Credentials {
   id: string;
@@ -28,7 +29,7 @@ export async function saveCredentials(
       [storageKey]: { id, password: encryptedPassword },
     });
   } catch (error) {
-    console.error(
+    errorLog(
       `[Credentials] Error saving credentials (${storageKey}):`,
       error
     );
@@ -67,7 +68,7 @@ export async function loadCredentials(
       password: decryptedPassword,
     };
   } catch (error) {
-    console.error(
+    errorLog(
       `[Credentials] Error loading credentials (${storageKey}):`,
       error
     );
@@ -83,7 +84,7 @@ export async function clearCredentials(storageKey: string): Promise<void> {
   try {
     await removeStorage(storageKey);
   } catch (error) {
-    console.error(
+    errorLog(
       `[Credentials] Error clearing credentials (${storageKey}):`,
       error
     );

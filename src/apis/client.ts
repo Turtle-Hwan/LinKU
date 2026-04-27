@@ -6,6 +6,7 @@
 import type { ApiResponse, RequestConfig } from "../types/api";
 import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
+import { debugLog, errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
 
 /**
  * Token expired error code from backend
@@ -100,11 +101,11 @@ async function clearAccessToken(): Promise<void> {
 async function handleTokenExpired(): Promise<boolean> {
   // If already reauthenticating, wait for the existing promise
   if (isReauthenticating && reauthPromise) {
-    console.log("[API Client] Reauth already in progress, waiting...");
+    debugLog("[API Client] Reauth already in progress, waiting...");
     return reauthPromise;
   }
 
-  console.log("[API Client] Token expired (5004), attempting silent reauth...");
+  debugLog("[API Client] Token expired (5004), attempting silent reauth...");
 
   isReauthenticating = true;
   reauthPromise = (async () => {
@@ -117,14 +118,16 @@ async function handleTokenExpired(): Promise<boolean> {
       });
 
       if (response?.success) {
-        console.log("[API Client] Silent reauth succeeded");
+        debugLog("[API Client] Silent reauth succeeded");
         return true;
       } else {
-        console.warn("[API Client] Silent reauth failed:", response?.error);
+        warnLog("[API Client] Silent reauth failed", {
+          error: response?.error,
+        });
         return false;
       }
     } catch (error) {
-      console.warn("[API Client] Silent reauth error:", error);
+      warnLog("[API Client] Silent reauth error", getErrorLogDetails(error));
       return false;
     } finally {
       isReauthenticating = false;
@@ -250,7 +253,11 @@ async function request<T = unknown>(
         data = (await response.text()) as T;
       }
     } catch (parseError) {
-      console.error("Response parsing error:", parseError);
+      errorLog("[API Client] Response parsing error", {
+        ...getErrorLogDetails(parseError),
+        status: response.status,
+        url: fullUrl,
+      });
       // If parsing fails, return error response
       return {
         success: false,
@@ -270,7 +277,7 @@ async function request<T = unknown>(
       "code" in data &&
       (data as Record<string, unknown>).code === TOKEN_EXPIRED_CODE
     ) {
-      console.log(
+      debugLog(
         "[API Client] Detected 5004 token expired error, attempting reauth...",
       );
 
@@ -278,11 +285,11 @@ async function request<T = unknown>(
 
       if (reauthSuccess) {
         // Retry the original request with new token
-        console.log("[API Client] Retrying request after successful reauth");
+        debugLog("[API Client] Retrying request after successful reauth");
         return request<T>(url, method, body, config, true);
       } else {
         // Reauth failed, clear tokens and notify
-        console.warn("[API Client] Reauth failed, clearing tokens");
+        warnLog("[API Client] Reauth failed, clearing tokens");
         await clearAccessToken();
         window.dispatchEvent(new CustomEvent("auth:unauthorized"));
 
@@ -330,7 +337,7 @@ async function request<T = unknown>(
       status: response.status,
     });
   } catch (error) {
-    console.warn("API Request Error:", error);
+    warnLog("[API Client] Request error", getErrorLogDetails(error));
     return {
       success: false,
       error: {
@@ -422,6 +429,7 @@ export async function publicRequest<T = unknown>(
 
     return { success: true, status: response.status, data: resultData as T };
   } catch (error) {
+    warnLog("[API Client] Public request error", getErrorLogDetails(error));
     return {
       success: false,
       error: { code: "NETWORK_ERROR", message: String(error) },

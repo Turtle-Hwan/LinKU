@@ -4,7 +4,7 @@
  * Includes both default and user-uploaded icons
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,11 +17,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/hooks/useEditorContext';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { validateLinkForm } from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
+import type { Icon } from '@/types/api';
 
 interface QuickAddDialogProps {
   open: boolean;
@@ -31,24 +32,45 @@ interface QuickAddDialogProps {
 
 export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProps) => {
   const { state } = useEditorContext();
+  const firstIconId = getInitialIconId(state.defaultIcons, state.userIcons);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open && (
+        <QuickAddDialogContent
+          key={`${firstIconId ?? 'none'}-${state.defaultIcons.length}-${state.userIcons.length}`}
+          defaultIcons={state.defaultIcons}
+          userIcons={state.userIcons}
+          onOpenChange={onOpenChange}
+          onAdd={onAdd}
+        />
+      )}
+    </Dialog>
+  );
+};
+
+interface QuickAddDialogContentProps {
+  defaultIcons: Icon[];
+  userIcons: Icon[];
+  onOpenChange: (open: boolean) => void;
+  onAdd: (data: { name: string; url: string; iconId: number }) => void;
+}
+
+function getInitialIconId(defaultIcons: Icon[], userIcons: Icon[]): number | null {
+  return (defaultIcons[0] || userIcons[0])?.id ?? null;
+}
+
+const QuickAddDialogContent = ({
+  defaultIcons,
+  userIcons,
+  onOpenChange,
+  onAdd,
+}: QuickAddDialogContentProps) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
-  const [selectedIconId, setSelectedIconId] = useState<number | null>(null);
-
-  // Reset form when dialog opens
-  useEffect(() => {
-    if (open) {
-      setName('');
-      setUrl('');
-      // Auto-select first available icon
-      const firstIcon = state.defaultIcons[0] || state.userIcons[0];
-      if (firstIcon) {
-        setSelectedIconId(firstIcon.id);
-      } else {
-        setSelectedIconId(null);
-      }
-    }
-  }, [open, state.defaultIcons, state.userIcons]);
+  const [selectedIconId, setSelectedIconId] = useState<number | null>(() =>
+    getInitialIconId(defaultIcons, userIcons)
+  );
 
   const handleAdd = () => {
     // Validate form using centralized validation
@@ -70,8 +92,7 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+    <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>빠른 링크 추가</DialogTitle>
           <DialogDescription>
@@ -117,16 +138,16 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
             <Tabs defaultValue="default" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="default">
-                  기본 아이콘 ({state.defaultIcons.length})
+                  기본 아이콘 ({defaultIcons.length})
                 </TabsTrigger>
                 <TabsTrigger value="user">
-                  내 아이콘 ({state.userIcons.length})
+                  내 아이콘 ({userIcons.length})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="default" className="mt-2">
                 <IconGrid
-                  icons={state.defaultIcons}
+                  icons={defaultIcons}
                   selectedIconId={selectedIconId}
                   onSelectIcon={setSelectedIconId}
                   columns={8}
@@ -136,7 +157,7 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
 
               <TabsContent value="user" className="mt-2">
                 <IconGrid
-                  icons={state.userIcons}
+                  icons={userIcons}
                   selectedIconId={selectedIconId}
                   onSelectIcon={setSelectedIconId}
                   columns={8}
@@ -156,7 +177,6 @@ export const QuickAddDialog = ({ open, onOpenChange, onAdd }: QuickAddDialogProp
             추가
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </DialogContent>
   );
 };

@@ -7,7 +7,8 @@
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { EditorProvider, useEditorContext } from '@/contexts/EditorContext';
+import { EditorProvider } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/hooks/useEditorContext';
 import { EditorHeader } from '@/components/Editor/EditorHeader/EditorHeader';
 import { EditorCanvas } from '@/components/Editor/EditorCanvas/EditorCanvas';
 import { EditorSidebar } from '@/components/Editor/EditorSidebar/EditorSidebar';

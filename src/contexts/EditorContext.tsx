@@ -3,13 +3,15 @@
  * Uses useReducer pattern for complex state management
  */
 
-import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { useReducer, useEffect, ReactNode } from 'react';
 import type { Template, TemplateItem, Icon } from '@/types/api';
 import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons, getMyIcons } from '@/apis/icons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { toast } from 'sonner';
+import { debugLog, errorLog } from '@/utils/logger';
+import { EditorContext } from './EditorContextObject';
 
 /**
  * Editor state interface
@@ -94,7 +96,7 @@ const initialState: EditorState = {
  */
 const editorReducer = (state: EditorState, action: EditorAction): EditorState => {
   switch (action.type) {
-    case 'LOAD_TEMPLATE':
+    case 'LOAD_TEMPLATE': {
       // templateItemId 유효성 검증 (SYNC_SUCCESS와 동일한 처리)
       const loadedTemplate = {
         ...action.payload,
@@ -110,6 +112,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isLoading: false,
         isDirty: false,
       };
+    }
 
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
@@ -244,7 +247,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         ),
       };
 
-    case 'MOVE_TO_CANVAS':
+    case 'MOVE_TO_CANVAS': {
       if (!state.template) return state;
       const itemToMove = state.stagingItems.find(
         (item) => item.templateItemId === action.payload
@@ -288,8 +291,9 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         ),
         isDirty: true,
       };
+    }
 
-    case 'MOVE_TO_STAGING':
+    case 'MOVE_TO_STAGING': {
       if (!state.template) return state;
       const itemToStage = state.template.items.find(
         (item) => item.templateItemId === action.payload
@@ -307,6 +311,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         selectedItemId: state.selectedItemId === action.payload ? null : state.selectedItemId,
         isDirty: true,
       };
+    }
 
     case 'UPDATE_STAGING_ITEM':
       return {
@@ -343,7 +348,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isSyncing: true,
       };
 
-    case 'SYNC_SUCCESS':
+    case 'SYNC_SUCCESS': {
       // 서버 응답의 아이템에 templateItemId가 없을 경우 임시 ID 생성
       const processedTemplate = {
         ...action.payload,
@@ -360,6 +365,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isDirty: false,
         selectedItemId: null,  // 동기화 후 선택 상태 초기화
       };
+    }
 
     case 'SYNC_FAILED':
       return {
@@ -386,27 +392,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
 };
 
 /**
- * Editor context value
- */
-interface EditorContextValue {
-  state: EditorState;
-  dispatch: React.Dispatch<EditorAction>;
-}
-
-const EditorContext = createContext<EditorContextValue | undefined>(undefined);
-
-/**
- * useEditorContext hook
- */
-export const useEditorContext = () => {
-  const context = useContext(EditorContext);
-  if (!context) {
-    throw new Error('useEditorContext must be used within EditorProvider');
-  }
-  return context;
-};
-
-/**
  * EditorProvider props
  */
 interface EditorProviderProps {
@@ -420,16 +405,6 @@ interface EditorProviderProps {
  */
 export const EditorProvider = ({ children, templateId, startFrom }: EditorProviderProps) => {
   const [state, dispatch] = useReducer(editorReducer, initialState);
-
-  // Template loading effect
-  useEffect(() => {
-    if (templateId) {
-      loadTemplate(templateId);
-    } else {
-      initializeNewTemplate(startFrom);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId, startFrom]);
 
   /**
    * Load existing template
@@ -468,7 +443,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           dispatch({ type: 'ADD_TO_STAGING', payload: item });
         });
 
-        console.log('[EditorContext] Loaded template from localStorage', id);
+        debugLog('[EditorContext] Loaded template from localStorage', id);
         return;
       }
 
@@ -487,7 +462,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         type: 'SET_ERROR',
         payload: '템플릿 로딩 중 오류가 발생했습니다.',
       });
-      console.error('Failed to load template:', error);
+      errorLog('Failed to load template:', error);
     }
   };
 
@@ -505,7 +480,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         getMyIcons(),
       ]);
 
-      console.log('[EditorContext] Icons API full response:', iconsResult);
+      debugLog('[EditorContext] Icons API full response:', iconsResult);
 
       // Parse default icons from response
       let defaultIcons: Icon[] = [];
@@ -517,13 +492,13 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           // Handle paginated response format
           defaultIcons = (iconsResult.value.data as { items: Icon[] }).items;
         } else {
-          console.error('[EditorContext] Unexpected response structure:', iconsResult.value.data);
+          errorLog('[EditorContext] Unexpected response structure:', iconsResult.value.data);
         }
       } else if (iconsResult.status === 'rejected') {
-        console.error('[EditorContext] Icons API failed:', iconsResult.reason);
+        errorLog('[EditorContext] Icons API failed:', iconsResult.reason);
       }
 
-      console.log('[EditorContext] Final defaultIcons count:', defaultIcons.length);
+      debugLog('[EditorContext] Final defaultIcons count:', defaultIcons.length);
 
       // Load server icons for icon picker (even if empty)
       dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
@@ -585,7 +560,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         }
       }
     } catch (error) {
-      console.error('[EditorContext] Failed to initialize template:', error);
+      errorLog('[EditorContext] Failed to initialize template:', error);
       // Fallback: create empty template (still saveable locally)
       const emptyTemplate: Template = {
         templateId: 0,
@@ -600,6 +575,15 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
     }
   };
+
+  // Template loading effect
+  useEffect(() => {
+    if (templateId) {
+      loadTemplate(templateId);
+    } else {
+      initializeNewTemplate(startFrom);
+    }
+  }, [templateId, startFrom]);
 
   return (
     <EditorContext.Provider value={{ state, dispatch }}>

@@ -5,16 +5,16 @@
 
 import { getStorage, setStorage } from "../chrome";
 import { CustomTodoItem } from "@/types/todo";
+import { errorLog } from '@/utils/logger';
 
 const CUSTOM_TODOS_KEY = "customTodos";
 
 /**
  * D-Day 계산 함수
  * @param dueDate 마감 날짜 (YYYY.MM.DD 또는 YYYY-MM-DD 형식)
- * @param _dueTime 마감 시간 (HH:mm 형식) - D-Day 계산에는 사용하지 않음 (자정 기준)
  * @returns D-Day 문자열 (예: "D-3", "D-Day", "D+2")
  */
-function calculateDDay(dueDate: string, _dueTime: string): string {
+function calculateDDay(dueDate: string): string {
   try {
     // 날짜 형식 정규화: YYYY-MM-DD → YYYY.MM.DD
     const normalizedDate = dueDate.replace(/-/g, ".");
@@ -22,7 +22,7 @@ function calculateDDay(dueDate: string, _dueTime: string): string {
 
     // 유효성 검사
     if (!year || !month || !day) {
-      console.error(`[calculateDDay] Invalid date format: ${dueDate}`);
+      errorLog(`[calculateDDay] Invalid date format: ${dueDate}`);
       return "D-Day";
     }
 
@@ -42,7 +42,7 @@ function calculateDDay(dueDate: string, _dueTime: string): string {
       return `D+${Math.abs(diffDays)}`;
     }
   } catch (error) {
-    console.error(`[calculateDDay] Error calculating D-Day:`, error);
+    errorLog(`[calculateDDay] Error calculating D-Day:`, error);
     return "D-Day";
   }
 }
@@ -73,7 +73,7 @@ export async function getCustomTodos(): Promise<CustomTodoItem[]> {
 
       // 기존 dueDate가 시간을 포함하지 않으면 기본 시간 설정
       const dueTime = todo.dueTime || "23:59";
-      const dDay = calculateDDay(normalizedDate, dueTime);
+      const dDay = calculateDDay(normalizedDate);
 
       return {
         ...todo,
@@ -93,7 +93,7 @@ export async function getCustomTodos(): Promise<CustomTodoItem[]> {
 
     return migratedTodos;
   } catch (error) {
-    console.error("[CustomTodo] Error getting custom todos:", error);
+    errorLog("[CustomTodo] Error getting custom todos:", error);
     return [];
   }
 }
@@ -109,7 +109,7 @@ export async function addCustomTodo(
 ): Promise<void> {
   try {
     const todos = await getCustomTodos();
-    const dDay = calculateDDay(dueDate, dueTime);
+    const dDay = calculateDDay(dueDate);
 
     const newTodo: CustomTodoItem = {
       type: "custom",
@@ -127,7 +127,7 @@ export async function addCustomTodo(
       [CUSTOM_TODOS_KEY]: [...todos, newTodo],
     });
   } catch (error) {
-    console.error("[CustomTodo] Error adding custom todo:", error);
+    errorLog("[CustomTodo] Error adding custom todo:", error);
     throw error;
   }
 }
@@ -149,7 +149,7 @@ export async function updateCustomTodo(
       [CUSTOM_TODOS_KEY]: updatedTodos,
     });
   } catch (error) {
-    console.error("[CustomTodo] Error updating custom todo:", error);
+    errorLog("[CustomTodo] Error updating custom todo:", error);
     throw error;
   }
 }
@@ -166,7 +166,7 @@ export async function deleteCustomTodo(id: string): Promise<void> {
       [CUSTOM_TODOS_KEY]: filteredTodos,
     });
   } catch (error) {
-    console.error("[CustomTodo] Error deleting custom todo:", error);
+    errorLog("[CustomTodo] Error deleting custom todo:", error);
     throw error;
   }
 }
@@ -185,7 +185,7 @@ export async function toggleCustomTodo(id: string): Promise<void> {
       [CUSTOM_TODOS_KEY]: updatedTodos,
     });
   } catch (error) {
-    console.error("[CustomTodo] Error toggling custom todo:", error);
+    errorLog("[CustomTodo] Error toggling custom todo:", error);
     throw error;
   }
 }

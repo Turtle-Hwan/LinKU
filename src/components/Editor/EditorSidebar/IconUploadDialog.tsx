@@ -18,6 +18,7 @@ import { Upload, ImageIcon, X } from 'lucide-react';
 import { createIcon } from '@/apis/icons';
 import { toast } from 'sonner';
 import type { Icon } from '@/types/api';
+import { errorLog } from '@/utils/logger';
 
 interface IconUploadDialogProps {
   open: boolean;
@@ -144,7 +145,7 @@ export const IconUploadDialog = ({
         });
       }
     } catch (error) {
-      console.error('Icon upload error:', error);
+      errorLog('Icon upload error:', error);
       toast.error('오류', {
         description: '아이콘 업로드 중 오류가 발생했습니다.',
       });

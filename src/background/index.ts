@@ -13,6 +13,7 @@ import {
   isGoogleLoginMessage,
   isSilentReauthMessage,
 } from "./types";
+import { debugLog, getErrorLogDetails, warnLog } from "@/utils/logger";
 import type {
   BackgroundMessage,
   GoogleLoginResponse,
@@ -20,7 +21,7 @@ import type {
 } from "./types";
 import { handleGoogleLogin } from "./handlers/oauth";
 
-console.log("[Background] Service worker initialized");
+debugLog("[Background] Service worker initialized");
 
 /**
  * Message handler for popup -> background communication
@@ -43,20 +44,23 @@ chrome.runtime.onMessage.addListener(
     // At this point, message is an object with a type property
     // Cast to BackgroundMessage for type-safe handling
     const typedMessage = message as BackgroundMessage;
-    console.log("[Background] Message received:", typedMessage.type);
+    debugLog("[Background] Message received:", typedMessage.type);
 
     // Handle Google Login
     if (isGoogleLoginMessage(typedMessage)) {
-      console.log("[Background] Handling Google login request");
+      debugLog("[Background] Handling Google login request");
 
       // Handle async OAuth flow
       handleGoogleLogin()
         .then((response: GoogleLoginResponse) => {
-          console.log("[Background] Sending OAuth response to popup");
+          debugLog("[Background] Sending OAuth response to popup");
           sendResponse(response);
         })
         .catch((error: unknown) => {
-          console.warn("[Background] OAuth handler error:", error);
+          warnLog(
+            "[Background] OAuth handler error",
+            getErrorLogDetails(error),
+          );
           sendResponse({
             success: false,
             error:
@@ -72,14 +76,14 @@ chrome.runtime.onMessage.addListener(
 
     // Handle Silent Reauth (when token expires - 5004 error)
     if (isSilentReauthMessage(typedMessage)) {
-      console.log(
+      debugLog(
         "[Background] Handling silent reauth request (token expired)",
       );
 
       // Reuse Google OAuth flow for silent reauth
       handleGoogleLogin()
         .then((response: GoogleLoginResponse) => {
-          console.log(
+          debugLog(
             "[Background] Silent reauth completed:",
             response.success,
           );
@@ -92,7 +96,10 @@ chrome.runtime.onMessage.addListener(
           sendResponse(reauthResponse);
         })
         .catch((error: unknown) => {
-          console.warn("[Background] Silent reauth error:", error);
+          warnLog(
+            "[Background] Silent reauth error",
+            getErrorLogDetails(error),
+          );
           sendResponse({
             success: false,
             error:
@@ -105,7 +112,7 @@ chrome.runtime.onMessage.addListener(
 
     // Unknown message type
     const unknownType = (message as { type: string }).type;
-    console.warn("[Background] Unknown message type:", unknownType);
+    warnLog("[Background] Unknown message type", { type: unknownType });
     sendResponse({
       success: false,
       error: `Unknown message type: ${unknownType}`,
@@ -119,12 +126,12 @@ chrome.runtime.onMessage.addListener(
  * Extension install/update handler
  */
 chrome.runtime.onInstalled.addListener((details) => {
-  console.log("[Background] Extension installed/updated:", details.reason);
+  debugLog("[Background] Extension installed/updated:", details.reason);
 
   if (details.reason === "install") {
-    console.log("[Background] First install - welcome!");
+    debugLog("[Background] First install - welcome!");
   } else if (details.reason === "update") {
-    console.log("[Background] Extension updated");
+    debugLog("[Background] Extension updated");
   }
 });
 
@@ -132,7 +139,7 @@ chrome.runtime.onInstalled.addListener((details) => {
  * Keep service worker alive (optional, for debugging)
  */
 chrome.runtime.onStartup.addListener(() => {
-  console.log("[Background] Browser started, service worker activated");
+  debugLog("[Background] Browser started, service worker activated");
 });
 
 /**

@@ -21,6 +21,7 @@ import {
   validateKonkukEmail,
   validateAuthCode,
 } from '@/utils/formValidation';
+import { errorLog } from '@/utils/logger';
 
 interface EmailVerificationDialogProps {
   open: boolean;
@@ -78,7 +79,7 @@ export function EmailVerificationDialog({
         }
       }
     } catch (error) {
-      console.error('Failed to send verification code:', error);
+      errorLog('Failed to send verification code:', error);
       toast.error('인증 코드 발송에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
@@ -113,7 +114,7 @@ export function EmailVerificationDialog({
         }
       }
     } catch (error) {
-      console.error('Failed to verify code:', error);
+      errorLog('Failed to verify code:', error);
       toast.error('인증에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
@@ -130,7 +131,7 @@ export function EmailVerificationDialog({
         toast.error(response.error?.message || '재발송에 실패했습니다.');
       }
     } catch (error) {
-      console.error('Failed to resend code:', error);
+      errorLog('Failed to resend code:', error);
       toast.error('재발송에 실패했습니다.');
     } finally {
       setIsLoading(false);

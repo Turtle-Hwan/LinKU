@@ -5,7 +5,7 @@
  */
 
 import { useCallback } from 'react';
-import { usePostedTemplatesContext } from '@/contexts/PostedTemplatesContext';
+import { usePostedTemplatesContext } from '@/hooks/usePostedTemplatesContext';
 import {
   getMyPostedTemplates,
   getPostedTemplateDetail,
@@ -13,6 +13,7 @@ import {
   likePostedTemplate as likePostedTemplateApi,
 } from '@/apis/posted-templates';
 import type { LikeTemplateResponse } from '@/types/api';
+import { errorLog } from '@/utils/logger';
 
 // Result types for error message propagation
 interface LikeResult {
@@ -53,7 +54,7 @@ export function usePostedTemplates() {
       }
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: '네트워크 오류' });
-      console.error('Failed to load posted templates:', error);
+      errorLog('Failed to load posted templates:', error);
     }
   }, [dispatch]);
 

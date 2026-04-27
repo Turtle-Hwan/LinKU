@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import KUGoodjob from "@/assets/KU_goodjob.png";
+import { errorLog } from '@/utils/logger';
 
 type SortMethod = 'dday-asc' | 'dday-desc';
 
@@ -76,7 +77,7 @@ const TodoList = () => {
       const todos = await getCustomTodos();
       setCustomTodos(todos);
     } catch (error) {
-      console.error("Error loading custom todos:", error);
+      errorLog("Error loading custom todos:", error);
     }
   }, []);
 
@@ -100,7 +101,7 @@ const TodoList = () => {
       setError("Todo 목록을 불러오는데 실패했습니다.");
       return false;
     } catch (error) {
-      console.error("Error fetching todo list:", error);
+      errorLog("Error fetching todo list:", error);
       setError("Todo 목록을 불러오는 중 오류가 발생했습니다.");
       return false;
     }
@@ -127,7 +128,7 @@ const TodoList = () => {
 
       return false;
     } catch (error) {
-      console.error("Error with saved credentials:", error);
+      errorLog("Error with saved credentials:", error);
       return false;
     }
   }, [fetchTodoList]);
@@ -158,7 +159,7 @@ const TodoList = () => {
         setShowLoginModal(true);
       }
     } catch (error) {
-      console.error("Error loading todo list:", error);
+      errorLog("Error loading todo list:", error);
       setError("오류가 발생했습니다. 다시 시도해주세요.");
       setShowLoginModal(true);
     } finally {
@@ -197,7 +198,7 @@ const TodoList = () => {
       await toggleCustomTodo(id);
       await loadCustomTodos();
     } catch (error) {
-      console.error("Failed to toggle todo:", error);
+      errorLog("Failed to toggle todo:", error);
       toast.error("상태 변경에 실패했습니다.");
     }
   };
@@ -209,7 +210,7 @@ const TodoList = () => {
       await loadCustomTodos();
       toast.success("할 일이 삭제되었습니다.");
     } catch (error) {
-      console.error("Failed to delete todo:", error);
+      errorLog("Failed to delete todo:", error);
       toast.error("삭제에 실패했습니다.");
     }
   };
@@ -235,7 +236,7 @@ const TodoList = () => {
         window.open(lectureUrl, "_blank");
       }
     } catch (error) {
-      console.error("Failed to navigate to lecture:", error);
+      errorLog("Failed to navigate to lecture:", error);
     } finally {
       setIsLoading(false);
     }

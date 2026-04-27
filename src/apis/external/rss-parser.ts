@@ -1,4 +1,5 @@
 import type { GeneralAlert, RSSAlertCategory } from "../../types/api";
+import { errorLog } from '@/utils/logger';
 
 /**
  * RSS URL configuration for each category
@@ -84,7 +85,7 @@ const fetchRSSByCategory = async (
     const xmlText = await response.text();
     return parseRSSToAlerts(xmlText, category, startId);
   } catch (error) {
-    console.error(`Error fetching RSS for ${category}:`, error);
+    errorLog(`Error fetching RSS for ${category}:`, error);
     return []; // Return empty array on error
   }
 };
@@ -113,7 +114,7 @@ export const getAlertsFromRSS = async (): Promise<GeneralAlert[]> => {
     // Combine all results
     return results.flat();
   } catch (error) {
-    console.error("Error fetching RSS feeds:", error);
+    errorLog("Error fetching RSS feeds:", error);
     throw error;
   }
 };

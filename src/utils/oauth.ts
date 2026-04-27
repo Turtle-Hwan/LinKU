@@ -8,6 +8,7 @@
 
 import { BackgroundMessageType } from "../background/types";
 import type { GoogleLoginResponse } from "../background/types";
+import { debugLog, errorLog, getErrorLogDetails } from "@/utils/logger";
 
 /**
  * User profile stored in chrome.storage.local
@@ -88,18 +89,19 @@ export async function isGuestUser(): Promise<boolean> {
  */
 export async function startGoogleLogin(): Promise<GoogleLoginResponse> {
   try {
-    console.log("[Popup] Sending Google login request to background");
+    debugLog("[Popup] Sending Google login request to background");
 
     // Send message to background service worker
     const response = await chrome.runtime.sendMessage({
       type: BackgroundMessageType.GOOGLE_LOGIN,
     });
 
-    console.log("[Popup] Received response from background:", response);
-
     return response as GoogleLoginResponse;
   } catch (error) {
-    console.error("[Popup] Failed to communicate with background:", error);
+    errorLog(
+      "[Popup] Failed to communicate with background",
+      getErrorLogDetails(error),
+    );
 
     return {
       success: false,

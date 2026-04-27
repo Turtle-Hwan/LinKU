@@ -29,6 +29,7 @@ import { eCampusLoginAPI } from "@/apis";
 import { Info, Palette, LogOut, Mail, User } from "lucide-react";
 import { toast } from "sonner";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
+import { errorLog } from '@/utils/logger';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -43,29 +44,32 @@ const ECampusCredential = () => {
 
   // 설정 페이지 열릴 때 저장된 계정 정보 불러오기
   useEffect(() => {
-    loadSavedCredentials();
+    let isMounted = true;
+
+    loadECampusCredentials()
+      .then((credentials) => {
+        if (!isMounted) return;
+
+        if (!credentials) {
+          setSavedId("");
+          setSavedPassword("");
+          setHasCredentials(false);
+          return;
+        }
+
+        setSavedId(credentials.id);
+        setSavedPassword(credentials.password);
+        setHasCredentials(true);
+      })
+      .catch((error) => {
+        errorLog("[Settings] Load credentials error:", error);
+        toast.error("인증 정보를 불러오는데 실패했습니다.");
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  // 저장된 인증 정보 불러오기
-  const loadSavedCredentials = async () => {
-    try {
-      const credentials = await loadECampusCredentials();
-
-      if (!credentials) {
-        setSavedId("");
-        setSavedPassword("");
-        setHasCredentials(false);
-        return;
-      }
-
-      setSavedId(credentials.id);
-      setSavedPassword(credentials.password);
-      setHasCredentials(true);
-    } catch (error) {
-      console.error("[Settings] Load credentials error:", error);
-      toast.error("인증 정보를 불러오는데 실패했습니다.");
-    }
-  };
 
   // 인증 정보 저장하기
   const saveCredentials = async () => {
@@ -92,7 +96,7 @@ const ECampusCredential = () => {
         toast.error("eCampus 로그인 실패");
       }
     } catch (error) {
-      console.error("[Settings] Save credentials error:", error);
+      errorLog("[Settings] Save credentials error:", error);
       toast.error("인증 정보 저장에 실패했습니다.");
     }
   };
@@ -109,7 +113,7 @@ const ECampusCredential = () => {
       sendSettingChange("credentials", "deleted");
       toast.success("인증 정보가 삭제되었습니다.");
     } catch (error) {
-      console.error("[Settings] Delete credentials error:", error);
+      errorLog("[Settings] Delete credentials error:", error);
       toast.error("인증 정보 삭제에 실패했습니다.");
     }
   };
@@ -264,7 +268,7 @@ const GoogleOAuthSection = () => {
         });
       }
     } catch (error) {
-      console.error("Login error:", error);
+      errorLog("Login error:", error);
       toast.error("오류", {
         description: "로그인 중 오류가 발생했습니다.",
       });
@@ -298,7 +302,7 @@ const GoogleOAuthSection = () => {
         toast.error("인증에 문제가 발생했습니다. 다시 시도해주세요.");
       }
     } catch (error) {
-      console.error("Re-login error:", error);
+      errorLog("Re-login error:", error);
       toast.error("재로그인에 실패했습니다.");
     } finally {
       setIsLoading(false);

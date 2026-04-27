@@ -8,6 +8,7 @@ import {
 import type { Department, Subscription } from "@/types/api";
 import { Check, Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { errorLog } from '@/utils/logger';
 
 interface SubscriptionManagerProps {
   onUpdate?: () => void;
@@ -38,7 +39,7 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
         setMySubscriptions(subscriptionsResult.data);
       }
     } catch (error) {
-      console.error("Error fetching subscription data:", error);
+      errorLog("Error fetching subscription data:", error);
       toast.error("데이터를 불러오는 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
@@ -67,7 +68,7 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
         toast.error(result.error?.message || "구독에 실패했습니다.");
       }
     } catch (error) {
-      console.error("Error subscribing:", error);
+      errorLog("Error subscribing:", error);
       toast.error("구독 중 오류가 발생했습니다.");
     }
   };
@@ -85,7 +86,7 @@ const SubscriptionManager = ({ onUpdate }: SubscriptionManagerProps) => {
         toast.error(result.error?.message || "구독 취소에 실패했습니다.");
       }
     } catch (error) {
-      console.error("Error unsubscribing:", error);
+      errorLog("Error unsubscribing:", error);
       toast.error("구독 취소 중 오류가 발생했습니다.");
     }
   };

@@ -3,12 +3,13 @@
  * External service integration for Konkuk University Library seat reservation
  */
 
-import {
+import type {
   LibraryApiResponse,
   LibraryLoginData,
   LibraryLoginRequest,
   LibrarySeatRoomsData,
 } from "@/types/api";
+import { errorLog } from "@/utils/logger";
 
 const LIBRARY_BASE_URL = "https://library.konkuk.ac.kr";
 const LIBRARY_API_URL = `${LIBRARY_BASE_URL}/pyxis-api`;
@@ -106,7 +107,7 @@ export async function libraryLoginAPI(
       };
     }
   } catch (error) {
-    console.error("[Library] Login error:", error);
+    errorLog("[Library] Login error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -160,7 +161,7 @@ export async function getLibrarySeatRoomsAPI(
       data: result.data,
     };
   } catch (error) {
-    console.error("[Library] Get seat rooms error:", error);
+    errorLog("[Library] Get seat rooms error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -193,7 +194,7 @@ export async function setLibraryToken(
 
     return true;
   } catch (error) {
-    console.error("[Library] Failed to set token:", error);
+    errorLog("[Library] Failed to set token:", error);
     return false;
   }
 }
@@ -233,7 +234,7 @@ export async function getLibraryTokenFromStorage(): Promise<string | null> {
 
     return data.accessToken;
   } catch (error) {
-    console.error("[Library] Failed to get token from storage:", error);
+    errorLog("[Library] Failed to get token from storage:", error);
     return null;
   }
 }

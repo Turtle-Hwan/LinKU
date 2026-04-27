@@ -2,7 +2,7 @@
  * Editor Header - Top bar with template name, save, and publish controls
  */
 
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/hooks/useEditorContext';
 import { Input } from '@/components/ui/input';
 import { SaveButton } from './SaveButton';
 import { SyncButton } from './SyncButton';
@@ -18,6 +18,7 @@ import {
 } from '@/utils/templateStorage';
 import { getTemplate } from '@/apis/templates';
 import { areTemplatesEqual } from '@/utils/templateUtils';
+import { debugLog, errorLog } from '@/utils/logger';
 
 export const EditorHeader = () => {
   const { state, dispatch } = useEditorContext();
@@ -43,12 +44,12 @@ export const EditorHeader = () => {
           }
         }
       } catch (error) {
-        console.error('[EditorHeader] Failed to fetch original template:', error);
+        errorLog('[EditorHeader] Failed to fetch original template:', error);
         // 원본 확인 실패 시 저장 진행 (fail-safe)
       }
     }
 
-    console.log('[EditorHeader] handleSave started:', {
+    debugLog('[EditorHeader] handleSave started:', {
       currentTemplateId: state.template.templateId,
       mode: state.mode,
       templateName: state.template.name,
@@ -74,17 +75,17 @@ export const EditorHeader = () => {
           templateId: newId,
           updatedAt: new Date().toISOString(),
         };
-        console.log('[EditorHeader] Generated new ID for draft template:', newId);
+        debugLog('[EditorHeader] Generated new ID for draft template:', newId);
       } else {
         // Existing template - keep ID
         savedTemplate = {
           ...state.template,
           updatedAt: new Date().toISOString(),
         };
-        console.log('[EditorHeader] Using existing ID for saved template:', savedTemplate.templateId);
+        debugLog('[EditorHeader] Using existing ID for saved template:', savedTemplate.templateId);
       }
 
-      console.log('[EditorHeader] Saving template:', {
+      debugLog('[EditorHeader] Saving template:', {
         templateId: savedTemplate.templateId,
         name: savedTemplate.name,
         itemCount: savedTemplate.items.length,
@@ -103,7 +104,7 @@ export const EditorHeader = () => {
         description: '템플릿이 로컬에 저장되었습니다.',
       });
     } catch (error) {
-      console.error('[EditorHeader] Save failed:', error);
+      errorLog('[EditorHeader] Save failed:', error);
       dispatch({
         type: 'SAVE_FAILED',
         payload:
@@ -134,7 +135,7 @@ export const EditorHeader = () => {
           }
         }
       } catch (error) {
-        console.error('[EditorHeader] Failed to fetch original template:', error);
+        errorLog('[EditorHeader] Failed to fetch original template:', error);
         // 원본 확인 실패 시 동기화 진행 (fail-safe)
       }
     }

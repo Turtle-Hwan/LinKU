@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/hooks/useEditorContext';
 import { GRID_CONFIG } from '@/utils/template';
 import { Button } from '@/components/ui/button';
 import { Zap, Upload } from 'lucide-react';
