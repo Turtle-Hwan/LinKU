@@ -5,7 +5,7 @@
  */
 
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { EditorProvider } from '@/contexts/EditorContext';
 import { useEditorContext } from '@/hooks/useEditorContext';
@@ -17,6 +17,7 @@ import { DragOverlayPreview } from '@/components/Editor/EditorCanvas/DragOverlay
 import { gridToPixelPosition, pixelToGridPosition, clampToGridBounds, resolveCollisions } from '@/utils/template';
 import { toast } from 'sonner';
 import type { TemplateItem } from '@/types/api';
+import { sendTemplateEditorOpen, sendTemplateItemAdd } from '@/utils/analytics';
 
 /**
  * Drag item data for DragOverlay
@@ -68,6 +69,7 @@ const EditorContent = () => {
       if (over && over.id === 'canvas-area') {
         const itemId = parseInt(draggedId.replace('staging-', ''));
         dispatch({ type: 'MOVE_TO_CANVAS', payload: itemId });
+        sendTemplateItemAdd('drag', state.template?.templateId);
       }
       return;
     }
@@ -187,6 +189,12 @@ export const EditorPage = () => {
   const { templateId } = useParams<{ templateId: string }>();
   const [searchParams] = useSearchParams();
   const startFrom = searchParams.get('from') as 'default' | 'empty' | null;
+
+  useEffect(() => {
+    const origin = templateId ? 'owned' : startFrom === 'default' ? 'default' : 'local_only';
+    sendTemplateEditorOpen(origin, templateId ? parseInt(templateId) : undefined);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <EditorProvider

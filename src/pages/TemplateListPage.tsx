@@ -35,6 +35,7 @@ import { areItemsEqual } from '@/utils/templateUtils';
 import { LinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
 import { warnLog, errorLog } from '@/utils/logger';
+import { sendTemplateApply } from '@/utils/analytics';
 
 export const TemplateListPage = () => {
   const navigate = useNavigate();
@@ -307,7 +308,12 @@ export const TemplateListPage = () => {
       const targetId = templateId === 0 ? null : templateId;
       await selectTemplate(targetId);
 
-      const message = templateId === 0
+      const isDefault = templateId === 0;
+      const isCloned = clonedTemplates.some((t) => t.templateId === templateId);
+      const origin = isDefault ? 'default' : isCloned ? 'cloned' : 'owned';
+      sendTemplateApply(templateId, origin, isDefault);
+
+      const message = isDefault
         ? '기본 템플릿이 적용되었습니다.'
         : `"${templateName}" 템플릿이 메인 화면에 적용되었습니다.`;
 
