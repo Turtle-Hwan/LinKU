@@ -32,6 +32,8 @@ const MAX_DEPTH = 4;
 const REDACTED = "[REDACTED]";
 const TRUNCATED_ARRAY_META_KEY = "__truncated_items__";
 const TRUNCATED_OBJECT_META_KEY = "__truncated_keys__";
+const ERROR_ACCESSING_PROPERTY = "[Error accessing property]";
+const UNINSPECTABLE_OBJECT = "[Uninspectable Object]";
 
 const EMAIL_PATTERN =
   /\b([A-Z0-9._%+-])([A-Z0-9._%+-]*)(@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
@@ -48,8 +50,29 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return false;
   }
 
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
+  try {
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+  } catch {
+    return false;
+  }
+}
+
+function getObjectKeys(value: object, isPlain: boolean): string[] {
+  try {
+    return isPlain ? Object.keys(value) : Object.getOwnPropertyNames(value);
+  } catch {
+    return [];
+  }
+}
+
+function getObjectTypeName(value: object): string | null {
+  try {
+    const typeName = value.constructor?.name;
+    return typeName && typeName !== "Object" ? typeName : null;
+  } catch {
+    return null;
+  }
 }
 
 function sanitizeString(value: string): string {
@@ -104,6 +127,10 @@ function sanitizeValue(
     return sanitizeString(value.toString());
   }
 
+  if (value instanceof RegExp) {
+    return sanitizeString(value.toString());
+  }
+
   if (value instanceof Error) {
     return getErrorLogDetails(value);
   }
@@ -140,19 +167,31 @@ function sanitizeValue(
 
     seen.add(value);
 
+    const plainObject = isPlainObject(value);
+
     // non-plain 객체(커스텀 클래스, chrome API 객체 등)는 isPlainObject를 통과 못 해
     // String() 변환 시 "[object Object]"가 되어 디버깅 불가.
     // Object.getOwnPropertyNames로 non-enumerable 포함 own property를 추출한다.
     // (예: chrome.runtime.lastError.message는 non-enumerable이라 Object.keys에 안 잡힘)
-    const allKeys = isPlainObject(value)
-      ? Object.keys(value)
-      : Object.getOwnPropertyNames(value as object);
+    const allKeys = getObjectKeys(value as object, plainObject);
 
     const keys = allKeys.slice(0, MAX_OBJECT_KEYS);
     const sanitizedObject = keys.reduce<Record<string, unknown>>((acc, key) => {
-      acc[key] = SENSITIVE_KEY_PATTERN.test(key)
-        ? REDACTED
-        : sanitizeValue((value as Record<string, unknown>)[key], depth + 1, seen);
+      if (SENSITIVE_KEY_PATTERN.test(key)) {
+        acc[key] = REDACTED;
+        return acc;
+      }
+
+      try {
+        acc[key] = sanitizeValue(
+          (value as Record<string, unknown>)[key],
+          depth + 1,
+          seen,
+        );
+      } catch {
+        acc[key] = ERROR_ACCESSING_PROPERTY;
+      }
+
       return acc;
     }, {});
 
@@ -162,11 +201,15 @@ function sanitizeValue(
     }
 
     // 클래스 인스턴스라면 타입 힌트 추가
-    if (!isPlainObject(value)) {
-      const typeName = (value as object).constructor?.name;
-      if (typeName && typeName !== "Object") {
+    if (!plainObject) {
+      const typeName = getObjectTypeName(value as object);
+      if (typeName) {
         sanitizedObject["[type]"] = typeName;
       }
+    }
+
+    if (allKeys.length === 0 && Object.keys(sanitizedObject).length === 0) {
+      return getObjectTypeName(value as object) ?? UNINSPECTABLE_OBJECT;
     }
 
     return sanitizedObject;
