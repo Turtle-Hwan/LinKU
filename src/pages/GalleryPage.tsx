@@ -94,9 +94,7 @@ export const GalleryPage = () => {
 
     searchTimeoutRef.current = setTimeout(() => {
       setDebouncedQuery(searchQuery);
-      if (searchQuery.trim()) {
-        sendTemplateGallerySearch(searchQuery.trim().length, sort);
-      }
+      sendTemplateGallerySearch(searchQuery.trim().length, sort);
     }, 300);
 
     return () => {
