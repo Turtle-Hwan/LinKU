@@ -1,6 +1,7 @@
 import type { Alert, AlertCategory } from "@/types/api";
 import { ExternalLink, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sendAlertsItemOpen } from "@/utils/analytics";
 
 interface AlertItemProps {
   alert: Alert;
@@ -39,9 +40,17 @@ const AlertItem = ({ alert }: AlertItemProps) => {
   };
 
   const handleClick = () => {
-    if (alert.url) {
-      window.open(alert.url, "_blank");
-    }
+    if (!alert.url) return;
+    // category 필드가 표준 카테고리 외 값(학과명)이면 학과 공지로 분류
+    const isDept =
+      "department" in alert ||
+      ("category" in alert && !standardCategories.has(alert.category));
+    const source = isDept ? "department" : "general";
+    const category = isDept
+      ? ("category" in alert ? String(alert.category) : alert.department.name)
+      : String(alert.category);
+    sendAlertsItemOpen(alert.alertId, category, source);
+    window.open(alert.url, "_blank");
   };
 
   const isClickable = Boolean(alert.url);

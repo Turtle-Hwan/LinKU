@@ -72,7 +72,7 @@ const GridItemSameHost = ({ item, colNum }) => {
       <button
         className="w-full h-full px-1 bg-main text-white rounded-lg hover:bg-hover transition-colors cursor-pointer text-sm/[normal] break-keep"
         onClick={() => {
-          sendLinkClick(`${item.label} - ${item.samehost.content}`, item.link);
+          sendLinkClick(`${item.label} - ${item.samehost.content}`, item.link, undefined, "samehost_primary");
           item.samehost.onClick();
         }}
       >
@@ -83,7 +83,7 @@ const GridItemSameHost = ({ item, colNum }) => {
         <button
           className="w-full h-full px-1 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition-colors cursor-pointer text-sm/[normal] break-keep"
           onClick={() => {
-            sendLinkClick(`${item.label} - ${item.samehost2.content}`, item.link);
+            sendLinkClick(`${item.label} - ${item.samehost2.content}`, item.link, undefined, "samehost_secondary");
             item.samehost2.onClick();
           }}
         >

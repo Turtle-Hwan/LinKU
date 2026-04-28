@@ -16,6 +16,7 @@ import { validateLinkForm } from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
 import type { TemplateIcon, TemplateItem } from '@/types/api';
 import { InputGroup } from '@/components/Editor/shared/InputGroup';
+import { sendTemplateItemAdd, sendTemplateItemUpdate, sendTemplateItemDelete } from '@/utils/analytics';
 
 export const ItemPropertiesPanel = () => {
   const { state, dispatch } = useEditorContext();
@@ -48,6 +49,7 @@ export const ItemPropertiesPanel = () => {
       key={selectedItem.templateItemId}
       selectedItem={selectedItem}
       isFromStaging={isFromStaging}
+      templateId={state.template?.templateId}
       defaultIcons={state.defaultIcons}
       userIcons={state.userIcons}
       dispatch={dispatch}
@@ -58,6 +60,7 @@ export const ItemPropertiesPanel = () => {
 interface ItemPropertiesPanelFormProps {
   selectedItem: TemplateItem;
   isFromStaging: boolean;
+  templateId: number | undefined;
   defaultIcons: ReturnType<typeof useEditorContext>['state']['defaultIcons'];
   userIcons: ReturnType<typeof useEditorContext>['state']['userIcons'];
   dispatch: ReturnType<typeof useEditorContext>['dispatch'];
@@ -66,6 +69,7 @@ interface ItemPropertiesPanelFormProps {
 const ItemPropertiesPanelForm = ({
   selectedItem,
   isFromStaging,
+  templateId,
   defaultIcons,
   userIcons,
   dispatch,
@@ -138,6 +142,7 @@ const ItemPropertiesPanelForm = ({
       },
     });
 
+    sendTemplateItemUpdate('properties', templateId);
     toast.success('변경사항이 저장되었습니다.');
   };
 
@@ -145,10 +150,12 @@ const ItemPropertiesPanelForm = ({
     if (isFromStaging) {
       // Permanently delete from staging
       dispatch({ type: 'REMOVE_FROM_STAGING', payload: selectedItem.templateItemId });
+      sendTemplateItemDelete('staging', templateId);
       toast.info('아이템이 영구 삭제되었습니다.');
     } else {
       // Move canvas item to staging
       dispatch({ type: 'MOVE_TO_STAGING', payload: selectedItem.templateItemId });
+      sendTemplateItemDelete('canvas', templateId);
       toast.info('아이템이 임시 저장 공간으로 이동되었습니다.');
     }
   };
@@ -156,6 +163,7 @@ const ItemPropertiesPanelForm = ({
   const handleMoveToCanvas = () => {
     if (!isFromStaging) return;
     dispatch({ type: 'MOVE_TO_CANVAS', payload: selectedItem.templateItemId });
+    sendTemplateItemAdd('button', templateId);
     toast.success('아이템이 캔버스에 추가되었습니다.');
   };
 

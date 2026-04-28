@@ -3,7 +3,7 @@
  * 건국대 이메일 인증 다이얼로그
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
 import {
@@ -22,6 +22,7 @@ import {
   validateAuthCode,
 } from '@/utils/formValidation';
 import { errorLog } from '@/utils/logger';
+import { sendAuthEmailVerificationStart, sendAuthEmailVerificationSuccess } from '@/utils/analytics';
 
 interface EmailVerificationDialogProps {
   open: boolean;
@@ -42,6 +43,11 @@ export function EmailVerificationDialog({
   const [emailId, setEmailId] = useState(''); // ID part only (before @)
   const [authCode, setAuthCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // 다이얼로그가 열릴 때 인증 시작 이벤트 전송
+  useEffect(() => {
+    if (open) sendAuthEmailVerificationStart('settings_dialog');
+  }, [open]);
 
   // Full email address
   const kuMail = emailId ? `${emailId}${EMAIL_DOMAIN}` : '';
@@ -102,6 +108,7 @@ export function EmailVerificationDialog({
         toast.success('이메일 인증이 완료되었습니다!');
         // Store verified email
         await chrome.storage.local.set({ kuMail });
+        sendAuthEmailVerificationSuccess('konkuk.ac.kr');
         // Trigger re-login to get member token
         onVerificationComplete();
         handleClose();

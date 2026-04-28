@@ -5,7 +5,7 @@
  */
 
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { EditorProvider } from '@/contexts/EditorContext';
 import { useEditorContext } from '@/hooks/useEditorContext';
@@ -17,6 +17,7 @@ import { DragOverlayPreview } from '@/components/Editor/EditorCanvas/DragOverlay
 import { gridToPixelPosition, pixelToGridPosition, clampToGridBounds, resolveCollisions } from '@/utils/template';
 import { toast } from 'sonner';
 import type { TemplateItem } from '@/types/api';
+import { sendTemplateEditorView, sendTemplateItemAdd } from '@/utils/analytics';
 
 /**
  * Drag item data for DragOverlay
@@ -26,9 +27,30 @@ type DragItemData =
   | { type: 'staging-item'; item: TemplateItem }
   | (TemplateItem & { type?: 'canvas-item' });
 
-const EditorContent = () => {
+interface EditorContentProps {
+  routeTemplateId?: number;
+  startFrom?: 'default' | 'empty';
+}
+
+const EditorContent = ({ routeTemplateId, startFrom }: EditorContentProps) => {
   const { state, dispatch } = useEditorContext();
   const [activeDragItem, setActiveDragItem] = useState<DragItemData | null>(null);
+  const hasSentEditorView = useRef(false);
+
+  useEffect(() => {
+    if (hasSentEditorView.current || !state.template) return;
+
+    const origin = routeTemplateId
+      ? state.template.cloned
+        ? 'cloned'
+        : 'owned'
+      : startFrom === 'default'
+        ? 'default'
+        : 'local_only';
+
+    sendTemplateEditorView(origin, routeTemplateId);
+    hasSentEditorView.current = true;
+  }, [routeTemplateId, startFrom, state.template]);
 
   // Configure drag sensors
   const sensors = useSensors(
@@ -68,6 +90,7 @@ const EditorContent = () => {
       if (over && over.id === 'canvas-area') {
         const itemId = parseInt(draggedId.replace('staging-', ''));
         dispatch({ type: 'MOVE_TO_CANVAS', payload: itemId });
+        sendTemplateItemAdd('drag', state.template?.templateId);
       }
       return;
     }
@@ -187,13 +210,17 @@ export const EditorPage = () => {
   const { templateId } = useParams<{ templateId: string }>();
   const [searchParams] = useSearchParams();
   const startFrom = searchParams.get('from') as 'default' | 'empty' | null;
+  const parsedTemplateId = templateId ? parseInt(templateId) : undefined;
 
   return (
     <EditorProvider
-      templateId={templateId ? parseInt(templateId) : undefined}
+      templateId={parsedTemplateId}
       startFrom={startFrom || undefined}
     >
-      <EditorContent />
+      <EditorContent
+        routeTemplateId={parsedTemplateId}
+        startFrom={startFrom || undefined}
+      />
     </EditorProvider>
   );
 };

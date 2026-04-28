@@ -10,6 +10,7 @@ import {
 } from '@/apis';
 import { LibrarySeatRoom } from '@/types/api';
 import { loadECampusCredentials } from '@/utils/credentials';
+import { sendLabsFeatureUse } from '@/utils/analytics';
 
 const LibrarySeatSection = () => {
   const [rooms, setRooms] = useState<LibrarySeatRoom[]>([]);
@@ -75,6 +76,7 @@ const LibrarySeatSection = () => {
   }, [fetchSeatRooms]);
 
   const handleOpenRoom = (roomId: number) => {
+    sendLabsFeatureUse('library_seat', 'success');
     openLibraryReservationPage(roomId);
   };
 

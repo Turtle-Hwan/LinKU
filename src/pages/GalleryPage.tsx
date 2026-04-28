@@ -22,6 +22,13 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { isLoggedIn } from '@/utils/oauth';
 import { errorLog } from '@/utils/logger';
+import {
+  sendTemplateGalleryView,
+  sendTemplateGallerySearch,
+  sendTemplateCloneSuccess,
+  sendTemplateCloneFail,
+  sendTemplateLikeToggle,
+} from '@/utils/analytics';
 
 type SortOption = 'newest' | 'oldest' | 'most-liked' | 'most-used';
 
@@ -56,6 +63,11 @@ export const GalleryPage = () => {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const cloneInProgressRef = useRef<number | null>(null);
 
+  // GA4: 갤러리 진입 이벤트 (mount 1회)
+  useEffect(() => {
+    sendTemplateGalleryView('popup');
+  }, []);
+
   // Check login status
   useEffect(() => {
     const checkAuth = async () => {
@@ -82,6 +94,7 @@ export const GalleryPage = () => {
 
     searchTimeoutRef.current = setTimeout(() => {
       setDebouncedQuery(searchQuery);
+      sendTemplateGallerySearch(searchQuery.trim().length, sort);
     }, 300);
 
     return () => {
@@ -89,7 +102,7 @@ export const GalleryPage = () => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, sort]);
 
   // Load templates
   const loadTemplates = useCallback(async (pageNum: number, reset: boolean = false) => {
@@ -244,7 +257,7 @@ export const GalleryPage = () => {
               : t
           )
         );
-
+        sendTemplateCloneSuccess(id, Boolean(template.ownerId));
         toast({
           title: '복제 완료',
           description: `"${template.name}" 템플릿이 내 템플릿에 추가되었습니다.`,
@@ -254,6 +267,7 @@ export const GalleryPage = () => {
       }
     } catch (error) {
       errorLog('Failed to clone template:', error);
+      sendTemplateCloneFail(id, 'clone_failed', error instanceof Error ? error.message : undefined);
       toast({
         title: '복제 실패',
         description: error instanceof Error ? error.message : '템플릿 복제에 실패했습니다.',
@@ -290,6 +304,7 @@ export const GalleryPage = () => {
               : t
           )
         );
+        sendTemplateLikeToggle(template.postedTemplateId, result.data.isLiked);
       } else {
         throw new Error(result.error?.message || '좋아요 처리에 실패했습니다.');
       }
@@ -350,7 +365,9 @@ export const GalleryPage = () => {
             {SORT_OPTIONS.map((option) => (
               <DropdownMenuItem
                 key={option.value}
-                onClick={() => setSort(option.value)}
+                onClick={() => {
+                  setSort(option.value);
+                }}
                 className={sort === option.value ? 'bg-accent' : ''}
               >
                 {option.label}

@@ -19,13 +19,20 @@ import {
 import { getTemplate } from '@/apis/templates';
 import { areTemplatesEqual } from '@/utils/templateUtils';
 import { debugLog, errorLog } from '@/utils/logger';
+import {
+  sendTemplateSaveSuccess,
+  sendTemplateSaveFail,
+  sendTemplateSyncSuccess,
+  sendTemplateSyncFail,
+  sendTemplatePublishSuccess,
+  sendTemplatePublishFail,
+} from '@/utils/analytics';
 
 export const EditorHeader = () => {
   const { state, dispatch } = useEditorContext();
   const { syncToServer } = useTemplateSync();
   const { publishTemplate } = useTemplatePublish();
   const { loadPostedTemplates } = usePostedTemplates();
-
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch({ type: 'UPDATE_TEMPLATE_NAME', payload: e.target.value });
   };
@@ -100,24 +107,18 @@ export const EditorHeader = () => {
 
       dispatch({ type: 'SAVE_SUCCESS', payload: savedTemplate });
 
+      const origin = savedTemplate.cloned ? 'cloned' : 'owned';
+      sendTemplateSaveSuccess(savedTemplate.templateId, origin, savedTemplate.items.length);
+
       toast.success('저장 완료', {
         description: '템플릿이 로컬에 저장되었습니다.',
       });
     } catch (error) {
       errorLog('[EditorHeader] Save failed:', error);
-      dispatch({
-        type: 'SAVE_FAILED',
-        payload:
-          error instanceof Error
-            ? error.message
-            : '저장 중 오류가 발생했습니다.',
-      });
-      toast.error('저장 실패', {
-        description:
-          error instanceof Error
-            ? error.message
-            : '저장 중 오류가 발생했습니다.',
-      });
+      const errMsg = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
+      dispatch({ type: 'SAVE_FAILED', payload: errMsg });
+      sendTemplateSaveFail(state.template.templateId, 'save_error', errMsg);
+      toast.error('저장 실패', { description: errMsg });
     }
   };
 
@@ -145,15 +146,18 @@ export const EditorHeader = () => {
 
     if (result.success && result.data) {
       dispatch({ type: 'SYNC_SUCCESS', payload: result.data });
+      sendTemplateSyncSuccess(
+        state.template.templateId,
+        result.data.items?.length ?? state.template.items.length
+      );
       toast.success('동기화 완료', {
         description: '템플릿이 서버에 동기화되었습니다.',
       });
     } else {
       const errorMsg = result.error || '동기화에 실패했습니다.';
       dispatch({ type: 'SYNC_FAILED', payload: errorMsg });
-      toast.error('동기화 실패', {
-        description: errorMsg,
-      });
+      sendTemplateSyncFail(state.template.templateId, 'sync_failed', errorMsg);
+      toast.error('동기화 실패', { description: errorMsg });
     }
   };
 
@@ -170,13 +174,14 @@ export const EditorHeader = () => {
 
     if (result.success) {
       await loadPostedTemplates();
+      sendTemplatePublishSuccess(state.template.templateId, currentItems.length);
       toast.success('게시 완료', {
         description: '템플릿이 공개 갤러리에 게시되었습니다.',
       });
     } else {
-      toast.error('게시 실패', {
-        description: result.error || '게시에 실패했습니다.',
-      });
+      const errMsg = result.error || '게시에 실패했습니다.';
+      sendTemplatePublishFail(state.template.templateId, 'publish_failed', errMsg);
+      toast.error('게시 실패', { description: errMsg });
     }
   };
 

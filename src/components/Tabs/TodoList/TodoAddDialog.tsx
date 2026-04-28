@@ -12,6 +12,7 @@ import { DialogDescription } from "@radix-ui/react-dialog";
 import { addCustomTodo } from "@/utils/todo/customTodo";
 import { toast } from "sonner";
 import { errorLog } from '@/utils/logger';
+import { sendTodoItemCreate } from '@/utils/analytics';
 
 interface TodoAddDialogProps {
   open: boolean;
@@ -56,6 +57,7 @@ const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) =>
         dueTime,
         subject.trim() || undefined
       );
+      sendTodoItemCreate("dialog", Boolean(dueDate));
       toast.success("할 일이 추가되었습니다.");
 
       // 폼 초기화
