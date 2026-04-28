@@ -218,11 +218,11 @@ export async function sendExtensionOpen(
     // 전송할 이벤트를 조건에 따라 배열로 누적 — GA4 MP는 단일 요청에 이벤트 배열 지원
     const events: { name: string; params: Record<string, GAEventParam> }[] = [];
 
-    // 기기 최초 설치 후 첫 실행에만 1회 전송 (chrome.storage에 플래그 영구 저장)
+    // 기기 최초 설치 후 첫 실행에만 1회 전송 (전송 성공 후 chrome.storage에 플래그 저장)
     const firstOpenSent = await getStorage<boolean>("firstOpenSent");
+    const shouldMarkFirstOpenSent = !firstOpenSent;
     if (!firstOpenSent) {
       events.push({ name: "extension_first_open", params: baseParams });
-      await setStorage({ firstOpenSent: true });
       if (DEBUG_MODE) debugLog("[GA] extension_first_open queued");
     }
 
@@ -242,6 +242,14 @@ export async function sendExtensionOpen(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
+    if (!response.ok) {
+      throw new Error(`GA lifecycle request failed: ${response.status} ${response.statusText}`);
+    }
+
+    if (shouldMarkFirstOpenSent) {
+      await setStorage({ firstOpenSent: true });
+    }
 
     if (DEBUG_MODE) {
       debugLog("[GA] Lifecycle events sent:", events.map((e) => e.name));

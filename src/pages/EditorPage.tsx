@@ -5,7 +5,7 @@
  */
 
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { EditorProvider } from '@/contexts/EditorContext';
 import { useEditorContext } from '@/hooks/useEditorContext';
@@ -27,9 +27,30 @@ type DragItemData =
   | { type: 'staging-item'; item: TemplateItem }
   | (TemplateItem & { type?: 'canvas-item' });
 
-const EditorContent = () => {
+interface EditorContentProps {
+  routeTemplateId?: number;
+  startFrom?: 'default' | 'empty';
+}
+
+const EditorContent = ({ routeTemplateId, startFrom }: EditorContentProps) => {
   const { state, dispatch } = useEditorContext();
   const [activeDragItem, setActiveDragItem] = useState<DragItemData | null>(null);
+  const hasSentEditorView = useRef(false);
+
+  useEffect(() => {
+    if (hasSentEditorView.current || !state.template) return;
+
+    const origin = routeTemplateId
+      ? state.template.cloned
+        ? 'cloned'
+        : 'owned'
+      : startFrom === 'default'
+        ? 'default'
+        : 'local_only';
+
+    sendTemplateEditorView(origin, routeTemplateId);
+    hasSentEditorView.current = true;
+  }, [routeTemplateId, startFrom, state.template]);
 
   // Configure drag sensors
   const sensors = useSensors(
@@ -189,19 +210,17 @@ export const EditorPage = () => {
   const { templateId } = useParams<{ templateId: string }>();
   const [searchParams] = useSearchParams();
   const startFrom = searchParams.get('from') as 'default' | 'empty' | null;
-
-  useEffect(() => {
-    const origin = templateId ? 'owned' : startFrom === 'default' ? 'default' : 'local_only';
-    sendTemplateEditorView(origin, templateId ? parseInt(templateId) : undefined);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const parsedTemplateId = templateId ? parseInt(templateId) : undefined;
 
   return (
     <EditorProvider
-      templateId={templateId ? parseInt(templateId) : undefined}
+      templateId={parsedTemplateId}
       startFrom={startFrom || undefined}
     >
-      <EditorContent />
+      <EditorContent
+        routeTemplateId={parsedTemplateId}
+        startFrom={startFrom || undefined}
+      />
     </EditorProvider>
   );
 };

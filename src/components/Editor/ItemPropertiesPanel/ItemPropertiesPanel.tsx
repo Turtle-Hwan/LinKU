@@ -163,7 +163,7 @@ const ItemPropertiesPanelForm = ({
   const handleMoveToCanvas = () => {
     if (!isFromStaging) return;
     dispatch({ type: 'MOVE_TO_CANVAS', payload: selectedItem.templateItemId });
-    sendTemplateItemAdd('button', selectedItem.templateItemId);
+    sendTemplateItemAdd('button', templateId);
     toast.success('아이템이 캔버스에 추가되었습니다.');
   };
 
