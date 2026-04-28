@@ -454,8 +454,6 @@ const GoogleOAuthSection = () => {
 
 const TemplateEditorSection = () => {
   const handleOpenEditor = () => {
-    sendButtonClick("open_template_editor", "settings_dialog");
-
     // 새 탭에서 템플릿 에디터 열기
     chrome.tabs.create({
       url: chrome.runtime.getURL('index.html#/editor')

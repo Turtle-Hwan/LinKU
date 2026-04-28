@@ -2,7 +2,6 @@
  * Editor Header - Top bar with template name, save, and publish controls
  */
 
-import { useRef } from 'react';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { Input } from '@/components/ui/input';
 import { SaveButton } from './SaveButton';
@@ -27,7 +26,6 @@ import {
   sendTemplateSyncFail,
   sendTemplatePublishSuccess,
   sendTemplatePublishFail,
-  sendTemplateNameEdit,
 } from '@/utils/analytics';
 
 export const EditorHeader = () => {
@@ -35,15 +33,8 @@ export const EditorHeader = () => {
   const { syncToServer } = useTemplateSync();
   const { publishTemplate } = useTemplatePublish();
   const { loadPostedTemplates } = usePostedTemplates();
-  const nameEditDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch({ type: 'UPDATE_TEMPLATE_NAME', payload: e.target.value });
-    // 타이핑 중 이벤트 과다 전송 방지 — 1초 debounce
-    if (nameEditDebounceRef.current) clearTimeout(nameEditDebounceRef.current);
-    nameEditDebounceRef.current = setTimeout(() => {
-      sendTemplateNameEdit(state.template?.templateId);
-    }, 1000);
   };
 
   const handleSave = async () => {

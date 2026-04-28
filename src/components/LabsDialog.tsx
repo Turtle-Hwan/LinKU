@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import ServerClockSection from "./Labs/ServerClockSection";
 import QRGeneratorSection from "./Labs/QRGeneratorSection";
 import LibrarySeatSection from "./Labs/LibrarySeatSection";
-import { sendLabsViewOpen } from "@/utils/analytics";
+import { sendLabsOpen } from "@/utils/analytics";
 
 interface LabsDialogProps {
   open: boolean;
@@ -19,7 +19,7 @@ interface LabsDialogProps {
 
 const LabsDialog = ({ open, onOpenChange }: LabsDialogProps) => {
   useEffect(() => {
-    if (open) sendLabsViewOpen();
+    if (open) sendLabsOpen();
   }, [open]);
 
   return (

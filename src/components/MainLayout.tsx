@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 import { Search, Settings, FlaskConical } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 import LabsDialog from "./LabsDialog";
-import { sendButtonClick, sendSearchSubmit, sendSettingsOpen } from "@/utils/analytics";
+import { sendButtonClick, sendSearchSubmit } from "@/utils/analytics";
 
 const MainLayout = () => {
   return (
@@ -53,16 +53,12 @@ const Header = () => {
         <div className="flex items-center gap-2 shrink-0">
           <FlaskConical
             className="w-5 h-5 text-gray-600 cursor-pointer"
-            onClick={() => {
-              sendButtonClick("labs_icon", "header");
-              setShowLabs(true);
-            }}
+            onClick={() => setShowLabs(true)}
           />
           <Settings
             className="w-5 h-5 text-gray-600 cursor-pointer"
             onClick={() => {
               sendButtonClick("settings_icon", "header");
-              sendSettingsOpen("header");
               setShowSettings(true);
             }}
           />

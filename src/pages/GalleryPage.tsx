@@ -23,9 +23,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { isLoggedIn } from '@/utils/oauth';
 import { errorLog } from '@/utils/logger';
 import {
-  sendTemplateGalleryOpen,
+  sendTemplateGalleryView,
   sendTemplateGallerySearch,
-  sendTemplateGallerySortChange,
   sendTemplateCloneSuccess,
   sendTemplateCloneFail,
   sendTemplateLikeToggle,
@@ -66,7 +65,7 @@ export const GalleryPage = () => {
 
   // GA4: 갤러리 진입 이벤트 (mount 1회)
   useEffect(() => {
-    sendTemplateGalleryOpen('popup');
+    sendTemplateGalleryView('popup');
   }, []);
 
   // Check login status
@@ -370,7 +369,6 @@ export const GalleryPage = () => {
                 key={option.value}
                 onClick={() => {
                   setSort(option.value);
-                  sendTemplateGallerySortChange(option.value);
                 }}
                 className={sort === option.value ? 'bg-accent' : ''}
               >

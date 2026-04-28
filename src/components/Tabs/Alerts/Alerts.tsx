@@ -9,7 +9,7 @@ import AlertFilter from "./AlertFilter";
 import MyAlertsView from "./MyAlertsView";
 import { Badge } from "@/components/ui/badge";
 import { errorLog } from '@/utils/logger';
-import { sendAlertsViewOpen } from '@/utils/analytics';
+import { sendAlertsView } from '@/utils/analytics';
 
 type AlertViewMode = "all" | "my";
 
@@ -89,7 +89,7 @@ const Alerts = () => {
 
       const resolvedViewMode = (savedViewMode === "my" && !loginStatus) ? "all" : (savedViewMode || "all");
       const resolvedCategory = savedCategory || "전체";
-      sendAlertsViewOpen(resolvedViewMode, resolvedCategory);
+      sendAlertsView(resolvedViewMode, resolvedCategory);
     };
     initialize();
   }, []);

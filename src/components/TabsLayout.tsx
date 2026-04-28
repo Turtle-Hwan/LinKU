@@ -4,7 +4,7 @@ import LinkGroup from "./Tabs/LinkGroup";
 import TodoList from "./Tabs/TodoList/TodoList";
 import TodoCountBadge from "./Tabs/TodoList/TodoCountBadge";
 import Alerts from "./Tabs/Alerts/Alerts";
-import { sendNavigationTabSelect } from "@/utils/analytics";
+import { sendTabChange } from "@/utils/analytics";
 import { useSelectedTemplate } from "@/hooks/useSelectedTemplate";
 
 const TabsLayout = () => {
@@ -17,7 +17,7 @@ const TabsLayout = () => {
       TodoList: "Todo List",
       Alerts: "공지사항"
     };
-    sendNavigationTabSelect(tabNames[value] || value);
+    sendTabChange(tabNames[value] || value);
   };
 
   return (

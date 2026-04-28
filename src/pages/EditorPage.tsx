@@ -17,7 +17,7 @@ import { DragOverlayPreview } from '@/components/Editor/EditorCanvas/DragOverlay
 import { gridToPixelPosition, pixelToGridPosition, clampToGridBounds, resolveCollisions } from '@/utils/template';
 import { toast } from 'sonner';
 import type { TemplateItem } from '@/types/api';
-import { sendTemplateEditorOpen, sendTemplateItemAdd } from '@/utils/analytics';
+import { sendTemplateEditorView, sendTemplateItemAdd } from '@/utils/analytics';
 
 /**
  * Drag item data for DragOverlay
@@ -192,7 +192,7 @@ export const EditorPage = () => {
 
   useEffect(() => {
     const origin = templateId ? 'owned' : startFrom === 'default' ? 'default' : 'local_only';
-    sendTemplateEditorOpen(origin, templateId ? parseInt(templateId) : undefined);
+    sendTemplateEditorView(origin, templateId ? parseInt(templateId) : undefined);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

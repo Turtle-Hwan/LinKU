@@ -22,7 +22,7 @@ import { ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import KUGoodjob from "@/assets/KU_goodjob.png";
 import { errorLog } from '@/utils/logger';
-import { sendTodoViewOpen, sendTodoItemComplete, sendTodoItemDelete } from '@/utils/analytics';
+import { sendTodoView, sendTodoItemComplete, sendTodoItemDelete } from '@/utils/analytics';
 
 type SortMethod = 'dday-asc' | 'dday-desc';
 
@@ -178,7 +178,7 @@ const TodoList = () => {
   useEffect(() => {
     if (!isLoading && !viewOpenSentRef.current) {
       viewOpenSentRef.current = true;
-      sendTodoViewOpen(ecampusTodos.length + customTodos.length);
+      sendTodoView(ecampusTodos.length + customTodos.length);
     }
   }, [isLoading, ecampusTodos.length, customTodos.length]);
 

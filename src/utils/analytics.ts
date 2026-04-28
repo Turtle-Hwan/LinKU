@@ -2,37 +2,42 @@
  * Google Analytics 4 Measurement Protocol for Chrome Extension
  * Manifest V3 호환 — CSP 제약 없이 직접 fetch로 이벤트를 전송한다.
  *
- * ## 설계 원칙
- * 이벤트 네이밍과 파라미터는 GA4-Data-Taxonomy.md 기준을 따른다.
- * 모든 이벤트 정의는 이 파일 안에서만 이루어지며, 호출 지점(call site)은
- * 아래 도메인 헬퍼만 import해서 사용한다. sendGAEvent를 외부에서 직접
- * 호출하면 taxonomy 강제(naming enforcement)가 깨지므로 export하지 않는다.
+ * ## 이벤트 분류
  *
- * ## 도메인 헬퍼 목록
+ * ### 레거시 이벤트 (v1.5.46 이전부터 수집, 연속성 유지)
+ * - page_view     : sendPageView
+ * - link_click    : sendLinkClick
+ * - tab_change    : sendTabChange
+ * - button_click  : sendButtonClick
+ * - setting_change: sendSettingChange (settings_credentials_saved/deleted 내부에서 병렬 발송)
+ * - error         : sendError
+ *
+ * ### 신규 이벤트 (택소노미 정립 후 — `MP_` prefix)
  * - Lifecycle  : sendExtensionOpen
- * - Navigation : sendNavigationTabSelect
  * - Search     : sendSearchSubmit
- * - Link       : sendLinkOpen
  * - Auth       : sendAuthLoginStart, sendAuthLoginSuccess, sendAuthLoginFail,
  *                sendAuthLogout, sendAuthEmailVerificationStart/Success
- * - Settings   : sendSettingsCredentialsSaved, sendSettingsCredentialsDeleted
- * - Template   : sendTemplateEditorOpen, sendTemplateCreateStart,
- *                sendTemplateNameEdit, sendTemplateItemAdd,
- *                sendTemplateItemUpdate, sendTemplateItemDelete,
+ * - Settings   : sendSettingsOpen, sendSettingsCredentialsSaved, sendSettingsCredentialsDeleted
+ * - System     : sendError
+ * - Template   : sendTemplateEditorView, sendTemplateCreateStart,
+ *                sendTemplateItemAdd, sendTemplateItemUpdate, sendTemplateItemDelete,
  *                sendTemplateSaveSuccess/Fail, sendTemplateSyncSuccess/Fail,
  *                sendTemplatePublishSuccess/Fail, sendTemplateApply, sendTemplateDelete
- * - Gallery    : sendTemplateGalleryOpen, sendTemplateGallerySearch,
- *                sendTemplateGallerySortChange, sendTemplateCloneSuccess/Fail,
- *                sendTemplateLikeToggle
+ * - Gallery    : sendTemplateGalleryView, sendTemplateGallerySearch,
+ *                sendTemplateCloneSuccess/Fail, sendTemplateLikeToggle
  * - Banner     : sendBannerOpen
- * - Alerts     : sendAlertsViewOpen, sendAlertsItemOpen, sendAlertsSubscriptionChange
- * - Todo       : sendTodoViewOpen, sendTodoItemCreate,
- *                sendTodoItemComplete, sendTodoItemDelete
- * - Labs       : sendLabsViewOpen, sendLabsFeatureUse
- * - Generic    : sendButtonClick (header 버튼 등 별도 이벤트가 없는 범용 클릭)
+ * - Alerts     : sendAlertsView, sendAlertsItemOpen, sendAlertsSubscriptionChange
+ * - Todo       : sendTodoView, sendTodoItemCreate, sendTodoItemComplete, sendTodoItemDelete
+ * - Labs       : sendLabsOpen, sendLabsFeatureUse
+ * - Generic    : sendButtonClick (별도 이벤트 없는 범용 클릭)
+ *
+ * ## 설계 원칙
+ * - sendGAEvent는 외부에 export하지 않는다. 호출 지점은 도메인 헬퍼만 import할 것
+ * - MP_ prefix: 택소노미 정립 이전(레거시) / 이후 이벤트를 구분한다
+ * - 이벤트 네이밍과 파라미터 패턴: docs/GA4-Data-Taxonomy.md 기준을 따른다
  *
  * ## 전송 흐름
- * 각 헬퍼 → sendGAEvent (internal) → GA4 MP endpoint (fetch)
+ * 각 헬퍼 → sendGAEvent (internal) → GA4 MP /mp/collect (fetch)
  */
 
 import { getOrCreateClientId } from "./clientId";
@@ -247,56 +252,40 @@ export async function sendExtensionOpen(
   }
 }
 
-// ─── Navigation ───────────────────────────────────────────────────────────
+// ─── Legacy events (v1.5.46 이전 수집 — 연속성 유지) ──────────────────────
 
 /**
- * 탭 전환 이벤트 전송
- * @param tabName 전환한 탭의 사용자 친화적 이름 (예: "링크모음", "공지사항")
- * @param featureArea 상위 기능 영역 (선택, 예: "links", "alerts")
+ * 페이지뷰 이벤트 전송 (레거시)
+ *
+ * popup 진입 시 sendExtensionOpen과 함께 호출한다.
+ * @param pageTitle 페이지 제목
+ * @param pageLocation 페이지 경로 (선택)
  */
-export async function sendNavigationTabSelect(
-  tabName: string,
-  featureArea?: string
+export async function sendPageView(
+  pageTitle: string,
+  pageLocation?: string
 ): Promise<void> {
-  await sendGAEvent("navigation_tab_select", {
-    tab_name: tabName,
-    ...(featureArea && { feature_area: featureArea }),
+  await sendGAEvent("page_view", {
+    page_title: pageTitle,
+    page_location: pageLocation || "chrome-extension://linku/popup",
+    page_referrer: document.referrer || "direct",
   });
 }
 
-// ─── Search ───────────────────────────────────────────────────────────────
-
 /**
- * 검색 제출 이벤트 전송
- * @param searchTerm 입력한 검색어
- * @param searchLocation 검색 UI 위치 (선택, 예: "header")
- */
-export async function sendSearchSubmit(
-  searchTerm: string,
-  searchLocation?: string
-): Promise<void> {
-  await sendGAEvent("search_submit", {
-    search_term: searchTerm,
-    ...(searchLocation && { search_location: searchLocation }),
-  });
-}
-
-// ─── Link ─────────────────────────────────────────────────────────────────
-
-/**
- * 링크 열기 이벤트 전송 — LinKU의 핵심 가치 행동을 측정한다
+ * 링크 클릭 이벤트 전송 (레거시) — LinKU의 핵심 가치 행동을 측정한다
  * @param linkName 클릭한 링크 이름 (item.label 또는 same-host 버튼 조합 문자열)
  * @param linkUrl 링크 URL
  * @param linkGroup 링크가 속한 그룹명 (선택)
  * @param sameHostVariant same-host 버튼 구분자 (선택: "samehost_primary" | "samehost_secondary")
  */
-export async function sendLinkOpen(
+export async function sendLinkClick(
   linkName: string,
   linkUrl: string,
   linkGroup?: string,
   sameHostVariant?: string
 ): Promise<void> {
-  await sendGAEvent("link_open", {
+  await sendGAEvent("link_click", {
     link_name: linkName,
     link_url: linkUrl,
     ...(linkGroup && { link_group: linkGroup }),
@@ -304,77 +293,25 @@ export async function sendLinkOpen(
   });
 }
 
-// ─── Auth ─────────────────────────────────────────────────────────────────
-
 /**
- * 로그인 시작 이벤트 전송
- * @param provider 인증 제공자 (예: "google")
- * @param uiLocation 버튼이 위치한 UI (예: "settings_dialog")
+ * 탭 전환 이벤트 전송 (레거시)
+ * @param tabName 전환한 탭의 사용자 친화적 이름 (예: "링크모음", "공지사항")
+ * @param featureArea 상위 기능 영역 (선택, 예: "links", "alerts")
  */
-export async function sendAuthLoginStart(
-  provider: string,
-  uiLocation: string
+export async function sendTabChange(
+  tabName: string,
+  featureArea?: string
 ): Promise<void> {
-  await sendGAEvent("auth_login_start", {
-    provider,
-    ui_location: uiLocation,
+  await sendGAEvent("tab_change", {
+    tab_name: tabName,
+    ...(featureArea && { feature_area: featureArea }),
   });
 }
 
 /**
- * 로그아웃 이벤트 전송
- * @param uiLocation 버튼이 위치한 UI (예: "settings_dialog")
- */
-export async function sendAuthLogout(uiLocation: string): Promise<void> {
-  await sendGAEvent("auth_logout", { ui_location: uiLocation });
-}
-
-// ─── Settings ─────────────────────────────────────────────────────────────
-
-/**
- * 설정 다이얼로그 진입 이벤트 전송
- * @param entryPoint 진입 경로 (예: "header")
- */
-export async function sendSettingsOpen(entryPoint: string): Promise<void> {
-  await sendGAEvent("settings_open", { entry_point: entryPoint });
-}
-
-/** eCampus 인증정보 저장 완료 이벤트 전송 */
-export async function sendSettingsCredentialsSaved(): Promise<void> {
-  await sendGAEvent("settings_credentials_saved", { result: "success" });
-}
-
-/** eCampus 인증정보 삭제 완료 이벤트 전송 */
-export async function sendSettingsCredentialsDeleted(): Promise<void> {
-  await sendGAEvent("settings_credentials_deleted", { result: "success" });
-}
-
-// ─── System ───────────────────────────────────────────────────────────────
-
-/**
- * 런타임 오류 이벤트 전송
- * @param errorCode 에러 식별 코드 (예: "network_error", "auth_required")
- * @param errorMessage 사람이 읽는 에러 설명
- * @param screenName 에러가 발생한 화면 (선택)
- */
-export async function sendSystemError(
-  errorCode: string,
-  errorMessage: string,
-  screenName?: string
-): Promise<void> {
-  await sendGAEvent("system_error", {
-    error_code: errorCode,
-    error_message: errorMessage,
-    ...(screenName && { screen_name: screenName }),
-  });
-}
-
-// ─── Generic button click ─────────────────────────────────────────────────
-
-/**
- * 버튼 클릭 이벤트 전송
+ * 버튼 클릭 이벤트 전송 (레거시)
  *
- * 제품 의미가 큰 버튼은 개별 이벤트(sendAuthLoginStart 등)로 승격하고,
+ * 제품 의미가 큰 버튼은 개별 MP_ 이벤트로 승격하고,
  * 별도 이벤트가 없는 header 버튼 등 범용 클릭에만 사용한다.
  *
  * @param buttonName 버튼 식별 이름 (예: "settings_icon", "labs_icon")
@@ -391,6 +328,58 @@ export async function sendButtonClick(
 }
 
 /**
+ * 런타임 오류 이벤트 전송 (레거시)
+ * @param errorCode 에러 식별 코드 (예: "network_error", "auth_required")
+ * @param errorMessage 사람이 읽는 에러 설명
+ * @param screenName 에러가 발생한 화면 (선택)
+ */
+export async function sendError(
+  errorCode: string,
+  errorMessage: string,
+  screenName?: string
+): Promise<void> {
+  await sendGAEvent("error", {
+    error_code: errorCode,
+    error_message: errorMessage,
+    ...(screenName && { screen_name: screenName }),
+  });
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────
+
+/**
+ * 검색 제출 이벤트 전송
+ * @param searchTerm 입력한 검색어
+ * @param searchLocation 검색 UI 위치 (선택, 예: "header")
+ */
+export async function sendSearchSubmit(
+  searchTerm: string,
+  searchLocation?: string
+): Promise<void> {
+  await sendGAEvent("MP_search_submit", {
+    search_term: searchTerm,
+    ...(searchLocation && { search_location: searchLocation }),
+  });
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────
+
+/**
+ * 로그인 시작 이벤트 전송
+ * @param provider 인증 제공자 (예: "google")
+ * @param uiLocation 버튼이 위치한 UI (예: "settings_dialog")
+ */
+export async function sendAuthLoginStart(
+  provider: string,
+  uiLocation: string
+): Promise<void> {
+  await sendGAEvent("MP_authLogin_start", {
+    provider,
+    ui_location: uiLocation,
+  });
+}
+
+/**
  * 로그인 성공 이벤트 전송
  * @param provider 인증 제공자 (예: "google")
  * @param isGuest 게스트 계정 여부
@@ -399,7 +388,7 @@ export async function sendAuthLoginSuccess(
   provider: string,
   isGuest: boolean
 ): Promise<void> {
-  await sendGAEvent("auth_login_success", {
+  await sendGAEvent("MP_authLogin_success", {
     provider,
     is_guest: isGuest,
   });
@@ -416,11 +405,19 @@ export async function sendAuthLoginFail(
   errorCode: string,
   errorMessage: string
 ): Promise<void> {
-  await sendGAEvent("auth_login_fail", {
+  await sendGAEvent("MP_authLogin_fail", {
     provider,
     error_code: errorCode,
     error_message: errorMessage,
   });
+}
+
+/**
+ * 로그아웃 이벤트 전송
+ * @param uiLocation 버튼이 위치한 UI (예: "settings_dialog")
+ */
+export async function sendAuthLogout(uiLocation: string): Promise<void> {
+  await sendGAEvent("MP_auth_logout", { ui_location: uiLocation });
 }
 
 /**
@@ -430,7 +427,7 @@ export async function sendAuthLoginFail(
 export async function sendAuthEmailVerificationStart(
   uiLocation: string
 ): Promise<void> {
-  await sendGAEvent("auth_email_verification_start", {
+  await sendGAEvent("MP_authEmailVerification_start", {
     ui_location: uiLocation,
   });
 }
@@ -442,7 +439,41 @@ export async function sendAuthEmailVerificationStart(
 export async function sendAuthEmailVerificationSuccess(
   domainType: string
 ): Promise<void> {
-  await sendGAEvent("auth_email_verification_success", { domain_type: domainType });
+  await sendGAEvent("MP_authEmailVerification_success", { domain_type: domainType });
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────
+
+/**
+ * 설정 다이얼로그 진입 이벤트 전송
+ * @param entryPoint 진입 경로 (예: "header")
+ */
+export async function sendSettingsOpen(entryPoint: string): Promise<void> {
+  await sendGAEvent("MP_settings_open", { entry_point: entryPoint });
+}
+
+/**
+ * eCampus 인증정보 저장 완료 이벤트 전송
+ *
+ * 레거시 연속성을 위해 `setting_change`와 신규 `MP_settingsCredentials_save`를 병렬 전송한다.
+ */
+export async function sendSettingsCredentialsSaved(): Promise<void> {
+  // 레거시 이벤트 — v1.5.46 이전 데이터와의 연속성 유지
+  await sendGAEvent("setting_change", { setting_name: "credentials", setting_value: "saved" });
+  // 신규 이벤트
+  await sendGAEvent("MP_settingsCredentials_save", { result: "success" });
+}
+
+/**
+ * eCampus 인증정보 삭제 완료 이벤트 전송
+ *
+ * 레거시 연속성을 위해 `setting_change`와 신규 `MP_settingsCredentials_delete`를 병렬 전송한다.
+ */
+export async function sendSettingsCredentialsDeleted(): Promise<void> {
+  // 레거시 이벤트 — v1.5.46 이전 데이터와의 연속성 유지
+  await sendGAEvent("setting_change", { setting_name: "credentials", setting_value: "deleted" });
+  // 신규 이벤트
+  await sendGAEvent("MP_settingsCredentials_delete", { result: "success" });
 }
 
 // ─── Template ─────────────────────────────────────────────────────────────
@@ -452,14 +483,22 @@ export async function sendAuthEmailVerificationSuccess(
  * @param templateOrigin 템플릿 출처 ("default" | "owned" | "cloned" | "posted" | "local_only")
  * @param templateId 템플릿 식별자 (선택)
  */
-export async function sendTemplateEditorOpen(
+export async function sendTemplateEditorView(
   templateOrigin: string,
   templateId?: number
 ): Promise<void> {
-  await sendGAEvent("template_editor_open", {
+  await sendGAEvent("MP_templateEditor_view", {
     template_origin: templateOrigin,
     ...(templateId !== undefined && { template_id: templateId }),
   });
+}
+
+/**
+ * 새 템플릿 만들기 진입 이벤트 전송
+ * @param templateOrigin 생성 출처 ("default" | "empty")
+ */
+export async function sendTemplateCreateStart(templateOrigin: string): Promise<void> {
+  await sendGAEvent("MP_template_createStart", { template_origin: templateOrigin });
 }
 
 /**
@@ -471,8 +510,38 @@ export async function sendTemplateItemAdd(
   addMethod: string,
   templateId?: number
 ): Promise<void> {
-  await sendGAEvent("template_item_add", {
+  await sendGAEvent("MP_templateItem_add", {
     add_method: addMethod,
+    ...(templateId !== undefined && { template_id: templateId }),
+  });
+}
+
+/**
+ * 템플릿 아이템 속성 저장 이벤트 전송
+ * @param updateType 업데이트 유형 (예: "properties")
+ * @param templateId 템플릿 식별자 (선택)
+ */
+export async function sendTemplateItemUpdate(
+  updateType: string,
+  templateId?: number
+): Promise<void> {
+  await sendGAEvent("MP_templateItem_update", {
+    update_type: updateType,
+    ...(templateId !== undefined && { template_id: templateId }),
+  });
+}
+
+/**
+ * 템플릿 아이템 삭제 이벤트 전송
+ * @param deleteSource 삭제 경로 ("canvas" = 임시저장으로 이동, "staging" = 영구 삭제)
+ * @param templateId 템플릿 식별자 (선택)
+ */
+export async function sendTemplateItemDelete(
+  deleteSource: string,
+  templateId?: number
+): Promise<void> {
+  await sendGAEvent("MP_templateItem_delete", {
+    delete_source: deleteSource,
     ...(templateId !== undefined && { template_id: templateId }),
   });
 }
@@ -488,7 +557,7 @@ export async function sendTemplateSaveSuccess(
   templateOrigin: string,
   itemCount: number
 ): Promise<void> {
-  await sendGAEvent("template_save_success", {
+  await sendGAEvent("MP_templateSave_success", {
     template_id: templateId,
     template_origin: templateOrigin,
     item_count: itemCount,
@@ -506,7 +575,7 @@ export async function sendTemplateSaveFail(
   errorCode: string,
   errorMessage: string
 ): Promise<void> {
-  await sendGAEvent("template_save_fail", {
+  await sendGAEvent("MP_templateSave_fail", {
     template_id: templateId,
     error_code: errorCode,
     error_message: errorMessage,
@@ -522,7 +591,7 @@ export async function sendTemplateSyncSuccess(
   templateId: number,
   itemCount: number
 ): Promise<void> {
-  await sendGAEvent("template_sync_success", {
+  await sendGAEvent("MP_templateSync_success", {
     template_id: templateId,
     item_count: itemCount,
   });
@@ -539,7 +608,7 @@ export async function sendTemplateSyncFail(
   errorCode: string,
   errorMessage: string
 ): Promise<void> {
-  await sendGAEvent("template_sync_fail", {
+  await sendGAEvent("MP_templateSync_fail", {
     template_id: templateId,
     error_code: errorCode,
     error_message: errorMessage,
@@ -555,7 +624,7 @@ export async function sendTemplatePublishSuccess(
   templateId: number,
   itemCount: number
 ): Promise<void> {
-  await sendGAEvent("template_publish_success", {
+  await sendGAEvent("MP_templatePublish_success", {
     template_id: templateId,
     item_count: itemCount,
   });
@@ -572,78 +641,10 @@ export async function sendTemplatePublishFail(
   errorCode: string,
   errorMessage: string
 ): Promise<void> {
-  await sendGAEvent("template_publish_fail", {
+  await sendGAEvent("MP_templatePublish_fail", {
     template_id: templateId,
     error_code: errorCode,
     error_message: errorMessage,
-  });
-}
-
-/**
- * 새 템플릿 만들기 진입 이벤트 전송
- * @param templateOrigin 생성 출처 ("default" | "empty")
- */
-export async function sendTemplateCreateStart(templateOrigin: string): Promise<void> {
-  await sendGAEvent("template_create_start", { template_origin: templateOrigin });
-}
-
-/**
- * 템플릿 이름 편집 이벤트 전송
- *
- * 매 keystroke가 아닌 타이핑 정지 후(debounce) 호출해야 한다.
- * @param templateId 편집 중인 템플릿 식별자 (선택)
- */
-export async function sendTemplateNameEdit(templateId?: number): Promise<void> {
-  await sendGAEvent("template_name_edit", {
-    ...(templateId !== undefined && { template_id: templateId }),
-  });
-}
-
-/**
- * 템플릿 아이템 속성 저장 이벤트 전송
- * @param updateType 업데이트 유형 (예: "properties")
- * @param templateId 템플릿 식별자 (선택)
- */
-export async function sendTemplateItemUpdate(
-  updateType: string,
-  templateId?: number
-): Promise<void> {
-  await sendGAEvent("template_item_update", {
-    update_type: updateType,
-    ...(templateId !== undefined && { template_id: templateId }),
-  });
-}
-
-/**
- * 템플릿 아이템 삭제 이벤트 전송
- * @param deleteSource 삭제 경로 ("canvas" = 임시저장으로 이동, "staging" = 영구 삭제)
- * @param templateId 템플릿 식별자 (선택)
- */
-export async function sendTemplateItemDelete(
-  deleteSource: string,
-  templateId?: number
-): Promise<void> {
-  await sendGAEvent("template_item_delete", {
-    delete_source: deleteSource,
-    ...(templateId !== undefined && { template_id: templateId }),
-  });
-}
-
-/**
- * 템플릿 삭제 이벤트 전송
- * @param templateId 템플릿 식별자
- * @param templateOrigin 템플릿 출처 ("owned" | "cloned")
- * @param syncStatus 동기화 상태 ("local" | "synced")
- */
-export async function sendTemplateDelete(
-  templateId: number,
-  templateOrigin: string,
-  syncStatus: string
-): Promise<void> {
-  await sendGAEvent("template_delete", {
-    template_id: templateId,
-    template_origin: templateOrigin,
-    sync_status: syncStatus,
   });
 }
 
@@ -658,10 +659,28 @@ export async function sendTemplateApply(
   templateOrigin: string,
   isDefault: boolean
 ): Promise<void> {
-  await sendGAEvent("template_apply", {
+  await sendGAEvent("MP_template_apply", {
     template_id: templateId,
     template_origin: templateOrigin,
     is_default: isDefault,
+  });
+}
+
+/**
+ * 템플릿 삭제 이벤트 전송
+ * @param templateId 템플릿 식별자
+ * @param templateOrigin 템플릿 출처 ("owned" | "cloned")
+ * @param syncStatus 동기화 상태 ("local" | "synced")
+ */
+export async function sendTemplateDelete(
+  templateId: number,
+  templateOrigin: string,
+  syncStatus: string
+): Promise<void> {
+  await sendGAEvent("MP_template_delete", {
+    template_id: templateId,
+    template_origin: templateOrigin,
+    sync_status: syncStatus,
   });
 }
 
@@ -671,8 +690,8 @@ export async function sendTemplateApply(
  * 템플릿 갤러리 진입 이벤트 전송
  * @param entryPoint 진입 경로 (예: "settings_dialog", "popup")
  */
-export async function sendTemplateGalleryOpen(entryPoint: string): Promise<void> {
-  await sendGAEvent("template_gallery_open", { entry_point: entryPoint });
+export async function sendTemplateGalleryView(entryPoint: string): Promise<void> {
+  await sendGAEvent("MP_templateGallery_view", { entry_point: entryPoint });
 }
 
 /**
@@ -684,32 +703,24 @@ export async function sendTemplateGallerySearch(
   queryLength: number,
   sortOption: string
 ): Promise<void> {
-  await sendGAEvent("template_gallery_search", {
+  await sendGAEvent("MP_templateGallery_search", {
     query_length: queryLength,
     sort_option: sortOption,
   });
 }
 
 /**
- * 갤러리 정렬 변경 이벤트 전송
- * @param sortOption 선택한 정렬 옵션
- */
-export async function sendTemplateGallerySortChange(sortOption: string): Promise<void> {
-  await sendGAEvent("template_gallery_sort_change", { sort_option: sortOption });
-}
-
-/**
  * 갤러리 템플릿 복제 성공 이벤트 전송
  * @param postedTemplateId 게시된 템플릿 식별자
- * @param authorIdPresent 작성자 ID 포함 여부
+ * @param isAuthorIdPresent 작성자 ID 포함 여부
  */
 export async function sendTemplateCloneSuccess(
   postedTemplateId: number,
-  authorIdPresent: boolean
+  isAuthorIdPresent: boolean
 ): Promise<void> {
-  await sendGAEvent("template_clone_success", {
+  await sendGAEvent("MP_templateClone_success", {
     posted_template_id: postedTemplateId,
-    author_id_present: authorIdPresent,
+    is_author_id_present: isAuthorIdPresent,
   });
 }
 
@@ -724,7 +735,7 @@ export async function sendTemplateCloneFail(
   errorCode: string,
   errorMessage?: string
 ): Promise<void> {
-  await sendGAEvent("template_clone_fail", {
+  await sendGAEvent("MP_templateClone_fail", {
     posted_template_id: postedTemplateId,
     error_code: errorCode,
     ...(errorMessage && { error_message: errorMessage }),
@@ -734,15 +745,15 @@ export async function sendTemplateCloneFail(
 /**
  * 좋아요 토글 이벤트 전송
  * @param postedTemplateId 게시된 템플릿 식별자
- * @param liked 좋아요 여부 (true: 좋아요, false: 취소)
+ * @param isLiked 좋아요 여부 (true: 좋아요, false: 취소)
  */
 export async function sendTemplateLikeToggle(
   postedTemplateId: number,
-  liked: boolean
+  isLiked: boolean
 ): Promise<void> {
-  await sendGAEvent("template_like_toggle", {
+  await sendGAEvent("MP_template_likeToggle", {
     posted_template_id: postedTemplateId,
-    liked,
+    is_liked: isLiked,
   });
 }
 
@@ -753,11 +764,11 @@ export async function sendTemplateLikeToggle(
  * @param viewMode 현재 보기 모드 (예: "all", "my")
  * @param category 선택된 카테고리
  */
-export async function sendAlertsViewOpen(
+export async function sendAlertsView(
   viewMode: string,
   category: string
 ): Promise<void> {
-  await sendGAEvent("alerts_view_open", { view_mode: viewMode, category });
+  await sendGAEvent("MP_alerts_view", { view_mode: viewMode, category });
 }
 
 /**
@@ -771,7 +782,7 @@ export async function sendBannerOpen(
   bannerTitle: string,
   bannerPosition: number
 ): Promise<void> {
-  await sendGAEvent("banner_open", {
+  await sendGAEvent("MP_banner_open", {
     banner_id: bannerId,
     banner_title: bannerTitle,
     banner_position: bannerPosition,
@@ -782,14 +793,14 @@ export async function sendBannerOpen(
  * 공지사항 아이템 클릭 이벤트 전송
  * @param alertId 공지 식별자
  * @param category 공지 카테고리
- * @param source 공지 출처 (예: "konkuk", "ecampus")
+ * @param source 공지 출처 ("general" | "department")
  */
 export async function sendAlertsItemOpen(
   alertId: string | number,
   category: string,
   source: string
 ): Promise<void> {
-  await sendGAEvent("alerts_item_open", {
+  await sendGAEvent("MP_alertsItem_open", {
     alert_id: String(alertId),
     category,
     source,
@@ -799,13 +810,16 @@ export async function sendAlertsItemOpen(
 /**
  * 학과 구독 변경 이벤트 전송
  * @param category 구독 변경된 학과명
- * @param result 변경 결과 ("subscribe" | "unsubscribe")
+ * @param subscriptionResult 변경 결과 ("subscribe" | "unsubscribe")
  */
 export async function sendAlertsSubscriptionChange(
   category: string,
-  result: string
+  subscriptionResult: string
 ): Promise<void> {
-  await sendGAEvent("alerts_subscription_change", { category, result });
+  await sendGAEvent("MP_alertsSubscription_update", {
+    category,
+    subscription_result: subscriptionResult,
+  });
 }
 
 // ─── Todo ─────────────────────────────────────────────────────────────────
@@ -814,8 +828,8 @@ export async function sendAlertsSubscriptionChange(
  * Todo 탭 진입 이벤트 전송
  * @param todoCount 현재 Todo 아이템 수
  */
-export async function sendTodoViewOpen(todoCount: number): Promise<void> {
-  await sendGAEvent("todo_view_open", { todo_count: todoCount });
+export async function sendTodoView(todoCount: number): Promise<void> {
+  await sendGAEvent("MP_todo_view", { todo_count: todoCount });
 }
 
 /**
@@ -827,7 +841,7 @@ export async function sendTodoItemCreate(
   source: string,
   hasDueDate: boolean
 ): Promise<void> {
-  await sendGAEvent("todo_item_create", { source, has_due_date: hasDueDate });
+  await sendGAEvent("MP_todoItem_create", { source, has_due_date: hasDueDate });
 }
 
 /**
@@ -835,7 +849,7 @@ export async function sendTodoItemCreate(
  * @param itemType Todo 유형 (예: "custom", "ecampus")
  */
 export async function sendTodoItemComplete(itemType: string): Promise<void> {
-  await sendGAEvent("todo_item_complete", { item_type: itemType });
+  await sendGAEvent("MP_todoItem_complete", { item_type: itemType });
 }
 
 /**
@@ -843,14 +857,14 @@ export async function sendTodoItemComplete(itemType: string): Promise<void> {
  * @param itemType Todo 유형 (예: "custom", "ecampus")
  */
 export async function sendTodoItemDelete(itemType: string): Promise<void> {
-  await sendGAEvent("todo_item_delete", { item_type: itemType });
+  await sendGAEvent("MP_todoItem_delete", { item_type: itemType });
 }
 
 // ─── Labs ─────────────────────────────────────────────────────────────────
 
 /** Labs 다이얼로그 진입 이벤트 전송 */
-export async function sendLabsViewOpen(): Promise<void> {
-  await sendGAEvent("labs_view_open", {});
+export async function sendLabsOpen(): Promise<void> {
+  await sendGAEvent("MP_labs_open", {});
 }
 
 /**
@@ -862,7 +876,7 @@ export async function sendLabsFeatureUse(
   featureName: string,
   result?: string
 ): Promise<void> {
-  await sendGAEvent("labs_feature_use", {
+  await sendGAEvent("MP_labsFeature_use", {
     feature_name: featureName,
     ...(result && { result }),
   });
