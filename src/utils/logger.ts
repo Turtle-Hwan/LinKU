@@ -1,4 +1,29 @@
-const IS_DEV = import.meta.env.DEV;
+/**
+ * 개발 환경 여부 — debug/info 로그 출력 기준
+ *
+ * ## 왜 import.meta.env.DEV를 쓰지 않는가
+ *
+ * Vite의 `import.meta.env.DEV`는 실행 **명령(command)** 을 기준으로 결정된다.
+ * - `vite` (dev server 실행) → DEV = true
+ * - `vite build`            → DEV = false  ← --mode development를 붙여도 마찬가지
+ *
+ * Vite는 빌드 시 `import.meta.env.*`를 정적 문자열로 치환(static replace)하는데,
+ * DEV/PROD의 치환 기준이 mode가 아닌 command이기 때문에 build 산출물에서는
+ * 항상 false가 된다.
+ *
+ * 결과적으로 `pnpm run build:local` (--mode development) 로 빌드한
+ * 확장 프로그램에서 debugLog/infoLog가 전부 묵음이 되는 버그가 발생한다.
+ *
+ * ## 왜 import.meta.env.MODE를 쓰는가
+ *
+ * `import.meta.env.MODE`는 `--mode` 플래그 값을 그대로 반영한다.
+ * - `vite build --mode development` → MODE = "development"  ✓
+ * - `vite build --mode production`  → MODE = "production"
+ * - `vite build` (기본값)           → MODE = "production"
+ *
+ * 이를 통해 build:local 환경에서 debug 로그가 정상 출력된다.
+ */
+const IS_DEV = import.meta.env.MODE === 'development';
 
 const MAX_STRING_LENGTH = 400;
 const MAX_ARRAY_LENGTH = 20;
@@ -7,6 +32,8 @@ const MAX_DEPTH = 4;
 const REDACTED = "[REDACTED]";
 const TRUNCATED_ARRAY_META_KEY = "__truncated_items__";
 const TRUNCATED_OBJECT_META_KEY = "__truncated_keys__";
+const ERROR_ACCESSING_PROPERTY = "[Error accessing property]";
+const UNINSPECTABLE_OBJECT = "[Uninspectable Object]";
 
 const EMAIL_PATTERN =
   /\b([A-Z0-9._%+-])([A-Z0-9._%+-]*)(@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
@@ -23,8 +50,29 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return false;
   }
 
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
+  try {
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+  } catch {
+    return false;
+  }
+}
+
+function getObjectKeys(value: object, isPlain: boolean): string[] {
+  try {
+    return isPlain ? Object.keys(value) : Object.getOwnPropertyNames(value);
+  } catch {
+    return [];
+  }
+}
+
+function getObjectTypeName(value: object): string | null {
+  try {
+    const typeName = value.constructor?.name;
+    return typeName && typeName !== "Object" ? typeName : null;
+  } catch {
+    return null;
+  }
 }
 
 function sanitizeString(value: string): string {
@@ -79,6 +127,10 @@ function sanitizeValue(
     return sanitizeString(value.toString());
   }
 
+  if (value instanceof RegExp) {
+    return sanitizeString(value.toString());
+  }
+
   if (value instanceof Error) {
     return getErrorLogDetails(value);
   }
@@ -115,21 +167,49 @@ function sanitizeValue(
 
     seen.add(value);
 
-    if (!isPlainObject(value)) {
-      return sanitizeString(String(value));
-    }
+    const plainObject = isPlainObject(value);
 
-    const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
-    const sanitizedObject = entries.reduce<Record<string, unknown>>((acc, [key, entryValue]) => {
-      acc[key] = SENSITIVE_KEY_PATTERN.test(key)
-        ? REDACTED
-        : sanitizeValue(entryValue, depth + 1, seen);
+    // non-plain 객체(커스텀 클래스, chrome API 객체 등)는 isPlainObject를 통과 못 해
+    // String() 변환 시 "[object Object]"가 되어 디버깅 불가.
+    // Object.getOwnPropertyNames로 non-enumerable 포함 own property를 추출한다.
+    // (예: chrome.runtime.lastError.message는 non-enumerable이라 Object.keys에 안 잡힘)
+    const allKeys = getObjectKeys(value as object, plainObject);
+
+    const keys = allKeys.slice(0, MAX_OBJECT_KEYS);
+    const sanitizedObject = keys.reduce<Record<string, unknown>>((acc, key) => {
+      if (SENSITIVE_KEY_PATTERN.test(key)) {
+        acc[key] = REDACTED;
+        return acc;
+      }
+
+      try {
+        acc[key] = sanitizeValue(
+          (value as Record<string, unknown>)[key],
+          depth + 1,
+          seen,
+        );
+      } catch {
+        acc[key] = ERROR_ACCESSING_PROPERTY;
+      }
+
       return acc;
     }, {});
-    const omittedCount = Object.keys(value).length - entries.length;
 
+    const omittedCount = allKeys.length - keys.length;
     if (omittedCount > 0) {
       sanitizedObject[TRUNCATED_OBJECT_META_KEY] = omittedCount;
+    }
+
+    // 클래스 인스턴스라면 타입 힌트 추가
+    if (!plainObject) {
+      const typeName = getObjectTypeName(value as object);
+      if (typeName) {
+        sanitizedObject["[type]"] = typeName;
+      }
+    }
+
+    if (allKeys.length === 0 && Object.keys(sanitizedObject).length === 0) {
+      return getObjectTypeName(value as object) ?? UNINSPECTABLE_OBJECT;
     }
 
     return sanitizedObject;
