@@ -39,8 +39,13 @@ import { Info, Palette, LogOut, Mail, User, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
-import TodoCountdown from "@/components/Tabs/TodoList/TodoCountdown";
+import TodoDeadlineBadge from "@/components/Tabs/TodoList/TodoDeadlineBadge";
 import { calculateDDay } from "@/utils/todo/dateFormat";
+import { invalidateECampusTodosCache } from "@/utils/ecampus/todos";
+import {
+  clearECampusTodoCount,
+  refreshTodoCount,
+} from "@/utils/todo/count";
 import { errorLog } from '@/utils/logger';
 
 interface SettingsDialogProps {
@@ -93,6 +98,10 @@ const ECampusCredential = () => {
     try {
       // 1. 암호화 및 저장
       await saveECampusCredentials(savedId, savedPassword);
+      invalidateECampusTodosCache();
+      await clearECampusTodoCount().catch((countError) => {
+        errorLog("[Settings] Failed to clear eCampus todo count:", countError);
+      });
 
       setHasCredentials(true);
       sendSettingsCredentialsSaved();
@@ -103,6 +112,7 @@ const ECampusCredential = () => {
 
       // 2-1. 검증 결과 별도 toast
       if (loginResult.success) {
+        await refreshTodoCount();
         toast.success("eCampus 로그인 성공");
       } else {
         toast.error("eCampus 로그인 실패");
@@ -119,6 +129,10 @@ const ECampusCredential = () => {
 
     try {
       await clearECampusCredentials();
+      invalidateECampusTodosCache();
+      await clearECampusTodoCount().catch((countError) => {
+        errorLog("[Settings] Failed to clear eCampus todo count:", countError);
+      });
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);
@@ -627,16 +641,12 @@ const RealtimeTimer = () => {
             </p>
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold">마감 임박 Todo</span>
-              {enabled ? (
-                <TodoCountdown
-                  dueDate={previewDeadline.date}
-                  dueTime={previewDeadline.time}
-                />
-              ) : (
-                <span className="rounded-full bg-main/10 px-2 py-1 text-xs text-main">
-                  {previewDDay}
-                </span>
-              )}
+              <TodoDeadlineBadge
+                dDay={previewDDay}
+                dueDate={previewDeadline.date}
+                dueTime={previewDeadline.time}
+                timerEnabled={enabled}
+              />
             </div>
           </div>
         </div>

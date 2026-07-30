@@ -58,7 +58,10 @@ export function useTodoSettings() {
       areaName: string
     ) => {
       if (areaName === "local" && changes[TIMER_ENABLED_KEY]) {
-        setTimerEnabled(changes[TIMER_ENABLED_KEY].newValue ?? true);
+        const nextValue = changes[TIMER_ENABLED_KEY].newValue;
+        setTimerEnabled(
+          typeof nextValue === "boolean" ? nextValue : true,
+        );
       }
     };
 

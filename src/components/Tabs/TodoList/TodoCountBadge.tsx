@@ -7,7 +7,7 @@ import {
   TODO_BADGE_BACKGROUND_COLOR,
   TODO_BADGE_TEXT_COLOR,
 } from "@/utils/todo/badge";
-import { syncTodoCount } from "@/utils/todo/count";
+import { refreshTodoCount } from "@/utils/todo/count";
 
 const TodoCountBadge = () => {
   const [todoCount, setTodoCount] = useState(0);
@@ -15,14 +15,14 @@ const TodoCountBadge = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const refreshTodoCount = async () => {
-      const count = await syncTodoCount();
+    const updateTodoCount = async () => {
+      const count = await refreshTodoCount();
       if (isMounted) {
         setTodoCount(count);
       }
     };
 
-    void refreshTodoCount();
+    void updateTodoCount();
 
     const removeListener = addStorageChangeListener((changes, namespace) => {
       if (namespace !== "local" || !changes.todoCount) {

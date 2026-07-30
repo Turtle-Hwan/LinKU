@@ -11,8 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { saveECampusCredentials } from "@/utils/credentials";
+import {
+  clearECampusCredentials,
+  saveECampusCredentials,
+} from "@/utils/credentials";
+import { invalidateECampusTodosCache } from "@/utils/ecampus/todos";
 import { errorLog } from "@/utils/logger";
+import { clearECampusTodoCount } from "@/utils/todo/count";
 
 interface LoginDialogProps {
   isOpen: boolean;
@@ -47,6 +52,11 @@ const LoginDialog = ({
     setIsSubmitting(true);
 
     try {
+      invalidateECampusTodosCache();
+      await clearECampusTodoCount().catch((countError) => {
+        errorLog("[LoginDialog] Failed to clear eCampus todo count:", countError);
+      });
+
       const loginResult: ECampusLoginResponse = await eCampusLoginAPI(
         userId,
         userPw,
@@ -66,6 +76,8 @@ const LoginDialog = ({
         } catch (saveError) {
           errorLog("Failed to save credentials:", saveError);
         }
+      } else {
+        await clearECampusCredentials();
       }
 
       const loadError = await onLoginSuccess();

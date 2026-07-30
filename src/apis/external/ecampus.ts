@@ -277,7 +277,7 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
     };
   } catch (error) {
     errorLog('Failed to fetch todo list:', error);
-    return { success: false, needLogin: true, error };
+    return { success: false, error };
   }
 }
 

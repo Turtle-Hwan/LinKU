@@ -16,6 +16,7 @@ export interface LoadECampusTodosResult {
   todos: ECampusTodoItem[];
   error?: string;
   needsLogin?: boolean;
+  superseded?: boolean;
   loginOutcome?:
     | "none"
     | "auto-login-succeeded"
@@ -36,6 +37,7 @@ interface CachedECampusTodosResult {
 const ECAMPUS_TODO_CACHE_TTL_MS = 30_000;
 const cachedResults = new Map<string, CachedECampusTodosResult>();
 const inFlightLoads = new Map<string, Promise<LoadECampusTodosResult>>();
+let cacheGeneration = 0;
 
 const normalizeOptions = (
   options: LoadECampusTodosOptions,
@@ -49,6 +51,29 @@ const getRequestKey = ({
   clearExpiredCredentials,
 }: NormalizedLoadECampusTodosOptions) =>
   `${allowAutoLogin}:${clearExpiredCredentials}`;
+
+const createSupersededResult = (): LoadECampusTodosResult => ({
+  success: false,
+  todos: [],
+  superseded: true,
+  loginOutcome: "none",
+});
+
+const withoutLoginOutcome = (
+  result: LoadECampusTodosResult,
+): LoadECampusTodosResult => ({
+  ...result,
+  loginOutcome: "none",
+});
+
+/**
+ * 로그인 세션 또는 저장된 계정이 바뀌면 이전 계정의 cache와 진행 중 결과를 폐기한다.
+ */
+export const invalidateECampusTodosCache = () => {
+  cacheGeneration += 1;
+  cachedResults.clear();
+  inFlightLoads.clear();
+};
 
 const fetchECampusTodos = async (): Promise<LoadECampusTodosResult> => {
   try {
@@ -159,6 +184,7 @@ const loadECampusTodosUncached = async (
 export const loadECampusTodos = (
   options: LoadECampusTodosOptions = {},
 ): Promise<LoadECampusTodosResult> => {
+  const requestGeneration = cacheGeneration;
   const normalizedOptions = normalizeOptions(options);
   const requestKey = getRequestKey(normalizedOptions);
   const cached = cachedResults.get(requestKey);
@@ -175,17 +201,23 @@ export const loadECampusTodos = (
 
   const request = loadECampusTodosUncached(normalizedOptions)
     .then((result) => {
+      if (requestGeneration !== cacheGeneration) {
+        return createSupersededResult();
+      }
+
       if (result.success) {
         cachedResults.set(requestKey, {
           expiresAt: Date.now() + ECAMPUS_TODO_CACHE_TTL_MS,
-          result,
+          result: withoutLoginOutcome(result),
         });
       }
 
       return result;
     })
     .finally(() => {
-      inFlightLoads.delete(requestKey);
+      if (inFlightLoads.get(requestKey) === request) {
+        inFlightLoads.delete(requestKey);
+      }
     });
 
   inFlightLoads.set(requestKey, request);

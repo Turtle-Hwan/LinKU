@@ -1,8 +1,7 @@
 import { TodoItem as TodoItemType } from "@/types/todo";
 import { Trash2 } from "lucide-react";
 import { formatTodoDateTime, parseECampusToTimerFormat } from "@/utils/todo/dateFormat";
-import { shouldShowTimer } from "@/utils/todo/timer";
-import TodoCountdown from "./TodoCountdown";
+import TodoDeadlineBadge from "./TodoDeadlineBadge";
 
 interface TodoItemProps {
   todo: TodoItemType;
@@ -12,19 +11,10 @@ interface TodoItemProps {
   onClick?: () => void;
 }
 
-const getDdayBadgeClassName = (dDay: string) => {
-  if (dDay === "마감" || dDay.startsWith("D+")) {
-    return "px-2 py-1 bg-gray-900/10 text-gray-900 rounded-full text-xs";
-  }
-
-  return "px-2 py-1 bg-main/10 text-main rounded-full text-xs";
-};
-
 const TodoItem = ({ todo, timerEnabled = false, onToggle, onDelete, onClick }: TodoItemProps) => {
   if (todo.type === 'ecampus') {
     // eCampus Todo - 메인 색상 테두리
     const parsed = parseECampusToTimerFormat(todo.dueDate);
-    const showTimer = timerEnabled && parsed && shouldShowTimer(parsed.date, parsed.time);
 
     return (
       <div
@@ -34,13 +24,12 @@ const TodoItem = ({ todo, timerEnabled = false, onToggle, onDelete, onClick }: T
         <div className="text-sm font-semibold mb-1 flex items-center justify-between">
           <p>{todo.title}</p>
           <div className="flex flex-col items-end gap-1">
-            {showTimer && parsed ? (
-              <TodoCountdown dueDate={parsed.date} dueTime={parsed.time} />
-            ) : (
-              <span className={getDdayBadgeClassName(todo.dDay)}>
-                {todo.dDay}
-              </span>
-            )}
+            <TodoDeadlineBadge
+              dDay={todo.dDay}
+              dueDate={parsed?.date}
+              dueTime={parsed?.time}
+              timerEnabled={timerEnabled}
+            />
           </div>
         </div>
         <p className="text-sm text-gray-700">{todo.subject}</p>
@@ -50,7 +39,6 @@ const TodoItem = ({ todo, timerEnabled = false, onToggle, onDelete, onClick }: T
   } else {
     // 사용자 정의 Todo - 검정색 테두리로 구분
     const formattedDateTime = formatTodoDateTime(todo.dueDate, todo.dueTime);
-    const showTimer = timerEnabled && shouldShowTimer(todo.dueDate, todo.dueTime);
 
     return (
       <div className="relative p-3 border border-black rounded-md transition-colors hover:bg-gray-50">
@@ -65,13 +53,12 @@ const TodoItem = ({ todo, timerEnabled = false, onToggle, onDelete, onClick }: T
               {todo.title}
             </p>
             <div className="flex flex-col items-end gap-1 shrink-0">
-              {showTimer ? (
-                <TodoCountdown dueDate={todo.dueDate} dueTime={todo.dueTime} />
-              ) : (
-                <span className={getDdayBadgeClassName(todo.dDay)}>
-                  {todo.dDay}
-                </span>
-              )}
+              <TodoDeadlineBadge
+                dDay={todo.dDay}
+                dueDate={todo.dueDate}
+                dueTime={todo.dueTime}
+                timerEnabled={timerEnabled}
+              />
             </div>
           </div>
           {todo.subject && (
