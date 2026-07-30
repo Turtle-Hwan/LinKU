@@ -19,6 +19,7 @@ import {
   sendAuthLogout,
   sendSettingsCredentialsSaved,
   sendSettingsCredentialsDeleted,
+  sendSettingChange,
 } from "@/utils/analytics";
 import {
   saveECampusCredentials,
@@ -533,7 +534,7 @@ const RealtimeTimer = () => {
       const saved = await getStorage<boolean>("realtimeTimerEnabled");
       setEnabled(saved ?? true); // 기본값: true
     } catch (error) {
-      console.error("[Settings] Load timer setting error:", error);
+      errorLog("[Settings] Load timer setting error:", error);
     }
   };
 
@@ -550,7 +551,7 @@ const RealtimeTimer = () => {
           : "실시간 타이머가 비활성화되었습니다."
       );
     } catch (error) {
-      console.error("[Settings] Save timer setting error:", error);
+      errorLog("[Settings] Save timer setting error:", error);
       toast.error("설정 저장에 실패했습니다.");
     }
   };

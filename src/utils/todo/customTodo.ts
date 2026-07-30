@@ -58,7 +58,7 @@ export async function addCustomTodo(
 ): Promise<void> {
   try {
     const todos = await getCustomTodos();
-    const dDay = calculateDDay(dueDate);
+    const dDay = calculateDDay(dueDate, dueTime);
 
     const newTodo: CustomTodoItem = {
       type: "custom",

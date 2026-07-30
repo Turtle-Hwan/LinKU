@@ -3,6 +3,7 @@
  */
 
 import { TodoItem } from "@/types/todo";
+import { errorLog } from "@/utils/logger";
 
 /**
  * 24시간 형식을 12시간 형식 + 오전/오후로 변환
@@ -51,7 +52,7 @@ export function calculateDDay(dueDate: string, dueTime: string): string {
 
     // 유효성 검사
     if (!year || !month || !day) {
-      console.error(`[calculateDDay] Invalid date: ${dueDate}`);
+      errorLog("[calculateDDay] Invalid date");
       return "D-Day";
     }
 
@@ -89,7 +90,7 @@ export function calculateDDay(dueDate: string, dueTime: string): string {
       }
     }
   } catch (error) {
-    console.error(`[calculateDDay] Error calculating D-Day:`, error);
+    errorLog("[calculateDDay] Error calculating D-Day:", error);
     return "D-Day";
   }
 }
@@ -124,7 +125,7 @@ export function parseECampusDueDate(dueDate: string): Date {
 
     return new Date(year, month - 1, day, hour24, minutes);
   } catch (error) {
-    console.error('Error parsing eCampus due date:', dueDate, error);
+    errorLog("Error parsing eCampus due date:", error);
     // 파싱 실패 시 먼 미래 반환 (정렬 시 맨 뒤로)
     return new Date('2099-12-31T23:59:59');
   }
@@ -158,7 +159,7 @@ export function parseECampusToTimerFormat(dueDate: string): { date: string; time
 
     return { date, time };
   } catch (error) {
-    console.error('Error parsing eCampus dueDate:', error);
+    errorLog("Error parsing eCampus dueDate:", error);
     return null;
   }
 }
@@ -178,7 +179,7 @@ export function getTodoDeadline(todo: TodoItem): Date {
       const [hour, minute] = todo.dueTime.split(':').map(Number);
       return new Date(year, month - 1, day, hour, minute);
     } catch (error) {
-      console.error('Error parsing custom todo deadline:', todo, error);
+      errorLog("Error parsing custom todo deadline:", error);
       // 파싱 실패 시 먼 미래 반환 (정렬 시 맨 뒤로)
       return new Date('2099-12-31T23:59:59');
     }

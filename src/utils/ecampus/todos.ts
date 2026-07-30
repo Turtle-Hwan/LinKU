@@ -4,6 +4,7 @@ import {
   clearECampusCredentials,
   loadECampusCredentials,
 } from "@/utils/credentials";
+import { debugLog, errorLog } from "@/utils/logger";
 
 export interface LoadECampusTodosOptions {
   allowAutoLogin?: boolean;
@@ -41,7 +42,7 @@ const fetchECampusTodos = async (): Promise<LoadECampusTodosResult> => {
       loginOutcome: "none",
     };
   } catch (error) {
-    console.error("Error fetching todo list:", error);
+    errorLog("Error fetching todo list:", error);
     return {
       success: false,
       todos: [],
@@ -89,7 +90,10 @@ export const loadECampusTodos = async (
     }
 
     if (loginResult.error) {
-      console.log("[Auto-login] Network error, keeping credentials:", loginResult.error);
+      debugLog(
+        "[Auto-login] Network error, keeping credentials:",
+        loginResult.error,
+      );
       return {
         success: false,
         todos: [],
@@ -99,7 +103,7 @@ export const loadECampusTodos = async (
     }
 
     if (loginResult.data?.isError) {
-      console.log("[Auto-login] Auth failed, clearing credentials");
+      debugLog("[Auto-login] Auth failed, clearing credentials");
       if (clearExpiredCredentials) {
         await clearECampusCredentials();
       }
@@ -113,10 +117,10 @@ export const loadECampusTodos = async (
       };
     }
 
-    console.log("[Auto-login] Unknown error, keeping credentials");
+    debugLog("[Auto-login] Unknown error, keeping credentials");
     return directResult;
   } catch (error) {
-    console.error("Error with saved credentials:", error);
+    errorLog("Error with saved credentials:", error);
     return directResult;
   }
 };

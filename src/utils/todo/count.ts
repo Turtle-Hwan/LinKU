@@ -1,6 +1,7 @@
 import { type ECampusTodoItem } from "@/types/todo";
 import { loadECampusTodos } from "@/utils/ecampus/todos";
 import { setStorage } from "@/utils/chrome";
+import { errorLog } from "@/utils/logger";
 
 import { getCustomTodos } from "./customTodo";
 
@@ -34,7 +35,7 @@ export const syncTodoCount = async (
 
     return totalCount;
   } catch (error) {
-    console.error("[TodoCount] Failed to sync todo count:", error);
+    errorLog("[TodoCount] Failed to sync todo count:", error);
     return 0;
   }
 };

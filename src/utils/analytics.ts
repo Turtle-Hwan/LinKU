@@ -342,6 +342,16 @@ export async function sendButtonClick(
   });
 }
 
+export async function sendSettingChange(
+  settingName: string,
+  settingValue: string,
+): Promise<void> {
+  await sendGAEvent("setting_change", {
+    setting_name: settingName,
+    setting_value: settingValue,
+  });
+}
+
 /**
  * 런타임 오류 이벤트 전송 (레거시)
  * @param errorCode 에러 식별 코드 (예: "network_error", "auth_required")

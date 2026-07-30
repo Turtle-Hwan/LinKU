@@ -2,6 +2,8 @@
  * Todo 실시간 타이머 유틸 함수
  */
 
+import { errorLog } from "@/utils/logger";
+
 export interface TimeLeft {
   hours: number;
   minutes: number;
@@ -43,7 +45,7 @@ export function calculateTimeLeft(dueDate: string, dueTime: string): TimeLeft | 
       totalMilliseconds: diff,
     };
   } catch (error) {
-    console.error('Error calculating time left:', error);
+    errorLog('Error calculating time left:', error);
     return null;
   }
 }
