@@ -26,8 +26,13 @@ import { X, Bell, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import AlertItem from "./AlertItem";
 import { errorLog } from '@/utils/logger';
+import { matchesAlertQuery } from "./alertSearchUtils";
 
-const MyAlertsView = () => {
+interface MyAlertsViewProps {
+  searchQuery: string;
+}
+
+const MyAlertsView = ({ searchQuery }: MyAlertsViewProps) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [mySubscriptions, setMySubscriptions] = useState<Subscription[]>([]);
   const [myAlerts, setMyAlerts] = useState<GeneralAlert[]>([]);
@@ -145,6 +150,11 @@ const MyAlertsView = () => {
     });
   }, [myAlerts]);
 
+  const filteredAlerts = useMemo(
+    () => sortedAlerts.filter((alert) => matchesAlertQuery(alert, searchQuery)),
+    [searchQuery, sortedAlerts]
+  );
+
   return (
     <div className="space-y-4">
       {/* 학과 구독 섹션 */}
@@ -229,9 +239,9 @@ const MyAlertsView = () => {
           <div className="flex justify-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : sortedAlerts.length > 0 ? (
+        ) : filteredAlerts.length > 0 ? (
           <div className="space-y-3">
-            {sortedAlerts.map((alert) => (
+            {filteredAlerts.map((alert) => (
               <AlertItem key={alert.alertId} alert={alert} />
             ))}
           </div>
@@ -240,9 +250,13 @@ const MyAlertsView = () => {
             <p>구독한 학과가 없습니다.</p>
             <p className="text-sm mt-1">위에서 학과를 선택해 구독해보세요!</p>
           </div>
-        ) : (
+        ) : sortedAlerts.length === 0 ? (
           <div className="text-center p-8 text-muted-foreground">
             <p>새로운 공지사항이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="text-center p-8 text-muted-foreground">
+            <p>검색 결과가 없습니다.</p>
           </div>
         )}
       </div>

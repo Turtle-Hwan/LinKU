@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { getAlerts } from "@/apis";
 import type { Alert, AlertCategory } from "@/types/api";
 import { getStorage, setStorage } from "@/utils/chrome";
@@ -6,10 +6,12 @@ import { isLoggedIn as checkLoggedIn } from "@/utils/oauth";
 import { toast } from "sonner";
 import AlertItem from "./AlertItem";
 import AlertFilter from "./AlertFilter";
+import AlertSearch from "./AlertSearch";
 import MyAlertsView from "./MyAlertsView";
 import { Badge } from "@/components/ui/badge";
 import { errorLog } from '@/utils/logger';
 import { sendAlertsView } from '@/utils/analytics';
+import { matchesAlertQuery } from "./alertSearchUtils";
 
 type AlertViewMode = "all" | "my";
 
@@ -33,6 +35,13 @@ const Alerts = () => {
   const [viewMode, setViewMode] = useState<AlertViewMode>("all");
   const [selectedCategory, setSelectedCategory] = useState<AlertCategory | undefined>(undefined);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredAlerts = useMemo(
+    () => alerts.filter((alert) => matchesAlertQuery(alert, searchQuery)),
+    [alerts, searchQuery]
+  );
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
   // 공지사항 목록 가져오기
   const fetchAlerts = useCallback(async () => {
@@ -135,6 +144,8 @@ const Alerts = () => {
           />
         </div>
 
+        <AlertSearch value={searchQuery} onValueChange={setSearchQuery} />
+
         {/* 카테고리 필터 (모든 공지 모드일 때만 표시) */}
         <div className={viewMode === "all" ? "flex gap-2 flex-wrap" : "hidden"}>
           {categories.map((category) => (
@@ -157,7 +168,7 @@ const Alerts = () => {
       >
         {/* 내 공지 모드 */}
         <div className={viewMode === "my" ? "" : "hidden"}>
-          {loggedIn && <MyAlertsView />}
+          {loggedIn && <MyAlertsView searchQuery={searchQuery} />}
         </div>
         {/* 모든 공지 모드 */}
         <div className={viewMode === "all" ? "space-y-3" : "hidden"}>
@@ -165,13 +176,17 @@ const Alerts = () => {
             <div className="flex justify-center p-8">
               <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
             </div>
-          ) : alerts.length > 0 ? (
-            alerts.map((alert) => (
+          ) : filteredAlerts.length > 0 ? (
+            filteredAlerts.map((alert) => (
               <AlertItem key={alert.alertId} alert={alert} />
             ))
           ) : (
             <div className="text-center p-8 text-muted-foreground">
-              <p>공지사항이 없습니다</p>
+              <p>
+                {hasSearchQuery && alerts.length > 0
+                  ? "검색 결과가 없습니다."
+                  : "공지사항이 없습니다."}
+              </p>
             </div>
           )}
         </div>
