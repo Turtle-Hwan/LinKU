@@ -202,6 +202,13 @@ export async function sendExtensionOpen(
   screenName: string,
   entryPoint: string
 ): Promise<void> {
+  if (!isExtensionEnvironment()) {
+    if (DEBUG_MODE) {
+      debugLog("[GA] Skipping lifecycle events outside extension context.");
+    }
+    return;
+  }
+
   if (!API_SECRET) {
     warnLog("[GA] API Secret not configured. Lifecycle events not sent.");
     return;
