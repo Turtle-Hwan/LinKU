@@ -1,31 +1,45 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { eCampusGoLectureAPI, LOCAL_SAMPLE_LECTURE_URL } from "@/apis";
-import type { CustomTodoItem, ECampusTodoItem, TodoItem } from "@/types/todo";
+import { toast } from "sonner";
+
 import {
-  deleteCustomTodo,
-  getCustomTodos,
-  toggleCustomTodo,
-} from "@/utils/todo/customTodo";
-import { getTodoDeadline } from "@/utils/todo/dateFormat";
+  eCampusGoLectureAPI,
+  LOCAL_SAMPLE_LECTURE_URL,
+} from "@/apis";
 import { useECampusAuth } from "@/hooks/useECampusAuth";
 import { useTodoSettings } from "@/hooks/useTodoSettings";
+import type { CustomTodoItem, ECampusTodoItem, TodoItem } from "@/types/todo";
 import {
   sendTodoItemComplete,
   sendTodoItemDelete,
   sendTodoView,
 } from "@/utils/analytics";
 import { errorLog } from "@/utils/logger";
-import { toast } from "sonner";
+import { syncTodoCount } from "@/utils/todo/count";
+import {
+  deleteCustomTodo,
+  getCustomTodos,
+  toggleCustomTodo,
+} from "@/utils/todo/customTodo";
+import { getTodoDeadline } from "@/utils/todo/dateFormat";
+
+type LoginResult = string | null;
 
 export function useTodoListData() {
   const viewOpenSentRef = useRef(false);
+  const ecampusTodosRef = useRef<ECampusTodoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isECampusLoading, setIsECampusLoading] = useState(false);
   const [ecampusTodos, setECampusTodos] = useState<ECampusTodoItem[]>([]);
   const [customTodos, setCustomTodos] = useState<CustomTodoItem[]>([]);
-  const [error, setError] = useState("");
-
-  const { showLoginModal, setShowLoginModal, loadECampusTodos } = useECampusAuth();
+  const [ecampusError, setECampusError] = useState("");
+  const [ecampusNeedsLogin, setECampusNeedsLogin] = useState(false);
+  const {
+    handleLoginModalOpenChange,
+    loadECampusTodos: loadECampusTodosWithAuth,
+    openLoginModal,
+    showLoginModal,
+  } = useECampusAuth();
   const {
     sortMethod,
     filterMode,
@@ -35,13 +49,14 @@ export function useTodoListData() {
   } = useTodoSettings();
 
   const allTodos: TodoItem[] = useMemo(() => {
-    const combined = [...ecampusTodos, ...customTodos];
-    const filtered =
+    const filteredTodos =
       filterMode === "incomplete"
-        ? combined.filter((todo) => todo.type === "ecampus" || !todo.completed)
-        : combined;
+        ? [...ecampusTodos, ...customTodos].filter(
+            (todo) => todo.type === "ecampus" || !todo.completed,
+          )
+        : [...ecampusTodos, ...customTodos];
 
-    return filtered.sort((a, b) => {
+    return filteredTodos.sort((a, b) => {
       const deadlineA = getTodoDeadline(a);
       const deadlineB = getTodoDeadline(b);
 
@@ -51,7 +66,25 @@ export function useTodoListData() {
     });
   }, [customTodos, ecampusTodos, filterMode, sortMethod]);
 
-  const loadCustomTodos = useCallback(async () => {
+  const updateECampusTodos = useCallback((todos: ECampusTodoItem[]) => {
+    ecampusTodosRef.current = todos;
+    setECampusTodos(todos);
+  }, []);
+
+  const persistTodoCount = useCallback(
+    async (
+      customTodoList: CustomTodoItem[],
+      ecampusTodoList: ECampusTodoItem[],
+    ) => {
+      await syncTodoCount({
+        customTodos: customTodoList,
+        ecampusTodos: ecampusTodoList,
+      });
+    },
+    [],
+  );
+
+  const loadAndStoreCustomTodos = useCallback(async () => {
     try {
       const todos = await getCustomTodos();
       setCustomTodos(todos);
@@ -62,77 +95,131 @@ export function useTodoListData() {
     }
   }, []);
 
+  const applyECampusResult = useCallback(
+    async (
+      result: Awaited<ReturnType<typeof loadECampusTodosWithAuth>>,
+      customTodoList: CustomTodoItem[],
+    ): Promise<LoginResult> => {
+      if (result.success) {
+        updateECampusTodos(result.todos);
+        setECampusNeedsLogin(false);
+        setECampusError("");
+        await persistTodoCount(customTodoList, result.todos);
+        return null;
+      }
+
+      updateECampusTodos([]);
+      setECampusNeedsLogin(Boolean(result.needsLogin));
+      setECampusError(result.needsLogin ? "" : (result.error ?? ""));
+      await persistTodoCount(customTodoList, []);
+      return result.error ?? (result.needsLogin ? "로그인이 필요합니다." : null);
+    },
+    [persistTodoCount, updateECampusTodos],
+  );
+
   const loadTodoList = useCallback(async () => {
     setIsLoading(true);
-    setError("");
+    setECampusError("");
+    setECampusNeedsLogin(false);
 
+    const loadedCustomTodos = await loadAndStoreCustomTodos();
+    await persistTodoCount(loadedCustomTodos, []);
+    setIsLoading(false);
+
+    setIsECampusLoading(true);
     try {
-      await loadCustomTodos();
-
-      const result = await loadECampusTodos({
+      const result = await loadECampusTodosWithAuth({
         allowAutoLogin: true,
-        openLoginModal: true,
+        openLoginModal: false,
       });
-
-      if (result.success) {
-        setECampusTodos(result.todos);
-      } else if (result.error) {
-        setError(result.error);
-      }
+      await applyECampusResult(result, loadedCustomTodos);
     } catch (error) {
-      errorLog("Error loading todo list:", error);
-      setError("Todo 목록을 불러오는 중 오류가 발생했습니다.");
+      errorLog("Error loading eCampus todo list:", error);
+      updateECampusTodos([]);
+      setECampusNeedsLogin(false);
+      setECampusError("eCampus 할 일을 불러오는 중 오류가 발생했습니다.");
+      await persistTodoCount(loadedCustomTodos, []);
     } finally {
-      setIsLoading(false);
+      setIsECampusLoading(false);
     }
-  }, [loadCustomTodos, loadECampusTodos]);
+  }, [
+    applyECampusResult,
+    loadAndStoreCustomTodos,
+    loadECampusTodosWithAuth,
+    persistTodoCount,
+    updateECampusTodos,
+  ]);
 
   useEffect(() => {
     void loadTodoList();
   }, [loadTodoList]);
 
   useEffect(() => {
-    if (!isLoading && !viewOpenSentRef.current) {
+    if (!isLoading && !isECampusLoading && !viewOpenSentRef.current) {
       viewOpenSentRef.current = true;
       void sendTodoView(ecampusTodos.length + customTodos.length);
     }
-  }, [customTodos.length, ecampusTodos.length, isLoading]);
+  }, [
+    customTodos.length,
+    ecampusTodos.length,
+    isECampusLoading,
+    isLoading,
+  ]);
 
-  const handleLoginSuccess = useCallback(async () => {
-    const result = await loadECampusTodos({
-      allowAutoLogin: false,
-      openLoginModal: false,
-    });
+  const refreshCustomTodos = useCallback(async () => {
+    const updatedCustomTodos = await loadAndStoreCustomTodos();
+    await persistTodoCount(updatedCustomTodos, ecampusTodosRef.current);
+  }, [loadAndStoreCustomTodos, persistTodoCount]);
 
-    if (result.success) {
-      setECampusTodos(result.todos);
-      setShowLoginModal(false);
-    } else if (result.error) {
-      setError(result.error);
+  const handleLoginSuccess = useCallback(async (): Promise<LoginResult> => {
+    setIsECampusLoading(true);
+
+    try {
+      const result = await loadECampusTodosWithAuth({
+        allowAutoLogin: false,
+        openLoginModal: false,
+      });
+
+      return await applyECampusResult(result, customTodos);
+    } catch (error) {
+      errorLog("Error loading eCampus todos after login:", error);
+      updateECampusTodos([]);
+      setECampusNeedsLogin(false);
+      setECampusError(
+        "eCampus 할 일을 다시 불러오는 중 오류가 발생했습니다.",
+      );
+      await persistTodoCount(customTodos, []);
+      return "eCampus 할 일을 다시 불러오는 중 오류가 발생했습니다.";
+    } finally {
+      setIsECampusLoading(false);
     }
-
-    return result.success;
-  }, [loadECampusTodos, setShowLoginModal]);
+  }, [
+    applyECampusResult,
+    customTodos,
+    loadECampusTodosWithAuth,
+    persistTodoCount,
+    updateECampusTodos,
+  ]);
 
   const handleToggleTodo = useCallback(
     async (id: string) => {
       try {
         await toggleCustomTodo(id);
-        await loadCustomTodos();
+        await refreshCustomTodos();
         void sendTodoItemComplete("custom");
       } catch (error) {
         errorLog("Failed to toggle todo:", error);
         toast.error("상태 변경에 실패했습니다.");
       }
     },
-    [loadCustomTodos]
+    [refreshCustomTodos],
   );
 
   const handleDeleteTodo = useCallback(
     async (id: string) => {
       try {
         await deleteCustomTodo(id);
-        await loadCustomTodos();
+        await refreshCustomTodos();
         void sendTodoItemDelete("custom");
         toast.success("할 일이 삭제되었습니다.");
       } catch (error) {
@@ -140,48 +227,55 @@ export function useTodoListData() {
         toast.error("삭제에 실패했습니다.");
       }
     },
-    [loadCustomTodos]
+    [refreshCustomTodos],
   );
 
   const handleTodoAdded = useCallback(() => {
-    void loadCustomTodos();
-  }, [loadCustomTodos]);
+    void refreshCustomTodos();
+  }, [refreshCustomTodos]);
 
   const handleTodoItemClick = useCallback(
     async (kj: string, seq: string, gubun: string) => {
       try {
-        setIsLoading(true);
         const result = await eCampusGoLectureAPI(kj, seq, gubun);
 
         if (result.success && result.message === LOCAL_SAMPLE_LECTURE_URL) {
-          toast.info("로컬 예시 eCampus 항목입니다. 실제 강의 페이지로는 이동하지 않습니다.");
-        } else if (result.success && result.message) {
-          const lectureUrl = `https://ecampus.konkuk.ac.kr${result.message}`;
-          window.open(lectureUrl, "_blank");
+          toast.info(
+            "로컬 예시 eCampus 항목입니다. 실제 강의 페이지로는 이동하지 않습니다.",
+          );
+          return;
+        }
+
+        if (result.success && result.message) {
+          window.open(
+            `https://ecampus.konkuk.ac.kr${result.message}`,
+            "_blank",
+          );
         }
       } catch (error) {
         errorLog("Failed to navigate to lecture:", error);
-      } finally {
-        setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   return {
     allTodos,
-    error,
+    ecampusError,
+    ecampusNeedsLogin,
     filterMode,
     handleDeleteTodo,
-    handleLoginSuccess,
+    handleOpenECampusLogin: openLoginModal,
     handleTodoAdded,
     handleTodoItemClick,
     handleToggleTodo,
+    isECampusLoading,
     isLoading,
-    setError,
-    setIsLoading,
-    showLoginModal,
-    setShowLoginModal,
+    loginDialogProps: {
+      isOpen: showLoginModal,
+      onOpenChange: handleLoginModalOpenChange,
+      onLoginSuccess: handleLoginSuccess,
+    },
     sortMethod,
     timerEnabled,
     toggleFilterMode,

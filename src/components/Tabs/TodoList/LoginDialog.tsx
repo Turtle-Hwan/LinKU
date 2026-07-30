@@ -1,42 +1,42 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import { eCampusLoginAPI, type ECampusLoginResponse } from "@/apis";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { eCampusLoginAPI, ECampusLoginResponse } from "@/apis";
 import { saveECampusCredentials } from "@/utils/credentials";
-import { errorLog } from '@/utils/logger';
+import { errorLog } from "@/utils/logger";
 
 interface LoginDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onLoginSuccess: () => Promise<boolean>;
-  isLoading: boolean;
-  setIsLoading: (loading: boolean) => void;
-  error: string;
-  setError: (error: string) => void;
+  onLoginSuccess: () => Promise<string | null>;
 }
 
 const LoginDialog = ({
   isOpen,
   onOpenChange,
   onLoginSuccess,
-  isLoading,
-  setIsLoading,
-  error,
-  setError,
 }: LoginDialogProps) => {
   const [userId, setUserId] = useState("");
   const [userPw, setUserPw] = useState("");
   const [rememberLogin, setRememberLogin] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  // 사용자 입력으로 로그인 처리
+  useEffect(() => {
+    if (!isOpen) {
+      setError("");
+    }
+  }, [isOpen]);
+
   const handleLogin = async () => {
     if (!userId || !userPw) {
       setError("ID와 비밀번호를 모두 입력해주세요.");
@@ -44,41 +44,42 @@ const LoginDialog = ({
     }
 
     setError("");
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
-      // 로그인 시도
       const loginResult: ECampusLoginResponse = await eCampusLoginAPI(
         userId,
-        userPw
+        userPw,
       );
 
-      if (loginResult.success) {
-        // 인증 정보 저장 (rememberLogin이 true일 때만)
-        if (rememberLogin) {
-          try {
-            await saveECampusCredentials(userId, userPw);
-          } catch (error) {
-            errorLog("Failed to save credentials:", error);
-          }
-        }
-
-        // 로그인 모달 닫기
-        onOpenChange(false);
-
-        // Todo 목록 다시 로드
-        await onLoginSuccess();
-      } else {
-        const errorMsg =
-          loginResult.data?.message ||
-          "로그인에 실패했습니다. 인증 정보를 확인해주세요.";
-        setError(errorMsg);
+      if (!loginResult.success) {
+        setError(
+          loginResult.data?.message ??
+            "로그인에 실패했습니다. 인증 정보를 확인해주세요.",
+        );
+        return;
       }
-    } catch (error) {
-      errorLog("Login error:", error);
+
+      if (rememberLogin) {
+        try {
+          await saveECampusCredentials(userId, userPw);
+        } catch (saveError) {
+          errorLog("Failed to save credentials:", saveError);
+        }
+      }
+
+      const loadError = await onLoginSuccess();
+      if (loadError) {
+        setError(loadError);
+        return;
+      }
+
+      onOpenChange(false);
+    } catch (loginError) {
+      errorLog("Login error:", loginError);
       setError("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -100,9 +101,11 @@ const LoginDialog = ({
             <Input
               id="userId"
               value={userId}
-              onChange={(e) => setUserId(e.target.value)}
+              onChange={(event) => setUserId(event.target.value)}
               placeholder="아이디 입력"
-              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              onKeyDown={(event) =>
+                event.key === "Enter" && void handleLogin()
+              }
             />
           </div>
 
@@ -114,9 +117,11 @@ const LoginDialog = ({
               id="userPw"
               type="password"
               value={userPw}
-              onChange={(e) => setUserPw(e.target.value)}
+              onChange={(event) => setUserPw(event.target.value)}
               placeholder="비밀번호 입력"
-              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              onKeyDown={(event) =>
+                event.key === "Enter" && void handleLogin()
+              }
             />
           </div>
 
@@ -126,21 +131,21 @@ const LoginDialog = ({
               type="checkbox"
               className="h-4 w-4 mr-2 text-primary border-gray-300 rounded focus:ring-primary"
               checked={rememberLogin}
-              onChange={(e) => setRememberLogin(e.target.checked)}
+              onChange={(event) => setRememberLogin(event.target.checked)}
             />
             <label htmlFor="rememberLogin" className="text-sm font-medium">
               로그인 상태 유지
             </label>
           </div>
 
-          {error && (
+          {error ? (
             <p className="text-sm font-medium text-destructive">{error}</p>
-          )}
+          ) : null}
         </div>
 
         <DialogFooter>
-          <Button onClick={handleLogin} disabled={isLoading}>
-            {isLoading ? "로그인 중..." : "로그인"}
+          <Button onClick={() => void handleLogin()} disabled={isSubmitting}>
+            {isSubmitting ? "로그인 중..." : "로그인"}
           </Button>
         </DialogFooter>
       </DialogContent>
