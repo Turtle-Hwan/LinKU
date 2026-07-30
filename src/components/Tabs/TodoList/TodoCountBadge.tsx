@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { addStorageChangeListener } from "@/utils/chrome";
+import {
+  formatTodoBadgeCount,
+  TODO_BADGE_BACKGROUND_COLOR,
+  TODO_BADGE_TEXT_COLOR,
+} from "@/utils/todo/badge";
 import { syncTodoCount } from "@/utils/todo/count";
 
 const TodoCountBadge = () => {
@@ -34,13 +39,22 @@ const TodoCountBadge = () => {
     };
   }, []);
 
-  if (todoCount === 0) {
+  const badgeText = formatTodoBadgeCount(todoCount);
+
+  if (!badgeText) {
     return null;
   }
 
   return (
-    <Badge variant="default" className="bg-main text-white border-none">
-      {todoCount}
+    <Badge
+      variant="default"
+      className="border-none"
+      style={{
+        backgroundColor: TODO_BADGE_BACKGROUND_COLOR,
+        color: TODO_BADGE_TEXT_COLOR,
+      }}
+    >
+      {badgeText}
     </Badge>
   );
 };

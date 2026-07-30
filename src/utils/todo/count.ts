@@ -27,9 +27,10 @@ export const syncTodoCount = async (
   options: SyncTodoCountOptions = {},
 ): Promise<number> => {
   try {
-    const customTodos = options.customTodos ?? (await getCustomTodos());
-    const ecampusTodos =
-      options.ecampusTodos ?? (await loadECampusTodosForCount());
+    const [customTodos, ecampusTodos] = await Promise.all([
+      options.customTodos ?? getCustomTodos(),
+      options.ecampusTodos ?? loadECampusTodosForCount(),
+    ]);
     const incompleteCustomCount = customTodos.filter(
       (todo) => !todo.completed,
     ).length;

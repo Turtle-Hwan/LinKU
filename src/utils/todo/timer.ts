@@ -3,6 +3,7 @@
  */
 
 import { errorLog } from "@/utils/logger";
+import { parseTodoDateTime } from "@/utils/todo/dateFormat";
 
 export interface TimeLeft {
   hours: number;
@@ -19,12 +20,11 @@ export interface TimeLeft {
  */
 export function calculateTimeLeft(dueDate: string, dueTime: string): TimeLeft | null {
   try {
-    // "2025.10.14" -> "2025-10-14"
-    const formattedDate = dueDate.replace(/\./g, '-');
+    const deadline = parseTodoDateTime(dueDate, dueTime);
+    if (!deadline) {
+      return null;
+    }
 
-    // ISO 8601 형식으로 변환: "2025-10-14T23:59"
-    const deadlineStr = `${formattedDate}T${dueTime}`;
-    const deadline = new Date(deadlineStr);
     const now = new Date();
 
     const diff = deadline.getTime() - now.getTime();

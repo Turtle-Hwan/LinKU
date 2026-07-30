@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { toast } from "sonner";
 
@@ -221,7 +228,18 @@ export function useTodoListData() {
         await deleteCustomTodo(id);
         await refreshCustomTodos();
         void sendTodoItemDelete("custom");
-        toast.success("할 일이 삭제되었습니다.");
+        const deletionToastId = `todo-deleted-${id}`;
+
+        toast.success("할 일이 삭제되었습니다.", {
+          id: deletionToastId,
+          action: createElement("button", {
+            type: "button",
+            "aria-label": "삭제 알림 닫기",
+            className:
+              "absolute inset-0 cursor-pointer rounded-[inherit] bg-transparent",
+            onClick: () => toast.dismiss(deletionToastId),
+          }),
+        });
       } catch (error) {
         errorLog("Failed to delete todo:", error);
         toast.error("삭제에 실패했습니다.");

@@ -20,6 +20,11 @@ import type {
   SilentReauthResponse,
 } from "./types";
 import { handleGoogleLogin } from "./handlers/oauth";
+import {
+  formatTodoBadgeCount,
+  TODO_BADGE_BACKGROUND_COLOR,
+  TODO_BADGE_TEXT_COLOR,
+} from "@/utils/todo/badge";
 
 debugLog("[Background] Service worker initialized");
 
@@ -146,10 +151,14 @@ chrome.runtime.onStartup.addListener(() => {
  * Badge update for todo count
  */
 function updateBadge(count: number) {
-  if (count > 0) {
-    chrome.action.setBadgeText({ text: count > 99 ? "99+" : String(count) });
-    chrome.action.setBadgeBackgroundColor({ color: "#00913A" });
-    chrome.action.setBadgeTextColor({ color: "#FFFFFF" });
+  const badgeText = formatTodoBadgeCount(count);
+
+  if (badgeText) {
+    chrome.action.setBadgeText({ text: badgeText });
+    chrome.action.setBadgeBackgroundColor({
+      color: TODO_BADGE_BACKGROUND_COLOR,
+    });
+    chrome.action.setBadgeTextColor({ color: TODO_BADGE_TEXT_COLOR });
   } else {
     chrome.action.setBadgeText({ text: "" });
   }

@@ -5,13 +5,72 @@
 import { TodoItem } from "@/types/todo";
 import { errorLog } from "@/utils/logger";
 
+const TODO_DATE_PATTERN = /^(\d{4})[.-](\d{1,2})[.-](\d{1,2})$/;
+const TODO_TIME_PATTERN = /^(\d{1,2}):(\d{2})$/;
+const INVALID_TODO_DEADLINE = "2099-12-31T23:59:59";
+
+const parseTodoTime = (
+  dueTime: string,
+): { hour: number; minute: number } | null => {
+  const match = TODO_TIME_PATTERN.exec(dueTime);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+
+  return { hour, minute };
+};
+
+/**
+ * Todo 날짜와 시간을 런타임에서 검증해 Date 객체로 변환
+ * TypeScript 타입만으로는 storage/eCampus에서 들어오는 문자열을 검증할 수 없다.
+ */
+export function parseTodoDateTime(
+  dueDate: string,
+  dueTime: string,
+): Date | null {
+  const dateMatch = TODO_DATE_PATTERN.exec(dueDate);
+  const time = parseTodoTime(dueTime);
+  if (!dateMatch || !time) return null;
+
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  const parsed = new Date(
+    year,
+    month - 1,
+    day,
+    time.hour,
+    time.minute,
+    0,
+    0,
+  );
+
+  if (
+    !Number.isFinite(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day ||
+    parsed.getHours() !== time.hour ||
+    parsed.getMinutes() !== time.minute
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
 /**
  * 24시간 형식을 12시간 형식 + 오전/오후로 변환
  * @param time24 24시간 형식 시간 (HH:mm)
  * @returns 12시간 형식 시간 (오전/오후 HH:mm)
  */
 export function format24to12Hour(time24: string): string {
-  const [hour24, minute] = time24.split(':').map(Number);
+  const parsedTime = parseTodoTime(time24);
+  if (!parsedTime) return time24;
+
+  const { hour: hour24, minute } = parsedTime;
 
   // 오전/오후 결정
   const period = hour24 < 12 ? '오전' : '오후';
@@ -45,23 +104,16 @@ export function formatTodoDateTime(dueDate: string, dueTime: string): string {
  */
 export function calculateDDay(dueDate: string, dueTime: string): string {
   try {
-    // 날짜 형식 정규화: YYYY-MM-DD → YYYY.MM.DD
-    const normalizedDate = dueDate.replace(/-/g, ".");
-    const [year, month, day] = normalizedDate.split(".").map(Number);
-    const [hour, minute] = dueTime.split(":").map(Number);
-
-    // 유효성 검사
-    if (!year || !month || !day) {
-      errorLog("[calculateDDay] Invalid date");
+    const dueDateTime = parseTodoDateTime(dueDate, dueTime);
+    if (!dueDateTime) {
+      errorLog("[calculateDDay] Invalid date or time");
       return "D-Day";
     }
 
-    // 마감일시 (시간 포함)
-    const dueDateTime = new Date(year, month - 1, day, hour, minute, 0);
     const now = new Date();
 
     // 날짜 차이 계산 (자정 기준)
-    const dueDay = new Date(year, month - 1, day);
+    const dueDay = new Date(dueDateTime);
     dueDay.setHours(0, 0, 0, 0);
 
     const today = new Date();
@@ -101,34 +153,15 @@ export function calculateDDay(dueDate: string, dueTime: string): string {
  * @returns Date 객체
  */
 export function parseECampusDueDate(dueDate: string): Date {
-  try {
-    // "2025.10.11 오후 11:59" 형식 파싱
-    const parts = dueDate.split(' ');
-    if (parts.length < 3) {
-      throw new Error('Invalid date format');
-    }
-
-    const datePart = parts[0]; // "2025.10.11"
-    const period = parts[1]; // "오전" or "오후"
-    const timePart = parts[2]; // "11:59"
-
-    const [year, month, day] = datePart.split('.').map(Number);
-    const [hours, minutes] = timePart.split(':').map(Number);
-
-    // 오전/오후를 24시간 형식으로 변환
-    let hour24 = hours;
-    if (period === '오후' && hours !== 12) {
-      hour24 = hours + 12;
-    } else if (period === '오전' && hours === 12) {
-      hour24 = 0;
-    }
-
-    return new Date(year, month - 1, day, hour24, minutes);
-  } catch (error) {
-    errorLog("Error parsing eCampus due date:", error);
-    // 파싱 실패 시 먼 미래 반환 (정렬 시 맨 뒤로)
-    return new Date('2099-12-31T23:59:59');
+  const parsed = parseECampusToTimerFormat(dueDate);
+  if (!parsed) {
+    return new Date(INVALID_TODO_DEADLINE);
   }
+
+  return (
+    parseTodoDateTime(parsed.date, parsed.time) ??
+    new Date(INVALID_TODO_DEADLINE)
+  );
 }
 
 /**
@@ -137,31 +170,27 @@ export function parseECampusDueDate(dueDate: string): Date {
  * @returns { date: "2025.10.11", time: "23:59" } 또는 null
  */
 export function parseECampusToTimerFormat(dueDate: string): { date: string; time: string } | null {
-  try {
-    const parts = dueDate.split(' ');
-    if (parts.length < 3) return null;
+  const match =
+    /^(\d{4})\.(\d{1,2})\.(\d{1,2})\s+(오전|오후)\s+(\d{1,2}):(\d{2})$/.exec(
+      dueDate.trim(),
+    );
+  if (!match) return null;
 
-    const date = parts[0]; // "2025.10.11"
-    const period = parts[1]; // "오후" or "오전"
-    const timeStr = parts[2]; // "11:59"
+  const [, year, month, day, period, hourText, minuteText] = match;
+  const hour12 = Number(hourText);
+  const minute = Number(minuteText);
+  if (hour12 < 1 || hour12 > 12 || minute > 59) return null;
 
-    const [hours, minutes] = timeStr.split(':').map(Number);
-
-    // 24시간 형식으로 변환
-    let hour24 = hours;
-    if (period === '오후' && hours !== 12) {
-      hour24 = hours + 12;
-    } else if (period === '오전' && hours === 12) {
-      hour24 = 0;
-    }
-
-    const time = `${String(hour24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-
-    return { date, time };
-  } catch (error) {
-    errorLog("Error parsing eCampus dueDate:", error);
-    return null;
+  let hour24 = hour12 % 12;
+  if (period === "오후") {
+    hour24 += 12;
   }
+
+  const pad = (value: string | number) => String(value).padStart(2, "0");
+  const date = `${year}.${pad(month)}.${pad(day)}`;
+  const time = `${pad(hour24)}:${pad(minute)}`;
+
+  return parseTodoDateTime(date, time) ? { date, time } : null;
 }
 
 /**
@@ -172,16 +201,10 @@ export function parseECampusToTimerFormat(dueDate: string): { date: string; time
 export function getTodoDeadline(todo: TodoItem): Date {
   if (todo.type === 'ecampus') {
     return parseECampusDueDate(todo.dueDate);
-  } else {
-    try {
-      // Custom Todo: "2025.10.11" + "23:59"
-      const [year, month, day] = todo.dueDate.split('.').map(Number);
-      const [hour, minute] = todo.dueTime.split(':').map(Number);
-      return new Date(year, month - 1, day, hour, minute);
-    } catch (error) {
-      errorLog("Error parsing custom todo deadline:", error);
-      // 파싱 실패 시 먼 미래 반환 (정렬 시 맨 뒤로)
-      return new Date('2099-12-31T23:59:59');
-    }
   }
+
+  return (
+    parseTodoDateTime(todo.dueDate, todo.dueTime) ??
+    new Date(INVALID_TODO_DEADLINE)
+  );
 }

@@ -23,6 +23,33 @@ export interface LoadECampusTodosResult {
     | "credential-expired";
 }
 
+interface NormalizedLoadECampusTodosOptions {
+  allowAutoLogin: boolean;
+  clearExpiredCredentials: boolean;
+}
+
+interface CachedECampusTodosResult {
+  expiresAt: number;
+  result: LoadECampusTodosResult;
+}
+
+const ECAMPUS_TODO_CACHE_TTL_MS = 30_000;
+const cachedResults = new Map<string, CachedECampusTodosResult>();
+const inFlightLoads = new Map<string, Promise<LoadECampusTodosResult>>();
+
+const normalizeOptions = (
+  options: LoadECampusTodosOptions,
+): NormalizedLoadECampusTodosOptions => ({
+  allowAutoLogin: options.allowAutoLogin ?? true,
+  clearExpiredCredentials: options.clearExpiredCredentials ?? true,
+});
+
+const getRequestKey = ({
+  allowAutoLogin,
+  clearExpiredCredentials,
+}: NormalizedLoadECampusTodosOptions) =>
+  `${allowAutoLogin}:${clearExpiredCredentials}`;
+
 const fetchECampusTodos = async (): Promise<LoadECampusTodosResult> => {
   try {
     const result = await eCampusTodoListAPI();
@@ -52,10 +79,10 @@ const fetchECampusTodos = async (): Promise<LoadECampusTodosResult> => {
   }
 };
 
-export const loadECampusTodos = async (
-  options: LoadECampusTodosOptions = {}
+const loadECampusTodosUncached = async (
+  options: NormalizedLoadECampusTodosOptions,
 ): Promise<LoadECampusTodosResult> => {
-  const { allowAutoLogin = true, clearExpiredCredentials = true } = options;
+  const { allowAutoLogin, clearExpiredCredentials } = options;
 
   const directResult = await fetchECampusTodos();
   if (directResult.success || !directResult.needsLogin) {
@@ -123,4 +150,44 @@ export const loadECampusTodos = async (
     errorLog("Error with saved credentials:", error);
     return directResult;
   }
+};
+
+/**
+ * 한 popup 생명주기 안에서 같은 eCampus 요청을 공유한다.
+ * 성공 결과만 짧게 캐시해 badge와 Todo 탭이 연달아 같은 요청을 보내지 않게 한다.
+ */
+export const loadECampusTodos = (
+  options: LoadECampusTodosOptions = {},
+): Promise<LoadECampusTodosResult> => {
+  const normalizedOptions = normalizeOptions(options);
+  const requestKey = getRequestKey(normalizedOptions);
+  const cached = cachedResults.get(requestKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return Promise.resolve(cached.result);
+  }
+  cachedResults.delete(requestKey);
+
+  const inFlight = inFlightLoads.get(requestKey);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const request = loadECampusTodosUncached(normalizedOptions)
+    .then((result) => {
+      if (result.success) {
+        cachedResults.set(requestKey, {
+          expiresAt: Date.now() + ECAMPUS_TODO_CACHE_TTL_MS,
+          result,
+        });
+      }
+
+      return result;
+    })
+    .finally(() => {
+      inFlightLoads.delete(requestKey);
+    });
+
+  inFlightLoads.set(requestKey, request);
+  return request;
 };

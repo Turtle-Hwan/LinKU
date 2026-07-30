@@ -22,7 +22,7 @@ const getDdayBadgeClassName = (dDay: string) => {
 
 const TodoItem = ({ todo, timerEnabled = false, onToggle, onDelete, onClick }: TodoItemProps) => {
   if (todo.type === 'ecampus') {
-    // 이캠퍼스 Todo - 검정색 테두리로 통일
+    // eCampus Todo - 메인 색상 테두리
     const parsed = parseECampusToTimerFormat(todo.dueDate);
     const showTimer = timerEnabled && parsed && shouldShowTimer(parsed.date, parsed.time);
 
@@ -48,7 +48,7 @@ const TodoItem = ({ todo, timerEnabled = false, onToggle, onDelete, onClick }: T
       </div>
     );
   } else {
-    // 사용자 정의 Todo - 검은색 테두리
+    // 사용자 정의 Todo - 검정색 테두리로 구분
     const formattedDateTime = formatTodoDateTime(todo.dueDate, todo.dueTime);
     const showTimer = timerEnabled && shouldShowTimer(todo.dueDate, todo.dueTime);
 

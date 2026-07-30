@@ -39,6 +39,8 @@ import { Info, Palette, LogOut, Mail, User, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
+import TodoCountdown from "@/components/Tabs/TodoList/TodoCountdown";
+import { calculateDDay } from "@/utils/todo/dateFormat";
 import { errorLog } from '@/utils/logger';
 
 interface SettingsDialogProps {
@@ -522,28 +524,51 @@ const TemplateEditorSection = () => {
 };
 
 const RealtimeTimer = () => {
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [previewDeadline] = useState(() => {
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + 1);
+    const pad = (value: number) => String(value).padStart(2, "0");
+
+    return {
+      date: `${deadline.getFullYear()}.${pad(deadline.getMonth() + 1)}.${pad(deadline.getDate())}`,
+      time: `${pad(deadline.getHours())}:${pad(deadline.getMinutes())}`,
+    };
+  });
+  const previewDDay = calculateDDay(
+    previewDeadline.date,
+    previewDeadline.time,
+  );
 
   // 설정 페이지 열릴 때 저장된 설정 불러오기
   useEffect(() => {
-    loadTimerSetting();
+    let isMounted = true;
+
+    getStorage<boolean>("realtimeTimerEnabled")
+      .then((saved) => {
+        if (isMounted) {
+          setEnabled(saved ?? true);
+        }
+      })
+      .catch((error) => {
+        errorLog("[Settings] Load timer setting error:", error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const loadTimerSetting = async () => {
-    try {
-      const saved = await getStorage<boolean>("realtimeTimerEnabled");
-      setEnabled(saved ?? true); // 기본값: true
-    } catch (error) {
-      errorLog("[Settings] Load timer setting error:", error);
-    }
-  };
-
   const handleToggle = async () => {
+    if (isSaving) return;
+
     const newValue = !enabled;
-    setEnabled(newValue);
+    setIsSaving(true);
 
     try {
       await setStorage({ realtimeTimerEnabled: newValue });
+      setEnabled(newValue);
       sendSettingChange("realtime_timer", newValue ? "enabled" : "disabled");
       toast.success(
         newValue
@@ -553,6 +578,8 @@ const RealtimeTimer = () => {
     } catch (error) {
       errorLog("[Settings] Save timer setting error:", error);
       toast.error("설정 저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -573,8 +600,13 @@ const RealtimeTimer = () => {
               </p>
             </div>
             <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              aria-label="실시간 Todo 타이머 표시"
+              disabled={isSaving}
               onClick={handleToggle}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                 enabled ? "bg-main" : "bg-gray-300"
               }`}
             >
@@ -584,6 +616,28 @@ const RealtimeTimer = () => {
                 }`}
               />
             </button>
+          </div>
+
+          <div
+            className="space-y-2 rounded-md border border-gray-200 bg-gray-50/50 p-3"
+            aria-label="타이머 미리보기"
+          >
+            <p className="text-xs font-medium text-muted-foreground">
+              타이머 미리보기
+            </p>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold">마감 임박 Todo</span>
+              {enabled ? (
+                <TodoCountdown
+                  dueDate={previewDeadline.date}
+                  dueTime={previewDeadline.time}
+                />
+              ) : (
+                <span className="rounded-full bg-main/10 px-2 py-1 text-xs text-main">
+                  {previewDDay}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
