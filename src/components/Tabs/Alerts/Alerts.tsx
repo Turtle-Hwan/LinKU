@@ -178,7 +178,11 @@ const Alerts = () => {
             </div>
           ) : filteredAlerts.length > 0 ? (
             filteredAlerts.map((alert) => (
-              <AlertItem key={alert.alertId} alert={alert} />
+              <AlertItem
+                key={alert.alertId}
+                alert={alert}
+                searchQuery={searchQuery}
+              />
             ))
           ) : (
             <div className="text-center p-8 text-muted-foreground">

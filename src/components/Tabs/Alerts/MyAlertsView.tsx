@@ -242,7 +242,11 @@ const MyAlertsView = ({ searchQuery }: MyAlertsViewProps) => {
         ) : filteredAlerts.length > 0 ? (
           <div className="space-y-3">
             {filteredAlerts.map((alert) => (
-              <AlertItem key={alert.alertId} alert={alert} />
+              <AlertItem
+                key={alert.alertId}
+                alert={alert}
+                searchQuery={searchQuery}
+              />
             ))}
           </div>
         ) : mySubscriptions.length === 0 ? (
