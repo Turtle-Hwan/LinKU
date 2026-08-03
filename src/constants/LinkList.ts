@@ -178,8 +178,8 @@ export const LinkList: LinkListElement[] = [
   // row6
   {
     icon: ScrollText,
-    label: "2025 요람",
-    link: "https://www.konkuk.ac.kr/sites/bulletins25/index.do",
+    label: "2026 요람",
+    link: "https://www.konkuk.ac.kr/bulletins26/index.do",
   },
   {
     icon: Building,
