@@ -44,7 +44,7 @@ jobs:
           cd ..
 
       - name: Install chrome-webstore-upload-cli
-        run: npm install -g chrome-webstore-upload-cli
+        run: npm install --global chrome-webstore-upload-cli@4.0.1
 
       - name: Upload to Chrome Web Store (Draft only)
         run: |
