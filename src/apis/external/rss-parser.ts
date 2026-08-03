@@ -1,15 +1,29 @@
 import type { GeneralAlert, RSSAlertCategory } from "../../types/api";
-import { errorLog } from '@/utils/logger';
 
 /**
  * RSS URL configuration for each category
  */
 const RSS_URLS: Record<RSSAlertCategory, string> = {
-  학사: "https://www.konkuk.ac.kr/bbs/konkuk/234/rssList.do?row=50",
-  장학: "https://www.konkuk.ac.kr/bbs/konkuk/235/rssList.do?row=50",
-  국제: "https://www.konkuk.ac.kr/bbs/konkuk/237/rssList.do?row=50",
-  학생: "https://www.konkuk.ac.kr/bbs/konkuk/238/rssList.do?row=50",
-  일반: "https://www.konkuk.ac.kr/bbs/konkuk/240/rssList.do?row=50",
+  학사: "https://www.konkuk.ac.kr/bbs/konkuk/234/rssList.do",
+  장학: "https://www.konkuk.ac.kr/bbs/konkuk/235/rssList.do",
+  국제: "https://www.konkuk.ac.kr/bbs/konkuk/237/rssList.do",
+  학생: "https://www.konkuk.ac.kr/bbs/konkuk/238/rssList.do",
+  일반: "https://www.konkuk.ac.kr/bbs/konkuk/240/rssList.do",
+};
+
+export const RSS_ALERT_PAGE_SIZE = 50;
+
+const RSS_CATEGORY_START_IDS: Record<RSSAlertCategory, number> = {
+  학사: 1,
+  장학: 1001,
+  국제: 2001,
+  학생: 3001,
+  일반: 4001,
+};
+
+const getStableAlertId = (link: string, fallbackId: number) => {
+  const articleId = link.match(/\/(\d+)\/artclView\.do/)?.[1];
+  return articleId ? -Number(articleId) : -fallbackId;
 };
 
 /**
@@ -54,7 +68,9 @@ const parseRSSToAlerts = (
     }
 
     alerts.push({
-      alertId: -(startId + index), // Negative IDs to distinguish from API data
+      // The article number in the URL is stable across RSS page shifts.
+      // Keep external IDs negative to distinguish them from backend IDs.
+      alertId: getStableAlertId(link, startId + index),
       title,
       content: description,
       category,
@@ -70,51 +86,25 @@ const parseRSSToAlerts = (
 /**
  * Fetches alerts from a single RSS feed
  */
-const fetchRSSByCategory = async (
+export const getAlertsFromRSSPage = async (
   category: RSSAlertCategory,
-  startId: number
+  page: number,
 ): Promise<GeneralAlert[]> => {
-  try {
-    const url = RSS_URLS[category];
-    const response = await fetch(url);
+  const url = new URL(RSS_URLS[category]);
+  url.searchParams.set("row", String(RSS_ALERT_PAGE_SIZE));
+  url.searchParams.set("page", String(page));
 
-    if (!response.ok) {
-      throw new Error(`RSS fetch failed for ${category}: ${response.status}`);
-    }
+  const response = await fetch(url);
 
-    const xmlText = await response.text();
-    return parseRSSToAlerts(xmlText, category, startId);
-  } catch (error) {
-    errorLog(`Error fetching RSS for ${category}:`, error);
-    return []; // Return empty array on error
+  if (!response.ok) {
+    throw new Error(`RSS fetch failed for ${category}: ${response.status}`);
   }
-};
 
-/**
- * Fetches alerts from all RSS feeds
- * Fetches all categories in parallel and combines results
- */
-export const getAlertsFromRSS = async (): Promise<GeneralAlert[]> => {
-  try {
-    const categories: RSSAlertCategory[] = [
-      "학사",
-      "장학",
-      "국제",
-      "학생",
-      "일반",
-    ];
-
-    // Fetch all RSS feeds in parallel
-    const results = await Promise.all(
-      categories.map((category, index) =>
-        fetchRSSByCategory(category, index * 1000 + 1)
-      )
-    );
-
-    // Combine all results
-    return results.flat();
-  } catch (error) {
-    errorLog("Error fetching RSS feeds:", error);
-    throw error;
-  }
+  const xmlText = await response.text();
+  const pageOffset = (page - 1) * RSS_ALERT_PAGE_SIZE;
+  return parseRSSToAlerts(
+    xmlText,
+    category,
+    RSS_CATEGORY_START_IDS[category] + pageOffset,
+  );
 };

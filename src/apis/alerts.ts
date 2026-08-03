@@ -11,41 +11,42 @@ import type {
   Department,
   Subscription,
 } from '../types/api';
-import { getAlertsFromRSS } from './external/rss-parser';
-import { getCareerAlertsFromHTML } from './external/html-parser';
+import {
+  getCachedPublicAlerts,
+  syncPublicAlerts,
+} from './public-alert-cache';
 import { errorLog } from '@/utils/logger';
 
 /**
  * Get filtered alerts by category
- * Fetches alerts from RSS/HTML external sources
+ * Returns cached alerts immediately without a network request.
+ */
+export async function getCachedAlerts(
+  params?: AlertFilterParams
+): Promise<GeneralAlert[]> {
+  return getCachedPublicAlerts(params?.category);
+}
+
+/**
+ * Refreshes stale public alert sources and returns the merged cache.
+ * A selected category refreshes only its own source; the all view refreshes
+ * only sources whose individual TTL has expired.
  */
 export async function getAlerts(
   params?: AlertFilterParams
 ): Promise<ApiResponse<GeneralAlert[]>> {
   try {
-    // Fetch from external sources (RSS/HTML parsing)
-    const [rssAlerts, careerAlerts] = await Promise.all([
-      getAlertsFromRSS(),
-      getCareerAlertsFromHTML(6000),
-    ]);
+    const { alerts, allFailed } = await syncPublicAlerts(params?.category);
 
-    const allAlerts = [...rssAlerts, ...careerAlerts];
-
-    // Filter by category if specified
-    if (params?.category) {
-      const filteredAlerts = allAlerts.filter(alert => alert.category === params.category);
+    if (!allFailed || alerts.length > 0) {
       return {
         success: true,
-        data: filteredAlerts,
+        data: alerts,
         status: 200,
       };
     }
 
-    return {
-      success: true,
-      data: allAlerts,
-      status: 200,
-    };
+    throw new Error("All public alert sources failed without cached data");
   } catch (error) {
     errorLog("[Alerts] Failed to fetch alerts from external sources", error);
     return {

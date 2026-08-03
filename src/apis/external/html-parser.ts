@@ -1,7 +1,10 @@
 import type { GeneralAlert } from "../../types/api";
-import { debugLog, warnLog, errorLog } from '@/utils/logger';
+import { warnLog } from '@/utils/logger';
 
 const CAREER_URL = "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do";
+const CAREER_FALLBACK_START_ID = 6001;
+
+export const CAREER_ALERT_PAGE_SIZE = 20;
 
 /**
  * Parses HTML table and converts to GeneralAlert array for 취창업 category
@@ -68,7 +71,8 @@ const parseHTMLToAlerts = (
     }
 
     alerts.push({
-      alertId: -(startId + index),
+      // artclId remains stable when rows move between list pages.
+      alertId: viewMatch ? -Number(viewMatch[4]) : -(startId + index),
       title,
       content: "", // HTML page doesn't provide content in list view
       category: "취창업",
@@ -84,23 +88,18 @@ const parseHTMLToAlerts = (
 /**
  * Fetches alerts from 취창업 HTML page
  */
-export const getCareerAlertsFromHTML = async (
-  startId: number = 3001
+export const getCareerAlertsPage = async (
+  page: number,
 ): Promise<GeneralAlert[]> => {
-  try {
-    debugLog("Fetching career alerts from:", CAREER_URL);
-    const response = await fetch(CAREER_URL);
+  const url = new URL(CAREER_URL);
+  url.searchParams.set("page", String(page));
+  const response = await fetch(url);
 
-    if (!response.ok) {
-      throw new Error(`HTML fetch failed: ${response.status}`);
-    }
-
-    const htmlText = await response.text();
-    const alerts = parseHTMLToAlerts(htmlText, startId);
-    debugLog(`Parsed ${alerts.length} career alerts, sample:`, alerts[0]);
-    return alerts;
-  } catch (error) {
-    errorLog("Error fetching career HTML:", error);
-    return []; // Return empty array on error
+  if (!response.ok) {
+    throw new Error(`HTML fetch failed: ${response.status}`);
   }
+
+  const htmlText = await response.text();
+  const pageOffset = (page - 1) * CAREER_ALERT_PAGE_SIZE;
+  return parseHTMLToAlerts(htmlText, CAREER_FALLBACK_START_ID + pageOffset);
 };

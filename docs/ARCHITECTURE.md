@@ -217,6 +217,42 @@ auth code, access token, refresh token, full token response를 로그로 남기�
 깨질 수 있습니다. 이 영역의 변경은 PR에 manual verification notes를 포함해야
 합니다.
 
+### 공지 캐시와 동기화
+
+공개 공지는 backend가 아니라 건국대학교의 카테고리별 RSS 5개와 취창업 HTML
+목록 1개에서 가져옵니다. `src/apis/public-alert-cache.ts`는 이 여섯 source를
+`chrome.storage.local`의 `publicAlertCacheV1:<source>` 키에 각각 저장합니다.
+
+```mermaid
+flowchart LR
+  UI["공지 탭 또는 카테고리 선택"] --> Cache["source별 로컬 캐시"]
+  Cache -->|"즉시 표시"| UI
+  Cache --> Fresh{"10분 TTL 이내?"}
+  Fresh -->|"예"| Stop["학교 서버 호출 없음"]
+  Fresh -->|"아니요"| Source["선택한 RSS 또는 취창업 HTML"]
+  Source --> Merge["안정 URL로 병합"]
+  Merge --> Cache
+```
+
+- 전체 화면은 만료된 source만 갱신하고, 카테고리 화면은 선택한 source만
+  갱신합니다.
+- 첫 동기화는 최신 한 페이지만 저장합니다. 이후 동기화는 직전 첫 페이지의
+  끝부분을 기준점으로 삼아, 기준점을 다시 만날 때까지 다음 페이지를 읽습니다.
+- 여러 페이지를 읽은 경우 첫 페이지를 다시 확인합니다. 읽는 도중 목록이
+  바뀌었다면 한 번 다시 시작하며, 완전한 경계를 확인하지 못한 결과는 저장하지
+  않습니다.
+- 동일 공지는 정규화된 URL로 병합하고, 실패한 source는 기존 캐시와 기준점을
+  유지해 다음 화면 진입에서 다시 시도합니다.
+- `chrome.storage.local` 용량을 잠식하지 않도록 source별 최신 500개까지만
+  보존합니다.
+- popup이 닫힌 동안 실행되는 background alarm은 없습니다. 캐시가 만료된 뒤
+  사용자가 공지 화면을 열거나 카테고리를 바꿀 때만 network sync가 일어납니다.
+
+학교 접근은 `fetchPublicAlertPage` 한 함수에 모여 있어 중앙 수집기가 생기면 이
+경계만 교체할 수 있습니다. 단, frontend-only 구조에서는 학교가
+게시물을 source에서 제거하거나 local storage가 삭제된 기간까지 절대적인 무누락을
+보장할 수 없으며, 현재 공개된 목록 안에서 확인 가능한 동기화 경계만 보존합니다.
+
 ## UI 시스템
 
 UI는 다음을 사용합니다.
