@@ -133,15 +133,19 @@ function verifyBulletinBody(
     return "unverified";
   }
 
-  const shortYear = String(year).slice(-2);
-  const hasBulletinSignature =
-    normalizedBody.includes("요람") || normalizedBody.includes("bulletin");
-  const hasYearSignature =
-    normalizedBody.includes(String(year)) ||
-    normalizedBody.includes(`bulletins${shortYear}`) ||
-    normalizedBody.includes(`bulletin${shortYear}`);
+  const visibleText = normalizedBody
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const handbookHeading = new RegExp(
+    `${year}(?:학년도)?\\s+건국대학교\\s+(?:온라인\\s*)?요람`,
+  );
 
-  return hasBulletinSignature && hasYearSignature
+  return handbookHeading.test(visibleText)
     ? "verified"
     : "unverified";
 }
