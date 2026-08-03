@@ -6,13 +6,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getTemplate } from "@/apis/templates";
-import { resolveLatestBulletin } from "@/apis/external/bulletin";
+import {
+  resolveLatestBulletin,
+  subscribeLatestBulletin,
+} from "@/apis/external/bulletin";
 import type { Template } from "@/types/api";
 import {
   LinkList,
   createDefaultLinkList,
   type LinkListElement,
 } from "@/constants/LinkList";
+import type { BulletinInfo } from "@/constants/bulletin";
 import { loadTemplateFromLocalStorage } from "@/utils/templateStorage";
 import { debugLog, errorLog } from '@/utils/logger';
 
@@ -57,6 +61,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
   const loadRequestIdRef = useRef(0);
   const selectedTemplateIdRef = useRef<number | null>(selectedTemplateId);
   const defaultLinkItemsRef = useRef<LinkListElement[]>(LinkList);
+  const bulletinYearRef = useRef(0);
 
   selectedTemplateIdRef.current = selectedTemplateId;
 
@@ -68,21 +73,26 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
   useEffect(() => {
     let cancelled = false;
 
-    void resolveLatestBulletin().then((bulletin) => {
-      if (cancelled) {
+    const applyBulletin = (bulletin: BulletinInfo) => {
+      if (cancelled || bulletin.year < bulletinYearRef.current) {
         return;
       }
 
+      bulletinYearRef.current = bulletin.year;
       const resolvedLinkItems = createDefaultLinkList(bulletin);
       defaultLinkItemsRef.current = resolvedLinkItems;
 
       if (selectedTemplateIdRef.current === null) {
         setLinkItems(resolvedLinkItems);
       }
-    });
+    };
+    const unsubscribe = subscribeLatestBulletin(applyBulletin);
+
+    void resolveLatestBulletin().then(applyBulletin);
 
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 

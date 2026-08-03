@@ -7,6 +7,7 @@ import {
 import { debugLog } from "@/utils/logger";
 
 type BulletinVerification = "verified" | "unverified";
+type BulletinListener = (bulletin: BulletinInfo) => void;
 
 interface BulletinCache {
   resolvedYear: number;
@@ -34,9 +35,10 @@ const UNVERIFIED_PAGE_SIGNATURES = [
   "page not found",
 ];
 
-let sessionResolution:
-  | { calendarYear: number; promise: Promise<BulletinInfo> }
+let sessionRefresh:
+  | { calendarYear: number; promise: Promise<void> }
   | undefined;
+const bulletinListeners = new Set<BulletinListener>();
 
 const INITIAL_CACHE: BulletinCache = {
   resolvedYear: BULLETIN_FALLBACK_YEAR,
@@ -46,6 +48,17 @@ const INITIAL_CACHE: BulletinCache = {
 
 function getStorage(): chrome.storage.StorageArea | null {
   return globalThis.chrome?.storage?.local ?? null;
+}
+
+function notifyBulletinListeners(bulletin: BulletinInfo): void {
+  bulletinListeners.forEach((listener) => listener(bulletin));
+}
+
+export function subscribeLatestBulletin(
+  listener: BulletinListener,
+): () => void {
+  bulletinListeners.add(listener);
+  return () => bulletinListeners.delete(listener);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -187,8 +200,86 @@ async function verifyBulletin(
   }
 }
 
-async function resolveLatestBulletinInternal(
-  now: Date,
+function shouldRefreshBulletin(
+  cache: BulletinCache,
+  currentYear: number,
+  nowMs: number,
+): boolean {
+  if (cache.resolvedYear >= currentYear) {
+    return false;
+  }
+
+  return !(
+    cache.attemptedYear === currentYear &&
+    nowMs - cache.checkedAt < RETRY_INTERVAL_MS
+  );
+}
+
+async function refreshLatestBulletin(
+  storage: chrome.storage.StorageArea,
+  cache: BulletinCache,
+  currentYear: number,
+  nowMs: number,
+): Promise<void> {
+  const candidateYears = [currentYear, currentYear - 1].filter(
+    (year) => year > cache.resolvedYear,
+  );
+  const results = await Promise.all(
+    candidateYears.map(async (year) => ({
+      year,
+      verification: await verifyBulletin(year),
+    })),
+  );
+  const verifiedCandidate = results.find(
+    ({ verification }) => verification === "verified",
+  );
+  const resolvedYear = verifiedCandidate?.year ?? cache.resolvedYear;
+  const updatedCache: BulletinCache = {
+    resolvedYear,
+    attemptedYear: currentYear,
+    checkedAt: nowMs,
+  };
+
+  try {
+    await storage.set({ [BULLETIN_CACHE_KEY]: updatedCache });
+  } catch (error) {
+    debugLog("[bulletin] Failed to persist bulletin cache", error);
+  }
+
+  if (resolvedYear > cache.resolvedYear) {
+    notifyBulletinListeners(createBulletinInfo(resolvedYear));
+  }
+}
+
+function startBulletinRefresh(
+  storage: chrome.storage.StorageArea,
+  cache: BulletinCache,
+  currentYear: number,
+  nowMs: number,
+): void {
+  if (sessionRefresh?.calendarYear === currentYear) {
+    return;
+  }
+
+  const promise = refreshLatestBulletin(
+    storage,
+    cache,
+    currentYear,
+    nowMs,
+  ).catch((error) => {
+    debugLog("[bulletin] Failed to refresh annual bulletin", error);
+  });
+  sessionRefresh = { calendarYear: currentYear, promise };
+
+  void promise.finally(() => {
+    if (sessionRefresh?.promise === promise) {
+      sessionRefresh = undefined;
+    }
+  });
+}
+
+export async function resolveLatestBulletin(
+  now: Date = new Date(),
 ): Promise<BulletinInfo> {
   const storage = getStorage();
   const currentYear = now.getFullYear();
@@ -212,57 +303,9 @@ async function resolveLatestBulletinInternal(
     return BULLETIN_FALLBACK;
   }
 
-  if (cache.resolvedYear >= currentYear) {
-    return createBulletinInfo(cache.resolvedYear);
+  if (shouldRefreshBulletin(cache, currentYear, nowMs)) {
+    startBulletinRefresh(storage, cache, currentYear, nowMs);
   }
 
-  const checkedCurrentYearRecently =
-    cache.attemptedYear === currentYear &&
-    nowMs - cache.checkedAt < RETRY_INTERVAL_MS;
-
-  if (checkedCurrentYearRecently) {
-    return createBulletinInfo(cache.resolvedYear);
-  }
-
-  const candidateYears = [currentYear, currentYear - 1].filter(
-    (year) => year > cache.resolvedYear,
-  );
-
-  let resolvedYear = cache.resolvedYear;
-  for (const candidateYear of candidateYears) {
-    const verification = await verifyBulletin(candidateYear);
-    if (verification === "verified") {
-      resolvedYear = candidateYear;
-      break;
-    }
-  }
-
-  const updatedCache: BulletinCache = {
-    resolvedYear,
-    attemptedYear: currentYear,
-    checkedAt: nowMs,
-  };
-
-  try {
-    await storage.set({ [BULLETIN_CACHE_KEY]: updatedCache });
-  } catch (error) {
-    debugLog("[bulletin] Failed to persist bulletin cache", error);
-  }
-
-  return createBulletinInfo(resolvedYear);
-}
-
-export function resolveLatestBulletin(
-  now: Date = new Date(),
-): Promise<BulletinInfo> {
-  const calendarYear = now.getFullYear();
-
-  if (!sessionResolution || sessionResolution.calendarYear !== calendarYear) {
-    sessionResolution = {
-      calendarYear,
-      promise: resolveLatestBulletinInternal(now),
-    };
-  }
-
-  return sessionResolution.promise;
+  return createBulletinInfo(cache.resolvedYear);
 }
