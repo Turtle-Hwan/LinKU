@@ -3,7 +3,7 @@ import type { Alert } from "@/types/api";
 const normalizeSearchText = (value: string) =>
   value.normalize("NFKC").toLocaleLowerCase("ko-KR");
 
-export const getSearchTokens = (query: string) =>
+const getSearchTokens = (query: string) =>
   normalizeSearchText(query)
     .trim()
     .split(/\s+/)
@@ -25,7 +25,7 @@ export const matchesAlertQuery = (alert: Alert, query: string) => {
   return queryTokens.every((token) => searchableText.includes(token));
 };
 
-export interface HighlightRange {
+interface HighlightRange {
   start: number;
   end: number;
 }

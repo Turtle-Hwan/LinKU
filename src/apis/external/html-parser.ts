@@ -1,7 +1,8 @@
 import type { GeneralAlert } from "../../types/api";
-import { debugLog, warnLog } from '@/utils/logger';
+import { warnLog } from '@/utils/logger';
 
 const CAREER_URL = "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do";
+const CAREER_FALLBACK_START_ID = 6001;
 
 export const CAREER_ALERT_PAGE_SIZE = 20;
 
@@ -88,12 +89,10 @@ const parseHTMLToAlerts = (
  * Fetches alerts from 취창업 HTML page
  */
 export const getCareerAlertsPage = async (
-  page: number = 1,
-  startId: number = 6001,
+  page: number,
 ): Promise<GeneralAlert[]> => {
   const url = new URL(CAREER_URL);
   url.searchParams.set("page", String(page));
-  debugLog("Fetching career alerts from:", url.href);
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -102,7 +101,5 @@ export const getCareerAlertsPage = async (
 
   const htmlText = await response.text();
   const pageOffset = (page - 1) * CAREER_ALERT_PAGE_SIZE;
-  const alerts = parseHTMLToAlerts(htmlText, startId + pageOffset);
-  debugLog(`Parsed ${alerts.length} career alerts, sample:`, alerts[0]);
-  return alerts;
+  return parseHTMLToAlerts(htmlText, CAREER_FALLBACK_START_ID + pageOffset);
 };

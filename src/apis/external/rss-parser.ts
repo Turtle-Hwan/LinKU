@@ -88,11 +88,10 @@ const parseRSSToAlerts = (
  */
 export const getAlertsFromRSSPage = async (
   category: RSSAlertCategory,
-  page: number = 1,
-  row: number = RSS_ALERT_PAGE_SIZE,
+  page: number,
 ): Promise<GeneralAlert[]> => {
   const url = new URL(RSS_URLS[category]);
-  url.searchParams.set("row", String(row));
+  url.searchParams.set("row", String(RSS_ALERT_PAGE_SIZE));
   url.searchParams.set("page", String(page));
 
   const response = await fetch(url);
@@ -102,7 +101,7 @@ export const getAlertsFromRSSPage = async (
   }
 
   const xmlText = await response.text();
-  const pageOffset = (page - 1) * row;
+  const pageOffset = (page - 1) * RSS_ALERT_PAGE_SIZE;
   return parseRSSToAlerts(
     xmlText,
     category,
