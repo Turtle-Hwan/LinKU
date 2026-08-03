@@ -221,7 +221,7 @@ auth code, access token, refresh token, full token response를 로그로 남기�
 
 공개 공지는 backend가 아니라 건국대학교의 카테고리별 RSS 5개와 취창업 HTML
 목록 1개에서 가져옵니다. `src/apis/public-alert-cache.ts`는 이 여섯 source를
-`chrome.storage.local`의 `publicAlertCacheV1`에 source별로 저장합니다.
+`chrome.storage.local`의 `publicAlertCacheV1:<source>` 키에 각각 저장합니다.
 
 ```mermaid
 flowchart LR
