@@ -200,7 +200,7 @@ export const LinkList: LinkListElement[] = [
   },
 ];
 
-export function createLinkList(
+export function createDefaultLinkList(
   bulletin: BulletinInfo = BULLETIN_FALLBACK,
 ): LinkListElement[] {
   return LinkList.map((item) =>

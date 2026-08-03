@@ -33,7 +33,7 @@ import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLoca
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
 import { areItemsEqual } from '@/utils/templateUtils';
-import { createLinkList } from '@/constants/LinkList';
+import { createDefaultLinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
 import { warnLog, errorLog } from '@/utils/logger';
 import { sendTemplateApply, sendTemplateCreateStart, sendTemplateDelete } from '@/utils/analytics';
@@ -194,7 +194,7 @@ export const TemplateListPage = () => {
       // 6. 기본 템플릿 추가 (항상 맨 위에 표시)
       // Convert LinkList to Icon array (including lucide-react icons)
       const latestBulletin = await resolveLatestBulletin();
-      const defaultLinks = createLinkList(latestBulletin);
+      const defaultLinks = createDefaultLinkList(latestBulletin);
       const defaultIcons = defaultLinks.map((link, index) => {
         let imageUrl: string;
 

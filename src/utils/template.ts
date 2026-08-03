@@ -112,17 +112,12 @@ function calculateGridPosition(
   colSpan: number,
   linkList: LinkListElement[],
 ): { x: number; y: number } {
-  const items = linkList.map((item, i) => ({
-    index: i,
-    colSpan: item.islong ? 3 : 2,
-  }));
-
   let currentCol = 0;
   let currentRow = 0;
 
   // Find position for this index
   for (let i = 0; i < index; i++) {
-    const itemColSpan = items[i].colSpan;
+    const itemColSpan = linkList[i].islong ? 3 : 2;
 
     // Check if item fits in current row
     if (currentCol + itemColSpan > GRID_CONFIG.COLS) {
@@ -228,7 +223,6 @@ function findMatchingIcon(linkItem: LinkListElement, defaultIcons: Icon[]): Icon
       '학과 정보': 'users',
       '쿨하우스': 'bed',
       'kung': 'message',
-      '요람': 'scroll',
       '현장실습': 'building',
       '창업지원': 'lightbulb',
     };

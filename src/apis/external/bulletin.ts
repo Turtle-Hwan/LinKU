@@ -6,7 +6,7 @@ import {
 } from "@/constants/bulletin";
 import { debugLog } from "@/utils/logger";
 
-export type BulletinAvailability = "available" | "unavailable" | "unknown";
+type BulletinAvailability = "available" | "unavailable" | "unknown";
 
 interface BulletinCache {
   resolvedYear: number;
@@ -14,7 +14,7 @@ interface BulletinCache {
   checkedAt: number;
 }
 
-export const BULLETIN_CACHE_KEY = "linku:latest-bulletin:v1";
+const BULLETIN_CACHE_KEY = "linku:latest-bulletin:v1";
 
 const RETRY_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -41,6 +41,12 @@ let sessionResolution:
   | { calendarYear: number; promise: Promise<BulletinInfo> }
   | undefined;
 
+const INITIAL_CACHE: BulletinCache = {
+  resolvedYear: BULLETIN_FALLBACK_YEAR,
+  attemptedYear: BULLETIN_FALLBACK_YEAR,
+  checkedAt: 0,
+};
+
 function getStorage(): chrome.storage.StorageArea | null {
   return globalThis.chrome?.storage?.local ?? null;
 }
@@ -49,12 +55,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function createInitialCache(): BulletinCache {
-  return {
-    resolvedYear: BULLETIN_FALLBACK_YEAR,
-    attemptedYear: BULLETIN_FALLBACK_YEAR,
-    checkedAt: 0,
-  };
+function isYearInRange(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= minimum &&
+    value <= maximum
+  );
 }
 
 function parseCache(
@@ -63,22 +74,24 @@ function parseCache(
   nowMs: number,
 ): BulletinCache {
   if (!isRecord(value)) {
-    return createInitialCache();
+    return INITIAL_CACHE;
   }
 
-  const resolvedYear =
-    Number.isInteger(value.resolvedYear) &&
-    Number(value.resolvedYear) >= BULLETIN_FALLBACK_YEAR &&
-    Number(value.resolvedYear) <= currentYear
-      ? Number(value.resolvedYear)
-      : BULLETIN_FALLBACK_YEAR;
+  const resolvedYear = isYearInRange(
+    value.resolvedYear,
+    BULLETIN_FALLBACK_YEAR,
+    currentYear,
+  )
+    ? value.resolvedYear
+    : BULLETIN_FALLBACK_YEAR;
 
-  const attemptedYear =
-    Number.isInteger(value.attemptedYear) &&
-    Number(value.attemptedYear) >= resolvedYear &&
-    Number(value.attemptedYear) <= currentYear
-      ? Number(value.attemptedYear)
-      : resolvedYear;
+  const attemptedYear = isYearInRange(
+    value.attemptedYear,
+    resolvedYear,
+    currentYear,
+  )
+    ? value.attemptedYear
+    : resolvedYear;
 
   const checkedAt =
     typeof value.checkedAt === "number" &&
@@ -109,7 +122,10 @@ function isExpectedBulletinPage(responseUrl: string, year: number): boolean {
   }
 }
 
-function classifySuccessfulResponse(body: string, year: number): BulletinAvailability {
+function classifySuccessfulResponse(
+  body: string,
+  year: number,
+): BulletinAvailability {
   const normalizedBody = body.toLowerCase();
 
   if (WAF_SIGNATURES.some((signature) => normalizedBody.includes(signature))) {
@@ -137,7 +153,7 @@ function classifySuccessfulResponse(body: string, year: number): BulletinAvailab
     : "unknown";
 }
 
-export async function checkBulletinAvailability(
+async function checkBulletinAvailability(
   year: number,
   fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<BulletinAvailability> {
@@ -216,8 +232,7 @@ async function resolveLatestBulletinInternal(
   }
 
   const candidateYears = [currentYear, currentYear - 1].filter(
-    (year, index, years) =>
-      year > cache.resolvedYear && years.indexOf(year) === index,
+    (year) => year > cache.resolvedYear,
   );
 
   let resolvedYear = cache.resolvedYear;

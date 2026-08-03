@@ -10,7 +10,7 @@ import { resolveLatestBulletin } from "@/apis/external/bulletin";
 import type { Template } from "@/types/api";
 import {
   LinkList,
-  createLinkList,
+  createDefaultLinkList,
   type LinkListElement,
 } from "@/constants/LinkList";
 import { loadTemplateFromLocalStorage } from "@/utils/templateStorage";
@@ -73,7 +73,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         return;
       }
 
-      const resolvedLinkItems = createLinkList(bulletin);
+      const resolvedLinkItems = createDefaultLinkList(bulletin);
       defaultLinkItemsRef.current = resolvedLinkItems;
 
       if (selectedTemplateIdRef.current === null) {
