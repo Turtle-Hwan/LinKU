@@ -229,11 +229,8 @@ flowchart LR
   Cache -->|"즉시 표시"| UI
   Cache --> Fresh{"10분 TTL 이내?"}
   Fresh -->|"예"| Stop["학교 서버 호출 없음"]
-  Fresh -->|"아니요"| Gateway["PublicAlertSourceGateway"]
-  Gateway --> RSS["선택한 RSS"]
-  Gateway --> Career["선택한 취창업 HTML"]
-  RSS --> Merge["안정 ID로 병합"]
-  Career --> Merge
+  Fresh -->|"아니요"| Source["선택한 RSS 또는 취창업 HTML"]
+  Source --> Merge["안정 URL로 병합"]
   Merge --> Cache
 ```
 
@@ -244,14 +241,15 @@ flowchart LR
 - 여러 페이지를 읽은 경우 첫 페이지를 다시 확인합니다. 읽는 도중 목록이
   바뀌었다면 한 번 다시 시작하며, 완전한 경계를 확인하지 못한 결과는 저장하지
   않습니다.
-- 동일 공지는 URL의 게시물 ID로 병합하고, 실패한 source는 기존 캐시와 기준점을
+- 동일 공지는 정규화된 URL로 병합하고, 실패한 source는 기존 캐시와 기준점을
   유지해 다음 화면 진입에서 다시 시도합니다.
+- `chrome.storage.local` 용량을 잠식하지 않도록 source별 최신 500개까지만
+  보존합니다.
 - popup이 닫힌 동안 실행되는 background alarm은 없습니다. 캐시가 만료된 뒤
   사용자가 공지 화면을 열거나 카테고리를 바꿀 때만 network sync가 일어납니다.
 
-현재 gateway는 학교 RSS/HTML에 직접 연결되지만, UI와 캐시 계층은
-`PublicAlertSourceGateway`만 의존합니다. 중앙 수집기가 생기면 같은 계약을
-구현하는 gateway로 교체할 수 있습니다. 단, frontend-only 구조에서는 학교가
+학교 접근은 `fetchPublicAlertPage` 한 함수에 모여 있어 중앙 수집기가 생기면 이
+경계만 교체할 수 있습니다. 단, frontend-only 구조에서는 학교가
 게시물을 source에서 제거하거나 local storage가 삭제된 기간까지 절대적인 무누락을
 보장할 수 없으며, 현재 공개된 목록 안에서 확인 가능한 동기화 경계만 보존합니다.
 
