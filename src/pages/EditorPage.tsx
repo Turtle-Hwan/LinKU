@@ -4,7 +4,7 @@
  * Contains DndContext at top level to enable drag-drop between sidebar and canvas
  */
 
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router';
 import { useState, useEffect, useRef } from 'react';
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { EditorProvider } from '@/contexts/EditorContext';
