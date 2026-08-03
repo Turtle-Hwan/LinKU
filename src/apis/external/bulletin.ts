@@ -21,9 +21,12 @@ const REQUEST_TIMEOUT_MS = 5_000;
 
 const WAF_SIGNATURES = [
   "웹 공격 차단",
+  "웹 방화벽",
   "비정상적인 접근",
   "access denied",
   "request blocked",
+  "infra@konkuk.ac.kr",
+  "source ip",
 ];
 
 const ERROR_PAGE_SIGNATURES = [
@@ -88,28 +91,18 @@ function parseCache(
   return { resolvedYear, attemptedYear, checkedAt };
 }
 
-function isExpectedSsoRedirect(location: string, year: number): boolean {
+function isExpectedBulletinPage(responseUrl: string, year: number): boolean {
   try {
-    const redirectUrl = new URL(
-      location,
-      createBulletinInfo(year).url,
-    );
-
-    if (redirectUrl.hostname !== "sso.konkuk.ac.kr") {
-      return false;
-    }
-
-    const relayState = redirectUrl.searchParams.get("RelayState");
-    if (!relayState) {
-      return false;
-    }
-
-    const relayUrl = new URL(relayState);
-    const expectedPath = new URL(createBulletinInfo(year).url).pathname;
+    const finalUrl = new URL(responseUrl);
+    const expectedUrl = new URL(createBulletinInfo(year).url);
+    const expectedPaths = [
+      expectedUrl.pathname,
+      `/sites${expectedUrl.pathname}`,
+    ];
 
     return (
-      relayUrl.hostname === "www.konkuk.ac.kr" &&
-      relayUrl.pathname === expectedPath
+      finalUrl.hostname === expectedUrl.hostname &&
+      expectedPaths.includes(finalUrl.pathname)
     );
   } catch {
     return false;
@@ -155,30 +148,24 @@ export async function checkBulletinAvailability(
   );
 
   try {
+    // An SSO redirect alone does not prove that the annual site exists.
+    // Follow the authenticated chain and validate the final handbook HTML.
     const response = await fetchImpl(createBulletinInfo(year).url, {
       method: "GET",
-      redirect: "manual",
-      credentials: "omit",
+      redirect: "follow",
+      credentials: "include",
       cache: "no-store",
       signal: controller.signal,
     });
-
-    if (response.type === "opaqueredirect") {
-      return "available";
-    }
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      return !location || isExpectedSsoRedirect(location, year)
-        ? "available"
-        : "unknown";
-    }
 
     if (response.status === 404 || response.status === 410) {
       return "unavailable";
     }
 
-    if (response.status !== 200) {
+    if (
+      response.status !== 200 ||
+      !isExpectedBulletinPage(response.url, year)
+    ) {
       return "unknown";
     }
 
