@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { getAlerts } from "@/apis";
+import { useState, useEffect, useMemo } from "react";
+import { getAlerts, getCachedAlerts } from "@/apis";
 import type { Alert, AlertCategory } from "@/types/api";
 import { getStorage, setStorage } from "@/utils/chrome";
 import { isLoggedIn as checkLoggedIn } from "@/utils/oauth";
@@ -43,35 +43,6 @@ const Alerts = () => {
   );
   const hasSearchQuery = searchQuery.trim().length > 0;
 
-  // 공지사항 목록 가져오기
-  const fetchAlerts = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
-      const result = await getAlerts(selectedCategory ? { category: selectedCategory } : undefined);
-
-      if (result.success && result.data) {
-        let sortedData = result.data;
-
-        // "전체" 선택 시 날짜/시간 순서대로 정렬 (최신순)
-        if (selectedCategory === undefined) {
-          sortedData = [...result.data].sort((a, b) =>
-            new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-          );
-        }
-
-        setAlerts(sortedData);
-      } else {
-        toast.error(result.error?.message || "공지사항을 불러오는데 실패했습니다.");
-      }
-    } catch (error) {
-      errorLog("Error fetching alerts:", error);
-      toast.error("공지사항을 불러오는 중 오류가 발생했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedCategory]);
-
   // 초기화: 설정 + 로그인 상태를 한 번에 로드
   useEffect(() => {
     const initialize = async () => {
@@ -103,12 +74,63 @@ const Alerts = () => {
     initialize();
   }, []);
 
-  // viewMode가 "all"일 때만 공지사항 가져오기
+  // 캐시를 먼저 표시하고 만료된 source만 뒤에서 갱신한다.
   useEffect(() => {
-    if (viewMode === "all") {
-      fetchAlerts();
+    if (!isInitialized || viewMode !== "all") {
+      return;
     }
-  }, [viewMode, fetchAlerts]);
+
+    let cancelled = false;
+
+    const loadAlerts = async () => {
+      const params = selectedCategory
+        ? { category: selectedCategory }
+        : undefined;
+      let hasCachedAlerts = false;
+      setIsLoading(true);
+
+      try {
+        const cachedAlerts = await getCachedAlerts(params);
+        if (cancelled) return;
+
+        if (cachedAlerts.length > 0) {
+          hasCachedAlerts = true;
+          setAlerts(cachedAlerts);
+          setIsLoading(false);
+        } else {
+          setAlerts([]);
+        }
+
+        const result = await getAlerts(params);
+        if (cancelled) return;
+
+        if (result.success && result.data) {
+          setAlerts(result.data);
+        } else if (!hasCachedAlerts) {
+          toast.error(
+            result.error?.message || "공지사항을 불러오는데 실패했습니다.",
+          );
+        }
+      } catch (error) {
+        if (cancelled) return;
+
+        errorLog("Error fetching alerts:", error);
+        if (!hasCachedAlerts) {
+          toast.error("공지사항을 불러오는 중 오류가 발생했습니다.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadAlerts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitialized, selectedCategory, viewMode]);
 
   // 뷰 모드 변경
   const handleViewModeChange = async (mode: AlertViewMode) => {
@@ -179,7 +201,7 @@ const Alerts = () => {
           ) : filteredAlerts.length > 0 ? (
             filteredAlerts.map((alert) => (
               <AlertItem
-                key={alert.alertId}
+                key={alert.url || alert.alertId}
                 alert={alert}
                 searchQuery={searchQuery}
               />
