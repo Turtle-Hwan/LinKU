@@ -1,5 +1,5 @@
 import type { GeneralAlert } from "../../types/api";
-import { debugLog, warnLog, errorLog } from '@/utils/logger';
+import { debugLog, warnLog } from '@/utils/logger';
 
 const CAREER_URL = "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do";
 
@@ -105,15 +105,4 @@ export const getCareerAlertsPage = async (
   const alerts = parseHTMLToAlerts(htmlText, startId + pageOffset);
   debugLog(`Parsed ${alerts.length} career alerts, sample:`, alerts[0]);
   return alerts;
-};
-
-export const getCareerAlertsFromHTML = async (
-  startId: number = 6001,
-): Promise<GeneralAlert[]> => {
-  try {
-    return await getCareerAlertsPage(1, startId);
-  } catch (error) {
-    errorLog("Error fetching career HTML:", error);
-    return []; // Return empty array on error
-  }
 };

@@ -1,5 +1,4 @@
 import type { GeneralAlert, RSSAlertCategory } from "../../types/api";
-import { errorLog } from '@/utils/logger';
 
 /**
  * RSS URL configuration for each category
@@ -109,38 +108,4 @@ export const getAlertsFromRSSPage = async (
     category,
     RSS_CATEGORY_START_IDS[category] + pageOffset,
   );
-};
-
-/**
- * Fetches alerts from all RSS feeds
- * Fetches all categories in parallel and combines results
- */
-export const getAlertsFromRSS = async (): Promise<GeneralAlert[]> => {
-  try {
-    const categories: RSSAlertCategory[] = [
-      "학사",
-      "장학",
-      "국제",
-      "학생",
-      "일반",
-    ];
-
-    // Fetch all RSS feeds in parallel
-    const results = await Promise.all(
-      categories.map(async (category) => {
-        try {
-          return await getAlertsFromRSSPage(category);
-        } catch (error) {
-          errorLog(`Error fetching RSS for ${category}:`, error);
-          return [];
-        }
-      })
-    );
-
-    // Combine all results
-    return results.flat();
-  } catch (error) {
-    errorLog("Error fetching RSS feeds:", error);
-    throw error;
-  }
 };

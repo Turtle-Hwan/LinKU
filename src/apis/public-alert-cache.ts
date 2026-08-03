@@ -14,7 +14,7 @@ import {
   getCareerAlertsPage,
 } from "./external/html-parser";
 
-export const PUBLIC_ALERT_SOURCES: AlertCategory[] = [
+const PUBLIC_ALERT_SOURCES: AlertCategory[] = [
   "학사",
   "장학",
   "국제",
@@ -23,10 +23,9 @@ export const PUBLIC_ALERT_SOURCES: AlertCategory[] = [
   "취창업",
 ];
 
-export const PUBLIC_ALERT_CACHE_TTL_MS = 10 * 60 * 1000;
+const PUBLIC_ALERT_CACHE_TTL_MS = 10 * 60 * 1000;
 
-const PUBLIC_ALERT_CACHE_KEY = "publicAlertCacheV1";
-const PUBLIC_ALERT_CACHE_VERSION = 1;
+const PUBLIC_ALERT_CACHE_KEY_PREFIX = "publicAlertCacheV1";
 const SYNC_ANCHOR_COUNT = 10;
 const MAX_CATCH_UP_PAGES = 100;
 
@@ -34,12 +33,6 @@ interface CachedAlertSource {
   items: GeneralAlert[];
   fetchedAt: number;
   syncAnchorKeys: string[];
-  fullyBackfilled: boolean;
-}
-
-interface PublicAlertCache {
-  version: typeof PUBLIC_ALERT_CACHE_VERSION;
-  sources: Partial<Record<AlertCategory, CachedAlertSource>>;
 }
 
 export interface PublicAlertSourceGateway {
@@ -64,49 +57,36 @@ const schoolPublicAlertGateway: PublicAlertSourceGateway = {
       : RSS_ALERT_PAGE_SIZE,
 };
 
-const emptyCache = (): PublicAlertCache => ({
-  version: PUBLIC_ALERT_CACHE_VERSION,
-  sources: {},
-});
-
-const isPublicAlertCache = (value: unknown): value is PublicAlertCache => {
+const isCachedAlertSource = (value: unknown): value is CachedAlertSource => {
   if (!value || typeof value !== "object") {
     return false;
   }
 
-  const candidate = value as Partial<PublicAlertCache>;
+  const candidate = value as Partial<CachedAlertSource>;
   return (
-    candidate.version === PUBLIC_ALERT_CACHE_VERSION &&
-    Boolean(candidate.sources) &&
-    typeof candidate.sources === "object"
+    Array.isArray(candidate.items) &&
+    typeof candidate.fetchedAt === "number" &&
+    Array.isArray(candidate.syncAnchorKeys)
   );
 };
 
-const readCache = async (): Promise<PublicAlertCache> => {
-  const cached = await getStorage<unknown>(PUBLIC_ALERT_CACHE_KEY);
-  return isPublicAlertCache(cached) ? cached : emptyCache();
-};
+const getSourceCacheKey = (source: AlertCategory) =>
+  `${PUBLIC_ALERT_CACHE_KEY_PREFIX}:${source}`;
 
-let cacheWriteQueue: Promise<void> = Promise.resolve();
+const readSourceCache = async (source: AlertCategory) => {
+  const cached = await getStorage<unknown>(getSourceCacheKey(source));
+  return isCachedAlertSource(cached) ? cached : undefined;
+};
 
 const writeSourceCache = async (
   source: AlertCategory,
   value: CachedAlertSource,
-) => {
-  const write = cacheWriteQueue.then(async () => {
-    const cache = await readCache();
-    cache.sources[source] = value;
-    await setStorage({ [PUBLIC_ALERT_CACHE_KEY]: cache });
-  });
-
-  cacheWriteQueue = write.catch(() => undefined);
-  await write;
-};
+) => setStorage({ [getSourceCacheKey(source)]: value });
 
 const getArticleIdFromUrl = (url?: string) =>
   url?.match(/\/(\d+)\/(?:artclView|view)\.do/)?.[1];
 
-export const getPublicAlertKey = (alert: GeneralAlert) => {
+const getPublicAlertKey = (alert: GeneralAlert) => {
   const articleId = getArticleIdFromUrl(alert.url);
   const fallback = alert.url || `${alert.alertId}:${alert.title}`;
   return `${alert.category}:${articleId || fallback}`;
@@ -165,8 +145,7 @@ const synchronizeSource = async (
   const fetched: GeneralAlert[] = [];
   const pageSize = gateway.getPageSize(source);
   let firstPage: GeneralAlert[] = [];
-  let anchorFound = anchorKeys.size === 0;
-  let exhausted = false;
+  let reachedPreviousBoundary = anchorKeys.size === 0;
   let pagesFetched = 0;
 
   for (let page = 1; page <= MAX_CATCH_UP_PAGES; page += 1) {
@@ -180,24 +159,23 @@ const synchronizeSource = async (
     fetched.push(...pageItems);
 
     if (anchorKeys.size === 0) {
-      exhausted = pageItems.length < pageSize;
       break;
     }
 
     if (
       pageItems.some((alert) => anchorKeys.has(getPublicAlertKey(alert)))
     ) {
-      anchorFound = true;
+      reachedPreviousBoundary = true;
       break;
     }
 
     if (pageItems.length < pageSize) {
-      exhausted = true;
+      reachedPreviousBoundary = true;
       break;
     }
   }
 
-  if (anchorKeys.size > 0 && !anchorFound && !exhausted) {
+  if (!reachedPreviousBoundary) {
     throw new Error(`Alert sync boundary not found for ${source}`);
   }
 
@@ -229,21 +207,14 @@ const synchronizeSource = async (
     syncAnchorKeys: firstPage
       .slice(anchorStart)
       .map(getPublicAlertKey),
-    fullyBackfilled:
-      current?.fullyBackfilled ||
-      (anchorKeys.size > 0 && !anchorFound && exhausted) ||
-      (anchorKeys.size === 0 && exhausted),
   };
 };
 
 const sourceSyncs = new Map<AlertCategory, Promise<CachedAlertSource>>();
 
-export const syncPublicAlertSource = async (
+const syncPublicAlertSource = async (
   source: AlertCategory,
-  options: {
-    force?: boolean;
-    gateway?: PublicAlertSourceGateway;
-  } = {},
+  gateway: PublicAlertSourceGateway,
 ) => {
   const activeSync = sourceSyncs.get(source);
   if (activeSync) {
@@ -251,17 +222,16 @@ export const syncPublicAlertSource = async (
   }
 
   const sync = (async () => {
-    const cache = await readCache();
-    const current = cache.sources[source];
+    const current = await readSourceCache(source);
 
-    if (!options.force && isFresh(current, Date.now())) {
+    if (isFresh(current, Date.now())) {
       return current;
     }
 
     const next = await synchronizeSource(
       source,
       current,
-      options.gateway || schoolPublicAlertGateway,
+      gateway,
     );
     await writeSourceCache(source, next);
     return next;
@@ -279,22 +249,22 @@ export const syncPublicAlertSource = async (
 export const getCachedPublicAlerts = async (
   category?: AlertCategory,
 ): Promise<GeneralAlert[]> => {
-  const cache = await readCache();
   const sources = category ? [category] : PUBLIC_ALERT_SOURCES;
+  const cachedSources = await Promise.all(sources.map(readSourceCache));
 
   return sortByPublishedAt(
-    sources.flatMap((source) => cache.sources[source]?.items || []),
+    cachedSources.flatMap((cached) => cached?.items || []),
   );
 };
 
 export const syncPublicAlerts = async (
   category?: AlertCategory,
-  options: { gateway?: PublicAlertSourceGateway } = {},
+  gateway: PublicAlertSourceGateway = schoolPublicAlertGateway,
 ) => {
   const sources = category ? [category] : PUBLIC_ALERT_SOURCES;
   const results = await Promise.allSettled(
     sources.map((source) =>
-      syncPublicAlertSource(source, { gateway: options.gateway }),
+      syncPublicAlertSource(source, gateway),
     ),
   );
 
