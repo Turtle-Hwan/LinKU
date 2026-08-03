@@ -6,7 +6,7 @@ import {
 } from "@/constants/bulletin";
 import { debugLog } from "@/utils/logger";
 
-type BulletinAvailability = "available" | "unavailable" | "unknown";
+type BulletinVerification = "verified" | "unverified";
 
 interface BulletinCache {
   resolvedYear: number;
@@ -19,7 +19,7 @@ const BULLETIN_CACHE_KEY = "linku:latest-bulletin:v1";
 const RETRY_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 5_000;
 
-const WAF_SIGNATURES = [
+const UNVERIFIED_PAGE_SIGNATURES = [
   "웹 공격 차단",
   "웹 방화벽",
   "비정상적인 접근",
@@ -27,9 +27,6 @@ const WAF_SIGNATURES = [
   "request blocked",
   "infra@konkuk.ac.kr",
   "source ip",
-];
-
-const ERROR_PAGE_SIGNATURES = [
   "관리모드",
   "알림메세지",
   "존재하지 않는",
@@ -122,22 +119,18 @@ function isExpectedBulletinPage(responseUrl: string, year: number): boolean {
   }
 }
 
-function classifySuccessfulResponse(
+function verifyBulletinBody(
   body: string,
   year: number,
-): BulletinAvailability {
+): BulletinVerification {
   const normalizedBody = body.toLowerCase();
 
-  if (WAF_SIGNATURES.some((signature) => normalizedBody.includes(signature))) {
-    return "unknown";
-  }
-
   if (
-    ERROR_PAGE_SIGNATURES.some((signature) =>
+    UNVERIFIED_PAGE_SIGNATURES.some((signature) =>
       normalizedBody.includes(signature),
     )
   ) {
-    return "unavailable";
+    return "unverified";
   }
 
   const shortYear = String(year).slice(-2);
@@ -149,14 +142,14 @@ function classifySuccessfulResponse(
     normalizedBody.includes(`bulletin${shortYear}`);
 
   return hasBulletinSignature && hasYearSignature
-    ? "available"
-    : "unknown";
+    ? "verified"
+    : "unverified";
 }
 
-async function checkBulletinAvailability(
+async function verifyBulletin(
   year: number,
   fetchImpl: typeof fetch = globalThis.fetch,
-): Promise<BulletinAvailability> {
+): Promise<BulletinVerification> {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(
     () => controller.abort(),
@@ -174,21 +167,17 @@ async function checkBulletinAvailability(
       signal: controller.signal,
     });
 
-    if (response.status === 404 || response.status === 410) {
-      return "unavailable";
-    }
-
     if (
       response.status !== 200 ||
       !isExpectedBulletinPage(response.url, year)
     ) {
-      return "unknown";
+      return "unverified";
     }
 
-    return classifySuccessfulResponse(await response.text(), year);
+    return verifyBulletinBody(await response.text(), year);
   } catch (error) {
     debugLog("[bulletin] Failed to check annual bulletin", error);
-    return "unknown";
+    return "unverified";
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
@@ -237,8 +226,8 @@ async function resolveLatestBulletinInternal(
 
   let resolvedYear = cache.resolvedYear;
   for (const candidateYear of candidateYears) {
-    const availability = await checkBulletinAvailability(candidateYear);
-    if (availability === "available") {
+    const verification = await verifyBulletin(candidateYear);
+    if (verification === "verified") {
       resolvedYear = candidateYear;
       break;
     }
