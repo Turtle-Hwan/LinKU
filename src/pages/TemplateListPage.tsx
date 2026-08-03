@@ -28,11 +28,12 @@ import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { usePostedTemplates } from '@/hooks/usePostedTemplates';
 import { useTemplateSync } from '@/hooks/useTemplateSync';
 import { useTemplatePublish } from '@/hooks/useTemplatePublish';
+import { resolveLatestBulletin } from '@/apis/external/bulletin';
 import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
 import { areItemsEqual } from '@/utils/templateUtils';
-import { LinkList } from '@/constants/LinkList';
+import { createLinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
 import { warnLog, errorLog } from '@/utils/logger';
 import { sendTemplateApply, sendTemplateCreateStart, sendTemplateDelete } from '@/utils/analytics';
@@ -192,7 +193,9 @@ export const TemplateListPage = () => {
 
       // 6. 기본 템플릿 추가 (항상 맨 위에 표시)
       // Convert LinkList to Icon array (including lucide-react icons)
-      const defaultIcons = LinkList.map((link, index) => {
+      const latestBulletin = await resolveLatestBulletin();
+      const defaultLinks = createLinkList(latestBulletin);
+      const defaultIcons = defaultLinks.map((link, index) => {
         let imageUrl: string;
 
         if (typeof link.icon === 'string') {
@@ -209,7 +212,10 @@ export const TemplateListPage = () => {
           imageUrl,
         };
       });
-      const defaultTemplateItems = convertLinkListToTemplateItems(defaultIcons);
+      const defaultTemplateItems = convertLinkListToTemplateItems(
+        defaultIcons,
+        defaultLinks,
+      );
       const defaultTemplate: TemplateSummary = {
         templateId: 0,
         name: 'LinKU 기본 템플릿',

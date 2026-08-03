@@ -5,7 +5,8 @@
  */
 
 import type { TemplateItem, TemplateIcon, Icon, Position, Size } from '@/types/api';
-import { LinkList } from '@/constants/LinkList';
+import { LinkList, type LinkListElement } from '@/constants/LinkList';
+import { BULLETIN_LINK_ID } from '@/constants/bulletin';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { LucideIcon } from 'lucide-react';
@@ -106,8 +107,12 @@ export function clampToGridBounds(position: Position, size: Size): Position {
 /**
  * Calculate grid position for LinkList item
  */
-function calculateGridPosition(index: number, colSpan: number): { x: number; y: number } {
-  const items = LinkList.map((item, i) => ({
+function calculateGridPosition(
+  index: number,
+  colSpan: number,
+  linkList: LinkListElement[],
+): { x: number; y: number } {
+  const items = linkList.map((item, i) => ({
     index: i,
     colSpan: item.islong ? 3 : 2,
   }));
@@ -152,7 +157,7 @@ function calculateGridSize(colSpan: number): { width: number; height: number } {
  * For Lucide icons, use the component's displayName
  * For string/PNG icons, use the label
  */
-function getIconIdentifier(linkItem: typeof LinkList[number]): string {
+function getIconIdentifier(linkItem: LinkListElement): string {
   const icon = linkItem.icon;
 
   // If icon is a Lucide component, try to get its name
@@ -172,7 +177,7 @@ function getIconIdentifier(linkItem: typeof LinkList[number]): string {
  * Map LinkList icon to default icon using multiple matching strategies
  * Returns null if no valid server icon is found
  */
-function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[]): Icon | null {
+function findMatchingIcon(linkItem: LinkListElement, defaultIcons: Icon[]): Icon | null {
   // Ensure defaultIcons is an array with valid server icons
   if (!Array.isArray(defaultIcons) || defaultIcons.length === 0) {
     warnLog('findMatchingIcon: No server icons available');
@@ -228,7 +233,8 @@ function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[
       '창업지원': 'lightbulb',
     };
 
-    const mappedIconName = labelToIconMap[label];
+    const mappedIconName =
+      linkItem.id === BULLETIN_LINK_ID ? 'scroll' : labelToIconMap[label];
     if (mappedIconName) {
       match = defaultIcons.find(icon =>
         icon.name.toLowerCase().includes(mappedIconName)
@@ -250,7 +256,10 @@ function findMatchingIcon(linkItem: typeof LinkList[number], defaultIcons: Icon[
  * Convert LinkList to TemplateItems with grid coordinates
  * Only includes items with valid server icons
  */
-export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateItem[] {
+export function convertLinkListToTemplateItems(
+  defaultIcons: Icon[],
+  linkList: LinkListElement[] = LinkList,
+): TemplateItem[] {
   // Validate that defaultIcons is an array
   if (!Array.isArray(defaultIcons)) {
     errorLog('convertLinkListToTemplateItems: defaultIcons is not an array', defaultIcons);
@@ -264,7 +273,7 @@ export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateIt
 
   const items: TemplateItem[] = [];
 
-  LinkList.forEach((linkItem, index) => {
+  linkList.forEach((linkItem, index) => {
     // Find matching server icon
     const icon = findMatchingIcon(linkItem, defaultIcons);
 
@@ -275,7 +284,7 @@ export function convertLinkListToTemplateItems(defaultIcons: Icon[]): TemplateIt
     }
 
     const colSpan = linkItem.islong ? 3 : 2;
-    const position = calculateGridPosition(index, colSpan);
+    const position = calculateGridPosition(index, colSpan, linkList);
     const size = calculateGridSize(colSpan);
 
     items.push({

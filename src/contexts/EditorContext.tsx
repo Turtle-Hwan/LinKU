@@ -7,6 +7,8 @@ import { useReducer, useEffect, ReactNode } from 'react';
 import type { Template, TemplateItem, Icon } from '@/types/api';
 import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons, getMyIcons } from '@/apis/icons';
+import { resolveLatestBulletin } from '@/apis/external/bulletin';
+import { createLinkList } from '@/constants/LinkList';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { toast } from 'sonner';
@@ -475,9 +477,10 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
 
     try {
       // Fetch both default icons and user icons in parallel
-      const [iconsResult, userIconsResult] = await Promise.allSettled([
+      const [iconsResult, userIconsResult, bulletinResult] = await Promise.allSettled([
         getDefaultIcons(),
         getMyIcons(),
+        resolveLatestBulletin(),
       ]);
 
       debugLog('[EditorContext] Icons API full response:', iconsResult);
@@ -542,7 +545,15 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           };
           dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
         } else {
-          const templateItems = convertLinkListToTemplateItems(defaultIcons);
+          const defaultLinks = createLinkList(
+            bulletinResult.status === 'fulfilled'
+              ? bulletinResult.value
+              : undefined,
+          );
+          const templateItems = convertLinkListToTemplateItems(
+            defaultIcons,
+            defaultLinks,
+          );
           const templateHeight = calculateTemplateHeight();
 
           const newTemplate: Template = {

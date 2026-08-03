@@ -6,8 +6,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getTemplate } from "@/apis/templates";
+import { resolveLatestBulletin } from "@/apis/external/bulletin";
 import type { Template } from "@/types/api";
-import { LinkList, LinkListElement } from "@/constants/LinkList";
+import {
+  LinkList,
+  createLinkList,
+  type LinkListElement,
+} from "@/constants/LinkList";
 import { loadTemplateFromLocalStorage } from "@/utils/templateStorage";
 import { debugLog, errorLog } from '@/utils/logger';
 
@@ -51,12 +56,34 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
   const [hasLoadedSelection, setHasLoadedSelection] = useState(false);
   const loadRequestIdRef = useRef(0);
   const selectedTemplateIdRef = useRef<number | null>(selectedTemplateId);
+  const defaultLinkItemsRef = useRef<LinkListElement[]>(LinkList);
 
   selectedTemplateIdRef.current = selectedTemplateId;
 
   // Load selected template ID from Chrome storage on mount
   useEffect(() => {
     loadSelectedTemplate();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void resolveLatestBulletin().then((bulletin) => {
+      if (cancelled) {
+        return;
+      }
+
+      const resolvedLinkItems = createLinkList(bulletin);
+      defaultLinkItemsRef.current = resolvedLinkItems;
+
+      if (selectedTemplateIdRef.current === null) {
+        setLinkItems(resolvedLinkItems);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Listen for storage changes from other contexts (real-time sync)
@@ -89,7 +116,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
           loadRequestIdRef.current += 1;
           setSelectedTemplateId(null);
           setTemplateData(null);
-          setLinkItems(LinkList);
+          setLinkItems(defaultLinkItemsRef.current);
           setError(null);
           setIsLoading(false);
           return;
@@ -121,7 +148,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     } else {
       // No template selected - use default LinkList
       setTemplateData(null);
-      setLinkItems(LinkList);
+      setLinkItems(defaultLinkItemsRef.current);
       setIsLoading(false);
     }
   }, [hasLoadedSelection, selectedTemplateId]);
@@ -132,7 +159,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       const storage = getChromeStorage();
       if (!storage?.local) {
         setSelectedTemplateId(null);
-        setLinkItems(LinkList);
+        setLinkItems(defaultLinkItemsRef.current);
         return;
       }
 
@@ -150,7 +177,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
           "[useSelectedTemplate] Converting 0 to null (default template)",
         );
         setSelectedTemplateId(null);
-        setLinkItems(LinkList);
+        setLinkItems(defaultLinkItemsRef.current);
       } else if (templateId && typeof templateId === "number") {
         debugLog("[useSelectedTemplate] Setting templateId:", templateId);
         setSelectedTemplateId(templateId);
@@ -160,12 +187,12 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
           "[useSelectedTemplate] No template selected, using default",
         );
         setSelectedTemplateId(null);
-        setLinkItems(LinkList);
+        setLinkItems(defaultLinkItemsRef.current);
       }
     } catch (err) {
       errorLog("Failed to load selected template:", err);
       setError("템플릿을 불러오는데 실패했습니다.");
-      setLinkItems(LinkList);
+      setLinkItems(defaultLinkItemsRef.current);
       setSelectedTemplateId(null);
     } finally {
       setHasLoadedSelection(true);
@@ -215,7 +242,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         setError(result.error?.message || "템플릿을 불러올 수 없습니다.");
         setTemplateData(null);
         setSelectedTemplateId(null);
-        setLinkItems(LinkList);
+        setLinkItems(defaultLinkItemsRef.current);
       }
     } catch (err) {
       if (isStaleRequest()) {
@@ -226,7 +253,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       setError("템플릿 로딩 중 오류가 발생했습니다.");
       setTemplateData(null);
       setSelectedTemplateId(null);
-      setLinkItems(LinkList);
+      setLinkItems(defaultLinkItemsRef.current);
     } finally {
       if (!isStaleRequest()) {
         setIsLoading(false);
@@ -246,7 +273,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
           loadRequestIdRef.current += 1;
           setSelectedTemplateId(null);
           setTemplateData(null);
-          setLinkItems(LinkList);
+          setLinkItems(defaultLinkItemsRef.current);
           setError(null);
           setIsLoading(false);
         } else {
@@ -264,7 +291,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         await storage.local.remove(STORAGE_KEY);
         setSelectedTemplateId(null);
         setTemplateData(null);
-        setLinkItems(LinkList);
+        setLinkItems(defaultLinkItemsRef.current);
         setError(null);
         setIsLoading(false);
       } else {
