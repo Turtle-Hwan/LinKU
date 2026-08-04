@@ -2,7 +2,7 @@
  * Editor Layout - Full screen layout for template editor
  */
 
-import { Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router';
 
 export const EditorLayout = () => {
   return (

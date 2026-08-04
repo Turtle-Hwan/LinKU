@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { getPublicPostedTemplates, getPostedTemplateDetail, clonePostedTemplate, likePostedTemplate } from '@/apis/posted-templates';
 import { getClonedTemplates, getTemplate } from '@/apis/templates';
 import type { PostedTemplateSummary, PostedTemplateListParams } from '@/types/api';

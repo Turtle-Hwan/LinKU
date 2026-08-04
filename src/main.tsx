@@ -1,6 +1,6 @@
 /**
  * main.tsx - Application Entry Point
- * Standard React Router v6 pattern: createHashRouter + RouterProvider
+ * React Router Data Mode pattern: createHashRouter + RouterProvider
  *
  * Note: Uses createHashRouter for Chrome Extensions
  * - Automatically syncs route state with URL hash
@@ -9,7 +9,8 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createHashRouter, RouterProvider } from "react-router-dom";
+import { createHashRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
 import { routes } from "./routes";
 import "./App.css";
 
