@@ -3,9 +3,11 @@ import { Outlet } from "react-router";
 import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
-import { Search, Settings, FlaskConical } from "lucide-react";
+import { Search, Settings, FlaskConical, Mail } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 import LabsDialog from "./LabsDialog";
+import FeedbackDialog from "./FeedbackDialog";
+import { flushFeedbackOutbox } from "@/apis/feedback";
 import { sendButtonClick, sendSearchSubmit } from "@/utils/analytics";
 
 const MainLayout = () => {
@@ -22,6 +24,15 @@ const Header = () => {
   const [text, setText] = React.useState<string>("");
   const [showSettings, setShowSettings] = useState(false);
   const [showLabs, setShowLabs] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  React.useEffect(() => {
+    void flushFeedbackOutbox();
+
+    const retryWhenOnline = () => void flushFeedbackOutbox();
+    window.addEventListener("online", retryWhenOnline);
+    return () => window.removeEventListener("online", retryWhenOnline);
+  }, []);
 
   return (
     <header className="px-4 py-3">
@@ -69,6 +80,18 @@ const Header = () => {
               window.open("https://github.com/Turtle-Hwan/LinKU");
             }}
           />
+          <button
+            type="button"
+            aria-label="LinKU에 의견 보내기"
+            title="의견 보내기"
+            className="flex size-7 items-center justify-center rounded-md bg-main/10 text-main transition-colors hover:bg-main/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main/40"
+            onClick={() => {
+              sendButtonClick("voc_icon", "header");
+              setShowFeedback(true);
+            }}
+          >
+            <Mail className="size-4" aria-hidden="true" />
+          </button>
         </div>
       </div>
 
@@ -77,6 +100,9 @@ const Header = () => {
 
       {/* 설정 다이얼로그 */}
       <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
+
+      {/* VoC 다이얼로그 */}
+      <FeedbackDialog open={showFeedback} onOpenChange={setShowFeedback} />
     </header>
   );
 };
