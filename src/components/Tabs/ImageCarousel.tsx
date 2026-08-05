@@ -5,16 +5,20 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BannerItemType, getBannersAPI } from "@/apis";
 import { IMAGE_URL } from "@/constants/URL";
 import { sendBannerOpen } from "@/utils/analytics";
+import { isBannerActive } from "@/utils/banner";
 
-const bannerPromise = getBannersAPI();
+const bannerPromise = getBannersAPI().then(({ banners }) => {
+  const currentTime = Date.now();
+  return banners.filter((item) => isBannerActive(item, currentTime));
+});
 
 const ImageCarousel = () => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
 
-  const data = use(bannerPromise);
-  const imageList = data.banners;
+  const imageList = use(bannerPromise);
+  const hasMultipleImages = imageList.length > 1;
 
   const scrollPrev = useCallback(
     () => emblaApi && emblaApi.scrollPrev(),
@@ -44,42 +48,49 @@ const ImageCarousel = () => {
     };
   }, [emblaApi, onSelect]);
 
+  if (imageList.length === 0) return null;
+
   return (
     <div className="embla relative h-[85px]">
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="embla__container flex">
-          {imageList.map((item, idx) => (
-            <Image key={idx} item={item} position={idx} />
+          {imageList.map((item, index) => (
+            <Image key={item.img} item={item} position={index} />
           ))}
         </div>
       </div>
 
-      <button
-        className="absolute top-1/2 left-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
-        onClick={scrollPrev}
-        name="이전 이미지"
-      >
-        <ChevronLeft className="w-6 h-6" />
-      </button>
-
-      <button
-        className="absolute top-1/2 right-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
-        onClick={scrollNext}
-        name="다음 이미지"
-      >
-        <ChevronRight className="w-6 h-6" />
-      </button>
-
-      <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-2">
-        {scrollSnaps.map((_, index) => (
+      {hasMultipleImages ? (
+        <>
           <button
-            key={index}
-            className={`w-2 h-2 rounded-full transition-colors duration-300 ${index === selectedIndex ? "bg-white" : "bg-white/50"
-              } cursor-pointer`}
-            onClick={() => scrollTo(index)}
-          />
-        ))}
-      </div>
+            className="absolute top-1/2 left-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
+            onClick={scrollPrev}
+            name="이전 이미지"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+
+          <button
+            className="absolute top-1/2 right-2 -translate-y-1/2 bg-white/50 rounded-full p-1 opacity-0 transition-opacity duration-300 hover:opacity-100 group-hover:opacity-100 cursor-pointer"
+            onClick={scrollNext}
+            name="다음 이미지"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-2">
+            {scrollSnaps.map((_, index) => (
+              <button
+                key={index}
+                className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+                  index === selectedIndex ? "bg-white" : "bg-white/50"
+                } cursor-pointer`}
+                onClick={() => scrollTo(index)}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 };
