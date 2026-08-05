@@ -19,11 +19,24 @@ LinKU는 건국대학교 학생을 위한 Manifest V3 Chrome Extension입니다.
 사이트, 학생 제작 서비스, 공지, todo, template, Labs 기능을 하나의 popup에서
 사용할 수 있게 합니다.
 
-현재 구조에는 content script가 없습니다. `public/manifest.json`은 popup UI와
-Background service worker를 선언하며, 방문 중인 페이지에 script를 주입하지
-않습니다. popup과 Background service worker 사이의 통신은
-`chrome.runtime.sendMessage`와 `src/background/types.ts`의 type guard를 통해
-이루어집니다.
+현재 content script는 `https://everytime.kr/timetable*`에서 시간표 XML 응답을
+구조화하고, API 실패 시 렌더링된 시간표 DOM을 파싱하는 제한된 용도로만 사용합니다. 다른 방문 페이지에 script를 추가할
+때는 match pattern과 수집 데이터 범위를 명시해야 합니다. popup과 Background
+service worker 사이의 통신은 `chrome.runtime.sendMessage`와
+`src/background/types.ts`의 type guard를 통해 이루어집니다.
+
+에브리타임 시간표 변경은 실제 로그인된 탭에서 수동 검증이 필요합니다. 가져오기
+후에는 현재 학사 시기의 최근 네 개 학기부터 요청되는지(여름방학에는 해당 연도
+2학기부터), 그 묶음이 비어 있으면 이전 네 학기로 계속 탐색하는지, 빈 학기가 저장되지 않는지,
+수업이 있는 학기만 popup의 선택 목록에 나타나는지, `이전 4학기 추가`가 그보다
+앞선 네 개 학기를 추가하는지 확인하세요. 수동 동기화 뒤에도 기존 학기, 직접
+업로드한 PNG, active 선택이 유지되어야 합니다. password, cookie, session token은
+어떤 검증 로그에도 남기지 않습니다. 저장된 구조 데이터에는 학기·시간표·과목·수업시간
+메타데이터가 포함되고, 시간이 없는 과목도 `courses`에 남는지 함께 확인합니다.
+사용자 override가 있는 학기를 다시 동기화할 때 `snapshot` checksum과 수정 시각은
+바뀔 수 있지만 `timetableEverytimeOverrides` 값과 병합된 화면은 유지되어야 합니다.
+기존 schema v2 시간표는 첫 조회에서 schema v3 `snapshot` 구조로 마이그레이션되어야
+합니다.
 
 기술 스택은 다음을 기준으로 이해하면 됩니다.
 

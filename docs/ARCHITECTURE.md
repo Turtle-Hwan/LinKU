@@ -6,14 +6,18 @@
 ## 시스템 개요
 
 LinKU는 Vite, React, TypeScript, Tailwind CSS로 만든 Manifest V3 Chrome
-Extension입니다. 확장 프로그램은 두 개의 런타임 영역을 가집니다.
+Extension입니다. 확장 프로그램은 세 개의 런타임 영역을 가집니다.
 
 - `index.html`에서 렌더링되는 Popup UI.
 - `src/background/index.ts`에서 빌드되는 Background service worker.
+- `src/content/everytime-timetable.ts`에서 빌드되어 에브리타임 시간표
+  페이지에서만 실행되는 content script.
 
-현재 프로젝트에는 content script가 없습니다. 확장 프로그램은 임의의 web page에
-UI나 logic을 주입하지 않습니다. 대부분의 user interaction은 popup 내부에서
-일어납니다.
+대부분의 user interaction은 popup 내부에서 일어납니다. content script는
+로그인된 에브리타임 탭에서 시간표 XML API를 호출하고, API를 사용할 수 없을 때만
+렌더링된 시간표 DOM을 구조화해 읽습니다. 브라우저가 요청에 기존 로그인 쿠키를
+자동으로 포함하지만 LinKU는 password, cookie, session token을 직접 읽거나
+저장하지 않습니다.
 
 ## Backend 의존성
 
@@ -36,6 +40,8 @@ template, icons, alerts 같은 backend 연동 기능은 `VITE_API_BASE_URL`이
 
 - `index.html`은 popup entry가 됩니다.
 - `src/background/index.ts`는 `background/index.js`가 됩니다.
+- `src/content/everytime-timetable.ts`는
+  `content/everytime-timetable.js`가 됩니다.
 
 `gh-pages` mode에서는 build output이 `gh-pages/`로 바뀌고, static hosting을
 위해 banner asset이 복사됩니다. extension build의 output directory는
@@ -74,6 +80,19 @@ public/manifest.json
   -> background.service_worker: background/index.js
   -> src/background/index.ts
   -> src/background/handlers/oauth.ts
+  -> src/background/handlers/timetable.ts
+```
+
+Everytime import 흐름:
+
+```text
+public/manifest.json
+  -> content_scripts.matches: https://everytime.kr/timetable*
+  -> src/content/everytime-timetable.ts
+  -> Everytime semester/table XML API (rendered DOM fallback)
+  -> chrome.runtime message
+  -> src/background/handlers/timetable.ts
+  -> chrome.storage.local structured timetable collection
 ```
 
 popup은 React Router의 hash routing을 사용합니다. Chrome extension popup
@@ -103,6 +122,7 @@ src/
   assets/        local image와 SVG asset
   background/    Manifest V3 service worker code
   components/    feature component와 UI primitive
+  content/       제한된 외부 페이지 content script
   constants/     정적 app data
   contexts/      React Context 상태 container
   hooks/         reusable React hook
@@ -120,6 +140,7 @@ src/
 - Banners: `src/components/Tabs/ImageCarousel.tsx`
 - Todo list: `src/components/Tabs/TodoList/`
 - Alerts: `src/components/Tabs/Alerts/`
+- Timetable: `src/components/Tabs/TimeTable/`
 - Labs: `src/components/Labs/`
 
 Template system 구성:
@@ -136,6 +157,7 @@ Auth 및 account 관련 UI:
 
 - OAuth popup/background bridge: `src/utils/oauth.ts`
 - Background OAuth handler: `src/background/handlers/oauth.ts`
+- Background timetable handler: `src/background/handlers/timetable.ts`
 - API auth interceptor: `src/apis/client.ts`
 - Email verification dialog: `src/components/EmailVerificationDialog.tsx`
 - Settings dialog: `src/components/SettingsDialog.tsx`
@@ -151,6 +173,7 @@ background worker가 처리하는 일:
 
 - Google login request.
 - Silent reauth request.
+- User-triggered Everytime timetable import request.
 - Extension install/update event.
 - Badge count initialization.
 - `chrome.storage.local` 변경에 따른 badge count update.
@@ -177,12 +200,20 @@ feature-specific API module은 fetch behavior를 중복 구현하지 말고 이 
 
 ## Storage 모델
 
-현재 storage는 두 browser storage system으로 나뉘어 있습니다.
+현재 storage는 세 browser storage system으로 나뉘어 있습니다.
 
 - `chrome.storage.local`: auth token, user profile state, settings, custom
-  todo, library token, badge count.
+  todo, library token, badge count, timetable metadata.
 - `localStorage`: `src/utils/templateStorage.ts`를 통한 template draft와 local
   template persistence.
+- IndexedDB: 사용자가 직접 업로드한 timetable PNG blob만 저장합니다. 이미지와
+  metadata index를 분리해 향후 backend sync를 붙일 수 있도록 metadata에 schema
+  version과 sync status를 둡니다.
+- `chrome.storage.local`: 에브리타임 원본 snapshot은 `timetableAssetIndex`의
+  schema v3 asset에, 사용자 수정은 별도 `timetableEverytimeOverrides`의 schema
+  v1 index에 저장합니다. 조회할 때만 `src/utils/everytimeTimetable.ts`가 두 층을
+  병합합니다. 동기화는 snapshot만 갱신하므로 사용자 수정 저장소를 덮지 않습니다.
+  원본 HTML, password, cookie, session token은 저장하지 않습니다.
 
 이 분리는 과거 설계의 결과입니다. template local persistence flow를 직접
 수정하는 경우가 아니라면, 새 extension-wide state는 `chrome.storage.local`을
@@ -190,7 +221,8 @@ feature-specific API module은 fetch behavior를 중복 구현하지 말고 이 
 
 stored data shape를 바꿀 때는 기존 user의 migration behavior를 고려해야
 합니다. LinKU는 실제 user에게 배포되는 extension이므로 가능한 한 backward
-compatible해야 합니다.
+compatible해야 합니다. 시간표 asset schema v2는 처음 읽을 때 v3 snapshot
+구조로 자동 변환합니다.
 
 ## 인증
 
@@ -252,6 +284,36 @@ flowchart LR
 경계만 교체할 수 있습니다. 단, frontend-only 구조에서는 학교가
 게시물을 source에서 제거하거나 local storage가 삭제된 기간까지 절대적인 무누락을
 보장할 수 없으며, 현재 공개된 목록 안에서 확인 가능한 동기화 경계만 보존합니다.
+
+### Everytime 시간표
+
+사용자가 popup에서 가져오기를 누르면 background worker는 이미 열린
+`https://everytime.kr/timetable*` 탭을 우선 사용합니다. 탭이 없으면 비활성
+임시 탭을 열고, 로그인이 필요한 경우에만 해당 탭을 활성화합니다. 로그인 후에는
+content script가 `#semesters`에서 학기 목록을 읽고, 현재 학사 시기를 기준으로
+에브리타임의 학기별 XML API를 동시 네 개까지 요청합니다. API를 사용할 수 없을
+때만 비활성 탭에서 해당 학기를 실제 렌더링한 뒤 DOM을 읽습니다. 1학기(1~6월)에는 해당 연도의
+1학기를, 여름방학(7~8월)과 2학기(9~12월)에는 해당 연도의 2학기를 첫 항목으로
+잡습니다. 첫 네 학기가 모두 비어 있으면 그보다 이전 네 학기를 이어서 요청하며,
+수업이 하나라도 발견되거나 에타의 학기 목록 끝에 도달하면 멈춥니다. XML 응답에서는
+학기 시작·종료일과 지원 상태, 시간표 ID·이름·공개/대표 여부·생성/수정일,
+과목 ID·내부 ID·교수·학점·폐강 여부·시간 원문, 각 수업의 요일·시작/종료값·강의실을
+구조화해 `chrome.storage.local`에 저장합니다. 시간이 없는 과목도 `courses`에
+남겨 정보가 유실되지 않도록 합니다. DOM fallback은
+`#container.timetable table.tablebody div.cols > div.subject`에서 화면에 존재하는
+필드만 읽습니다. popup의 `이전 4학기 추가`
+메뉴는 그보다 앞선 네 개 학기를 같은 과정으로 추가합니다.
+
+시간표 갱신은 popup에서 사용자가 `동기화`를 누른 경우에만 실행됩니다. 새 학기는
+기존 collection에 추가하고, 같은 에브리타임 학기는 최신 snapshot으로 갱신하되
+다른 학기와 직접 업로드한 PNG는 삭제하지 않습니다. 이미 사용자가 보고 있던
+시간표가 있으면 active 선택도 바꾸지 않습니다. 사용자 수정은 course/subject
+override와 숨김·사용자 추가 항목으로 별도 저장되며, 화면에서는 최신 snapshot에
+이를 병합합니다. 시간표 자체를 삭제할 때만 해당 override도 함께 삭제합니다.
+시간표 화면은 기본 월~금 열을 popup 전체 폭으로 표시하고, 실제 토요일·일요일
+수업이 있을 때만 해당 요일 열을 추가합니다. 짧은 시간표도 남은 세로 영역을
+채우며, 긴 시간표는 내부 세로 스크롤로 확인합니다.
+LinKU는 에브리타임 password, cookie, session token을 읽거나 저장하지 않습니다.
 
 ## UI 시스템
 
