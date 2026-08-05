@@ -100,7 +100,20 @@ export interface TimetableImportMessage extends BackgroundMessage {
 export function isTimetableImportMessage(
   message: BackgroundMessage,
 ): message is TimetableImportMessage {
-  return message.type === BackgroundMessageType.TIMETABLE_IMPORT;
+  if (message.type !== BackgroundMessageType.TIMETABLE_IMPORT) {
+    return false;
+  }
+
+  if (message.data === undefined) {
+    return true;
+  }
+
+  if (typeof message.data !== "object" || message.data === null) {
+    return false;
+  }
+
+  const mode = (message.data as { mode?: unknown }).mode;
+  return mode === undefined || mode === "latest" || mode === "previous";
 }
 
 export type { TimetableImportResponse };

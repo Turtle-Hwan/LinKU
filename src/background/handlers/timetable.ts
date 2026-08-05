@@ -15,7 +15,7 @@ import {
 } from "@/utils/timetableStorage";
 import { getErrorLogDetails, warnLog } from "@/utils/logger";
 import {
-  getEverytimeSemesterSortKey,
+  getLatestEverytimeSemesterAnchor,
   parseEverytimeSemester,
   type EverytimeSemesterPeriod,
 } from "@/utils/everytimeSemester";
@@ -101,21 +101,6 @@ function isEverytimeTimetableUrl(url?: string): boolean {
   }
 }
 
-function getLatestSemesterAnchor(
-  now: Date,
-): Pick<EverytimeSemesterPeriod, "year" | "term" | "sortKey"> {
-  const month = now.getMonth();
-  const term = month < 6 ? "1" : "2";
-
-  return {
-    year: now.getFullYear(),
-    term,
-    // 1학기(1~6월)에는 1학기를, 여름방학(7~8월)에는 다음 정규학기인 2학기를
-    // 첫 항목으로 둔다. 겨울방학(1~2월)은 새해 1학기부터 시작한다.
-    sortKey: getEverytimeSemesterSortKey(now.getFullYear(), term),
-  };
-}
-
 async function getPendingImport(): Promise<PendingEverytimeImport | null> {
   const stored = await chrome.storage.session.get(
     TIMETABLE_STORAGE_KEYS.pendingImport,
@@ -141,15 +126,34 @@ async function clearPendingImport(): Promise<void> {
 }
 
 async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
-  const currentTab = await chrome.tabs.get(tabId);
-  if (currentTab.status === "complete") {
-    return currentTab;
-  }
-
   return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
+    let settled = false;
+
+    const cleanup = (): void => {
+      clearTimeout(timeoutId);
       chrome.tabs.onUpdated.removeListener(handleUpdated);
-      reject(new Error("에브리타임 페이지를 불러오는 데 시간이 걸리고 있습니다."));
+    };
+    const resolveOnce = (tab: chrome.tabs.Tab): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve(tab);
+    };
+    const rejectOnce = (error: unknown): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+
+    const timeoutId = setTimeout(() => {
+      rejectOnce(
+        new Error("에브리타임 페이지를 불러오는 데 시간이 걸리고 있습니다."),
+      );
     }, TAB_LOAD_TIMEOUT_MS);
 
     function handleUpdated(
@@ -161,12 +165,18 @@ async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
         return;
       }
 
-      clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(handleUpdated);
-      resolve(updatedTab);
+      resolveOnce(updatedTab);
     }
 
     chrome.tabs.onUpdated.addListener(handleUpdated);
+    chrome.tabs
+      .get(tabId)
+      .then((currentTab) => {
+        if (currentTab.status === "complete") {
+          resolveOnce(currentTab);
+        }
+      })
+      .catch(rejectOnce);
   });
 }
 
@@ -174,9 +184,9 @@ async function ensureContentScript(tabId: number): Promise<void> {
   try {
     const response = (await chrome.tabs.sendMessage(tabId, {
       type: "LINKU_EVERYTIME_CAPTURE_PING",
-    })) as EverytimeResponse;
+    })) as EverytimeResponse | undefined;
 
-    if (response.success) {
+    if (response?.success) {
       return;
     }
   } catch {
@@ -202,28 +212,35 @@ async function closeOwnedTab(tabId: number): Promise<void> {
 }
 
 function isSemesterListResponse(
-  response: EverytimeResponse,
+  response: EverytimeResponse | undefined,
 ): response is SemesterListResponse {
-  return response.success && "semesters" in response;
+  return response?.success === true && "semesters" in response;
 }
 
 function isCurrentTimetableResponse(
-  response: EverytimeResponse,
+  response: EverytimeResponse | undefined,
 ): response is CurrentTimetableResponse {
-  return response.success && "timetable" in response;
+  return response?.success === true && "timetable" in response;
 }
 
 function isSemesterFetchResponse(
-  response: EverytimeResponse,
+  response: EverytimeResponse | undefined,
 ): response is SemesterFetchResponse {
-  return response.success && "timetables" in response;
+  return response?.success === true && "timetables" in response;
+}
+
+function getEverytimeResponseError(
+  response: EverytimeResponse | undefined,
+  fallback: string,
+): string {
+  return response?.success === false ? response.error : fallback;
 }
 
 async function listSemesters(tabId: number): Promise<SemesterListResponse> {
   await ensureContentScript(tabId);
   const response = (await chrome.tabs.sendMessage(tabId, {
     type: "LINKU_EVERYTIME_LIST_SEMESTERS",
-  })) as EverytimeResponse;
+  })) as EverytimeResponse | undefined;
 
   if (!isSemesterListResponse(response) || response.semesters.length === 0) {
     throw new Error("에브리타임의 학기 목록을 확인하지 못했습니다.");
@@ -240,13 +257,14 @@ async function captureRenderedTimetable(
   const response = (await chrome.tabs.sendMessage(tabId, {
     type: "LINKU_EVERYTIME_CAPTURE_CURRENT",
     data: { semester },
-  })) as EverytimeResponse;
+  })) as EverytimeResponse | undefined;
 
   if (!isCurrentTimetableResponse(response)) {
     throw new Error(
-      "error" in response
-        ? response.error
-        : "에브리타임 시간표를 불러오지 못했습니다.",
+      getEverytimeResponseError(
+        response,
+        "에브리타임 시간표를 불러오지 못했습니다.",
+      ),
     );
   }
 
@@ -261,13 +279,14 @@ async function fetchSemestersFromApi(
   const response = (await chrome.tabs.sendMessage(tabId, {
     type: "LINKU_EVERYTIME_FETCH_SEMESTERS",
     data: { semesters },
-  })) as EverytimeResponse;
+  })) as EverytimeResponse | undefined;
 
   if (!isSemesterFetchResponse(response)) {
     throw new Error(
-      "error" in response
-        ? response.error
-        : "에브리타임 시간표 API를 불러오지 못했습니다.",
+      getEverytimeResponseError(
+        response,
+        "에브리타임 시간표 API를 불러오지 못했습니다.",
+      ),
     );
   }
 
@@ -344,7 +363,7 @@ async function getImportSemesterCandidates(
     .sort((left, right) => right.sortKey - left.sortKey);
 
   if (mode === "latest") {
-    const anchor = getLatestSemesterAnchor(new Date());
+    const anchor = getLatestEverytimeSemesterAnchor(new Date());
     return periods
       .filter((period) => period.sortKey <= anchor.sortKey)
       .map((period) => period.label);
@@ -427,7 +446,9 @@ async function importSemesterBatchFromTab(
         keepOwnedTabOpen = true;
         await setPendingImport({
           tabId,
-          createdByLinku,
+          // 로그인 탭을 사용자에게 활성화한 뒤에는 더 이상 임시 탭으로
+          // 취급하지 않는다. 로그인 완료 후 foreground 탭을 닫지 않는다.
+          createdByLinku: false,
           requestedAt: new Date().toISOString(),
           mode,
         });
@@ -581,7 +602,7 @@ export async function handleTimetableImport(
         return importSemesterBatchFromTab(
           pendingImport.tabId,
           pendingImport.createdByLinku,
-          mode,
+          pendingImport.mode,
         );
       }
     } catch {

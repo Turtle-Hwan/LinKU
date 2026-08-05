@@ -31,12 +31,6 @@ function mergeCourse(
   };
 }
 
-function getCourseFieldsForSubject(
-  override?: EverytimeCourseOverride,
-): EverytimeSubjectOverride | undefined {
-  return override;
-}
-
 function mergeSubject(
   subject: EverytimeSubject,
   courseOverride?: EverytimeCourseOverride,
@@ -46,10 +40,9 @@ function mergeSubject(
     return subject;
   }
 
-  const courseFields = getCourseFieldsForSubject(courseOverride);
   const mergedSubject: EverytimeSubject = {
     ...subject,
-    ...courseFields,
+    ...courseOverride,
     ...subjectOverride,
     id: subject.id,
     subjectId: subject.subjectId,
@@ -57,7 +50,7 @@ function mergeSubject(
   };
   const detailFieldsChanged = DETAIL_FIELDS.some(
     (field) =>
-      (courseFields && hasOwnProperty(courseFields, field)) ||
+      (courseOverride && hasOwnProperty(courseOverride, field)) ||
       (subjectOverride && hasOwnProperty(subjectOverride, field)),
   );
   const detailWasOverridden =

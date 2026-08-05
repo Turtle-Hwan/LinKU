@@ -1,7 +1,6 @@
 import type {
   EverytimeCourse,
   EverytimeSemesterMetadata,
-  EverytimeSemesterTerm,
   EverytimeSubject,
   EverytimeTableMetadata,
   EverytimeTimetable,
@@ -11,6 +10,13 @@ import {
   getStableEverytimeSubjectColor,
   isEverytimeSubjectColor,
 } from "@/utils/everytimeTimetableColor";
+import {
+  EVERYTIME_SEMESTER_PATTERN,
+  formatEverytimeSemester,
+  isEverytimeSemesterTerm,
+  parseEverytimeSemester,
+} from "@/utils/everytimeSemester";
+import { isPrimaryEverytimeTable } from "@/utils/everytimeTimetableParsing";
 
 type CaptureRequest =
   | { type: "LINKU_EVERYTIME_CAPTURE_PING" }
@@ -37,11 +43,12 @@ const EVERYTIME_TABLE_LIST_URL = `${EVERYTIME_API_BASE_URL}/table/list/semester`
 const EVERYTIME_TABLE_DETAIL_URL = `${EVERYTIME_API_BASE_URL}/table`;
 const EVERYTIME_SELECT_SELECTOR = "#semesters";
 const EVERYTIME_TIMETABLE_SELECTOR = "#container.timetable";
-const EVERYTIME_SEMESTER_PATTERN = /^(20\d{2})년\s*(1|2|여름|겨울)학기$/;
 const SEMESTER_FETCH_CONCURRENCY = 4;
 const EVERYTIME_TIME_UNIT_PX = 25 / 6;
 const EVERYTIME_WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const TIMETABLE_RENDER_TIMEOUT_MS = 5_000;
+const EVERYTIME_API_TIMEOUT_MS = 10_000;
+const SEMESTER_METADATA_CACHE_TTL_MS = 5 * 60 * 1_000;
 
 const linkuWindow = window as Window & {
   __LINKU_EVERYTIME_CAPTURE_INSTALLED__?: boolean;
@@ -49,32 +56,15 @@ const linkuWindow = window as Window & {
 
 if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
   linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__ = true;
+  let semesterMetadataCache:
+    | {
+        expiresAt: number;
+        value: Map<string, EverytimeSemesterMetadata>;
+      }
+    | undefined;
 
   const exactText = (element: Element | null): string =>
     element?.textContent?.replace(/\s+/g, " ").trim() ?? "";
-
-  const isEverytimeSemesterTerm = (
-    value?: string,
-  ): value is EverytimeSemesterTerm =>
-    value === "1" || value === "여름" || value === "2" || value === "겨울";
-
-  const formatEverytimeSemester = (
-    year: number,
-    term: EverytimeSemesterTerm,
-  ): string => `${year}년 ${term}학기`;
-
-  const parseEverytimeSemester = (
-    semester: string,
-  ): { year: number; term: EverytimeSemesterTerm } | null => {
-    const match = semester.match(EVERYTIME_SEMESTER_PATTERN);
-    if (!match) {
-      return null;
-    }
-
-    const year = Number.parseInt(match[1], 10);
-    const term = match[2];
-    return isEverytimeSemesterTerm(term) ? { year, term } : null;
-  };
 
   const findTimetableRoot = (documentRoot: Document = document): HTMLElement | null =>
     documentRoot.querySelector<HTMLElement>(EVERYTIME_TIMETABLE_SELECTOR);
@@ -183,6 +173,10 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
     const subjects: EverytimeSubject[] = [];
 
     cells.forEach((cell, dayIndex) => {
+      if (dayIndex >= weekdays.length) {
+        return;
+      }
+
       const subjectElements = Array.from(
         cell.querySelectorAll(":scope > div.cols > div.subject"),
       );
@@ -203,6 +197,8 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
         const place = professor
           ? rawDetail.slice(professor.length).trim()
           : rawDetail;
+        const startTime = Math.round(top / EVERYTIME_TIME_UNIT_PX);
+        const endTime = Math.round((top + height) / EVERYTIME_TIME_UNIT_PX);
 
         subjects.push({
           id: `${expectedSemester}:${dayIndex}:${top}:${subjectIndex}`,
@@ -212,13 +208,16 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
           place: place || undefined,
           detail: [professor, place].filter(Boolean).join(" · ") || undefined,
           color: getColorClass(subject),
+          startTime,
+          endTime,
           top,
           height,
         });
       });
     });
 
-    const hourGridCount = root.querySelectorAll("table.tablebody div.grids > div.grid").length;
+    const firstGrid = bodyTable.querySelector("td div.grids");
+    const hourGridCount = firstGrid?.querySelectorAll(":scope > div.grid").length ?? 0;
     return {
       semester: readSemester(documentRoot) ?? expectedSemester,
       weekdays,
@@ -266,28 +265,50 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
     url: string,
     body: URLSearchParams,
   ): Promise<Document> => {
-    const response = await fetch(url, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        Accept: "application/xml, text/xml, */*; q=0.01",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      },
-      body: body.toString(),
-    });
-    if (!response.ok) {
-      throw new Error("에브리타임 시간표 API를 불러오지 못했습니다.");
-    }
-
-    const documentRoot = new DOMParser().parseFromString(
-      await response.text(),
-      "application/xml",
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      EVERYTIME_API_TIMEOUT_MS,
     );
-    if (documentRoot.querySelector("parsererror")) {
-      throw new Error("에브리타임 시간표 응답을 해석하지 못했습니다.");
-    }
 
-    return documentRoot;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/xml, text/xml, */*; q=0.01",
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        },
+        body: body.toString(),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error("에브리타임 시간표 API를 불러오지 못했습니다.");
+      }
+
+      const documentRoot = new DOMParser().parseFromString(
+        await response.text(),
+        "application/xml",
+      );
+      if (
+        documentRoot.querySelector("parsererror") ||
+        documentRoot.querySelector("response > error")
+      ) {
+        throw new Error("에브리타임 시간표 응답을 해석하지 못했습니다.");
+      }
+
+      return documentRoot;
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw Object.assign(
+          new Error("에브리타임 시간표 요청 시간이 초과되었습니다."),
+          { cause: error },
+        );
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
   };
 
   const parseSemesterMetadataList = (
@@ -323,6 +344,28 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
     });
 
     return metadataBySemester;
+  };
+
+  const getSemesterMetadataByLabel = async (): Promise<
+    Map<string, EverytimeSemesterMetadata>
+  > => {
+    if (
+      semesterMetadataCache &&
+      semesterMetadataCache.expiresAt > Date.now()
+    ) {
+      return semesterMetadataCache.value;
+    }
+
+    const documentRoot = await fetchEverytimeXml(
+      EVERYTIME_SEMESTER_LIST_URL,
+      new URLSearchParams(),
+    );
+    const value = parseSemesterMetadataList(documentRoot);
+    semesterMetadataCache = {
+      expiresAt: Date.now() + SEMESTER_METADATA_CACHE_TTL_MS,
+      value,
+    };
+    return value;
   };
 
   const parseTableMetadata = (
@@ -478,7 +521,12 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
     );
     const tables = Array.from(listDocument.querySelectorAll("response > table"));
     const selectedTable =
-      tables.find((table) => table.getAttribute("is_primary") === "1") ??
+      tables.find((table) =>
+        isPrimaryEverytimeTable(
+          table.getAttribute("primary"),
+          table.getAttribute("is_primary"),
+        ),
+      ) ??
       tables[0];
     if (!selectedTable) {
       return null;
@@ -514,13 +562,7 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
     let nextIndex = 0;
 
     try {
-      const semesterMetadataDocument = await fetchEverytimeXml(
-        EVERYTIME_SEMESTER_LIST_URL,
-        new URLSearchParams(),
-      );
-      const semesterMetadataByLabel = parseSemesterMetadataList(
-        semesterMetadataDocument,
-      );
+      const semesterMetadataByLabel = await getSemesterMetadataByLabel();
       const workers = Array.from(
         {
           length: Math.min(
