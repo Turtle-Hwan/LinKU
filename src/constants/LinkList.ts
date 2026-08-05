@@ -1,4 +1,5 @@
 import { HelloLmsPng } from "@/assets";
+import EverytimeSymbolUrl from "@/assets/everytime_symbol.svg";
 import {
   BULLETIN_FALLBACK,
   BULLETIN_LINK_ID,
@@ -18,7 +19,6 @@ import {
   Clock,
   Trophy,
   GraduationCap,
-  AlarmClock,
   MapPinned,
   Utensils,
   Building,
@@ -158,8 +158,8 @@ export const LinkList: LinkListElement[] = [
     link: "https://www.konkuk.ac.kr/general/18211/subview.do",
   },
   {
-    icon: AlarmClock,
-    iconColor: "text-red-600",
+    icon: EverytimeSymbolUrl,
+    type: "svg",
     label: "에브리타임",
     link: "https://account.everytime.kr/login",
   },

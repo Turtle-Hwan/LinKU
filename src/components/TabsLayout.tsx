@@ -4,6 +4,7 @@ import LinkGroup from "./Tabs/LinkGroup";
 import TodoList from "./Tabs/TodoList/TodoList";
 import TodoCountBadge from "./Tabs/TodoList/TodoCountBadge";
 import Alerts from "./Tabs/Alerts/Alerts";
+import TimeTable from "./Tabs/TimeTable/TimeTable";
 import { sendTabChange } from "@/utils/analytics";
 import { useSelectedTemplate } from "@/hooks/useSelectedTemplate";
 
@@ -48,9 +49,7 @@ const TabsLayout = () => {
         )}
       </TabsContent>
       <TabsContent value="TimeTable">
-        <div className="size-full border-t text-center">
-          시간표는 준비 중입니다
-        </div>
+        <TimeTable />
       </TabsContent>
       <TabsContent value="TodoList">
         <TodoList />

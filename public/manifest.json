@@ -17,6 +17,17 @@
     "service_worker": "background/index.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://everytime.kr/timetable*"
+      ],
+      "js": [
+        "content/everytime-timetable.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": [
     "activeTab",
     "scripting",

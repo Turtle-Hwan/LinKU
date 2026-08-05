@@ -27,10 +27,12 @@ LinKU는 건국대학교 학생을 위한 Manifest V3 Chrome Extension입니다.
 - Root app shell: `src/App.tsx`
 - Background service worker: `src/background/index.ts`
 - OAuth handler: `src/background/handlers/oauth.ts`
+- Everytime timetable content script: `src/content/everytime-timetable.ts`
 - Extension manifest: `public/manifest.json`
 
-현재 구조에는 content script가 없습니다. `public/manifest.json`이 변경되지 않는
-한 페이지 주입 기능이 존재한다고 가정하지 마세요.
+content script는 에브리타임 시간표 HTML 파싱에만 사용됩니다. 새 페이지 주입
+기능을 추가할 때는 `public/manifest.json`의 구체적인 match pattern과 데이터
+경계를 함께 검토하세요.
 
 ## 공통 명령
 
@@ -39,6 +41,7 @@ pnpm install
 pnpm run dev
 pnpm run build:local
 pnpm run lint
+pnpm run test:timetable
 ```
 
 Chrome에서 확장 프로그램을 검증하기 전에는 `pnpm run build:local`을 실행하고,
@@ -64,6 +67,20 @@ Chrome에서 확장 프로그램을 검증하기 전에는 `pnpm run build:local
 - 이미 working tree에 존재하는 사용자 변경사항을 보존하세요. 편집 전
   `git status`를 확인하세요.
 
+## 컴포넌트 조합 규칙
+
+- 로딩·빈 상태·저장 후 상태·다이얼로그처럼 하나의 feature가 여러 화면 역할로
+  나뉘면, compound component를 기본으로 사용하세요. 예: `TimeTable.Loading`,
+  `TimeTable.Empty`, `TimeTable.Saved`.
+- root component는 상태, side effect, 이벤트 연결을 담당하고, 하위 component는
+  역할이 드러나는 이름과 명시적인 props로 화면을 담당합니다. root의 긴 조건부
+  JSX와 중복 action UI를 줄이는 것이 목적입니다.
+- 외부 consumer가 하위 component를 조합해야 한다면 `Object.assign` 등으로
+  export된 component에도 정적 멤버를 보존하세요. 한 파일 안에서만 조합한다면
+  기존 `MainLayout.Header`, `LinkGroup.Grid` 관례를 따릅니다.
+- 단일 역할의 작고 독립적인 UI까지 compound component로 감싸지는 마세요.
+  독립 재사용이 필요한 경우에는 일반 component를 우선합니다.
+
 ## 소스 책임 지도
 
 - `src/components/Tabs/`: popup tab 기능.
@@ -87,6 +104,14 @@ Chrome에서 확장 프로그램을 검증하기 전에는 `pnpm run build:local
 - `.github/workflows/`: Chrome Web Store upload, GitHub Pages, release 흐름을
   제어합니다.
 - `src/background/handlers/oauth.ts`: auth flow와 token handling을 담당합니다.
+- `src/background/handlers/timetable.ts`: Everytime tab 탐색, 로그인 재개,
+  수동 학기 묶음 import orchestration을 담당합니다.
+- `src/content/everytime-timetable.ts`: Everytime 시간표 XML을 구조화하고 API
+  실패 시 DOM을 파싱하며 password, cookie, session token은 읽거나 저장하지 않습니다.
+- `src/utils/everytimeTimetable.ts`: Everytime 원본 snapshot과 사용자 override를
+  병합하는 side-effect 없는 도메인 로직을 담당합니다.
+- `src/utils/timetableStorage.ts`: snapshot asset과 별도 override index의 저장,
+  schema migration, 삭제 시 정리를 담당합니다.
 - `src/apis/client.ts`: auth interceptor, backend response parsing,
   silent reauth를 담당합니다.
 - `src/apis/external/`: third-party 또는 school page markup에 의존하는 parsing
@@ -109,4 +134,3 @@ TypeScript, React hooks, shared utilities, CI/lint configuration을 수정했다
 UI 또는 확장 프로그램 동작을 변경했다면 `dist/`를 Chrome에 직접 로드해 관련
 popup 흐름을 검증하세요. OAuth, storage, badge, service-worker 변경은 Vite
 dev mode와 실제 extension runtime이 다르므로 브라우저 검증이 필요합니다.
-
