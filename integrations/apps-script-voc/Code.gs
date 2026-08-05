@@ -4,8 +4,12 @@ const VOC_CONFIG = Object.freeze({
   sheetNameProperty: "VOC_SHEET_NAME",
   defaultSheetName: "Feedback",
   spreadsheetName: "LinKU VoC",
-  retryFunctionName: "retryPendingNotifications",
-  maxNotificationsPerRetry: 20,
+  digestFunctionName: "sendDailyDigest",
+  legacyRetryFunctionName: "retryPendingNotifications",
+  lastDigestDateProperty: "VOC_LAST_DIGEST_DATE",
+  digestHour: 9,
+  digestTimezone: "Asia/Seoul",
+  maxDigestBodyBytes: 180 * 1024,
   maxRequestsPerMinute: 10,
 });
 
@@ -31,7 +35,7 @@ const VOC_CATEGORY_LABELS = Object.freeze({
 
 /**
  * Apps Script 편집기에서 최초 1회 직접 실행합니다.
- * 전용 Spreadsheet와 메일 재시도 트리거를 만들고 Script Properties에 저장합니다.
+ * 전용 Spreadsheet와 일일 다이제스트 트리거를 만들고 Script Properties에 저장합니다.
  */
 function initialize() {
   const properties = PropertiesService.getScriptProperties();
@@ -68,7 +72,7 @@ function initialize() {
   }
 
   const sheet = getOrCreateFeedbackSheet_(spreadsheet);
-  installRetryTrigger_();
+  installDailyDigestTrigger_();
 
   // 최초 실행 시 메일 권한도 함께 승인받습니다.
   const remainingMailQuota = MailApp.getRemainingDailyQuota();
@@ -77,6 +81,8 @@ function initialize() {
     sheetName: sheet.getName(),
     recipientEmail: recipientEmail,
     remainingMailQuota: remainingMailQuota,
+    dailyDigestHour: VOC_CONFIG.digestHour,
+    dailyDigestTimezone: VOC_CONFIG.digestTimezone,
   };
 }
 
@@ -112,16 +118,9 @@ function doPost(event) {
       ? existingRow
       : appendSubmission_(sheet, submission);
 
-    // Sheet 반영을 먼저 확정한 뒤 알림을 시도합니다.
+    // Sheet 반영만 즉시 확정하고, 메일은 일일 다이제스트가 별도로 처리합니다.
     SpreadsheetApp.flush();
-    const storedSubmission = readSubmission_(sheet, rowNumber);
-    const notificationSent = attemptNotification_(
-      sheet,
-      rowNumber,
-      storedSubmission,
-      spreadsheet.getUrl(),
-    );
-    SpreadsheetApp.flush();
+    const notificationSent = readSubmission_(sheet, rowNumber).notificationSent;
 
     return jsonResponse_({
       success: true,
@@ -145,49 +144,101 @@ function doPost(event) {
 }
 
 /**
- * 메일 할당량 또는 일시 오류로 알림을 못 보낸 행을 다시 처리합니다.
- * initialize()가 6시간 간격의 시간 기반 트리거를 자동으로 등록합니다.
+ * 아직 메일로 보고되지 않은 VoC를 매일 한 통의 다이제스트로 발송합니다.
+ * initialize()가 매일 오전 9시(KST) 전후의 시간 기반 트리거를 등록합니다.
  */
-function retryPendingNotifications() {
+function sendDailyDigest() {
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return;
+  if (!lock.tryLock(10000)) {
+    return { sent: false, reason: "BUSY" };
+  }
 
   try {
-    const spreadsheet = getConfiguredSpreadsheet_();
-    const sheet = getOrCreateFeedbackSheet_(spreadsheet);
-    const lastRow = sheet.getLastRow();
-    let attempted = 0;
-
-    for (let rowNumber = 2; rowNumber <= lastRow; rowNumber += 1) {
-      const notificationSent = sheet.getRange(rowNumber, 8).getValue() === true;
-      if (notificationSent) continue;
-      if (MailApp.getRemainingDailyQuota() < 1) break;
-      if (attempted >= VOC_CONFIG.maxNotificationsPerRetry) break;
-
-      try {
-        const submission = readSubmission_(sheet, rowNumber);
-        attemptNotification_(
-          sheet,
-          rowNumber,
-          submission,
-          spreadsheet.getUrl(),
-        );
-      } catch (error) {
-        setNotificationState_(
-          sheet,
-          rowNumber,
-          false,
-          Number(sheet.getRange(rowNumber, 9).getValue() || 0) + 1,
-          getPrivateErrorMessage_(error),
-        );
-      }
-      attempted += 1;
+    const properties = PropertiesService.getScriptProperties();
+    const digestDate = Utilities.formatDate(
+      new Date(),
+      VOC_CONFIG.digestTimezone,
+      "yyyy-MM-dd",
+    );
+    if (
+      properties.getProperty(VOC_CONFIG.lastDigestDateProperty) === digestDate
+    ) {
+      return { sent: false, reason: "ALREADY_SENT_TODAY" };
     }
 
-    SpreadsheetApp.flush();
+    const spreadsheet = getConfiguredSpreadsheet_();
+    const sheet = getOrCreateFeedbackSheet_(spreadsheet);
+    const pending = getPendingNotifications_(sheet);
+    if (pending.length === 0) {
+      return { sent: false, reason: "NO_PENDING_FEEDBACK" };
+    }
+
+    const recipientEmail = properties.getProperty(
+      VOC_CONFIG.recipientEmailProperty,
+    );
+    if (!recipientEmail) {
+      updateNotificationFailures_(
+        sheet,
+        pending,
+        "VOC_RECIPIENT_EMAIL is not configured",
+      );
+      return { sent: false, reason: "RECIPIENT_NOT_CONFIGURED" };
+    }
+
+    if (MailApp.getRemainingDailyQuota() < 1) {
+      updateNotificationFailures_(sheet, pending, "Mail quota exhausted");
+      return { sent: false, reason: "MAIL_QUOTA_EXHAUSTED" };
+    }
+
+    const digest = buildDailyDigest_(
+      pending,
+      digestDate,
+      spreadsheet.getUrl(),
+    );
+
+    try {
+      MailApp.sendEmail({
+        to: recipientEmail,
+        subject:
+          "[LinKU VoC] " + digestDate + " 의견 " + digest.items.length + "건",
+        body: digest.body,
+        name: "LinKU VoC",
+      });
+
+      for (const item of digest.items) {
+        setNotificationState_(
+          sheet,
+          item.rowNumber,
+          true,
+          item.submission.notificationAttempts + 1,
+          "",
+        );
+      }
+      properties.setProperty(VOC_CONFIG.lastDigestDateProperty, digestDate);
+      SpreadsheetApp.flush();
+      return {
+        sent: true,
+        includedCount: digest.items.length,
+        deferredCount: pending.length - digest.items.length,
+      };
+    } catch (error) {
+      updateNotificationFailures_(
+        sheet,
+        digest.items,
+        getPrivateErrorMessage_(error),
+      );
+      return { sent: false, reason: "MAIL_SEND_FAILED" };
+    }
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 기존 6시간 트리거가 남아 있어도 하루 한 번만 발송되도록 하는 migration alias.
+ */
+function retryPendingNotifications() {
+  return sendDailyDigest();
 }
 
 function parseSubmission_(event) {
@@ -319,80 +370,95 @@ function readSubmission_(sheet, rowNumber) {
   };
 }
 
-function attemptNotification_(
-  sheet,
-  rowNumber,
-  submission,
-  spreadsheetUrl,
-) {
-  if (submission.notificationSent) return true;
-
-  const attempts = submission.notificationAttempts + 1;
-  try {
-    const recipientEmail = PropertiesService.getScriptProperties().getProperty(
-      VOC_CONFIG.recipientEmailProperty,
-    );
-
-    if (!recipientEmail) {
-      setNotificationState_(
-        sheet,
-        rowNumber,
-        false,
-        attempts,
-        "VOC_RECIPIENT_EMAIL is not configured",
-      );
-      return false;
+function getPendingNotifications_(sheet) {
+  const pending = [];
+  for (let rowNumber = 2; rowNumber <= sheet.getLastRow(); rowNumber += 1) {
+    const submission = readSubmission_(sheet, rowNumber);
+    if (!submission.notificationSent) {
+      pending.push({ rowNumber: rowNumber, submission: submission });
     }
+  }
+  return pending;
+}
 
-    if (MailApp.getRemainingDailyQuota() < 1) {
-      setNotificationState_(
-        sheet,
-        rowNumber,
-        false,
-        attempts,
-        "Mail quota exhausted",
-      );
-      return false;
-    }
+function buildDailyDigest_(pending, digestDate, spreadsheetUrl) {
+  const header = [
+    digestDate + " LinKU VoC 다이제스트",
+    "",
+    "메일로 보고되지 않은 의견 " + pending.length + "건을 모았습니다.",
+  ];
+  const sections = [];
+  const includedItems = [];
 
+  for (const item of pending) {
+    const submission = item.submission;
     const categoryLabel =
       VOC_CATEGORY_LABELS[submission.category] || VOC_CATEGORY_LABELS.other;
-    const subjectTitle = submission.title.replace(/[\r\n]+/g, " ");
-    const body = [
-      "LinKU에 새로운 의견이 도착했습니다.",
-      "",
-      "유형: " + categoryLabel,
-      "제목: " + submission.title,
-      "내용:",
-      submission.message,
-      "",
+    const receivedAt = Utilities.formatDate(
+      new Date(submission.receivedAt),
+      VOC_CONFIG.digestTimezone,
+      "yyyy-MM-dd HH:mm",
+    );
+    const section = [
+      includedItems.length +
+        1 +
+        ". [" +
+        categoryLabel +
+        "] " +
+        submission.title,
+      "접수: " + receivedAt,
+      "내용: " + submission.message,
       "확장 프로그램 버전: " + submission.extensionVersion,
       "제출 ID: " + submission.submissionId,
-      "Sheet: " + spreadsheetUrl,
     ].join("\n");
+    const candidateBody = header
+      .concat([
+        "",
+        sections.concat([section]).join("\n\n"),
+        "",
+        "Sheet: " + spreadsheetUrl,
+      ])
+      .join("\n");
 
-    MailApp.sendEmail({
-      to: recipientEmail,
-      subject: "[LinKU VoC/" + categoryLabel + "] " + subjectTitle,
-      body: body,
-      name: "LinKU VoC",
-    });
-    setNotificationState_(sheet, rowNumber, true, attempts, "");
-    return true;
-  } catch (error) {
-    try {
-      setNotificationState_(
-        sheet,
-        rowNumber,
-        false,
-        attempts,
-        getPrivateErrorMessage_(error),
-      );
-    } catch (_stateError) {
-      // Sheet 본문은 이미 저장됐으므로 알림 상태 기록 실패도 제출 실패로 바꾸지 않습니다.
+    if (getUtf8ByteLength_(candidateBody) > VOC_CONFIG.maxDigestBodyBytes) {
+      break;
     }
-    return false;
+    sections.push(section);
+    includedItems.push(item);
   }
+
+  const deferredCount = pending.length - includedItems.length;
+  const footer = [
+    "",
+    deferredCount > 0
+      ? "메일 크기 제한으로 나머지 " +
+        deferredCount +
+        "건은 Sheet에서 확인하거나 다음 다이제스트에서 받을 수 있습니다."
+      : "모든 미보고 의견을 포함했습니다.",
+    "Sheet: " + spreadsheetUrl,
+  ];
+
+  return {
+    body: header.concat(["", sections.join("\n\n")], footer).join("\n"),
+    items: includedItems,
+  };
+}
+
+function getUtf8ByteLength_(text) {
+  return Utilities.newBlob(text).getBytes().length;
+}
+
+function updateNotificationFailures_(sheet, items, error) {
+  for (const item of items) {
+    setNotificationState_(
+      sheet,
+      item.rowNumber,
+      false,
+      item.submission.notificationAttempts + 1,
+      error,
+    );
+  }
+  SpreadsheetApp.flush();
 }
 
 function setNotificationState_(sheet, rowNumber, sent, attempts, error) {
@@ -401,17 +467,26 @@ function setNotificationState_(sheet, rowNumber, sent, attempts, error) {
     .setValues([[sent, attempts, safeSheetText_(error).slice(0, 200)]]);
 }
 
-function installRetryTrigger_() {
-  const alreadyInstalled = ScriptApp.getProjectTriggers().some(
-    (trigger) =>
-      trigger.getHandlerFunction() === VOC_CONFIG.retryFunctionName &&
-      trigger.getEventType() === ScriptApp.EventType.CLOCK,
-  );
-  if (alreadyInstalled) return;
+function installDailyDigestTrigger_() {
+  const managedHandlers = [
+    VOC_CONFIG.digestFunctionName,
+    VOC_CONFIG.legacyRetryFunctionName,
+  ];
+  for (const trigger of ScriptApp.getProjectTriggers()) {
+    if (
+      trigger.getEventType() === ScriptApp.EventType.CLOCK &&
+      managedHandlers.includes(trigger.getHandlerFunction())
+    ) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  }
 
-  ScriptApp.newTrigger(VOC_CONFIG.retryFunctionName)
+  ScriptApp.newTrigger(VOC_CONFIG.digestFunctionName)
     .timeBased()
-    .everyHours(6)
+    .atHour(VOC_CONFIG.digestHour)
+    .nearMinute(0)
+    .everyDays(1)
+    .inTimezone(VOC_CONFIG.digestTimezone)
     .create();
 }
 
