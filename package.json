@@ -15,6 +15,7 @@
     "watch:local": "tsc -b && vite build --watch --mode development",
     "build:gh-pages": "tsc -b && vite build --mode gh-pages",
     "lint": "eslint .",
+    "test:timetable": "node --experimental-strip-types --test tests/timetable/*.test.ts",
     "preview": "vite preview",
     "deploy": "git subtree push --prefix gh-pages origin gh-pages"
   },
