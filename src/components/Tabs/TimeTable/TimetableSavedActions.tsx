@@ -77,7 +77,7 @@ function TimetableSavedActionsComponent({
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onSelect={onUpload}>
             <ImageUp />
-            PNG 시간표 올리기
+            시간표 이미지 올리기
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={onImportPreviousSemesters}>
             <CalendarDays />

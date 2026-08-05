@@ -30,13 +30,17 @@ service worker 사이의 통신은 `chrome.runtime.sendMessage`와
 2학기부터), 그 묶음이 비어 있으면 이전 네 학기로 계속 탐색하는지, 빈 학기가 저장되지 않는지,
 수업이 있는 학기만 popup의 선택 목록에 나타나는지, `이전 4학기 추가`가 그보다
 앞선 네 개 학기를 추가하는지 확인하세요. 수동 동기화 뒤에도 기존 학기, 직접
-업로드한 PNG, active 선택이 유지되어야 합니다. password, cookie, session token은
+업로드한 이미지, active 선택이 유지되어야 합니다. password, cookie, session token은
 어떤 검증 로그에도 남기지 않습니다. 저장된 구조 데이터에는 학기·시간표·과목·수업시간
 메타데이터가 포함되고, 시간이 없는 과목도 `courses`에 남는지 함께 확인합니다.
 사용자 override가 있는 학기를 다시 동기화할 때 `snapshot` checksum과 수정 시각은
 바뀔 수 있지만 `timetableEverytimeOverrides` 값과 병합된 화면은 유지되어야 합니다.
 기존 schema v2 시간표는 첫 조회에서 schema v3 `snapshot` 구조로 마이그레이션되어야
 합니다.
+
+직접 업로드하는 시간표 이미지는 PNG, JPG/JPEG, WebP, GIF, AVIF를 지원합니다.
+확장자나 브라우저가 전달한 MIME type만 믿지 않고 파일 signature와 실제 이미지
+decode를 모두 통과하는지 확인하며, 기존 8MB 및 280×180 최소 크기 제한을 유지합니다.
 
 기술 스택은 다음을 기준으로 이해하면 됩니다.
 

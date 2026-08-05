@@ -10,7 +10,10 @@ import type {
   TimetableAssetMeta,
   UploadedTimetableMeta,
 } from "@/types/timetable";
-import { TIMETABLE_STORAGE_KEYS } from "@/types/timetable";
+import {
+  isTimetableImageMimeType,
+  TIMETABLE_STORAGE_KEYS,
+} from "@/types/timetable";
 import { getStorage, removeStorage, setStorage } from "@/utils/chrome";
 import {
   createEverytimeTimetableOverride,
@@ -424,8 +427,8 @@ export async function saveTimetableAsset(
   blob: Blob,
   input: SaveTimetableInput,
 ): Promise<{ meta: UploadedTimetableMeta; changed: boolean }> {
-  if (blob.type !== "image/png") {
-    throw new Error("PNG 파일만 저장할 수 있습니다.");
+  if (!isTimetableImageMimeType(blob.type)) {
+    throw new Error("지원하지 않는 이미지 형식입니다.");
   }
 
   const id = getAssetId(input);
@@ -454,7 +457,7 @@ export async function saveTimetableAsset(
     schemaVersion: 3,
     id,
     source: "upload",
-    mimeType: "image/png",
+    mimeType: blob.type,
     width: input.width,
     height: input.height,
     byteSize: blob.size,

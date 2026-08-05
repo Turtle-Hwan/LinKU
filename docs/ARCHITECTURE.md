@@ -206,9 +206,9 @@ feature-specific API module은 fetch behavior를 중복 구현하지 말고 이 
   todo, library token, badge count, timetable metadata.
 - `localStorage`: `src/utils/templateStorage.ts`를 통한 template draft와 local
   template persistence.
-- IndexedDB: 사용자가 직접 업로드한 timetable PNG blob만 저장합니다. 이미지와
-  metadata index를 분리해 향후 backend sync를 붙일 수 있도록 metadata에 schema
-  version과 sync status를 둡니다.
+- IndexedDB: 사용자가 직접 업로드한 PNG, JPG/JPEG, WebP, GIF, AVIF timetable
+  이미지 blob만 저장합니다. 이미지와 metadata index를 분리해 향후 backend
+  sync를 붙일 수 있도록 metadata에 schema version과 sync status를 둡니다.
 - `chrome.storage.local`: 에브리타임 원본 snapshot은 `timetableAssetIndex`의
   schema v3 asset에, 사용자 수정은 별도 `timetableEverytimeOverrides`의 schema
   v1 index에 저장합니다. 조회할 때만 `src/utils/everytimeTimetable.ts`가 두 층을
@@ -306,7 +306,7 @@ content script가 `#semesters`에서 학기 목록을 읽고, 현재 학사 시�
 
 시간표 갱신은 popup에서 사용자가 `동기화`를 누른 경우에만 실행됩니다. 새 학기는
 기존 collection에 추가하고, 같은 에브리타임 학기는 최신 snapshot으로 갱신하되
-다른 학기와 직접 업로드한 PNG는 삭제하지 않습니다. 이미 사용자가 보고 있던
+다른 학기와 직접 업로드한 이미지는 삭제하지 않습니다. 이미 사용자가 보고 있던
 시간표가 있으면 active 선택도 바꾸지 않습니다. 사용자 수정은 course/subject
 override와 숨김·사용자 추가 항목으로 별도 저장되며, 화면에서는 최신 snapshot에
 이를 병합합니다. 시간표 자체를 삭제할 때만 해당 override도 함께 삭제합니다.

@@ -15,7 +15,7 @@ import {
   setActiveTimetable,
 } from "@/utils/timetableStorage";
 import { getErrorLogDetails, warnLog } from "@/utils/logger";
-import { readTimetablePng } from "@/components/Tabs/TimeTable/timetableImage";
+import { readTimetableImage } from "@/components/Tabs/TimeTable/timetableImage";
 
 export type TimetableBusyState =
   | "loading"
@@ -78,11 +78,11 @@ export function useTimetable() {
       setBusy("uploading");
 
       try {
-        const png = await readTimetablePng(file);
-        const result = await saveTimetableAsset(png.blob, {
+        const image = await readTimetableImage(file);
+        const result = await saveTimetableAsset(image.blob, {
           source: "upload",
-          width: png.width,
-          height: png.height,
+          width: image.width,
+          height: image.height,
         });
 
         await loadTimetable();
@@ -92,7 +92,7 @@ export function useTimetable() {
             : "이미 저장된 시간표와 같은 이미지예요.",
         );
       } catch (error) {
-        warnLog("[Timetable] PNG upload failed", getErrorLogDetails(error));
+        warnLog("[Timetable] Image upload failed", getErrorLogDetails(error));
         toast.error(
           error instanceof Error
             ? error.message

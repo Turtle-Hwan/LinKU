@@ -9,6 +9,23 @@ export const TIMETABLE_STORAGE_KEYS = {
 export type TimetableSource = "upload" | "everytime";
 export type TimetableSyncStatus = "local" | "pending" | "synced" | "error";
 
+export const TIMETABLE_IMAGE_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+] as const;
+
+export type TimetableImageMimeType =
+  (typeof TIMETABLE_IMAGE_MIME_TYPES)[number];
+
+export function isTimetableImageMimeType(
+  value: string,
+): value is TimetableImageMimeType {
+  return (TIMETABLE_IMAGE_MIME_TYPES as readonly string[]).includes(value);
+}
+
 export type EverytimeSemesterTerm = "1" | "여름" | "2" | "겨울";
 
 export interface EverytimeSemesterMetadata {
@@ -149,7 +166,7 @@ interface TimetableMetaBase {
 
 export interface UploadedTimetableMeta extends TimetableMetaBase {
   source: "upload";
-  mimeType: "image/png";
+  mimeType: TimetableImageMimeType;
   width: number;
   height: number;
   byteSize: number;

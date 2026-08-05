@@ -26,6 +26,7 @@ import { TimetableActionButton } from "@/components/Tabs/TimeTable/TimetableActi
 import { EverytimeSchedule } from "@/components/Tabs/TimeTable/EverytimeSchedule";
 import { TimetableSavedActions } from "@/components/Tabs/TimeTable/TimetableSavedActions";
 import { sortTimetableAssetsBySemester } from "@/components/Tabs/TimeTable/timetableAssetSorting";
+import { TIMETABLE_IMAGE_ACCEPT } from "@/components/Tabs/TimeTable/timetableImage";
 import { useBlobObjectUrl } from "@/hooks/useBlobObjectUrl";
 import { type TimetableBusyState, useTimetable } from "@/hooks/useTimetable";
 import { cn } from "@/lib/utils";
@@ -227,7 +228,7 @@ const FileInput = ({ inputRef, onChange }: FileInputProps) => (
   <input
     ref={inputRef}
     type="file"
-    accept="image/png,.png"
+    accept={TIMETABLE_IMAGE_ACCEPT}
     className="sr-only"
     onChange={onChange}
   />
@@ -317,7 +318,7 @@ const Empty = ({
           ) : (
             <ImageUp />
           )}
-          PNG 파일 올리기
+          시간표 이미지 올리기
         </TimetableActionButton>
       </div>
       <p className="mt-4 text-sm leading-[1.5] text-muted-foreground">
@@ -371,7 +372,7 @@ const Saved = ({
             >
               {sortedAssets.map((storedAsset) => (
                 <option key={storedAsset.id} value={storedAsset.id}>
-                  {storedAsset.semester ?? "PNG 시간표"}
+                  {storedAsset.semester ?? "시간표 이미지"}
                 </option>
               ))}
             </select>
