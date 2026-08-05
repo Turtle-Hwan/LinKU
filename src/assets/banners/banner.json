@@ -13,7 +13,8 @@
     {
       "img": "whenwillmeet_banner.png",
       "link": "https://when-will-we-meet.com/",
-      "alt": "whenwillmeet_banner"
+      "alt": "whenwillmeet_banner",
+      "endAt": "2026-08-05T00:00:00+09:00"
     }
   ]
 }
