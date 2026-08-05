@@ -1,10 +1,12 @@
 import {
   TIMETABLE_IMAGE_MIME_TYPES,
   type TimetableImageMimeType,
-} from "@/types/timetable";
+} from "../../../types/timetable.ts";
 
 const BYTES_PER_MEBIBYTE = 1024 * 1024;
-const MAX_TIMETABLE_IMAGE_SIZE_MB = 8;
+const MAX_TIMETABLE_IMAGE_SIZE_MB = 5;
+const MAX_TIMETABLE_IMAGE_DIMENSION_PX = 8_192;
+const MAX_TIMETABLE_IMAGE_PIXEL_COUNT = 32_000_000;
 const IMAGE_SIGNATURE_BYTE_LENGTH = 32;
 const SUPPORTED_IMAGE_FORMAT_LABEL = "PNG, JPG, JPEG, WebP, GIF, AVIF";
 const PNG_FILE_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const;
@@ -30,6 +32,9 @@ export const TIMETABLE_IMAGE_ACCEPT = [
 export const TIMETABLE_IMAGE_REQUIREMENTS = {
   maxByteSize: MAX_TIMETABLE_IMAGE_SIZE_MB * BYTES_PER_MEBIBYTE,
   maxSizeLabel: `${MAX_TIMETABLE_IMAGE_SIZE_MB}MB`,
+  maxWidth: MAX_TIMETABLE_IMAGE_DIMENSION_PX,
+  maxHeight: MAX_TIMETABLE_IMAGE_DIMENSION_PX,
+  maxPixelCount: MAX_TIMETABLE_IMAGE_PIXEL_COUNT,
   minWidth: 280,
   minHeight: 180,
   supportedFormatLabel: SUPPORTED_IMAGE_FORMAT_LABEL,
@@ -69,7 +74,7 @@ function includesAlignedBytes(
   return false;
 }
 
-function detectImageMimeType(
+export function detectImageMimeType(
   bytes: Uint8Array,
 ): TimetableImageMimeType | null {
   if (startsWithBytes(bytes, PNG_FILE_SIGNATURE)) {
@@ -140,9 +145,22 @@ export async function readTimetableImage(
   const bitmap = await decodeImage(blob);
 
   try {
-    const { minWidth, minHeight } = TIMETABLE_IMAGE_REQUIREMENTS;
+    const {
+      maxHeight,
+      maxPixelCount,
+      maxWidth,
+      minHeight,
+      minWidth,
+    } = TIMETABLE_IMAGE_REQUIREMENTS;
     if (bitmap.width < minWidth || bitmap.height < minHeight) {
       throw new Error("시간표를 확인할 수 있는 크기의 이미지를 올려주세요.");
+    }
+    if (
+      bitmap.width > maxWidth ||
+      bitmap.height > maxHeight ||
+      bitmap.width * bitmap.height > maxPixelCount
+    ) {
+      throw new Error("해상도가 너무 큰 이미지입니다. 더 작은 이미지를 올려주세요.");
     }
 
     return {

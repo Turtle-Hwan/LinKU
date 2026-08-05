@@ -4,6 +4,10 @@ import type { EverytimeSubject } from "@/types/timetable";
 
 const TOOLTIP_GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 8;
+const PASSIVE_CAPTURE_LISTENER_OPTIONS = {
+  capture: true,
+  passive: true,
+} as const;
 
 interface EverytimeSubjectTooltipProps {
   anchorRef: RefObject<HTMLElement | null>;
@@ -61,7 +65,11 @@ export function EverytimeSubjectTooltip({
 
     updatePosition();
     window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener(
+      "scroll",
+      updatePosition,
+      PASSIVE_CAPTURE_LISTENER_OPTIONS,
+    );
 
     return () => {
       window.removeEventListener("resize", updatePosition);

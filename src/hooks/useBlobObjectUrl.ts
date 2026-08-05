@@ -1,19 +1,19 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 
 export function useBlobObjectUrl(blob: Blob | null | undefined): string | null {
-  const objectUrl = useMemo(
-    () => (blob ? URL.createObjectURL(blob) : null),
-    [blob],
-  );
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
-  useEffect(
-    () => () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    },
-    [objectUrl],
-  );
+  useEffect(() => {
+    if (!blob) {
+      setObjectUrl(null);
+      return;
+    }
+
+    const nextObjectUrl = URL.createObjectURL(blob);
+    setObjectUrl(nextObjectUrl);
+
+    return () => URL.revokeObjectURL(nextObjectUrl);
+  }, [blob]);
 
   return objectUrl;
 }

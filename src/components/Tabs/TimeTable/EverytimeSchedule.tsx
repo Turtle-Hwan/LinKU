@@ -32,6 +32,11 @@ interface TimeLabel {
   label: string;
 }
 
+interface GroupedSubjects {
+  days: EverytimeSubject[][];
+  invalidSubjectCount: number;
+}
+
 function getTimetableViewport(timetable: EverytimeTimetable): TimetableViewport {
   if (timetable.subjects.length === 0) {
     return {
@@ -67,17 +72,24 @@ function getTimetableViewport(timetable: EverytimeTimetable): TimetableViewport 
 function groupSubjectsByDay(
   subjects: EverytimeSubject[],
   weekdayCount: number,
-): EverytimeSubject[][] {
+): GroupedSubjects {
   const groupedSubjects = Array.from(
     { length: weekdayCount },
     (): EverytimeSubject[] => [],
   );
 
+  let invalidSubjectCount = 0;
   subjects.forEach((subject) => {
-    groupedSubjects[subject.dayIndex]?.push(subject);
+    const day = groupedSubjects[subject.dayIndex];
+    if (!day) {
+      invalidSubjectCount += 1;
+      return;
+    }
+
+    day.push(subject);
   });
 
-  return groupedSubjects;
+  return { days: groupedSubjects, invalidSubjectCount };
 }
 
 function getVisibleWeekdays(timetable: EverytimeTimetable): string[] {
@@ -119,7 +131,7 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
     () => getVisibleWeekdays(timetable),
     [timetable],
   );
-  const subjectsByDay = useMemo(
+  const groupedSubjects = useMemo(
     () => groupSubjectsByDay(timetable.subjects, visibleWeekdays.length),
     [timetable.subjects, visibleWeekdays.length],
   );
@@ -152,9 +164,9 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
           >
             시간
           </div>
-          {visibleWeekdays.map((weekday) => (
+          {visibleWeekdays.map((weekday, dayIndex) => (
             <div
-              key={weekday}
+              key={`${weekday}:${dayIndex}`}
               className="border-r border-neutral-200/70 px-1 py-1.5 text-center last:border-r-0"
             >
               {weekday}
@@ -184,20 +196,27 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
           </div>
           {visibleWeekdays.map((weekday, dayIndex) => (
             <div
-              key={weekday}
+              key={`${weekday}:${dayIndex}`}
               className="relative h-full border-r border-neutral-200/70 last:border-r-0"
               style={{ backgroundImage: GRID_BACKGROUND_IMAGE }}
             >
-              {subjectsByDay[dayIndex]?.map((subject) => (
+              {groupedSubjects.days[dayIndex].map((subject) => (
                 <EverytimeSubjectCard
                   key={subject.id}
                   subject={subject}
+                  weekday={weekday}
                   viewportStart={viewport.start}
                 />
               ))}
             </div>
           ))}
         </div>
+        {groupedSubjects.invalidSubjectCount > 0 && (
+          <p className="shrink-0 border-t border-neutral-200/70 px-2 py-1 text-xs leading-[1.5] text-amber-700">
+            요일 정보가 잘못된 수업 {groupedSubjects.invalidSubjectCount}개는
+            표시하지 못했습니다.
+          </p>
+        )}
       </div>
     </div>
   );

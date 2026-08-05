@@ -75,15 +75,32 @@ function useSubjectContentOverflow(
   return { contentRef, hasOverflow, titleRef, viewportRef };
 }
 
-function getSubjectDescription(subject: EverytimeSubject): string {
+function formatEverytimeTime(time: number): string {
+  const minutes = time * 5;
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function getSubjectDescription(
+  subject: EverytimeSubject,
+  weekday: string,
+): string {
   const fallbackDetail =
     !subject.professor && !subject.place ? subject.detail : undefined;
+  const meetingTime =
+    subject.startTime !== undefined && subject.endTime !== undefined
+      ? `${weekday}요일 ${formatEverytimeTime(subject.startTime)}–${formatEverytimeTime(subject.endTime)}`
+      : weekday
+        ? `${weekday}요일`
+        : undefined;
 
   return [
     subject.title,
     subject.professor ? `담당 ${subject.professor}` : undefined,
     subject.place ? `강의실 ${subject.place}` : undefined,
     fallbackDetail,
+    meetingTime,
     subject.timeText,
     subject.credit !== undefined ? `${subject.credit}학점` : undefined,
     subject.isClosed ? "폐강" : undefined,
@@ -106,14 +123,16 @@ function getSubjectDetailLines(subject: EverytimeSubject): string[] {
 
 interface EverytimeSubjectCardProps {
   subject: EverytimeSubject;
+  weekday: string;
   viewportStart: number;
 }
 
 export function EverytimeSubjectCard({
   subject,
+  weekday,
   viewportStart,
 }: EverytimeSubjectCardProps) {
-  const description = getSubjectDescription(subject);
+  const description = getSubjectDescription(subject, weekday);
   const detailLines = getSubjectDetailLines(subject);
   const articleRef = useRef<HTMLElement>(null);
   const tooltipTimerRef = useRef<number | null>(null);
