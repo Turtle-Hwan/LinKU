@@ -20,71 +20,44 @@ import {
   isEverytimeTimetableOverrideEmpty,
   mergeEverytimeTimetable,
 } from "@/utils/everytimeTimetable";
+import {
+  resolveTimetableAssetIndex,
+  replaceTimetableAsset,
+  type TimetableAssetIndexResolution,
+} from "@/utils/timetableStorageSchema";
 
 const DATABASE_NAME = "linku-timetable";
 const DATABASE_VERSION = 1;
 const ASSET_STORE_NAME = "assets";
-const UPLOADED_TIMETABLE_ASSET_ID = "uploaded";
+const UPLOADED_TIMETABLE_ASSET_PREFIX = "upload:";
 const EVERYTIME_TIMETABLE_ASSET_PREFIX = "everytime:";
+const TIMETABLE_STORAGE_LOCK_NAME = "linku:timetable-storage";
 
 interface TimetableBlobRecord {
   id: string;
   blob: Blob;
 }
 
-interface LegacyTimetableAssetMeta {
-  id: string;
-  source: "upload" | "everytime-capture";
-  semester?: string;
-  mimeType: "image/png";
-  width: number;
-  height: number;
-  byteSize: number;
-  checksum: string;
-  syncStatus: "local" | "pending" | "synced" | "error";
-  createdAt: string;
-  updatedAt: string;
+let inProcessMutationQueue: Promise<void> = Promise.resolve();
+
+function withInProcessMutationQueue<T>(operation: () => Promise<T>): Promise<T> {
+  const result = inProcessMutationQueue.then(operation, operation);
+  inProcessMutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }
 
-interface LegacyTimetableAssetIndex {
-  schemaVersion: 1;
-  activeAssetId: string | null;
-  assets: LegacyTimetableAssetMeta[];
-}
+function withTimetableStorageLock<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  const lockManager = globalThis.navigator?.locks;
+  if (lockManager) {
+    return lockManager.request(TIMETABLE_STORAGE_LOCK_NAME, operation);
+  }
 
-interface LegacyV2TimetableMetaBase {
-  schemaVersion: 2;
-  id: string;
-  source: "upload" | "everytime";
-  semester?: string;
-  syncStatus: "local" | "pending" | "synced" | "error";
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface LegacyV2UploadedTimetableMeta extends LegacyV2TimetableMetaBase {
-  source: "upload";
-  mimeType: "image/png";
-  width: number;
-  height: number;
-  byteSize: number;
-  checksum: string;
-}
-
-interface LegacyV2EverytimeTimetableMeta extends LegacyV2TimetableMetaBase {
-  source: "everytime";
-  timetable: EverytimeTimetable;
-  checksum: string;
-}
-
-type LegacyV2TimetableAssetMeta =
-  | LegacyV2UploadedTimetableMeta
-  | LegacyV2EverytimeTimetableMeta;
-
-interface LegacyV2TimetableAssetIndex {
-  schemaVersion: 2;
-  activeAssetId: string | null;
-  assets: LegacyV2TimetableAssetMeta[];
+  return withInProcessMutationQueue(operation);
 }
 
 function hasExtensionStorage(): boolean {
@@ -124,136 +97,34 @@ async function removeTimetableSetting(key: string): Promise<void> {
   localStorage.removeItem(key);
 }
 
-function isTimetableAssetIndex(value: unknown): value is TimetableAssetIndex {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "schemaVersion" in value &&
-    value.schemaVersion === 3 &&
-    "assets" in value &&
-    Array.isArray(value.assets)
-  );
+async function readTimetableAssetIndexResolution(): Promise<
+  TimetableAssetIndexResolution
+> {
+  const [storedIndex, storedLegacyMeta] = await Promise.all([
+    getTimetableSetting<unknown>(TIMETABLE_STORAGE_KEYS.assetIndex),
+    getTimetableSetting<unknown>(TIMETABLE_STORAGE_KEYS.legacyMeta),
+  ]);
+  return resolveTimetableAssetIndex(storedIndex, storedLegacyMeta);
 }
 
-function isLegacyV2TimetableAssetIndex(
-  value: unknown,
-): value is LegacyV2TimetableAssetIndex {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "schemaVersion" in value &&
-    value.schemaVersion === 2 &&
-    "assets" in value &&
-    Array.isArray(value.assets)
-  );
-}
-
-function isLegacyTimetableAssetIndex(
-  value: unknown,
-): value is LegacyTimetableAssetIndex {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "schemaVersion" in value &&
-    value.schemaVersion === 1 &&
-    "assets" in value &&
-    Array.isArray(value.assets)
-  );
-}
-
-function createEmptyAssetIndex(): TimetableAssetIndex {
-  return {
-    schemaVersion: 3,
-    activeAssetId: null,
-    assets: [],
-  };
-}
-
-function migrateLegacyAsset(
-  legacy: LegacyTimetableAssetMeta,
-): UploadedTimetableMeta {
-  return {
-    schemaVersion: 3,
-    id: legacy.id,
-    source: "upload",
-    mimeType: "image/png",
-    width: legacy.width,
-    height: legacy.height,
-    byteSize: legacy.byteSize,
-    checksum: legacy.checksum,
-    syncStatus: legacy.syncStatus,
-    createdAt: legacy.createdAt,
-    updatedAt: legacy.updatedAt,
-  };
-}
-
-function migrateV2Asset(
-  legacy: LegacyV2TimetableAssetMeta,
-): TimetableAssetMeta {
-  if (legacy.source === "everytime") {
-    return {
-      schemaVersion: 3,
-      id: legacy.id,
-      source: "everytime",
-      semester: legacy.semester,
-      snapshot: legacy.timetable,
-      snapshotChecksum: legacy.checksum,
-      syncStatus: legacy.syncStatus,
-      createdAt: legacy.createdAt,
-      updatedAt: legacy.updatedAt,
-    };
+async function getTimetableAssetIndexUnlocked(): Promise<TimetableAssetIndex> {
+  const resolution = await readTimetableAssetIndexResolution();
+  if (resolution.shouldPersist) {
+    await setTimetableAssetIndex(resolution.index);
   }
-
-  return {
-    ...legacy,
-    schemaVersion: 3,
-  };
+  if (resolution.shouldRemoveLegacyMeta) {
+    await removeTimetableSetting(TIMETABLE_STORAGE_KEYS.legacyMeta);
+  }
+  return resolution.index;
 }
 
 async function getTimetableAssetIndex(): Promise<TimetableAssetIndex> {
-  const storedIndex = await getTimetableSetting<unknown>(
-    TIMETABLE_STORAGE_KEYS.assetIndex,
-  );
-  if (isTimetableAssetIndex(storedIndex)) {
-    return storedIndex;
+  const resolution = await readTimetableAssetIndexResolution();
+  if (!resolution.shouldPersist && !resolution.shouldRemoveLegacyMeta) {
+    return resolution.index;
   }
 
-  if (isLegacyV2TimetableAssetIndex(storedIndex)) {
-    const migratedIndex: TimetableAssetIndex = {
-      schemaVersion: 3,
-      activeAssetId: storedIndex.activeAssetId,
-      assets: storedIndex.assets.map(migrateV2Asset),
-    };
-    await setTimetableAssetIndex(migratedIndex);
-    return migratedIndex;
-  }
-
-  const legacyIndex = isLegacyTimetableAssetIndex(storedIndex)
-    ? storedIndex
-    : undefined;
-  const legacyMeta = legacyIndex
-    ? undefined
-    : await getTimetableSetting<LegacyTimetableAssetMeta>(
-        TIMETABLE_STORAGE_KEYS.legacyMeta,
-      );
-  const legacyAssets = legacyIndex?.assets ?? (legacyMeta ? [legacyMeta] : []);
-
-  if (legacyAssets.length === 0) {
-    return createEmptyAssetIndex();
-  }
-
-  const migratedIndex: TimetableAssetIndex = {
-    schemaVersion: 3,
-    activeAssetId: legacyIndex?.activeAssetId ?? legacyMeta?.id ?? null,
-    assets: legacyAssets.map(migrateLegacyAsset),
-  };
-
-  await setTimetableSettings({
-    [TIMETABLE_STORAGE_KEYS.assetIndex]: migratedIndex,
-  });
-  await removeTimetableSetting(TIMETABLE_STORAGE_KEYS.legacyMeta);
-
-  return migratedIndex;
+  return withTimetableStorageLock(getTimetableAssetIndexUnlocked);
 }
 
 async function setTimetableAssetIndex(
@@ -307,6 +178,7 @@ async function setEverytimeTimetableOverrideIndex(
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    let blocked = false;
 
     request.onupgradeneeded = () => {
       const database = request.result;
@@ -315,9 +187,23 @@ function openDatabase(): Promise<IDBDatabase> {
       }
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      if (blocked) {
+        request.result.close();
+        return;
+      }
+      resolve(request.result);
+    };
     request.onerror = () =>
       reject(request.error ?? new Error("시간표 저장소를 열 수 없습니다."));
+    request.onblocked = () => {
+      blocked = true;
+      reject(
+        new Error(
+          "다른 시간표 화면이 저장소를 사용 중입니다. 창을 닫고 다시 시도해주세요.",
+        ),
+      );
+    };
   });
 }
 
@@ -332,24 +218,31 @@ function runTransaction<T>(
         const store = transaction.objectStore(ASSET_STORE_NAME);
         const request = operation(store);
         let result: T;
+        let settled = false;
+
+        const fail = (error?: DOMException | null): void => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          database.close();
+          reject(error ?? new Error("시간표 저장에 실패했습니다."));
+        };
 
         request.onsuccess = () => {
           result = request.result;
         };
-        request.onerror = () => {
-          database.close();
-          reject(request.error ?? new Error("시간표 저장에 실패했습니다."));
-        };
+        request.onerror = () => fail(request.error);
         transaction.oncomplete = () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
           database.close();
           resolve(result);
         };
-        transaction.onerror = () => {
-          database.close();
-          reject(
-            transaction.error ?? new Error("시간표 저장에 실패했습니다."),
-          );
-        };
+        transaction.onerror = () => fail(transaction.error);
+        transaction.onabort = () => fail(transaction.error);
       }),
   );
 }
@@ -366,8 +259,8 @@ async function calculateChecksum(value: Blob | string): Promise<string> {
     .join("");
 }
 
-function getAssetId(input: SaveTimetableInput): string {
-  return input.id ?? UPLOADED_TIMETABLE_ASSET_ID;
+function getAssetId(input: SaveTimetableInput, checksum: string): string {
+  return input.id ?? `${UPLOADED_TIMETABLE_ASSET_PREFIX}${checksum}`;
 }
 
 function assertUniqueAddedIds(
@@ -406,19 +299,6 @@ function validateOverrideAdditions(
   );
 }
 
-function replaceAsset(
-  index: TimetableAssetIndex,
-  asset: TimetableAssetMeta,
-  activate: boolean,
-): TimetableAssetIndex {
-  return {
-    schemaVersion: 3,
-    activeAssetId:
-      activate || !index.activeAssetId ? asset.id : index.activeAssetId,
-    assets: [asset, ...index.assets.filter((stored) => stored.id !== asset.id)],
-  };
-}
-
 export function getEverytimeTimetableAssetId(semester: string): string {
   return `${EVERYTIME_TIMETABLE_ASSET_PREFIX}${semester}`;
 }
@@ -427,58 +307,69 @@ export async function saveTimetableAsset(
   blob: Blob,
   input: SaveTimetableInput,
 ): Promise<{ meta: UploadedTimetableMeta; changed: boolean }> {
-  if (!isTimetableImageMimeType(blob.type)) {
+  const mimeType = blob.type;
+  if (!isTimetableImageMimeType(mimeType)) {
     throw new Error("지원하지 않는 이미지 형식입니다.");
   }
 
-  const id = getAssetId(input);
   const checksum = await calculateChecksum(blob);
-  const index = await getTimetableAssetIndex();
-  const previousMeta = index.assets.find(
-    (asset): asset is UploadedTimetableMeta =>
-      asset.id === id && asset.source === "upload",
-  );
+  const id = getAssetId(input, checksum);
 
-  if (previousMeta?.checksum === checksum) {
-    const existingRecord = await runTransaction<
+  return withTimetableStorageLock(async () => {
+    const index = await getTimetableAssetIndexUnlocked();
+    const previousMeta = index.assets.find(
+      (asset): asset is UploadedTimetableMeta =>
+        asset.id === id && asset.source === "upload",
+    );
+    const previousRecord = await runTransaction<
       TimetableBlobRecord | undefined
     >("readonly", (store) => store.get(id));
 
-    if (existingRecord?.blob) {
+    if (previousMeta?.checksum === checksum && previousRecord?.blob) {
       if (index.activeAssetId !== id) {
-        await setTimetableAssetIndex(replaceAsset(index, previousMeta, true));
+        await setTimetableAssetIndex(
+          replaceTimetableAsset(index, previousMeta, true),
+        );
       }
       return { meta: previousMeta, changed: false };
     }
-  }
 
-  const now = new Date().toISOString();
-  const meta: UploadedTimetableMeta = {
-    schemaVersion: 3,
-    id,
-    source: "upload",
-    mimeType: blob.type,
-    width: input.width,
-    height: input.height,
-    byteSize: blob.size,
-    checksum,
-    syncStatus: "local",
-    createdAt: previousMeta?.createdAt ?? now,
-    updatedAt: now,
-  };
+    const now = new Date().toISOString();
+    const meta: UploadedTimetableMeta = {
+      schemaVersion: 3,
+      id,
+      source: "upload",
+      mimeType,
+      width: input.width,
+      height: input.height,
+      byteSize: blob.size,
+      checksum,
+      syncStatus: "local",
+      createdAt: previousMeta?.createdAt ?? now,
+      updatedAt: now,
+    };
 
-  await runTransaction<IDBValidKey>("readwrite", (store) =>
-    store.put({ id, blob } satisfies TimetableBlobRecord),
-  );
+    await runTransaction<IDBValidKey>("readwrite", (store) =>
+      store.put({ id, blob } satisfies TimetableBlobRecord),
+    );
 
-  try {
-    await setTimetableAssetIndex(replaceAsset(index, meta, true));
-  } catch (error) {
-    await runTransaction<undefined>("readwrite", (store) => store.delete(id));
-    throw error;
-  }
+    try {
+      await setTimetableAssetIndex(replaceTimetableAsset(index, meta, true));
+    } catch (error) {
+      if (previousRecord) {
+        await runTransaction<IDBValidKey>("readwrite", (store) =>
+          store.put(previousRecord),
+        );
+      } else {
+        await runTransaction<undefined>("readwrite", (store) =>
+          store.delete(id),
+        );
+      }
+      throw error;
+    }
 
-  return { meta, changed: true };
+    return { meta, changed: true };
+  });
 }
 
 export async function saveEverytimeTimetable(
@@ -486,31 +377,34 @@ export async function saveEverytimeTimetable(
 ): Promise<{ meta: EverytimeTimetableMeta; changed: boolean }> {
   const id = getEverytimeTimetableAssetId(snapshot.semester);
   const snapshotChecksum = await calculateChecksum(JSON.stringify(snapshot));
-  const index = await getTimetableAssetIndex();
-  const previousMeta = index.assets.find(
-    (asset): asset is EverytimeTimetableMeta =>
-      asset.id === id && asset.source === "everytime",
-  );
 
-  if (previousMeta?.snapshotChecksum === snapshotChecksum) {
-    return { meta: previousMeta, changed: false };
-  }
+  return withTimetableStorageLock(async () => {
+    const index = await getTimetableAssetIndexUnlocked();
+    const previousMeta = index.assets.find(
+      (asset): asset is EverytimeTimetableMeta =>
+        asset.id === id && asset.source === "everytime",
+    );
 
-  const now = new Date().toISOString();
-  const meta: EverytimeTimetableMeta = {
-    schemaVersion: 3,
-    id,
-    source: "everytime",
-    semester: snapshot.semester,
-    snapshot,
-    snapshotChecksum,
-    syncStatus: "local",
-    createdAt: previousMeta?.createdAt ?? now,
-    updatedAt: now,
-  };
+    if (previousMeta?.snapshotChecksum === snapshotChecksum) {
+      return { meta: previousMeta, changed: false };
+    }
 
-  await setTimetableAssetIndex(replaceAsset(index, meta, false));
-  return { meta, changed: true };
+    const now = new Date().toISOString();
+    const meta: EverytimeTimetableMeta = {
+      schemaVersion: 3,
+      id,
+      source: "everytime",
+      semester: snapshot.semester,
+      snapshot,
+      snapshotChecksum,
+      syncStatus: "local",
+      createdAt: previousMeta?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    await setTimetableAssetIndex(replaceTimetableAsset(index, meta, false));
+    return { meta, changed: true };
+  });
 }
 
 export async function getEverytimeTimetableOverride(
@@ -524,43 +418,47 @@ export async function saveEverytimeTimetableOverride(
   assetId: string,
   input: EverytimeTimetableOverrideInput,
 ): Promise<EverytimeTimetableOverride | null> {
-  const assetIndex = await getTimetableAssetIndex();
-  const asset = assetIndex.assets.find((candidate) => candidate.id === assetId);
-  if (asset?.source !== "everytime") {
-    throw new Error("사용자 수정을 저장할 에브리타임 시간표를 찾지 못했습니다.");
-  }
-  validateOverrideAdditions(asset.snapshot, input);
+  return withTimetableStorageLock(async () => {
+    const assetIndex = await getTimetableAssetIndexUnlocked();
+    const asset = assetIndex.assets.find((candidate) => candidate.id === assetId);
+    if (asset?.source !== "everytime") {
+      throw new Error("사용자 수정을 저장할 에브리타임 시간표를 찾지 못했습니다.");
+    }
+    validateOverrideAdditions(asset.snapshot, input);
 
-  const overrideIndex = await getEverytimeTimetableOverrideIndex();
-  const override = createEverytimeTimetableOverride(assetId, input);
-  const overrides = { ...overrideIndex.overrides };
+    const overrideIndex = await getEverytimeTimetableOverrideIndex();
+    const override = createEverytimeTimetableOverride(assetId, input);
+    const overrides = { ...overrideIndex.overrides };
 
-  if (isEverytimeTimetableOverrideEmpty(override)) {
-    delete overrides[assetId];
-  } else {
-    overrides[assetId] = override;
-  }
+    if (isEverytimeTimetableOverrideEmpty(override)) {
+      delete overrides[assetId];
+    } else {
+      overrides[assetId] = override;
+    }
 
-  await setEverytimeTimetableOverrideIndex({
-    schemaVersion: 1,
-    overrides,
+    await setEverytimeTimetableOverrideIndex({
+      schemaVersion: 1,
+      overrides,
+    });
+    return overrides[assetId] ?? null;
   });
-  return overrides[assetId] ?? null;
 }
 
 export async function clearEverytimeTimetableOverride(
   assetId: string,
 ): Promise<void> {
-  const overrideIndex = await getEverytimeTimetableOverrideIndex();
-  if (!overrideIndex.overrides[assetId]) {
-    return;
-  }
+  await withTimetableStorageLock(async () => {
+    const overrideIndex = await getEverytimeTimetableOverrideIndex();
+    if (!overrideIndex.overrides[assetId]) {
+      return;
+    }
 
-  const overrides = { ...overrideIndex.overrides };
-  delete overrides[assetId];
-  await setEverytimeTimetableOverrideIndex({
-    schemaVersion: 1,
-    overrides,
+    const overrides = { ...overrideIndex.overrides };
+    delete overrides[assetId];
+    await setEverytimeTimetableOverrideIndex({
+      schemaVersion: 1,
+      overrides,
+    });
   });
 }
 
@@ -594,11 +492,17 @@ export async function getActiveTimetable(): Promise<
   );
 
   if (!record?.blob) {
-    const assets = index.assets.filter((asset) => asset.id !== meta.id);
-    await setTimetableAssetIndex({
-      schemaVersion: 3,
-      activeAssetId: assets[0]?.id ?? null,
-      assets,
+    await withTimetableStorageLock(async () => {
+      const latestIndex = await getTimetableAssetIndexUnlocked();
+      const assets = latestIndex.assets.filter((asset) => asset.id !== meta.id);
+      await setTimetableAssetIndex({
+        schemaVersion: 3,
+        activeAssetId:
+          latestIndex.activeAssetId === meta.id
+            ? (assets[0]?.id ?? null)
+            : latestIndex.activeAssetId,
+        assets,
+      });
     });
     return null;
   }
@@ -607,23 +511,30 @@ export async function getActiveTimetable(): Promise<
 }
 
 export async function setActiveTimetable(id: string): Promise<void> {
-  const index = await getTimetableAssetIndex();
-  const asset = index.assets.find((stored) => stored.id === id);
-  if (!asset) {
-    throw new Error("저장된 시간표를 찾지 못했습니다.");
-  }
+  await withTimetableStorageLock(async () => {
+    const index = await getTimetableAssetIndexUnlocked();
+    const asset = index.assets.find((stored) => stored.id === id);
+    if (!asset) {
+      throw new Error("저장된 시간표를 찾지 못했습니다.");
+    }
 
-  await setTimetableAssetIndex(replaceAsset(index, asset, true));
+    await setTimetableAssetIndex(replaceTimetableAsset(index, asset, true));
+  });
 }
 
-async function deleteTimetableById(id: string): Promise<void> {
-  const index = await getTimetableAssetIndex();
+async function deleteTimetableByIdUnlocked(id: string): Promise<void> {
+  const index = await getTimetableAssetIndexUnlocked();
   const asset = index.assets.find((stored) => stored.id === id);
   if (!asset) {
     return;
   }
 
+  let uploadedRecord: TimetableBlobRecord | undefined;
   if (asset.source === "upload") {
+    uploadedRecord = await runTransaction<TimetableBlobRecord | undefined>(
+      "readonly",
+      (store) => store.get(id),
+    );
     await runTransaction<undefined>("readwrite", (store) => store.delete(id));
   }
 
@@ -651,14 +562,25 @@ async function deleteTimetableById(id: string): Promise<void> {
     return;
   }
 
-  await setTimetableAssetIndex(nextAssetIndex);
+  try {
+    await setTimetableAssetIndex(nextAssetIndex);
+  } catch (error) {
+    if (uploadedRecord) {
+      await runTransaction<IDBValidKey>("readwrite", (store) =>
+        store.put(uploadedRecord),
+      );
+    }
+    throw error;
+  }
 }
 
 export async function deleteActiveTimetable(): Promise<void> {
-  const index = await getTimetableAssetIndex();
-  if (index.activeAssetId) {
-    await deleteTimetableById(index.activeAssetId);
-  }
+  await withTimetableStorageLock(async () => {
+    const index = await getTimetableAssetIndexUnlocked();
+    if (index.activeAssetId) {
+      await deleteTimetableByIdUnlocked(index.activeAssetId);
+    }
+  });
 }
 
 export async function getImportedEverytimeSemesters(): Promise<string[]> {
@@ -672,10 +594,12 @@ export async function getImportedEverytimeSemesters(): Promise<string[]> {
 export async function markEverytimeSemestersImported(
   semesters: string[],
 ): Promise<void> {
-  const importedSemesters = await getImportedEverytimeSemesters();
-  await setTimetableSettings({
-    [TIMETABLE_STORAGE_KEYS.everytimeImportedSemesters]: [
-      ...new Set([...importedSemesters, ...semesters]),
-    ],
+  await withTimetableStorageLock(async () => {
+    const importedSemesters = await getImportedEverytimeSemesters();
+    await setTimetableSettings({
+      [TIMETABLE_STORAGE_KEYS.everytimeImportedSemesters]: [
+        ...new Set([...importedSemesters, ...semesters]),
+      ],
+    });
   });
 }

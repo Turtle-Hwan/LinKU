@@ -25,7 +25,10 @@ import {
 import { TimetableActionButton } from "@/components/Tabs/TimeTable/TimetableActionButton";
 import { EverytimeSchedule } from "@/components/Tabs/TimeTable/EverytimeSchedule";
 import { TimetableSavedActions } from "@/components/Tabs/TimeTable/TimetableSavedActions";
-import { sortTimetableAssetsBySemester } from "@/components/Tabs/TimeTable/timetableAssetSorting";
+import {
+  getTimetableAssetLabel,
+  sortTimetableAssetsBySemester,
+} from "@/components/Tabs/TimeTable/timetableAssetSorting";
 import { TIMETABLE_IMAGE_ACCEPT } from "@/components/Tabs/TimeTable/timetableImage";
 import { useBlobObjectUrl } from "@/hooks/useBlobObjectUrl";
 import { type TimetableBusyState, useTimetable } from "@/hooks/useTimetable";
@@ -366,13 +369,12 @@ const Saved = ({
             <select
               className="h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-sm font-semibold text-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-main/50"
               value={asset.meta.id}
-              aria-label="저장된 시간표 선택"
               disabled={isBusy}
               onChange={(event) => onSelect(event.target.value)}
             >
               {sortedAssets.map((storedAsset) => (
                 <option key={storedAsset.id} value={storedAsset.id}>
-                  {storedAsset.semester ?? "시간표 이미지"}
+                  {getTimetableAssetLabel(storedAsset)}
                 </option>
               ))}
             </select>
