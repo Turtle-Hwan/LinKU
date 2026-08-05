@@ -41,6 +41,7 @@ pnpm install
 pnpm run dev
 pnpm run build:local
 pnpm run lint
+pnpm run test:timetable
 ```
 
 Chrome에서 확장 프로그램을 검증하기 전에는 `pnpm run build:local`을 실행하고,
