@@ -49,10 +49,8 @@ const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
       sendButtonClick("voc_submit", "voc_dialog");
 
       if (result.status === "persisted") {
-        toast.success("의견을 안전하게 저장했어요.", {
-          description: result.notificationSent
-            ? "이 의견은 이미 VoC 다이제스트로 전달됐습니다."
-            : "담당자는 매일 오전 9시 다이제스트로 확인합니다.",
+        toast.success("의견을 접수했어요.", {
+          description: "담당자가 확인할게요.",
         });
       } else {
         toast.info("의견을 이 기기에 임시 저장했어요.", {
@@ -156,9 +154,8 @@ const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
           </div>
 
           <p className="rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-            의견은 Google Sheet에 먼저 저장되고, 메일은 매일 오전 9시에 한
-            번만 모아서 발송됩니다. 전송이 어려우면 이 기기에 임시 보관한 뒤
-            다시 시도합니다. 개인정보나 학번은 적지 마세요.
+            전송이 어려우면 이 기기에 임시 보관한 뒤 다시 시도합니다.
+            개인정보나 학번은 적지 마세요.
           </p>
 
           <DialogFooter className="flex-row justify-end">
