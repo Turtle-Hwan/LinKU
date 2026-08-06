@@ -9,7 +9,6 @@ export type FeedbackCategory = (typeof feedbackCategories)[number]["value"];
 
 export interface FeedbackSubmission {
   submissionId: string;
-  clientId: string;
   category: FeedbackCategory;
   title: string;
   message: string;
@@ -22,12 +21,10 @@ export interface FeedbackEndpointResponse {
   success: boolean;
   persisted: boolean;
   duplicate?: boolean;
-  notificationSent?: boolean;
   retryable?: boolean;
   error?: string;
 }
 
 export interface FeedbackDeliveryResult {
   status: "persisted" | "queued";
-  notificationSent: boolean;
 }

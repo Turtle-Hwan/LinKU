@@ -5,7 +5,6 @@ import type {
   FeedbackSubmission,
 } from "@/types/feedback";
 import { getStorage, setStorage } from "@/utils/chrome";
-import { getOrCreateClientId } from "@/utils/clientId";
 import { errorLog } from "@/utils/logger";
 
 const FEEDBACK_OUTBOX_STORAGE_KEY = "linkuFeedbackOutboxV1";
@@ -27,7 +26,18 @@ let outboxOperation = Promise.resolve();
 let activeFlush: Promise<void> | null = null;
 
 function getFeedbackEndpoint() {
-  return import.meta.env.VITE_VOC_ENDPOINT?.trim() ?? "";
+  const endpoint = import.meta.env.VITE_VOC_ENDPOINT?.trim() ?? "";
+
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === "https:" &&
+      url.hostname === "script.google.com" &&
+      /^\/macros\/s\/[^/]+\/exec$/.test(url.pathname)
+      ? url.toString()
+      : "";
+  } catch {
+    return "";
+  }
 }
 
 function getExtensionVersion() {
@@ -44,7 +54,6 @@ function isFeedbackSubmission(value: unknown): value is FeedbackSubmission {
   const candidate = value as Partial<FeedbackSubmission>;
   return (
     typeof candidate.submissionId === "string" &&
-    typeof candidate.clientId === "string" &&
     typeof candidate.category === "string" &&
     typeof candidate.title === "string" &&
     typeof candidate.message === "string" &&
@@ -160,7 +169,6 @@ export async function submitFeedback(
 ): Promise<FeedbackDeliveryResult> {
   const submission: FeedbackSubmission = {
     submissionId: crypto.randomUUID(),
-    clientId: await getOrCreateClientId(),
     category: input.category,
     title: input.title.trim(),
     message: input.message.trim(),
@@ -173,14 +181,13 @@ export async function submitFeedback(
   await enqueueFeedback(submission);
 
   try {
-    const response = await deliverFeedback(submission);
+    await deliverFeedback(submission);
     return {
       status: "persisted",
-      notificationSent: response.notificationSent === true,
     };
   } catch (error) {
     errorLog("[VoC] Feedback queued for retry:", error);
-    return { status: "queued", notificationSent: false };
+    return { status: "queued" };
   }
 }
 

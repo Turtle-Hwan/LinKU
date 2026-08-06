@@ -5,12 +5,15 @@ const VOC_CONFIG = Object.freeze({
   defaultSheetName: "Feedback",
   spreadsheetName: "LinKU VoC",
   digestFunctionName: "sendDailyDigest",
-  legacyRetryFunctionName: "retryPendingNotifications",
   lastDigestDateProperty: "VOC_LAST_DIGEST_DATE",
+  intakeDateProperty: "VOC_INTAKE_DATE",
+  intakeCountProperty: "VOC_INTAKE_COUNT",
   digestHour: 9,
   digestTimezone: "Asia/Seoul",
   maxDigestBodyBytes: 180 * 1024,
-  maxRequestsPerMinute: 10,
+  maxRequestsPerMinute: 30,
+  maxSubmissionsPerDay: 500,
+  rateLimitCacheKey: "voc-global-rate-limit",
 });
 
 const VOC_HEADERS = Object.freeze([
@@ -98,7 +101,6 @@ function doPost(event) {
 
   try {
     const submission = parseSubmission_(event);
-    enforceRateLimit_(submission.clientId);
 
     lock = LockService.getScriptLock();
     if (!lock.tryLock(10000)) {
@@ -114,19 +116,24 @@ function doPost(event) {
     const sheet = getOrCreateFeedbackSheet_(spreadsheet);
     const existingRow = findSubmissionRow_(sheet, submission.submissionId);
     const duplicate = existingRow !== null;
-    const rowNumber = duplicate
-      ? existingRow
-      : appendSubmission_(sheet, submission);
+    if (duplicate) {
+      return jsonResponse_({
+        success: true,
+        persisted: true,
+        duplicate: true,
+      });
+    }
+
+    enforceIntakeBudget_();
+    appendSubmission_(sheet, submission);
 
     // Sheet 반영만 즉시 확정하고, 메일은 일일 다이제스트가 별도로 처리합니다.
     SpreadsheetApp.flush();
-    const notificationSent = readSubmission_(sheet, rowNumber).notificationSent;
 
     return jsonResponse_({
       success: true,
       persisted: true,
-      duplicate: duplicate,
-      notificationSent: notificationSent,
+      duplicate: false,
     });
   } catch (error) {
     const errorCode = getErrorCode_(error);
@@ -234,13 +241,6 @@ function sendDailyDigest() {
   }
 }
 
-/**
- * 기존 6시간 트리거가 남아 있어도 하루 한 번만 발송되도록 하는 migration alias.
- */
-function retryPendingNotifications() {
-  return sendDailyDigest();
-}
-
 function parseSubmission_(event) {
   const contents =
     event && event.postData && typeof event.postData.contents === "string"
@@ -259,7 +259,6 @@ function parseSubmission_(event) {
   }
 
   const submissionId = normalizeText_(payload.submissionId);
-  const clientId = normalizeText_(payload.clientId);
   const category = normalizeText_(payload.category);
   const title = normalizeText_(payload.title).trim();
   const message = normalizeText_(payload.message).trim();
@@ -269,8 +268,6 @@ function parseSubmission_(event) {
 
   const valid =
     /^[A-Za-z0-9-]{20,64}$/.test(submissionId) &&
-    clientId.length >= 8 &&
-    clientId.length <= 128 &&
     Object.prototype.hasOwnProperty.call(VOC_CATEGORY_LABELS, category) &&
     title.length >= 2 &&
     title.length <= 80 &&
@@ -285,7 +282,6 @@ function parseSubmission_(event) {
 
   return {
     submissionId: submissionId,
-    clientId: clientId,
     category: category,
     title: title,
     message: message,
@@ -468,14 +464,10 @@ function setNotificationState_(sheet, rowNumber, sent, attempts, error) {
 }
 
 function installDailyDigestTrigger_() {
-  const managedHandlers = [
-    VOC_CONFIG.digestFunctionName,
-    VOC_CONFIG.legacyRetryFunctionName,
-  ];
   for (const trigger of ScriptApp.getProjectTriggers()) {
     if (
       trigger.getEventType() === ScriptApp.EventType.CLOCK &&
-      managedHandlers.includes(trigger.getHandlerFunction())
+      trigger.getHandlerFunction() === VOC_CONFIG.digestFunctionName
     ) {
       ScriptApp.deleteTrigger(trigger);
     }
@@ -490,22 +482,41 @@ function installDailyDigestTrigger_() {
     .create();
 }
 
-function enforceRateLimit_(clientId) {
+function enforceIntakeBudget_() {
   const cache = CacheService.getScriptCache();
-  const digest = Utilities.computeDigest(
-    Utilities.DigestAlgorithm.SHA_256,
-    clientId,
-  )
-    .slice(0, 12)
-    .map((value) => (value + 256).toString(16).slice(-2))
-    .join("");
-  const key = "voc-rate-" + digest;
-  const requestCount = Number(cache.get(key) || 0);
+  const requestCount = Number(
+    cache.get(VOC_CONFIG.rateLimitCacheKey) || 0,
+  );
 
   if (requestCount >= VOC_CONFIG.maxRequestsPerMinute) {
     throw new Error("RATE_LIMITED");
   }
-  cache.put(key, String(requestCount + 1), 60);
+  cache.put(
+    VOC_CONFIG.rateLimitCacheKey,
+    String(requestCount + 1),
+    60,
+  );
+
+  const properties = PropertiesService.getScriptProperties();
+  const intakeDate = Utilities.formatDate(
+    new Date(),
+    VOC_CONFIG.digestTimezone,
+    "yyyy-MM-dd",
+  );
+  const storedDate = properties.getProperty(VOC_CONFIG.intakeDateProperty);
+  const intakeCount =
+    storedDate === intakeDate
+      ? Number(properties.getProperty(VOC_CONFIG.intakeCountProperty) || 0)
+      : 0;
+
+  if (intakeCount >= VOC_CONFIG.maxSubmissionsPerDay) {
+    throw new Error("RATE_LIMITED");
+  }
+
+  properties.setProperties({
+    [VOC_CONFIG.intakeDateProperty]: intakeDate,
+    [VOC_CONFIG.intakeCountProperty]: String(intakeCount + 1),
+  });
 }
 
 function normalizeText_(value) {
@@ -526,10 +537,9 @@ function getErrorCode_(error) {
   const publicCodes = [
     "INVALID_PAYLOAD",
     "RATE_LIMITED",
-    "NOT_CONFIGURED",
-    "INVALID_SHEET_SCHEMA",
+    "BUSY",
   ];
-  return publicCodes.includes(message) ? message : "INTERNAL_ERROR";
+  return publicCodes.includes(message) ? message : "SERVICE_UNAVAILABLE";
 }
 
 function jsonResponse_(payload) {
