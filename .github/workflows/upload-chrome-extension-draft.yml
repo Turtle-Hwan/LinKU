@@ -67,7 +67,7 @@ jobs:
         env:
           VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-        run: tsc -b && pnpm exec vite build --mode production
+        run: tsc -b && pnpm exec vite build --mode production && pnpm run check:content-scripts
 
       - name: Create dist.zip
         run: (cd dist && zip -r ../dist.zip .)
