@@ -1,6 +1,7 @@
 import type {
   EverytimeCourse,
   EverytimeSemesterMetadata,
+  EverytimeSemesterTerm,
   EverytimeSubject,
   EverytimeTableMetadata,
   EverytimeTimetable,
@@ -10,12 +11,6 @@ import {
   getStableEverytimeSubjectColor,
   isEverytimeSubjectColor,
 } from "@/utils/everytimeTimetableColor";
-import {
-  EVERYTIME_SEMESTER_PATTERN,
-  formatEverytimeSemester,
-  isEverytimeSemesterTerm,
-  parseEverytimeSemester,
-} from "@/utils/everytimeSemester";
 import { isPrimaryEverytimeTable } from "@/utils/everytimeTimetableParsing";
 
 type CaptureRequest =
@@ -43,6 +38,7 @@ const EVERYTIME_TABLE_LIST_URL = `${EVERYTIME_API_BASE_URL}/table/list/semester`
 const EVERYTIME_TABLE_DETAIL_URL = `${EVERYTIME_API_BASE_URL}/table`;
 const EVERYTIME_SELECT_SELECTOR = "#semesters";
 const EVERYTIME_TIMETABLE_SELECTOR = "#container.timetable";
+const EVERYTIME_SEMESTER_PATTERN = /^(20\d{2})년\s*(1|2|여름|겨울)학기$/;
 const SEMESTER_FETCH_CONCURRENCY = 4;
 const EVERYTIME_TIME_UNIT_PX = 25 / 6;
 const EVERYTIME_WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -65,6 +61,29 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
 
   const exactText = (element: Element | null): string =>
     element?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+
+  const isEverytimeSemesterTerm = (
+    value?: string,
+  ): value is EverytimeSemesterTerm =>
+    value === "1" || value === "여름" || value === "2" || value === "겨울";
+
+  const formatEverytimeSemester = (
+    year: number,
+    term: EverytimeSemesterTerm,
+  ): string => `${year}년 ${term}학기`;
+
+  const parseEverytimeSemester = (
+    semester: string,
+  ): { year: number; term: EverytimeSemesterTerm } | null => {
+    const match = semester.match(EVERYTIME_SEMESTER_PATTERN);
+    if (!match) {
+      return null;
+    }
+
+    const year = Number.parseInt(match[1], 10);
+    const term = match[2];
+    return isEverytimeSemesterTerm(term) ? { year, term } : null;
+  };
 
   const findTimetableRoot = (documentRoot: Document = document): HTMLElement | null =>
     documentRoot.querySelector<HTMLElement>(EVERYTIME_TIMETABLE_SELECTOR);
