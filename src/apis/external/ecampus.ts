@@ -219,6 +219,16 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
         credentials: 'include',
       }
     );
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: new Error(
+          `eCampus todo request failed: ${response.status} ${response.statusText}`,
+        ),
+      };
+    }
+
     const htmlText = await response.text();
 
     // Parse HTML using DOM parser

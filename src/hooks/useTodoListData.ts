@@ -21,6 +21,7 @@ import {
   sendTodoItemDelete,
   sendTodoView,
 } from "@/utils/analytics";
+import { subscribeECampusTodosChange } from "@/utils/ecampus/todos";
 import { errorLog } from "@/utils/logger";
 import {
   syncTodoCountAfterCustomChange,
@@ -119,16 +120,11 @@ export function useTodoListData() {
     [updateECampusTodos],
   );
 
-  const loadTodoList = useCallback(async () => {
-    setIsLoading(true);
+  const loadECampusTodoList = useCallback(async () => {
     setECampusError("");
     setECampusNeedsLogin(false);
-
-    await loadAndStoreCustomTodos();
-    await syncTodoCountAfterCustomChange();
-    setIsLoading(false);
-
     setIsECampusLoading(true);
+
     try {
       const result = await loadECampusTodosWithAuth({
         allowAutoLogin: true,
@@ -146,14 +142,40 @@ export function useTodoListData() {
     }
   }, [
     applyECampusResult,
-    loadAndStoreCustomTodos,
     loadECampusTodosWithAuth,
     updateECampusTodos,
   ]);
 
+  const loadTodoList = useCallback(async () => {
+    setIsLoading(true);
+
+    try {
+      await loadAndStoreCustomTodos();
+      await syncTodoCountAfterCustomChange();
+    } finally {
+      setIsLoading(false);
+    }
+
+    await loadECampusTodoList();
+  }, [loadAndStoreCustomTodos, loadECampusTodoList]);
+
   useEffect(() => {
     void loadTodoList();
   }, [loadTodoList]);
+
+  useEffect(() => {
+    return subscribeECampusTodosChange((change) => {
+      if (change === "clear") {
+        updateECampusTodos([]);
+        setECampusError("");
+        setECampusNeedsLogin(false);
+        setIsECampusLoading(false);
+        return;
+      }
+
+      void loadECampusTodoList();
+    });
+  }, [loadECampusTodoList, updateECampusTodos]);
 
   useEffect(() => {
     if (!isLoading && !isECampusLoading && !viewOpenSentRef.current) {

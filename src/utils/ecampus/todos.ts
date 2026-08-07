@@ -34,9 +34,13 @@ interface CachedECampusTodosResult {
   result: LoadECampusTodosResult;
 }
 
+export type ECampusTodosChange = "clear" | "refresh";
+type ECampusTodosChangeListener = (change: ECampusTodosChange) => void;
+
 const ECAMPUS_TODO_CACHE_TTL_MS = 30_000;
 const cachedResults = new Map<string, CachedECampusTodosResult>();
 const inFlightLoads = new Map<string, Promise<LoadECampusTodosResult>>();
+const changeListeners = new Set<ECampusTodosChangeListener>();
 let cacheGeneration = 0;
 
 const normalizeOptions = (
@@ -73,6 +77,22 @@ export const invalidateECampusTodosCache = () => {
   cacheGeneration += 1;
   cachedResults.clear();
   inFlightLoads.clear();
+};
+
+/**
+ * 계정 변경 결과를 현재 열려 있는 Todo 화면에 명시적으로 전달한다.
+ */
+export const notifyECampusTodosChange = (change: ECampusTodosChange) => {
+  changeListeners.forEach((listener) => listener(change));
+};
+
+export const subscribeECampusTodosChange = (
+  listener: ECampusTodosChangeListener,
+) => {
+  changeListeners.add(listener);
+  return () => {
+    changeListeners.delete(listener);
+  };
 };
 
 const fetchECampusTodos = async (): Promise<LoadECampusTodosResult> => {

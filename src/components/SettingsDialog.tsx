@@ -41,7 +41,10 @@ import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
 import TodoDeadlineBadge from "@/components/Tabs/TodoList/TodoDeadlineBadge";
 import { calculateDDay } from "@/utils/todo/dateFormat";
-import { invalidateECampusTodosCache } from "@/utils/ecampus/todos";
+import {
+  invalidateECampusTodosCache,
+  notifyECampusTodosChange,
+} from "@/utils/ecampus/todos";
 import {
   clearECampusTodoCount,
   refreshTodoCount,
@@ -99,9 +102,6 @@ const ECampusCredential = () => {
       // 1. 암호화 및 저장
       await saveECampusCredentials(savedId, savedPassword);
       invalidateECampusTodosCache();
-      await clearECampusTodoCount().catch((countError) => {
-        errorLog("[Settings] Failed to clear eCampus todo count:", countError);
-      });
 
       setHasCredentials(true);
       sendSettingsCredentialsSaved();
@@ -112,7 +112,11 @@ const ECampusCredential = () => {
 
       // 2-1. 검증 결과 별도 toast
       if (loginResult.success) {
+        await clearECampusTodoCount().catch((countError) => {
+          errorLog("[Settings] Failed to clear eCampus todo count:", countError);
+        });
         await refreshTodoCount();
+        notifyECampusTodosChange("refresh");
         toast.success("eCampus 로그인 성공");
       } else {
         toast.error("eCampus 로그인 실패");
@@ -133,6 +137,7 @@ const ECampusCredential = () => {
       await clearECampusTodoCount().catch((countError) => {
         errorLog("[Settings] Failed to clear eCampus todo count:", countError);
       });
+      notifyECampusTodosChange("clear");
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);

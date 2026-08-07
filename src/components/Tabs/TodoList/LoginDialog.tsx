@@ -53,9 +53,6 @@ const LoginDialog = ({
 
     try {
       invalidateECampusTodosCache();
-      await clearECampusTodoCount().catch((countError) => {
-        errorLog("[LoginDialog] Failed to clear eCampus todo count:", countError);
-      });
 
       const loginResult: ECampusLoginResponse = await eCampusLoginAPI(
         userId,
@@ -69,6 +66,10 @@ const LoginDialog = ({
         );
         return;
       }
+
+      await clearECampusTodoCount().catch((countError) => {
+        errorLog("[LoginDialog] Failed to clear eCampus todo count:", countError);
+      });
 
       if (rememberLogin) {
         try {
