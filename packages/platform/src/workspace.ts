@@ -25,6 +25,27 @@ export type WorkspaceIconName =
   | "Lightbulb"
   | "Library";
 
+export const WORKSPACE_ICON_NAMES: readonly WorkspaceIconName[] = [
+  "University",
+  "BellRing",
+  "MonitorPlay",
+  "Trophy",
+  "Clock3",
+  "MapPinned",
+  "GraduationCap",
+  "BookCopy",
+  "CalendarDays",
+  "Utensils",
+  "AlarmClock",
+  "UsersRound",
+  "BedDouble",
+  "MessagesSquare",
+  "ScrollText",
+  "Building2",
+  "Lightbulb",
+  "Library",
+];
+
 export interface WorkspaceQuickLinkAction {
   id: string;
   label: WorkspaceLocalizedText;
@@ -50,11 +71,19 @@ export interface WorkspaceTemplatePreset {
   shortcutIds: string[];
 }
 
+export interface WorkspaceCustomShortcut {
+  id: string;
+  name: string;
+  href: string;
+  icon: WorkspaceIconName;
+  wide?: boolean;
+}
+
 export const WORKSPACE_QUICK_LINKS: WorkspaceQuickLink[] = [
   {
     id: "konkuk-home",
     icon: "University",
-    title: { ko: "건국대 홈페이지", en: "Konkuk Home" },
+      title: { ko: "홈페이지", en: "Konkuk Home" },
     description: {
       ko: "학교 공지와 대표 서비스를 가장 먼저 여는 기본 진입점",
       en: "The main campus entry point for official announcements and services",
@@ -64,7 +93,7 @@ export const WORKSPACE_QUICK_LINKS: WorkspaceQuickLink[] = [
     actions: [
       {
         id: "software-rental",
-        label: { ko: "실용 SW 무료 대여", en: "Software rental" },
+        label: { ko: "상용 SW 무료 대여", en: "Software rental" },
         href: "https://www.konkuk.ac.kr/kuinc/15905/subview.do",
       },
     ],
@@ -104,7 +133,7 @@ export const WORKSPACE_QUICK_LINKS: WorkspaceQuickLink[] = [
     actions: [
       {
         id: "k-cube",
-        label: { ko: "K-Cube 예약", en: "Reserve K-Cube" },
+        label: { ko: "K-Cube 대여", en: "Reserve K-Cube" },
         href: "https://wein.konkuk.ac.kr/ptfol/cmnt/cube/findCubeResveStep1.do",
       },
     ],
@@ -122,7 +151,7 @@ export const WORKSPACE_QUICK_LINKS: WorkspaceQuickLink[] = [
     actions: [
       {
         id: "course-registration-guide",
-        label: { ko: "추가 신청 안내", en: "Add/drop guide" },
+        label: { ko: "추가 신청서", en: "Add/drop form" },
         href: "https://www.konkuk.ac.kr/konkuk/2088/subview.do?enc=Zm5jdDF8QEB8JTJGYmJzJTJGa29ua3VrJTJGMjQ3JTJGOTM0OTIyJTJGYXJ0Y2xWaWV3LmRvJTNGcGFnZSUzRDElMjZzcmNoQ29sdW1uJTNEc2olMjZzcmNoV3JkJTNEJUVDJUI0JTg4JUVBJUIzJUJDKyVFQSVCNSU5MCVFQSVCMyVCQyVFQiVBQSVBOSslRUMlQjYlOTQlRUElQjAlODAlMjZiYnNDbFNlcSUzRDEzOTQlMjZiYnNPcGVuV3JkU2VxJTNEJTI2cmdzQmduZGVTdHIlM0QlMjZyZ3NFbmRkZVN0ciUzRCUyNmlzVmlld01pbmUlM0RmYWxzZSUyNnBhc3N3b3JkJTNEJTI2",
       },
     ],
@@ -371,8 +400,8 @@ export const WORKSPACE_ALERT_CATEGORIES = [
     label: { ko: "국제", en: "Global" },
   },
   {
-    id: "대학",
-    label: { ko: "대학", en: "College" },
+    id: "장학",
+    label: { ko: "장학", en: "Scholarship" },
   },
   {
     id: "취창업",

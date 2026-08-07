@@ -3,44 +3,44 @@ import type { AppLocale } from "@/i18n/routing";
 const copy = {
   intro: {
     eyebrow: {
-      ko: "LinKU Web Intro",
-      en: "LinKU Web Intro",
+      ko: "LinKU 한눈에 보기",
+      en: "Meet LinKU",
     },
     title: {
-      ko: "이제 web에서도 extension의 핵심 흐름을 그대로 씁니다.",
-      en: "The web app now carries the extension's core workflow too.",
+      ko: "학교 생활에 필요한 것을 한곳에 모았습니다.",
+      en: "Everything you need for campus, brought together.",
     },
     body: {
-      ko: "LinKU web은 더 이상 설치 안내와 로그인 진입만 담당하지 않습니다. 빠른 학교 바로가기, 공지 확인, Todo 흐름, 템플릿 선택과 갤러리까지 한 화면 안에서 extension과 같은 제품 경험을 이어가도록 정리했습니다.",
-      en: "LinKU web no longer stops at install guidance and login. It now continues the same product experience as the extension across shortcuts, alerts, task flow, and template browsing.",
+      ko: "학교 서비스 바로가기, 공지, Todo, 템플릿을 LinKU에서 함께 확인하고 내 방식대로 정리할 수 있습니다.",
+      en: "Use campus shortcuts, alerts, todos, and templates together, then organize LinKU around your routine.",
     },
     sections: {
       ko: [
         {
           title: "빠른 진입",
-          body: "건국대 주요 서비스 바로가기를 웹에서도 같은 카탈로그로 제공합니다. extension에서 익숙한 기본 템플릿을 웹 대시보드에서도 그대로 적용할 수 있습니다.",
+          body: "eCampus, 학사정보, 도서관 등 자주 쓰는 학교 서비스를 바로 열고 내 링크도 함께 정리합니다.",
         },
         {
           title: "알림과 Todo",
-          body: "공지 피드와 개인 Todo 흐름을 한곳에서 확인하도록 정리했습니다. 웹 환경에서는 브라우저 친화적인 방식으로 알림 필터와 eCampus 즉시 조회를 제공합니다.",
+          body: "학교 공지와 과제, 개인 Todo를 한곳에서 확인하고 지금 필요한 일부터 처리합니다.",
         },
         {
           title: "템플릿 편집",
-          body: "템플릿을 고르고, 복제하고, 편집하고, 갤러리에서 다른 구성을 가져오는 흐름을 웹에서도 이어서 사용할 수 있습니다.",
+          body: "기본 구성을 고르거나 갤러리에서 마음에 드는 템플릿을 가져와 내 방식대로 바꿉니다.",
         },
       ],
       en: [
         {
           title: "Quick access",
-          body: "The same Konkuk shortcut catalog now lives on the web, and the dashboard can apply the same default template you use in the extension.",
+          body: "Open eCampus, the academic portal, and library services, then keep your own links beside them.",
         },
         {
           title: "Alerts and todos",
-          body: "Alerts and personal task flow are now organized in one place, with browser-friendly filtering and on-demand eCampus fetching for the web.",
+          body: "Review campus notices, assignments, and personal todos together and focus on what is next.",
         },
         {
           title: "Template editing",
-          body: "You can browse, clone, edit, and apply shortcut templates from the web without leaving the single LinKU domain.",
+          body: "Choose a starter setup or clone a gallery template and make it your own.",
         },
       ],
     },
@@ -49,22 +49,22 @@ const copy = {
       en: "Open dashboard",
     },
     ctaInstall: {
-      ko: "extension 설치",
-      en: "Install extension",
+      ko: "Chrome에 추가",
+      en: "Add to Chrome",
     },
   },
   workspace: {
     heroEyebrow: {
-      ko: "Extension parity workspace",
-      en: "Extension parity workspace",
+      ko: "오늘의 LinKU",
+      en: "Your LinKU today",
     },
     heroTitle: {
-      ko: "extension에서 하던 흐름을 web에서도 바로 이어가세요.",
-      en: "Continue the same extension flow directly on the web.",
+      ko: "학교 바로가기부터 Todo까지, 필요한 것부터 시작하세요.",
+      en: "Start with what you need, from campus shortcuts to todos.",
     },
     heroBody: {
       ko: "빠른 학교 진입, 공지 모아보기, Todo 관리, 템플릿 적용과 갤러리 탐색까지 한 화면에서 묶었습니다.",
-      en: "Shortcuts, alerts, todo flow, template selection, and gallery browsing now live together in one web workspace.",
+      en: "Keep shortcuts, alerts, todos, templates, and the gallery together in one place.",
     },
     openIntro: {
       ko: "소개 보기",
@@ -79,9 +79,9 @@ const copy = {
       en: "Open gallery",
     },
     tabs: {
-      shortcuts: { ko: "바로가기", en: "Shortcuts" },
-      alerts: { ko: "알림", en: "Alerts" },
-      todos: { ko: "Todo", en: "Todos" },
+      shortcuts: { ko: "링크모음", en: "Links" },
+      alerts: { ko: "공지사항", en: "Alerts" },
+      todos: { ko: "Todo List", en: "Todo List" },
       templates: { ko: "템플릿", en: "Templates" },
     },
     searchPlaceholder: {
@@ -99,8 +99,8 @@ const copy = {
       en: "Alert feed",
     },
     description: {
-      ko: "extension의 알림 흐름을 web 친화적으로 옮겼습니다. 전체 공지와 내가 보는 카테고리를 나눠서 볼 수 있습니다.",
-      en: "The extension alert flow is now available in a web-friendly view, with all notices and followed categories separated.",
+      ko: "전체 공지와 내가 보는 카테고리를 나눠서 확인할 수 있습니다.",
+      en: "Review all notices or narrow them down to the categories you follow.",
     },
     all: {
       ko: "전체 공지",
@@ -161,8 +161,8 @@ const copy = {
       en: "Load eCampus todos",
     },
     syncDialogBody: {
-      ko: "웹에서는 브라우저 확장 권한 대신 서버 프록시를 통해 즉시 Todo를 가져옵니다. 자격 증명은 요청 처리 후 저장하지 않습니다.",
-      en: "On the web, eCampus todos are loaded through a server proxy instead of extension permissions. Credentials are not stored after the request.",
+      ko: "eCampus 계정으로 Todo를 한 번 불러옵니다. 입력한 계정 정보는 저장하지 않습니다.",
+      en: "Load your eCampus todos once. The credentials you enter are not saved.",
     },
     studentId: {
       ko: "학번 또는 ID",
@@ -207,8 +207,8 @@ const copy = {
       en: "Templates",
     },
     description: {
-      ko: "extension의 빠른 링크 구성을 web에서도 고르고 저장하고 적용할 수 있습니다.",
-      en: "The same shortcut layouts can now be selected, saved, and applied on the web.",
+      ko: "빠른 링크 구성을 고르고 저장해 내 시작 화면에 적용할 수 있습니다.",
+      en: "Choose, save, and apply a shortcut layout to your start screen.",
     },
     activeBadge: {
       ko: "현재 적용 중",
@@ -307,8 +307,8 @@ const copy = {
       en: "Template gallery",
     },
     galleryDescription: {
-      ko: "extension에서 보던 갤러리 흐름을 web용 큐레이션으로 옮겼습니다. 마음에 드는 구성을 복제해 바로 적용할 수 있습니다.",
-      en: "The extension gallery flow is carried to the web with curated setups that you can clone and apply.",
+      ko: "마음에 드는 바로가기 구성을 가져와 내 템플릿으로 바로 적용할 수 있습니다.",
+      en: "Clone a shortcut setup you like and apply it as your own template.",
     },
     clonePreset: {
       ko: "이 구성 복제",

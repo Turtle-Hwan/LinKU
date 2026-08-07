@@ -4,6 +4,8 @@
  */
 
 import { IMAGE_URL } from '@/constants/URL';
+import { DEFAULT_SITE_URL } from '@linku/config';
+import { WORKSPACE_BANNERS } from '@linku/platform';
 
 /**
  * Banner item type
@@ -26,7 +28,19 @@ interface BannersResponseType {
  * @returns Banner list
  */
 export const getBannersAPI = async (): Promise<BannersResponseType> => {
-  const response = await fetch(`${IMAGE_URL}banners/banner.json`);
-  const data: BannersResponseType = await response.json();
-  return data;
+  if (IMAGE_URL.startsWith(DEFAULT_SITE_URL)) {
+    return { banners: [...WORKSPACE_BANNERS] };
+  }
+
+  try {
+    const response = await fetch(`${IMAGE_URL}banners/banner.json`);
+
+    if (!response.ok) {
+      throw new Error(`Banner fetch failed: ${response.status}`);
+    }
+
+    return (await response.json()) as BannersResponseType;
+  } catch {
+    return { banners: [...WORKSPACE_BANNERS] };
+  }
 };

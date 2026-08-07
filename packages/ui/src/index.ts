@@ -1,6 +1,7 @@
 export * from "./components/avatar";
 export * from "./components/badge";
 export * from "./components/button";
+export * from "./components/card";
 export * from "./components/command";
 export * from "./components/dialog";
 export * from "./components/dropdown-menu";
@@ -8,7 +9,9 @@ export * from "./components/input";
 export * from "./components/label";
 export * from "./components/popover";
 export * from "./components/scroll-area";
+export * from "./components/shortcut-tile";
 export * from "./components/sonner";
+export * from "./components/toast";
 export * from "./components/tabs";
 export * from "./components/use-toast";
 export * from "./lib/utils";

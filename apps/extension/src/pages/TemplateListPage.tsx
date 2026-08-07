@@ -3,8 +3,8 @@
  * Displays user's owned and cloned templates
  */
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate } from '@/apis/templates';
 import type { TemplateSummary, PostedTemplateSummary } from '@/types/api';
 
@@ -34,11 +34,14 @@ import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/ut
 import { areItemsEqual } from '@/utils/templateUtils';
 import { LinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
+import { warnLog, errorLog } from '@/utils/logger';
+import { sendTemplateApply, sendTemplateCreateStart, sendTemplateDelete } from '@/utils/analytics';
 
 export const TemplateListPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { selectedTemplateId, selectTemplate } = useSelectedTemplate();
+  const toastRef = useRef(toast);
 
   const [ownedTemplates, setOwnedTemplates] = useState<TemplateSummaryWithSync[]>([]);
   const [clonedTemplates, setClonedTemplates] = useState<TemplateSummaryWithSync[]>([]);
@@ -60,17 +63,10 @@ export const TemplateListPage = () => {
   const { publishTemplate } = useTemplatePublish();
 
   useEffect(() => {
-    loadTemplates();
-  }, []);
+    toastRef.current = toast;
+  }, [toast]);
 
-  // Load posted templates when tab changes to 'posted'
-  useEffect(() => {
-    if (activeTab === 'posted' && postedTemplates.length === 0 && userLoggedIn) {
-      loadPostedTemplates();
-    }
-  }, [activeTab, userLoggedIn, postedTemplates.length, loadPostedTemplates]);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
       // 1. 로그인 상태 확인 - 비로그인 시 서버 API 호출 스킵
@@ -136,7 +132,7 @@ export const TemplateListPage = () => {
                 };
               }
             } catch (error) {
-              console.error(`Failed to load template ${serverTemplate.templateId}:`, error);
+              errorLog(`Failed to load template ${serverTemplate.templateId}:`, error);
             }
             // Fallback without items
             return {
@@ -187,7 +183,7 @@ export const TemplateListPage = () => {
         seenIds.add(template.templateId);
       }
       if (duplicateIds.length > 0) {
-        console.warn('[TemplateListPage] Duplicate template IDs detected:', duplicateIds);
+        warnLog('[TemplateListPage] Duplicate template IDs detected:', duplicateIds);
         // Remove duplicates - keep first occurrence only
         mergedOwned = mergedOwned.filter((template, index, self) =>
           index === self.findIndex(t => t.templateId === template.templateId)
@@ -250,7 +246,7 @@ export const TemplateListPage = () => {
                 };
               }
             } catch (error) {
-              console.error(`Failed to load cloned template ${clonedTemplate.templateId}:`, error);
+              errorLog(`Failed to load cloned template ${clonedTemplate.templateId}:`, error);
             }
             return {
               ...clonedTemplate,
@@ -263,17 +259,17 @@ export const TemplateListPage = () => {
 
       // 에러 처리 - 에러가 발생해도 localStorage 템플릿은 표시되도록 조용히 처리
       if (!ownedResult.success) {
-        console.warn('Failed to load owned templates from server:', ownedResult.error);
+        warnLog('Failed to load owned templates from server:', ownedResult.error);
         // Don't show error toast - user can still see local templates
       }
 
       if (!clonedResult.success) {
-        console.warn('Failed to load cloned templates from server:', clonedResult.error);
+        warnLog('Failed to load cloned templates from server:', clonedResult.error);
         // Don't show error toast - this is not critical for normal usage
       }
     } catch (error) {
-      console.error('Failed to load templates:', error);
-      toast({
+      errorLog('Failed to load templates:', error);
+      toastRef.current({
         title: '네트워크 오류',
         description: '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
         variant: 'destructive',
@@ -281,13 +277,26 @@ export const TemplateListPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadPostedTemplates]);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  // Load posted templates when tab changes to 'posted'
+  useEffect(() => {
+    if (activeTab === 'posted' && postedTemplates.length === 0 && userLoggedIn) {
+      loadPostedTemplates();
+    }
+  }, [activeTab, userLoggedIn, postedTemplates.length, loadPostedTemplates]);
 
   const handleCreateFromDefault = () => {
+    sendTemplateCreateStart('default');
     navigate('/editor?from=default');
   };
 
   const handleCreateEmpty = () => {
+    sendTemplateCreateStart('empty');
     navigate('/editor?from=empty');
   };
 
@@ -301,7 +310,12 @@ export const TemplateListPage = () => {
       const targetId = templateId === 0 ? null : templateId;
       await selectTemplate(targetId);
 
-      const message = templateId === 0
+      const isDefault = templateId === 0;
+      const isCloned = clonedTemplates.some((t) => t.templateId === templateId);
+      const origin = isDefault ? 'default' : isCloned ? 'cloned' : 'owned';
+      sendTemplateApply(templateId, origin, isDefault);
+
+      const message = isDefault
         ? '기본 템플릿이 적용되었습니다.'
         : `"${templateName}" 템플릿이 메인 화면에 적용되었습니다.`;
 
@@ -310,7 +324,7 @@ export const TemplateListPage = () => {
         description: message,
       });
     } catch (error) {
-      console.error('Failed to apply template:', error);
+      errorLog('Failed to apply template:', error);
       toast({
         title: '적용 실패',
         description: '템플릿 적용에 실패했습니다.',
@@ -332,6 +346,9 @@ export const TemplateListPage = () => {
       // Local-only template: Delete from localStorage only
       if (syncStatus === 'local') {
         deleteTemplateFromLocalStorage(templateId);
+
+        const origin = clonedTemplates.some(t => t.templateId === templateId) ? 'cloned' : 'owned';
+        sendTemplateDelete(templateId, origin, 'local');
 
         toast({
           title: '삭제 완료',
@@ -356,6 +373,9 @@ export const TemplateListPage = () => {
         // Also delete from localStorage if exists
         deleteTemplateFromLocalStorage(templateId);
 
+        const origin = clonedTemplates.some(t => t.templateId === templateId) ? 'cloned' : 'owned';
+        sendTemplateDelete(templateId, origin, 'synced');
+
         toast({
           title: '삭제 완료',
           description: '템플릿이 서버와 로컬에서 삭제되었습니다.',
@@ -378,7 +398,7 @@ export const TemplateListPage = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to delete template:', error);
+      errorLog('Failed to delete template:', error);
       toast({
         title: '네트워크 오류',
         description: '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
@@ -545,16 +565,6 @@ export const TemplateListPage = () => {
           const isSelected = selectedTemplateId === null
             ? template.templateId === 0
             : selectedTemplateId === template.templateId;
-
-          // 디버깅: 선택 상태 로깅
-          if (isSelected) {
-            console.log('[TemplateListPage] Selected template:', {
-              templateId: template.templateId,
-              templateName: template.name,
-              selectedTemplateId,
-              isSelected,
-            });
-          }
 
           return (
             <TemplateCard

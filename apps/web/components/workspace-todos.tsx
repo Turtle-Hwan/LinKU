@@ -1,9 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ArrowUpDown, Plus } from "lucide-react";
+import {
+  convertTodosToMarkdown,
+  createCustomTodo,
+  formatTodoDateTime,
+  normalizeStoredCustomTodos,
+  sortTodosByDDay,
+} from "@linku/core";
+import type {
+  CustomTodoItem,
+  ECampusTodoItem,
+  TodoItem,
+  TodoSortMethod,
+} from "@linku/shared-types";
 import {
   Badge,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -20,31 +36,11 @@ import {
   type SecureCredentials,
 } from "@/lib/secure-credentials";
 
-interface PersonalTodoItem {
-  id: string;
-  title: string;
-  dueDate: string;
-  completed: boolean;
-  type: "personal";
-}
-
-interface EcampusTodoItem {
-  id: string;
-  title: string;
-  subject: string;
-  dDay: string;
-  dueDate: string;
-  lecturePath: string;
-  type: "ecampus";
-}
-
-type WorkspaceTodoItem = PersonalTodoItem | EcampusTodoItem;
-
 const PERSONAL_TODO_KEY = "linku.web.personal-todos.v1";
 
 function readPersonalTodos() {
   if (typeof window === "undefined") {
-    return [] as PersonalTodoItem[];
+    return [] as CustomTodoItem[];
   }
 
   try {
@@ -53,24 +49,23 @@ function readPersonalTodos() {
       return [];
     }
 
-    const parsed = JSON.parse(rawValue) as unknown;
-    return Array.isArray(parsed)
-      ? parsed.filter(
-          (item): item is PersonalTodoItem =>
-            typeof item === "object" &&
-            item !== null &&
-            typeof (item as PersonalTodoItem).id === "string" &&
-            typeof (item as PersonalTodoItem).title === "string" &&
-            typeof (item as PersonalTodoItem).dueDate === "string" &&
-            typeof (item as PersonalTodoItem).completed === "boolean",
-        )
-      : [];
+    const parsedValue = JSON.parse(rawValue) as unknown;
+    const normalizedTodos = normalizeStoredCustomTodos(parsedValue);
+
+    if (JSON.stringify(parsedValue) !== JSON.stringify(normalizedTodos)) {
+      window.localStorage.setItem(
+        PERSONAL_TODO_KEY,
+        JSON.stringify(normalizedTodos),
+      );
+    }
+
+    return normalizedTodos;
   } catch {
     return [];
   }
 }
 
-function writePersonalTodos(todos: PersonalTodoItem[]) {
+function writePersonalTodos(todos: readonly CustomTodoItem[]) {
   if (typeof window === "undefined") {
     return;
   }
@@ -78,63 +73,26 @@ function writePersonalTodos(todos: PersonalTodoItem[]) {
   window.localStorage.setItem(PERSONAL_TODO_KEY, JSON.stringify(todos));
 }
 
-function compareTodoDates(left: WorkspaceTodoItem, right: WorkspaceTodoItem) {
-  const leftDate = new Date(left.dueDate).getTime();
-  const rightDate = new Date(right.dueDate).getTime();
-  return leftDate - rightDate;
-}
-
-function convertTodosToMarkdown(todos: WorkspaceTodoItem[], locale: AppLocale) {
-  if (todos.length === 0) {
-    return locale === "ko" ? "할 일이 없습니다." : "There are no todos.";
-  }
-
-  const ecampusTodos = todos.filter(
-    (todo): todo is EcampusTodoItem => todo.type === "ecampus",
-  );
-  const personalTodos = todos.filter(
-    (todo): todo is PersonalTodoItem => todo.type === "personal",
-  );
-  const sections: string[] = [];
-
-  if (ecampusTodos.length > 0) {
-    const items = ecampusTodos
-      .map((item) => `- [ ] ${item.title} | ${item.subject} | ${item.dueDate}`)
-      .join("\n");
-    sections.push(
-      locale === "ko" ? `## eCampus Todo\n${items}` : `## eCampus todos\n${items}`,
-    );
-  }
-
-  if (personalTodos.length > 0) {
-    const items = personalTodos
-      .map(
-        (item) =>
-          `- [${item.completed ? "x" : " "}] ${item.title} - ${item.dueDate}`,
-      )
-      .join("\n");
-    sections.push(
-      locale === "ko" ? `## 개인 Todo\n${items}` : `## Personal todos\n${items}`,
-    );
-  }
-
-  return sections.join("\n\n");
-}
-
 export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
   const copy = getWorkspaceCopy(locale);
-  const [personalTodos, setPersonalTodos] = useState<PersonalTodoItem[]>([]);
-  const [ecampusTodos, setEcampusTodos] = useState<EcampusTodoItem[]>([]);
+  const [personalTodos, setPersonalTodos] = useState<CustomTodoItem[]>([]);
+  const [ecampusTodos, setEcampusTodos] = useState<ECampusTodoItem[]>([]);
   const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [openDialog, setOpenDialog] = useState(false);
+  const [dueTime, setDueTime] = useState("23:59");
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openSyncDialog, setOpenSyncDialog] = useState(false);
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [rememberCredentials, setRememberCredentials] = useState(false);
-  const [savedCredentials, setSavedCredentials] = useState<SecureCredentials | null>(null);
+  const [savedCredentials, setSavedCredentials] =
+    useState<SecureCredentials | null>(null);
+  const [sortMethod, setSortMethod] =
+    useState<TodoSortMethod>("dday-desc");
 
   useEffect(() => {
     let cancelled = false;
@@ -163,44 +121,62 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
   }, []);
 
   const mergedTodos = useMemo(
-    () => [...personalTodos, ...ecampusTodos].sort(compareTodoDates),
-    [ecampusTodos, personalTodos],
+    () =>
+      sortTodosByDDay(
+        [...personalTodos, ...ecampusTodos] satisfies TodoItem[],
+        sortMethod,
+      ),
+    [ecampusTodos, personalTodos, sortMethod],
   );
+
+  function persistPersonalTodos(nextTodos: CustomTodoItem[]) {
+    setPersonalTodos(nextTodos);
+    writePersonalTodos(nextTodos);
+  }
 
   function addTodo() {
     if (!title.trim() || !dueDate) {
+      setError(
+        locale === "ko"
+          ? "할 일과 마감 날짜를 입력해 주세요."
+          : "Enter a todo and due date.",
+      );
       return;
     }
 
-    const nextTodos = [
+    persistPersonalTodos([
       ...personalTodos,
-      {
-        id: `todo-${Date.now()}`,
-        title: title.trim(),
+      createCustomTodo({
+        title,
+        subject,
         dueDate,
-        completed: false,
-        type: "personal" as const,
-      },
-    ];
-
-    setPersonalTodos(nextTodos);
-    writePersonalTodos(nextTodos);
+        dueTime,
+      }),
+    ]);
     setTitle("");
+    setSubject("");
     setDueDate("");
+    setDueTime("23:59");
+    setError("");
+    setOpenAddDialog(false);
   }
 
   function toggleTodo(id: string) {
-    const nextTodos = personalTodos.map((item) =>
-      item.id === id ? { ...item, completed: !item.completed } : item,
+    persistPersonalTodos(
+      personalTodos.map((item) =>
+        item.id === id ? { ...item, completed: !item.completed } : item,
+      ),
     );
-    setPersonalTodos(nextTodos);
-    writePersonalTodos(nextTodos);
   }
 
   function removeTodo(id: string) {
-    const nextTodos = personalTodos.filter((item) => item.id !== id);
-    setPersonalTodos(nextTodos);
-    writePersonalTodos(nextTodos);
+    persistPersonalTodos(personalTodos.filter((item) => item.id !== id));
+  }
+
+  function toggleSortMethod() {
+    setSortMethod((current) =>
+      current === "dday-asc" ? "dday-desc" : "dday-asc",
+    );
   }
 
   async function loadEcampusTodos() {
@@ -227,11 +203,14 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId: credentials.id, password: credentials.password }),
+        body: JSON.stringify({
+          userId: credentials.id,
+          password: credentials.password,
+        }),
       });
 
       const data = (await response.json()) as
-        | EcampusTodoItem[]
+        | ECampusTodoItem[]
         | {
             message?: string;
           };
@@ -249,10 +228,8 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
         setSavedCredentials(credentials);
       }
 
-      setEcampusTodos(
-        (data as EcampusTodoItem[]).map((item) => ({ ...item, type: "ecampus" })),
-      );
-      setOpenDialog(false);
+      setEcampusTodos(data as ECampusTodoItem[]);
+      setOpenSyncDialog(false);
       setMessage(
         locale === "ko"
           ? "eCampus Todo를 불러왔습니다."
@@ -285,137 +262,176 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="text-2xl tracking-[-0.04em]">{copy.todos.title}</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)]">
-            {copy.todos.description}
-          </p>
-        </div>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">{copy.todos.title}</h2>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" className="rounded-full" onClick={() => void copyMarkdown()}>
-            {locale === "ko" ? "마크다운 복사" : "Copy markdown"}
+          <Button type="button" variant="outline" size="sm" onClick={toggleSortMethod}>
+            <ArrowUpDown className="size-4" />
+            {sortMethod === "dday-asc"
+              ? locale === "ko"
+                ? "마감 임박순"
+                : "Due soon"
+              : locale === "ko"
+                ? "마감 여유순"
+                : "Due later"}
           </Button>
-          <Button
-            type="button"
-            className="rounded-full"
-            onClick={() => setOpenDialog(true)}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={() => void copyMarkdown()}>
+            {locale === "ko" ? "복사" : "Copy"}
+          </Button>
+          <Button type="button" size="sm" onClick={() => setOpenAddDialog(true)}>
+            <Plus className="size-4" />
+            {copy.todos.addButton}
+          </Button>
+          <Button type="button" size="sm" onClick={() => setOpenSyncDialog(true)}>
             {copy.todos.syncButton}
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <Input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder={copy.todos.addTitlePlaceholder}
-          className="rounded-full bg-white"
-        />
-        <Input
-          type="date"
-          value={dueDate}
-          onChange={(event) => setDueDate(event.target.value)}
-          aria-label={copy.todos.addDateLabel}
-          className="rounded-full bg-white"
-        />
-        <Button type="button" onClick={addTodo} className="rounded-full">
-          {copy.todos.addButton}
-        </Button>
-      </div>
-
       {message ? (
-        <p className="rounded-[1.2rem] border border-[#b0c38f] bg-[#eff8df] p-4 text-sm text-[#30411e]">
+        <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="rounded-[1.2rem] border border-[#d18d7b] bg-[#fff3ef] p-4 text-sm text-[#8a3d2c]">
+        <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
           {error}
         </p>
       ) : null}
 
       {mergedTodos.length === 0 ? (
-        <p className="rounded-[1.2rem] border border-dashed border-black/15 bg-white/70 p-5 text-sm leading-7 text-[var(--muted)]">
-          {copy.todos.empty}
-        </p>
+        <Card size="sm">
+          <CardContent className="text-sm text-muted-foreground">
+            {copy.todos.empty}
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {mergedTodos.map((todo) => (
-            <article
-              key={todo.id}
-              className="flex flex-col gap-4 rounded-[1.4rem] border border-black/8 bg-white p-5 lg:flex-row lg:items-center lg:justify-between"
-            >
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3
-                    className={`text-xl tracking-[-0.03em] ${
-                      "completed" in todo && todo.completed
-                        ? "line-through opacity-60"
-                        : ""
-                    }`}
-                  >
-                    {todo.title}
-                  </h3>
-                  <Badge variant={todo.type === "ecampus" ? "default" : "secondary"}>
-                    {todo.type === "ecampus"
-                      ? copy.todos.ecampusBadge
-                      : copy.todos.personalBadge}
-                  </Badge>
+            <Card key={todo.id} size="sm">
+              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3
+                      className={`truncate font-medium ${
+                        todo.type === "custom" && todo.completed
+                          ? "line-through opacity-60"
+                          : ""
+                      }`}
+                    >
+                      {todo.title}
+                    </h3>
+                    <Badge variant={todo.type === "ecampus" ? "default" : "secondary"}>
+                      {todo.type === "ecampus"
+                        ? copy.todos.ecampusBadge
+                        : copy.todos.personalBadge}
+                    </Badge>
+                    <span className="text-xs font-medium text-primary">
+                      {todo.dDay}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    {todo.subject ? `${todo.subject} · ` : ""}
+                    {todo.type === "custom"
+                      ? formatTodoDateTime(todo.dueDate, todo.dueTime, locale)
+                      : todo.dueDate}
+                  </p>
                 </div>
-                <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-                  {"subject" in todo && todo.subject ? `${todo.subject} · ` : ""}
-                  {"dDay" in todo && todo.dDay ? `${todo.dDay} · ` : ""}
-                  {todo.dueDate}
-                </p>
-              </div>
 
-              <div className="flex flex-wrap gap-2">
-                {todo.type === "ecampus" ? (
-                  <a
-                    href={`https://ecampus.konkuk.ac.kr${todo.lecturePath}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border border-black/10 px-4 py-2 text-sm"
-                  >
-                    {locale === "ko" ? "강의 열기" : "Open lecture"}
-                  </a>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="rounded-full"
-                      onClick={() => toggleTodo(todo.id)}
-                    >
-                      {todo.completed ? copy.todos.markUndone : copy.todos.markDone}
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {todo.type === "ecampus" ? (
+                    <Button asChild variant="outline" size="sm">
+                      <a
+                        href={`https://ecampus.konkuk.ac.kr${todo.lecturePath}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {locale === "ko" ? "강의 열기" : "Open lecture"}
+                      </a>
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full"
-                      onClick={() => removeTodo(todo.id)}
-                    >
-                      {copy.todos.remove}
-                    </Button>
-                  </>
-                )}
-              </div>
-            </article>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => toggleTodo(todo.id)}
+                      >
+                        {todo.completed
+                          ? copy.todos.markUndone
+                          : copy.todos.markDone}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeTodo(todo.id)}
+                      >
+                        {copy.todos.remove}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
 
-      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+      <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {locale === "ko" ? "Todo 추가" : "Add todo"}
+            </DialogTitle>
+            <DialogDescription>
+              {locale === "ko"
+                ? "확장 프로그램과 같은 형식으로 할 일을 저장합니다."
+                : "Save a todo using the same fields as the extension."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-3">
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder={copy.todos.addTitlePlaceholder}
+            />
+            <Input
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              placeholder={locale === "ko" ? "과목 또는 분류 (선택)" : "Subject (optional)"}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+                aria-label={copy.todos.addDateLabel}
+              />
+              <Input
+                type="time"
+                value={dueTime}
+                onChange={(event) => setDueTime(event.target.value)}
+                aria-label={locale === "ko" ? "마감 시간" : "Due time"}
+              />
+            </div>
+            <Button type="button" onClick={addTodo}>
+              {copy.todos.addButton}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openSyncDialog} onOpenChange={setOpenSyncDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{copy.todos.syncDialogTitle}</DialogTitle>
             <DialogDescription>{copy.todos.syncDialogBody}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="grid gap-4">
             <Input
               value={studentId}
               onChange={(event) => setStudentId(event.target.value)}
@@ -427,18 +443,20 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
               onChange={(event) => setPassword(event.target.value)}
               placeholder={copy.todos.password}
             />
-            <label className="flex items-center gap-3 text-sm text-[var(--muted)]">
+            <label className="flex items-center gap-3 text-sm text-muted-foreground">
               <input
                 type="checkbox"
                 checked={rememberCredentials}
-                onChange={(event) => setRememberCredentials(event.target.checked)}
+                onChange={(event) =>
+                  setRememberCredentials(event.target.checked)
+                }
               />
               {locale === "ko"
                 ? "이 계정을 브라우저에 암호화해 저장"
                 : "Save these credentials with browser-side encryption"}
             </label>
             {savedCredentials ? (
-              <p className="text-sm text-[var(--muted)]">
+              <p className="text-sm text-muted-foreground">
                 {locale === "ko"
                   ? "저장된 계정을 불러와 바로 사용할 수 있습니다."
                   : "A saved account is available for quick reuse."}
@@ -446,7 +464,7 @@ export function WorkspaceTodos({ locale }: { locale: AppLocale }) {
             ) : null}
             <Button
               type="button"
-              className="w-full rounded-full"
+              className="w-full"
               disabled={loading}
               onClick={() => void loadEcampusTodos()}
             >

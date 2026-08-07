@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { Card, CardHeader, CardTitle } from "@linku/ui";
 import { CtaLink } from "@/components/cta-link";
+import { PageHeading } from "@/components/page-heading";
 import { resolveRouteParams } from "@/lib/intl";
 import { createLocalizedMetadata } from "@/lib/seo";
 import { serviceMap, translateServices } from "@/lib/site";
@@ -41,44 +43,42 @@ export default async function ServiceDetailPage({
 }) {
   const { locale, slug } = await resolveRouteParams(params);
   const t = await getTranslations({ locale });
-
-  if (!slug) {
-    notFound();
-  }
-
+  if (!slug) notFound();
   const service = translateServices(t).find((item) => item.slug === slug);
-
-  if (!service) {
-    notFound();
-  }
+  if (!service) notFound();
 
   return (
-    <section className="mx-auto max-w-4xl px-6 py-16">
-      <p className="mb-3 text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-        {t("common.service")}
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
+      <PageHeading
+        eyebrow={t("common.service")}
+        title={service.title}
+        body={service.summary}
+      />
+      <p className="text-sm text-muted-foreground">
+        {t("pages.services.audiencePrefix")}: {service.audience}
       </p>
-      <h1 data-display="true" className="mb-5 text-6xl leading-[0.95] tracking-[-0.05em]">
-        {service.title}
-      </h1>
-      <p className="mb-8 text-lg leading-8 text-[var(--muted)]">{service.summary}</p>
-      <div className="rounded-[1.5rem] border border-black/8 bg-white/75 p-6">
-        <p className="mb-4 text-sm uppercase tracking-[0.2em] text-[var(--muted)]">
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xl font-semibold">
           {t("pages.serviceDetail.commonTasks")}
-        </p>
-        <ul className="space-y-3 text-sm leading-7">
+        </h2>
+        <ul className="grid gap-3">
           {service.tasks.map((task) => (
-            <li key={task}>- {task}</li>
+            <li key={task}>
+              <Card size="sm">
+                <CardHeader>
+                  <CardTitle className="leading-6">{task}</CardTitle>
+                </CardHeader>
+              </Card>
+            </li>
           ))}
         </ul>
-      </div>
-      <div className="mt-8 flex flex-wrap gap-3">
-        <CtaLink href="/install" variant="outline">
-          {t("pages.serviceDetail.ctaInstall")}
-        </CtaLink>
-        <CtaLink href="/features/ecampus" variant="ghost">
-          {t("pages.serviceDetail.ctaFeature")}
-        </CtaLink>
-      </div>
-    </section>
+      </section>
+      <section className="flex flex-wrap gap-3">
+          <CtaLink href="/install">{t("pages.serviceDetail.ctaInstall")}</CtaLink>
+          <CtaLink href="/features/ecampus" variant="outline">
+            {t("pages.serviceDetail.ctaFeature")}
+          </CtaLink>
+      </section>
+    </div>
   );
 }

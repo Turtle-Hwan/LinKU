@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeExternalHttpUrl } from "@linku/platform";
 import { auth } from "@/auth";
 import {
   createWorkspaceCookieResponse,
@@ -33,11 +34,18 @@ export async function POST(request: Request) {
   const ownerKey = getWorkspaceOwnerKey(session);
   const body = (await request.json()) as Partial<PersonalLinkItem>;
   const label = body.label?.trim();
-  const url = body.url?.trim();
+  const url = body.url ? normalizeExternalHttpUrl(body.url) : null;
 
-  if (!label || !url) {
+  if (!label || !body.url?.trim()) {
     return NextResponse.json(
       { message: "api.errors.labelAndUrlRequired" },
+      { status: 400 },
+    );
+  }
+
+  if (!url) {
+    return NextResponse.json(
+      { message: "api.errors.invalidExternalUrl" },
       { status: 400 },
     );
   }

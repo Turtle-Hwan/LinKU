@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, RefreshCw } from "lucide-react";
-import { Button, Input } from "@linku/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+} from "@linku/ui";
 import type { AppLocale } from "@/i18n/routing";
 import { getLabsCopy } from "@/lib/labs-copy";
 import {
@@ -132,21 +140,21 @@ export function LabsLibrarySeats({ locale }: { locale: AppLocale }) {
   }, [fetchedAt, locale]);
 
   return (
-    <section className="rounded-[1.6rem] border border-black/8 bg-white p-6">
-      <div className="space-y-2">
-        <h2 className="text-2xl tracking-[-0.04em]">{copy.library.title}</h2>
-        <p className="text-sm leading-7 text-[var(--muted)]">
+    <Card>
+      <CardHeader>
+        <CardTitle>{copy.library.title}</CardTitle>
+        <CardDescription className="leading-7">
           {copy.library.description}
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+      <CardContent className="grid gap-5">
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
         <Input
           value={studentId}
           onChange={(event) => setStudentId(event.target.value)}
           aria-label={copy.library.studentId}
           placeholder={copy.library.studentId}
-          className="rounded-full bg-[#f6f0e1]"
         />
         <Input
           type="password"
@@ -154,51 +162,55 @@ export function LabsLibrarySeats({ locale }: { locale: AppLocale }) {
           onChange={(event) => setPassword(event.target.value)}
           aria-label={copy.library.password}
           placeholder={copy.library.password}
-          className="rounded-full bg-[#f6f0e1]"
         />
         <Button
           type="button"
-          className="rounded-full"
           onClick={() => void loadSeats()}
           disabled={loading}
         >
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
           {copy.library.fetch}
         </Button>
-      </div>
+        </div>
 
-      <div className="mt-3 text-sm text-[var(--muted)]">
-        {savedCredentialState.hasSaved
-          ? copy.library.usingSaved
-          : copy.library.noCredentials}
-      </div>
-      <div className="mt-1 text-sm text-[var(--muted)]">{copy.library.saveHint}</div>
+        <div className="grid gap-1 text-sm text-muted-foreground">
+          <p>
+            {savedCredentialState.hasSaved
+              ? copy.library.usingSaved
+              : copy.library.noCredentials}
+          </p>
+          <p>{copy.library.saveHint}</p>
+        </div>
 
       {error ? (
-        <p className="mt-4 rounded-[1rem] border border-[#d18d7b] bg-[#fff3ef] p-4 text-sm text-[#8a3d2c]">
+        <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           {error}
         </p>
       ) : null}
 
       {rooms.length === 0 ? (
-        <div className="mt-6 rounded-[1.4rem] border border-dashed border-black/10 bg-[#f6f0e1] p-5 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
           {copy.library.empty}
         </div>
       ) : (
-        <div className="mt-6 grid gap-3">
+        <div className="grid gap-3">
           {rooms.map((room) => {
             const ratio = room.seats.total > 0 ? room.seats.available / room.seats.total : 0;
             const countColor =
-              ratio > 0.5 ? "text-[#2f6b2f]" : ratio > 0.2 ? "text-[#9a6b0a]" : "text-[#9a2d2d]";
+              ratio > 0.5
+                ? "text-primary"
+                : ratio > 0.2
+                  ? "text-amber-700"
+                  : "text-destructive";
 
             return (
               <article
                 key={room.id}
-                className="flex flex-col gap-3 rounded-[1.2rem] border border-black/8 bg-[#f6f0e1] p-4 md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-4 md:flex-row md:items-center md:justify-between"
               >
                 <div>
                   <h3 className="text-lg tracking-[-0.03em]">{room.name}</h3>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {room.seats.occupied}/{room.seats.total}
                   </p>
                 </div>
@@ -206,16 +218,13 @@ export function LabsLibrarySeats({ locale }: { locale: AppLocale }) {
                   <span className={`text-2xl font-semibold ${countColor}`}>
                     {room.seats.available}
                   </span>
-                  <span className="text-sm text-[var(--muted)]">{copy.library.available}</span>
-                  <a
-                    href={room.reservationUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm"
-                  >
-                    {copy.library.reserve}
-                    <ExternalLink className="size-4" />
-                  </a>
+                  <span className="text-sm text-muted-foreground">{copy.library.available}</span>
+                  <Button asChild variant="outline" size="sm">
+                    <a href={room.reservationUrl} target="_blank" rel="noreferrer">
+                      {copy.library.reserve}
+                      <ExternalLink className="size-4" />
+                    </a>
+                  </Button>
                 </div>
               </article>
             );
@@ -223,9 +232,10 @@ export function LabsLibrarySeats({ locale }: { locale: AppLocale }) {
         </div>
       )}
 
-      <div className="mt-4 text-sm text-[var(--muted)]">
+      <div className="text-sm text-muted-foreground">
         {copy.library.updatedAt}: {updatedAtLabel}
       </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

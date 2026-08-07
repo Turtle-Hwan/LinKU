@@ -19,12 +19,29 @@ export const baseConfig = tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      "no-console": "error",
       "react-hooks/immutability": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },
       ],
+    },
+  },
+  {
+    files: ["**/src/utils/logger.ts", "**/vite.config.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
+    files: [
+      "src/components/ui/*.tsx",
+      "src/components/button.tsx",
+      "src/components/badge.tsx",
+    ],
+    rules: {
+      "react-refresh/only-export-components": "off",
     },
   },
 );

@@ -1,15 +1,6 @@
 import type { GeneralAlert, RSSAlertCategory } from "../../types/api";
-
-/**
- * RSS URL configuration for each category
- */
-const RSS_URLS: Record<RSSAlertCategory, string> = {
-  학사: "https://www.konkuk.ac.kr/bbs/konkuk/234/rssList.do?row=50",
-  장학: "https://www.konkuk.ac.kr/bbs/konkuk/235/rssList.do?row=50",
-  국제: "https://www.konkuk.ac.kr/bbs/konkuk/237/rssList.do?row=50",
-  학생: "https://www.konkuk.ac.kr/bbs/konkuk/238/rssList.do?row=50",
-  일반: "https://www.konkuk.ac.kr/bbs/konkuk/240/rssList.do?row=50",
-};
+import { KONKUK_ALERT_RSS_FEEDS } from "@linku/core";
+import { errorLog } from '@/utils/logger';
 
 /**
  * Parses RSS XML and converts to GeneralAlert array for a specific category
@@ -74,7 +65,12 @@ const fetchRSSByCategory = async (
   startId: number
 ): Promise<GeneralAlert[]> => {
   try {
-    const url = RSS_URLS[category];
+    const url = KONKUK_ALERT_RSS_FEEDS.find(
+      (feed) => feed.category === category,
+    )?.url;
+    if (!url) {
+      return [];
+    }
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -84,7 +80,7 @@ const fetchRSSByCategory = async (
     const xmlText = await response.text();
     return parseRSSToAlerts(xmlText, category, startId);
   } catch (error) {
-    console.error(`Error fetching RSS for ${category}:`, error);
+    errorLog(`Error fetching RSS for ${category}:`, error);
     return []; // Return empty array on error
   }
 };
@@ -95,13 +91,9 @@ const fetchRSSByCategory = async (
  */
 export const getAlertsFromRSS = async (): Promise<GeneralAlert[]> => {
   try {
-    const categories: RSSAlertCategory[] = [
-      "학사",
-      "장학",
-      "국제",
-      "학생",
-      "일반",
-    ];
+    const categories: RSSAlertCategory[] = KONKUK_ALERT_RSS_FEEDS.map(
+      (feed) => feed.category,
+    );
 
     // Fetch all RSS feeds in parallel
     const results = await Promise.all(
@@ -113,7 +105,7 @@ export const getAlertsFromRSS = async (): Promise<GeneralAlert[]> => {
     // Combine all results
     return results.flat();
   } catch (error) {
-    console.error("Error fetching RSS feeds:", error);
+    errorLog("Error fetching RSS feeds:", error);
     throw error;
   }
 };

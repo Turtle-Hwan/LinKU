@@ -4,6 +4,7 @@
  */
 
 import { getStorage, setStorage } from "./chrome";
+import { errorLog } from '@/utils/logger';
 
 /**
  * Client ID 생성 및 가져오기
@@ -22,7 +23,7 @@ export async function getOrCreateClientId(): Promise<string> {
 
     return clientId;
   } catch (error) {
-    console.error("[ClientID] Error getting/creating client ID:", error);
+    errorLog("[ClientID] Error getting/creating client ID:", error);
     // 에러 시 임시 ID 반환
     return "error-" + Date.now();
   }

@@ -33,5 +33,4 @@ gh-pages
 *.sw?
 
 .claude
-docs
 output/

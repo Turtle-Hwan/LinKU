@@ -1,5 +1,5 @@
+import { redirect } from "@/i18n/navigation";
 import { resolveRouteParams } from "@/lib/intl";
-import { WebWorkspace } from "@/components/web-workspace";
 
 export default async function DashboardPage({
   params,
@@ -8,5 +8,5 @@ export default async function DashboardPage({
 }) {
   const { locale } = await resolveRouteParams(params);
 
-  return <WebWorkspace locale={locale} />;
+  return redirect({ href: "/shortcuts", locale });
 }

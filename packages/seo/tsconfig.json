@@ -1,7 +1,6 @@
 {
   "extends": "../../tooling/typescript/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@linku/config": ["../config/src/index.ts"]
     },

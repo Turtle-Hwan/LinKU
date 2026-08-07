@@ -3,7 +3,9 @@
  * External service integration for Konkuk University eCampus
  */
 
-import { ECampusTodoItem } from '@/types/todo';
+import type { ECampusTodoItem } from '@/types/todo';
+import { buildEcampusLecturePath } from '@linku/core';
+import { errorLog } from '@/utils/logger';
 
 export interface ECampusLoginResponse {
   success: boolean;
@@ -75,7 +77,7 @@ export async function eCampusLoginAPI(
       data,
     };
   } catch (error) {
-    console.error('Login error:', error);
+    errorLog('Login error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -148,6 +150,7 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
         kj,
         gubun,
         seq,
+        lecturePath: buildEcampusLecturePath(seq, gubun, kj),
       });
     });
 
@@ -158,7 +161,7 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
       },
     };
   } catch (error) {
-    console.error('Failed to fetch todo list:', error);
+    errorLog('Failed to fetch todo list:', error);
     return { success: false, needLogin: true, error };
   }
 }
@@ -176,7 +179,7 @@ export async function eCampusGoLectureAPI(
   gubun: string
 ): Promise<ECampusGoLectureResponse> {
   try {
-    const lectureUrl = `/ilos/mp/todo_list_connect.acl?SEQ=${seq}&gubun=${gubun}&KJKEY=${kj}`;
+    const lectureUrl = buildEcampusLecturePath(seq, gubun, kj);
 
     return {
       success: true,
@@ -184,7 +187,7 @@ export async function eCampusGoLectureAPI(
       message: lectureUrl,
     };
   } catch (error) {
-    console.error('Failed to access lecture:', error);
+    errorLog('Failed to access lecture:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),

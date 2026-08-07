@@ -3,21 +3,17 @@
  * External service integration for Konkuk University Library seat reservation
  */
 
-import {
+import type {
   LibraryApiResponse,
   LibraryLoginData,
   LibraryLoginRequest,
   LibrarySeatRoomsData,
-} from '@/types/api';
+} from "@/types/api";
+import { errorLog } from "@/utils/logger";
 
-const LIBRARY_BASE_URL = 'https://library.konkuk.ac.kr';
+const LIBRARY_BASE_URL = "https://library.konkuk.ac.kr";
 const LIBRARY_API_URL = `${LIBRARY_BASE_URL}/pyxis-api`;
-const LIBRARY_TOKEN_STORAGE_KEY = 'libraryToken';
-
-interface StoredLibraryToken {
-  accessToken: string;
-  expireDate: string;
-}
+const LIBRARY_TOKEN_STORAGE_KEY = "libraryToken";
 
 /**
  * 도서관 열람실 예약 페이지 URL 생성
@@ -47,6 +43,29 @@ export interface LibrarySeatRoomsResponse {
   error?: string;
 }
 
+interface LibraryTokenStorageData {
+  accessToken: string;
+  expireDate?: string;
+}
+
+function isLibraryTokenStorageData(
+  value: unknown,
+): value is LibraryTokenStorageData {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const tokenData = value as Record<string, unknown>;
+  if (typeof tokenData.accessToken !== "string") {
+    return false;
+  }
+
+  return (
+    tokenData.expireDate === undefined ||
+    typeof tokenData.expireDate === "string"
+  );
+}
+
 /**
  * 도서관 로그인
  * @param loginId 사용자 ID (학번)
@@ -55,7 +74,7 @@ export interface LibrarySeatRoomsResponse {
  */
 export async function libraryLoginAPI(
   loginId: string,
-  password: string
+  password: string,
 ): Promise<LibraryLoginResponse> {
   try {
     const requestBody: LibraryLoginRequest = {
@@ -66,12 +85,12 @@ export async function libraryLoginAPI(
     };
 
     const response = await fetch(`${LIBRARY_API_URL}/api/login`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json;charset=UTF-8',
+        "Content-Type": "application/json;charset=UTF-8",
       },
       body: JSON.stringify(requestBody),
-      credentials: 'include',
+      credentials: "include",
     });
 
     const result: LibraryApiResponse<LibraryLoginData> = await response.json();
@@ -84,11 +103,11 @@ export async function libraryLoginAPI(
     } else {
       return {
         success: false,
-        error: result.message || '로그인에 실패했습니다.',
+        error: result.message || "로그인에 실패했습니다.",
       };
     }
   } catch (error) {
-    console.error('[Library] Login error:', error);
+    errorLog("[Library] Login error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -102,19 +121,19 @@ export async function libraryLoginAPI(
  * @returns 열람실 목록 및 좌석 현황
  */
 export async function getLibrarySeatRoomsAPI(
-  accessToken: string
+  accessToken: string,
 ): Promise<LibrarySeatRoomsResponse> {
   try {
     const response = await fetch(
       `${LIBRARY_API_URL}/1/seat-rooms?smufMethodCode=PC&branchGroupId=1`,
       {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json;charset=UTF-8',
-          'pyxis-auth-token': accessToken,
+          "Content-Type": "application/json;charset=UTF-8",
+          "pyxis-auth-token": accessToken,
         },
-        credentials: 'include',
-      }
+        credentials: "include",
+      },
     );
 
     const result: LibraryApiResponse<LibrarySeatRoomsData> =
@@ -124,7 +143,7 @@ export async function getLibrarySeatRoomsAPI(
       return {
         success: false,
         needLogin: true,
-        error: result.message || '좌석 현황을 불러올 수 없습니다.',
+        error: result.message || "좌석 현황을 불러올 수 없습니다.",
       };
     }
 
@@ -133,7 +152,7 @@ export async function getLibrarySeatRoomsAPI(
       return {
         success: false,
         needLogin: true,
-        error: '로그인이 필요합니다.',
+        error: "로그인이 필요합니다.",
       };
     }
 
@@ -142,7 +161,7 @@ export async function getLibrarySeatRoomsAPI(
       data: result.data,
     };
   } catch (error) {
-    console.error('[Library] Get seat rooms error:', error);
+    errorLog("[Library] Get seat rooms error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -155,10 +174,10 @@ export async function getLibrarySeatRoomsAPI(
  * @param loginData 로그인 응답 데이터
  */
 export async function setLibraryToken(
-  loginData: LibraryLoginData
+  loginData: LibraryLoginData,
 ): Promise<boolean> {
   try {
-    if (typeof chrome === 'undefined' || !chrome.storage) {
+    if (typeof chrome === "undefined" || !chrome.storage) {
       return false;
     }
 
@@ -175,7 +194,7 @@ export async function setLibraryToken(
 
     return true;
   } catch (error) {
-    console.error('[Library] Failed to set token:', error);
+    errorLog("[Library] Failed to set token:", error);
     return false;
   }
 }
@@ -186,16 +205,20 @@ export async function setLibraryToken(
  */
 export async function getLibraryTokenFromStorage(): Promise<string | null> {
   try {
-    if (typeof chrome === 'undefined' || !chrome.storage) {
+    if (typeof chrome === "undefined" || !chrome.storage) {
       return null;
     }
 
-    const result = (await chrome.storage.local.get({
-      [LIBRARY_TOKEN_STORAGE_KEY]: null as StoredLibraryToken | null,
-    })) as Record<string, StoredLibraryToken | null>;
-    const data = result[LIBRARY_TOKEN_STORAGE_KEY];
+    const result = await chrome.storage.local.get(LIBRARY_TOKEN_STORAGE_KEY);
+    const rawData = result[LIBRARY_TOKEN_STORAGE_KEY];
 
-    if (!data?.accessToken) {
+    if (!isLibraryTokenStorageData(rawData)) {
+      return null;
+    }
+
+    const data = rawData;
+
+    if (!data.accessToken) {
       return null;
     }
 
@@ -211,7 +234,7 @@ export async function getLibraryTokenFromStorage(): Promise<string | null> {
 
     return data.accessToken;
   } catch (error) {
-    console.error('[Library] Failed to get token from storage:', error);
+    errorLog("[Library] Failed to get token from storage:", error);
     return null;
   }
 }
@@ -221,7 +244,9 @@ export async function getLibraryTokenFromStorage(): Promise<string | null> {
  * 사용자가 직접 로그인하면 바로 예약 화면으로 이동됨
  * @param roomId 열람실 ID
  */
-export async function openLibraryReservationPage(roomId: number): Promise<void> {
+export async function openLibraryReservationPage(
+  roomId: number,
+): Promise<void> {
   const url = getLibraryReservationUrl(roomId);
   await chrome.tabs.create({ url });
 }

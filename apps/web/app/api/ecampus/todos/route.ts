@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
-
-interface EcampusTodoItem {
-  id: string;
-  title: string;
-  subject: string;
-  dDay: string;
-  dueDate: string;
-  lecturePath: string;
-}
+import { buildEcampusLecturePath } from "@linku/core";
+import type { ECampusTodoItem } from "@linku/shared-types";
+import { auth } from "@/auth";
 
 function decodeHtml(value: string) {
   return value
@@ -57,19 +51,33 @@ function parseTodoBlocks(html: string) {
         return null;
       }
 
+      const seq = onclickMatch[1];
+      const gubun = onclickMatch[2];
+      const kj = onclickMatch[3];
+
       return {
+        type: "ecampus",
         id: `ecampus-${index}`,
         title: decodeHtml(title),
         subject: decodeHtml(subject),
         dDay: decodeHtml(dDay),
         dueDate: decodeHtml(dueDate),
-        lecturePath: `/ilos/mp/todo_list_connect.acl?SEQ=${onclickMatch[1]}&gubun=${onclickMatch[2]}&KJKEY=${onclickMatch[3]}`,
-      } satisfies EcampusTodoItem;
+        seq,
+        gubun,
+        kj,
+        lecturePath: buildEcampusLecturePath(seq, gubun, kj),
+      } satisfies ECampusTodoItem;
     })
-    .filter((item): item is EcampusTodoItem => item !== null);
+    .filter((item): item is ECampusTodoItem => item !== null);
 }
 
 export async function POST(request: Request) {
+  const session = await auth();
+
+  if (!session) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   try {
     const body = (await request.json()) as {
       userId?: string;

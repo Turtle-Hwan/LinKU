@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import ServerClockSection from "./Labs/ServerClockSection";
 import QRGeneratorSection from "./Labs/QRGeneratorSection";
 import LibrarySeatSection from "./Labs/LibrarySeatSection";
+import { sendLabsOpen } from "@/utils/analytics";
 
 interface LabsDialogProps {
   open: boolean;
@@ -16,6 +18,10 @@ interface LabsDialogProps {
 }
 
 const LabsDialog = ({ open, onOpenChange }: LabsDialogProps) => {
+  useEffect(() => {
+    if (open) sendLabsOpen();
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">

@@ -6,6 +6,7 @@
 import type { ApiResponse, RequestConfig } from "../types/api";
 import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
+import { debugLog, errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
 
 /**
  * Token expired error code from backend
@@ -68,7 +69,8 @@ export const ENDPOINTS = {
     SUBSCRIPTION: "/alerts/subscription",
     MY_SUBSCRIPTION: "/alerts/subscription/my",
     SUBSCRIBE: (departmentId: number) => `/alerts/subscription/${departmentId}`,
-    UNSUBSCRIBE: (departmentId: number) => `/alerts/subscription/${departmentId}`,
+    UNSUBSCRIBE: (departmentId: number) =>
+      `/alerts/subscription/${departmentId}`,
   },
 } as const;
 
@@ -77,14 +79,17 @@ export const ENDPOINTS = {
  * Using chrome.storage.local for persistent token storage
  */
 async function getAccessToken(): Promise<string | null> {
-  const { accessToken } = (await chrome.storage.local.get({
-    accessToken: null as string | null,
-  })) as { accessToken: string | null };
-  return accessToken;
+  const result = await chrome.storage.local.get(["accessToken"]);
+  const token = result.accessToken;
+  return typeof token === "string" ? token : null;
 }
 
 async function clearAccessToken(): Promise<void> {
-  await chrome.storage.local.remove(["accessToken", "refreshToken", "guestToken"]);
+  await chrome.storage.local.remove([
+    "accessToken",
+    "refreshToken",
+    "guestToken",
+  ]);
 }
 
 /**
@@ -96,11 +101,11 @@ async function clearAccessToken(): Promise<void> {
 async function handleTokenExpired(): Promise<boolean> {
   // If already reauthenticating, wait for the existing promise
   if (isReauthenticating && reauthPromise) {
-    console.log('[API Client] Reauth already in progress, waiting...');
+    debugLog("[API Client] Reauth already in progress, waiting...");
     return reauthPromise;
   }
 
-  console.log('[API Client] Token expired (5004), attempting silent reauth...');
+  debugLog("[API Client] Token expired (5004), attempting silent reauth...");
 
   isReauthenticating = true;
   reauthPromise = (async () => {
@@ -113,14 +118,16 @@ async function handleTokenExpired(): Promise<boolean> {
       });
 
       if (response?.success) {
-        console.log('[API Client] Silent reauth succeeded');
+        debugLog("[API Client] Silent reauth succeeded");
         return true;
       } else {
-        console.warn('[API Client] Silent reauth failed:', response?.error);
+        warnLog("[API Client] Silent reauth failed", {
+          error: response?.error,
+        });
         return false;
       }
     } catch (error) {
-      console.warn('[API Client] Silent reauth error:', error);
+      warnLog("[API Client] Silent reauth error", getErrorLogDetails(error));
       return false;
     } finally {
       isReauthenticating = false;
@@ -134,7 +141,9 @@ async function handleTokenExpired(): Promise<boolean> {
 /**
  * Request Interceptors
  */
-async function applyRequestInterceptors(options: RequestInit): Promise<RequestInit> {
+async function applyRequestInterceptors(
+  options: RequestInit,
+): Promise<RequestInit> {
   const headers = new Headers(options.headers);
   const token = await getAccessToken();
 
@@ -152,7 +161,7 @@ async function applyRequestInterceptors(options: RequestInit): Promise<RequestIn
  * Response Interceptors
  */
 function applyResponseInterceptors<T>(
-  response: ApiResponse<T>
+  response: ApiResponse<T>,
 ): ApiResponse<T> {
   if (response.status === 401) {
     clearAccessToken();
@@ -188,7 +197,7 @@ async function request<T = unknown>(
   method: string,
   body?: unknown,
   config?: RequestConfig,
-  isRetry: boolean = false
+  isRetry: boolean = false,
 ): Promise<ApiResponse<T>> {
   try {
     const { headers = {}, params, ...restConfig } = config || {};
@@ -244,7 +253,11 @@ async function request<T = unknown>(
         data = (await response.text()) as T;
       }
     } catch (parseError) {
-      console.error("Response parsing error:", parseError);
+      errorLog("[API Client] Response parsing error", {
+        ...getErrorLogDetails(parseError),
+        status: response.status,
+        url: fullUrl,
+      });
       // If parsing fails, return error response
       return {
         success: false,
@@ -260,21 +273,23 @@ async function request<T = unknown>(
     if (
       !isRetry &&
       data &&
-      typeof data === 'object' &&
-      'code' in data &&
+      typeof data === "object" &&
+      "code" in data &&
       (data as Record<string, unknown>).code === TOKEN_EXPIRED_CODE
     ) {
-      console.log('[API Client] Detected 5004 token expired error, attempting reauth...');
+      debugLog(
+        "[API Client] Detected 5004 token expired error, attempting reauth...",
+      );
 
       const reauthSuccess = await handleTokenExpired();
 
       if (reauthSuccess) {
         // Retry the original request with new token
-        console.log('[API Client] Retrying request after successful reauth');
+        debugLog("[API Client] Retrying request after successful reauth");
         return request<T>(url, method, body, config, true);
       } else {
         // Reauth failed, clear tokens and notify
-        console.warn('[API Client] Reauth failed, clearing tokens');
+        warnLog("[API Client] Reauth failed, clearing tokens");
         await clearAccessToken();
         window.dispatchEvent(new CustomEvent("auth:unauthorized"));
 
@@ -282,7 +297,7 @@ async function request<T = unknown>(
           success: false,
           error: {
             code: String(TOKEN_EXPIRED_CODE),
-            message: '세션이 만료되었습니다. 다시 로그인해주세요.',
+            message: "세션이 만료되었습니다. 다시 로그인해주세요.",
           },
           status: 401,
         };
@@ -296,7 +311,9 @@ async function request<T = unknown>(
         success: false,
         error: {
           code: String(errorData?.code || response.status),
-          message: (errorData?.message as string) || `HTTP Error: ${response.status} ${response.statusText}`,
+          message:
+            (errorData?.message as string) ||
+            `HTTP Error: ${response.status} ${response.statusText}`,
         },
         status: response.status,
         data,
@@ -304,9 +321,12 @@ async function request<T = unknown>(
     }
 
     // For SUCCESS responses only: extract 'result' field if present
-    if (data && typeof data === 'object' && 'result' in data) {
+    if (data && typeof data === "object" && "result" in data) {
       const backendResponse = data as Record<string, unknown>;
-      if (backendResponse.result !== undefined && backendResponse.result !== null) {
+      if (
+        backendResponse.result !== undefined &&
+        backendResponse.result !== null
+      ) {
         data = backendResponse.result as T;
       }
     }
@@ -317,7 +337,7 @@ async function request<T = unknown>(
       status: response.status,
     });
   } catch (error) {
-    console.warn("API Request Error:", error);
+    warnLog("[API Client] Request error", getErrorLogDetails(error));
     return {
       success: false,
       error: {
@@ -333,7 +353,7 @@ async function request<T = unknown>(
  */
 export async function get<T = unknown>(
   url: string,
-  config?: RequestConfig
+  config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
   return request<T>(url, "GET", undefined, config);
 }
@@ -341,7 +361,7 @@ export async function get<T = unknown>(
 export async function post<T = unknown>(
   url: string,
   data?: unknown,
-  config?: RequestConfig
+  config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
   return request<T>(url, "POST", data, config);
 }
@@ -349,14 +369,14 @@ export async function post<T = unknown>(
 export async function put<T = unknown>(
   url: string,
   data?: unknown,
-  config?: RequestConfig
+  config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
   return request<T>(url, "PUT", data, config);
 }
 
 export async function del<T = unknown>(
   url: string,
-  config?: RequestConfig
+  config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
   return request<T>(url, "DELETE", undefined, config);
 }
@@ -364,7 +384,7 @@ export async function del<T = unknown>(
 export async function patch<T = unknown>(
   url: string,
   data?: unknown,
-  config?: RequestConfig
+  config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
   return request<T>(url, "PATCH", data, config);
 }
@@ -377,13 +397,15 @@ export async function publicRequest<T = unknown>(
   url: string,
   method: string,
   body?: unknown,
-  config?: RequestConfig
+  config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
   try {
     const { headers = {}, params } = config || {};
 
     const urlWithParams = buildUrl(url, params);
-    const fullUrl = url.startsWith("http") ? urlWithParams : `${API_BASE_URL}${urlWithParams}`;
+    const fullUrl = url.startsWith("http")
+      ? urlWithParams
+      : `${API_BASE_URL}${urlWithParams}`;
 
     const response = await fetch(fullUrl, {
       method,
@@ -394,14 +416,23 @@ export async function publicRequest<T = unknown>(
     const data = await response.json();
 
     if (!response.ok) {
-      return { success: false, status: response.status, error: { code: "ERROR", message: data.message } };
+      return {
+        success: false,
+        status: response.status,
+        error: { code: "ERROR", message: data.message },
+      };
     }
 
     // Extract 'result' field if present (backend response format)
-    const resultData = data && typeof data === 'object' && 'result' in data ? data.result : data;
+    const resultData =
+      data && typeof data === "object" && "result" in data ? data.result : data;
 
     return { success: true, status: response.status, data: resultData as T };
   } catch (error) {
-    return { success: false, error: { code: "NETWORK_ERROR", message: String(error) } };
+    warnLog("[API Client] Public request error", getErrorLogDetails(error));
+    return {
+      success: false,
+      error: { code: "NETWORK_ERROR", message: String(error) },
+    };
   }
 }

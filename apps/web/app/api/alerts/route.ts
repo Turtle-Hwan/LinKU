@@ -1,23 +1,9 @@
 import { NextResponse } from "next/server";
-
-interface WorkspaceAlertItem {
-  id: string;
-  title: string;
-  excerpt: string;
-  category: string;
-  href: string;
-  publishedAt: string;
-}
-
-const RSS_FEEDS = [
-  { category: "학사", url: "https://www.konkuk.ac.kr/bbs/konkuk/234/rssList.do?row=50" },
-  { category: "대학", url: "https://www.konkuk.ac.kr/bbs/konkuk/235/rssList.do?row=50" },
-  { category: "국제", url: "https://www.konkuk.ac.kr/bbs/konkuk/237/rssList.do?row=50" },
-  { category: "학생", url: "https://www.konkuk.ac.kr/bbs/konkuk/238/rssList.do?row=50" },
-  { category: "일반", url: "https://www.konkuk.ac.kr/bbs/konkuk/240/rssList.do?row=50" },
-] as const;
-
-const CAREER_URL = "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do";
+import {
+  KONKUK_ALERT_RSS_FEEDS,
+  KONKUK_CAREER_ALERT_URL,
+} from "@linku/core";
+import type { WorkspaceAlertItem } from "@linku/shared-types";
 
 function decodeHtml(value: string) {
   return value
@@ -39,7 +25,7 @@ function extractTag(block: string, tag: string) {
 
 async function fetchRssAlerts() {
   const results = await Promise.all(
-    RSS_FEEDS.map(async (feed, feedIndex) => {
+    KONKUK_ALERT_RSS_FEEDS.map(async (feed, feedIndex) => {
       const response = await fetch(feed.url, { next: { revalidate: 1800 } });
       if (!response.ok) {
         return [];
@@ -74,7 +60,7 @@ function stripTags(value: string) {
 
 function parseCareerAlerts(html: string) {
   return [...html.matchAll(/<tr[\s\S]*?<\/tr>/gi)]
-    .map((match, index) => {
+    .map((match, index): WorkspaceAlertItem | null => {
       const row = match[0];
       const hrefMatch = row.match(
         /jf_combBbs_view\('([^']+)','([^']+)','([^']+)','([^']+)'\)/,
@@ -112,7 +98,9 @@ function parseCareerAlerts(html: string) {
 }
 
 async function fetchCareerAlerts() {
-  const response = await fetch(CAREER_URL, { next: { revalidate: 1800 } });
+  const response = await fetch(KONKUK_CAREER_ALERT_URL, {
+    next: { revalidate: 1800 },
+  });
   if (!response.ok) {
     return [];
   }

@@ -15,19 +15,15 @@ import {
   PopoverTrigger,
 } from "@linku/ui";
 import { Bell, Loader2, Search, X } from "lucide-react";
-import type { Department, GeneralAlert, Subscription } from "@linku/shared-types";
+import type {
+  Department,
+  GeneralAlert,
+  Subscription,
+  WorkspaceAlertItem,
+} from "@linku/shared-types";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/routing";
 import { getWorkspaceCopy } from "@/lib/workspace-copy";
-
-interface WorkspaceAlert {
-  id: string;
-  title: string;
-  excerpt: string;
-  category: string;
-  href: string;
-  publishedAt: string;
-}
 
 interface SubscriptionSnapshot {
   configured: boolean;
@@ -48,6 +44,7 @@ interface MyAlertsSnapshot {
 }
 
 const FOLLOWED_ALERT_KEY = "linku.web.followed-alerts.v1";
+const ALERT_PAGE_SIZE = 12;
 
 function readFollowedCategories() {
   if (typeof window === "undefined") {
@@ -84,11 +81,12 @@ function sortAlertsByDate<T extends { publishedAt: string }>(items: T[]) {
 
 export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
   const copy = getWorkspaceCopy(locale);
-  const [alerts, setAlerts] = useState<WorkspaceAlert[]>([]);
+  const [alerts, setAlerts] = useState<WorkspaceAlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "followed">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [visibleAlertCount, setVisibleAlertCount] = useState(ALERT_PAGE_SIZE);
   const [followedCategories, setFollowedCategories] = useState<string[]>([]);
   const [subscriptionState, setSubscriptionState] = useState<SubscriptionSnapshot>({
     configured: false,
@@ -104,7 +102,12 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
   const [openDepartmentPicker, setOpenDepartmentPicker] = useState(false);
 
   useEffect(() => {
-    setFollowedCategories(readFollowedCategories());
+    const timer = window.setTimeout(
+      () => setFollowedCategories(readFollowedCategories()),
+      0,
+    );
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -120,7 +123,7 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
           throw new Error("Failed to load alerts.");
         }
 
-        const data = (await response.json()) as WorkspaceAlert[];
+        const data = (await response.json()) as WorkspaceAlertItem[];
         if (active) {
           setAlerts(data);
         }
@@ -206,6 +209,11 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
     alerts.forEach((item) => categories.add(item.category));
     return [...categories];
   }, [alerts]);
+
+  const pagedAlerts = useMemo(
+    () => visibleAlerts.slice(0, visibleAlertCount),
+    [visibleAlertCount, visibleAlerts],
+  );
 
   const availableDepartments = useMemo(
     () =>
@@ -308,17 +316,37 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
   }
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-6">
+    <div className="flex flex-col gap-8">
+      <details className="order-2 group rounded-lg border bg-muted/20">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
+          <span className="flex items-center justify-between gap-3">
+            {locale === "ko"
+              ? "학과 구독과 내 공지 관리"
+              : "Department subscriptions and my alerts"}
+            <span
+              className="text-xs font-normal text-muted-foreground group-open:hidden"
+              aria-hidden="true"
+            >
+              {locale === "ko" ? "펼치기" : "Open"}
+            </span>
+            <span
+              className="hidden text-xs font-normal text-muted-foreground group-open:inline"
+              aria-hidden="true"
+            >
+              {locale === "ko" ? "접기" : "Close"}
+            </span>
+          </span>
+        </summary>
+        <section className="flex flex-col gap-6 border-t p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-2xl tracking-[-0.04em]">
+            <h2 className="text-xl font-semibold">
               {locale === "ko" ? "학과 구독과 내 알림" : "Department subscriptions and my alerts"}
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)]">
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">
               {locale === "ko"
-                ? "extension에서 보던 학과 구독과 내 알림 흐름을 web에서도 그대로 이어갑니다."
-                : "Continue the same department subscription flow from the extension on the web."}
+                ? "관심 있는 학과를 구독하고 관련 공지를 모아볼 수 있습니다."
+                : "Follow departments you care about and keep their notices together."}
             </p>
           </div>
           {subscriptionState.connected && subscriptionState.mode === "member" ? (
@@ -327,7 +355,6 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
                 <Button
                   type="button"
                   variant="secondary"
-                  className="rounded-full"
                   disabled={departmentActionPending || availableDepartments.length === 0}
                 >
                   <Search className="mr-2 size-4" />
@@ -368,26 +395,26 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
         </div>
 
         {loadingDepartments ? (
-          <p className="rounded-[1.2rem] border border-dashed border-black/10 bg-white/70 p-5 text-sm text-[var(--muted)]">
+          <p className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
             {locale === "ko"
               ? "학과 구독 정보를 불러오는 중입니다."
               : "Loading department subscriptions."}
           </p>
         ) : !subscriptionState.configured ? (
-          <p className="rounded-[1.2rem] border border-dashed border-black/10 bg-white/70 p-5 text-sm text-[var(--muted)]">
+          <p className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
             {locale === "ko"
-              ? "LINKU_API_BASE_URL이 설정되면 extension의 서버형 알림 흐름을 web에서도 사용할 수 있습니다."
-              : "Set LINKU_API_BASE_URL to use the extension's server-backed alert flow on the web."}
+              ? "학과 알림 연결을 준비 중입니다."
+              : "Department alerts are not available yet."}
           </p>
         ) : !subscriptionState.connected ? (
-          <div className="rounded-[1.2rem] border border-[#d8c8a4] bg-[#fff8e6] p-5 text-sm leading-7 text-[#5f4a1b]">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-900">
             <p>
               {locale === "ko"
-                ? "아직 LinKU backend가 연결되지 않았습니다. 계정 페이지에서 연결하면 학과 구독과 내 알림이 활성화됩니다."
-                : "The LinKU backend is not connected yet. Connect it from the account page to unlock department subscriptions."}
+                ? "계정 연결을 마치면 학과 구독과 내 알림을 사용할 수 있습니다."
+                : "Connect your account to use department subscriptions and personal alerts."}
             </p>
             <div className="mt-4">
-              <Button asChild className="rounded-full">
+              <Button asChild>
                 <Link href="/account">
                   {locale === "ko" ? "계정에서 연결하기" : "Connect from account"}
                 </Link>
@@ -395,14 +422,14 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
             </div>
           </div>
         ) : subscriptionState.mode === "guest" ? (
-          <div className="rounded-[1.2rem] border border-[#d8c8a4] bg-[#fff8e6] p-5 text-sm leading-7 text-[#5f4a1b]">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-900">
             <p>
               {locale === "ko"
-                ? "현재는 guest 연결 상태입니다. 건국대 메일 인증과 재연결을 마치면 학과 구독이 활성화됩니다."
-                : "The current backend connection is still a guest session. Verify your Konkuk email and reconnect to enable department subscriptions."}
+                ? "건국대 메일 인증을 마치면 학과 구독을 사용할 수 있습니다."
+                : "Verify your Konkuk email to use department subscriptions."}
             </p>
             <div className="mt-4">
-              <Button asChild className="rounded-full">
+              <Button asChild>
                 <Link href="/account">
                   {locale === "ko" ? "계정에서 인증 이어가기" : "Continue from account"}
                 </Link>
@@ -410,8 +437,8 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
             </div>
           </div>
         ) : (
-          <div className="space-y-5 rounded-[1.4rem] border border-black/8 bg-white p-5">
-            <div className="flex items-center gap-2 text-[var(--muted)]">
+          <div className="grid gap-5 rounded-lg border bg-card p-5">
+            <div className="flex items-center gap-2 text-muted-foreground">
               <Bell className="size-4" />
               <p className="text-sm">
                 {locale === "ko"
@@ -435,7 +462,7 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
                 ))}
               </div>
             ) : (
-              <p className="rounded-[1.1rem] border border-dashed border-black/10 bg-[#f6f0e1] p-4 text-sm text-[var(--muted)]">
+              <p className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
                 {locale === "ko"
                   ? "아직 구독한 학과가 없습니다."
                   : "There are no department subscriptions yet."}
@@ -443,13 +470,13 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
             )}
 
             {departmentMessage ? (
-              <p className="rounded-[1.1rem] border border-[#b0c38f] bg-[#eff8df] p-4 text-sm text-[#30411e]">
+              <p className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
                 {departmentMessage}
               </p>
             ) : null}
 
             {departmentAlerts.length === 0 ? (
-              <p className="rounded-[1.1rem] border border-dashed border-black/10 bg-[#f6f0e1] p-4 text-sm text-[var(--muted)]">
+              <p className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
                 {locale === "ko"
                   ? "구독한 학과의 새 알림이 아직 없습니다."
                   : "There are no department alerts yet."}
@@ -459,20 +486,20 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
                 {departmentAlerts.map((alert) => (
                   <article
                     key={alert.alertId}
-                    className="rounded-[1.2rem] border border-black/8 bg-[#f9f5ec] p-5"
+                    className="rounded-lg border bg-muted/40 p-5"
                   >
                     <div className="flex flex-wrap items-center gap-3">
                       <Badge variant="secondary">{alert.category}</Badge>
-                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                      <p className="text-xs text-muted-foreground">
                         {locale === "ko" ? "게시일" : "Posted"}{" "}
                         {new Date(alert.publishedAt).toLocaleDateString(
                           locale === "ko" ? "ko-KR" : "en-US",
                         )}
                       </p>
                     </div>
-                    <h3 className="mt-3 text-2xl tracking-[-0.04em]">{alert.title}</h3>
+                    <h3 className="mt-2 font-medium">{alert.title}</h3>
                     {alert.content ? (
-                      <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
+                      <p className="mt-2 text-sm leading-7 text-muted-foreground">
                         {alert.content}
                       </p>
                     ) : null}
@@ -492,13 +519,14 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
             )}
           </div>
         )}
-      </section>
+        </section>
+      </details>
 
-      <section className="space-y-6 border-t border-black/8 pt-8">
+      <section className="order-1 flex flex-col gap-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-2xl tracking-[-0.04em]">{copy.alerts.title}</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)]">
+            <h2 className="text-xl font-semibold">{copy.alerts.title}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">
               {copy.alerts.description}
             </p>
           </div>
@@ -506,16 +534,20 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
             <Button
               type="button"
               variant={viewMode === "all" ? "default" : "secondary"}
-              className="rounded-full"
-              onClick={() => setViewMode("all")}
+              onClick={() => {
+                setViewMode("all");
+                setVisibleAlertCount(ALERT_PAGE_SIZE);
+              }}
             >
               {copy.alerts.all}
             </Button>
             <Button
               type="button"
               variant={viewMode === "followed" ? "default" : "secondary"}
-              className="rounded-full"
-              onClick={() => setViewMode("followed")}
+              onClick={() => {
+                setViewMode("followed");
+                setVisibleAlertCount(ALERT_PAGE_SIZE);
+              }}
             >
               {copy.alerts.followed}
             </Button>
@@ -532,7 +564,10 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
                 <Badge
                   variant={active ? "default" : "outline"}
                   className="cursor-pointer px-3 py-2"
-                  onClick={() => setCategoryFilter(category)}
+                  onClick={() => {
+                    setCategoryFilter(category);
+                    setVisibleAlertCount(ALERT_PAGE_SIZE);
+                  }}
                 >
                   {category === "all"
                     ? locale === "ko"
@@ -544,7 +579,7 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
                   <button
                     type="button"
                     onClick={() => toggleFollowedCategory(category)}
-                    className="text-xs text-[var(--muted)] underline underline-offset-4"
+                    className="text-xs text-muted-foreground underline underline-offset-4"
                   >
                     {followed ? copy.alerts.unfollow : copy.alerts.follow}
                   </button>
@@ -555,36 +590,36 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
         </div>
 
         {loading ? (
-          <p className="rounded-[1.2rem] border border-dashed border-black/10 bg-white/70 p-5 text-sm text-[var(--muted)]">
+          <p className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
             {copy.alerts.loading}
           </p>
         ) : error ? (
-          <p className="rounded-[1.2rem] border border-[#d18d7b] bg-[#fff3ef] p-5 text-sm text-[#8a3d2c]">
+          <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-5 text-sm text-destructive">
             {error}
           </p>
         ) : visibleAlerts.length === 0 ? (
-          <p className="rounded-[1.2rem] border border-dashed border-black/10 bg-white/70 p-5 text-sm text-[var(--muted)]">
+          <p className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
             {copy.alerts.empty}
           </p>
         ) : (
           <div className="grid gap-4">
-            {visibleAlerts.map((alert) => (
+            {pagedAlerts.map((alert) => (
               <article
                 key={alert.id}
-                className="rounded-[1.4rem] border border-black/8 bg-white p-5"
+                className="rounded-lg border bg-card p-5"
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <Badge variant="secondary">{alert.category}</Badge>
-                  <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  <p className="text-xs text-muted-foreground">
                     {copy.alerts.updatedAtPrefix}{" "}
                     {new Date(alert.publishedAt).toLocaleDateString(
                       locale === "ko" ? "ko-KR" : "en-US",
                     )}
                   </p>
                 </div>
-                <h3 className="mt-3 text-2xl tracking-[-0.04em]">{alert.title}</h3>
+                <h3 className="mt-2 font-medium">{alert.title}</h3>
                 {alert.excerpt ? (
-                  <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{alert.excerpt}</p>
+                  <p className="mt-2 text-sm leading-7 text-muted-foreground">{alert.excerpt}</p>
                 ) : null}
                 <a
                   href={alert.href}
@@ -596,11 +631,25 @@ export function WorkspaceAlerts({ locale }: { locale: AppLocale }) {
                 </a>
               </article>
             ))}
+            {visibleAlertCount < visibleAlerts.length ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() =>
+                  setVisibleAlertCount((current) => current + ALERT_PAGE_SIZE)
+                }
+              >
+                {locale === "ko"
+                  ? `공지 더 보기 (${visibleAlerts.length - visibleAlertCount}개 남음)`
+                  : `Show more (${visibleAlerts.length - visibleAlertCount} remaining)`}
+              </Button>
+            ) : null}
           </div>
         )}
 
         {departmentActionPending ? (
-          <div className="flex items-center justify-center py-2 text-[var(--muted)]">
+          <div className="flex items-center justify-center py-2 text-muted-foreground">
             <Loader2 className="size-5 animate-spin" />
           </div>
         ) : null}

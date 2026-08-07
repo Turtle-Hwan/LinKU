@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeInternalAppPath } from "@linku/platform";
 import { auth } from "@/auth";
 import {
   createWorkspaceCookieResponse,
@@ -33,11 +34,18 @@ export async function POST(request: Request) {
   const ownerKey = getWorkspaceOwnerKey(session);
   const body = (await request.json()) as Partial<FavoriteItem>;
   const title = body.title?.trim();
-  const path = body.path?.trim();
+  const path = body.path ? normalizeInternalAppPath(body.path) : null;
 
-  if (!title || !path) {
+  if (!title || !body.path?.trim()) {
     return NextResponse.json(
       { message: "api.errors.titleAndPathRequired" },
+      { status: 400 },
+    );
+  }
+
+  if (!path) {
+    return NextResponse.json(
+      { message: "api.errors.invalidInternalPath" },
       { status: 400 },
     );
   }

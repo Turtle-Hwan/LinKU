@@ -30,6 +30,11 @@ tooling/
 
 Use Node 24 LTS and pnpm 10.32.1 for local work. `.nvmrc`, `.node-version`, and `engines` are aligned to the same baseline.
 
+### 개발 환경 요구사항
+
+- Node.js 24 LTS
+- pnpm
+
 ```bash
 pnpm install
 
@@ -50,6 +55,13 @@ pnpm validate
 
 `pnpm build` runs the public/authenticated web build plus a production-mode extension validation build without bumping the manifest version.
 
+## Documentation
+
+- `docs/IMPLEMENTATION_SPEC.md`: authoritative product and implementation spec
+- `docs/ARCHITECTURE.md`: runtime boundaries and data flow
+- `docs/CONTRIBUTING.md`: development and validation rules
+- `docs/DEPLOYMENT.md`: Google OAuth, Cloudflare, Vercel, backend, and Chrome Web Store runbook
+
 ## Environment variables
 
 ### Common
@@ -62,8 +74,8 @@ LINKU_ENV=
 
 ```text
 NEXT_PUBLIC_SITE_URL=https://www.linku.xxx
-NEXT_PUBLIC_EXTENSION_URL=https://chromewebstore.google.com/detail/replace-with-extension-id
-NEXT_PUBLIC_EXTENSION_ID=replace-with-extension-id
+NEXT_PUBLIC_EXTENSION_URL=https://chromewebstore.google.com/detail/linku/fmfbhmifnohhfiblebbdjlioppfppbgh?hl=ko
+NEXT_PUBLIC_EXTENSION_ID=fmfbhmifnohhfiblebbdjlioppfppbgh
 AUTH_SECRET=replace_with_auth_secret
 AUTH_GOOGLE_ID=replace_with_google_client_id
 AUTH_GOOGLE_SECRET=replace_with_google_client_secret
@@ -87,6 +99,7 @@ VITE_API_BASE_URL=https://api-placeholder.linku.xxx/api
 - Vercel hosts `apps/web`.
 - Chrome Web Store distributes `apps/extension`.
 - GitHub Actions runs workspace validation plus deploy-oriented workflows for web and extension draft uploads.
+- Extension draft upload, manifest version commit, and GitHub Release use one serialized workflow so they share the same artifact version.
 
 ## Remaining external dependencies
 

@@ -13,6 +13,7 @@ import type {
 } from '../types/api';
 import { getAlertsFromRSS } from './external/rss-parser';
 import { getCareerAlertsFromHTML } from './external/html-parser';
+import { errorLog } from '@/utils/logger';
 
 /**
  * Get filtered alerts by category
@@ -46,11 +47,7 @@ export async function getAlerts(
       status: 200,
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(
-      `[Alerts] Failed to fetch alerts from external sources`,
-      `\n  Error: ${errorMessage}`
-    );
+    errorLog("[Alerts] Failed to fetch alerts from external sources", error);
     return {
       success: false,
       error: {

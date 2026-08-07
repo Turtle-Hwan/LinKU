@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { auth, authRuntime } from "@/auth";
+import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { redirect } from "@/i18n/navigation";
 import { resolveAppLocale } from "@/lib/intl";
@@ -27,9 +27,9 @@ export default async function ProtectedLayout({
   const locale = resolveAppLocale(localeParam);
   const session = await auth();
 
-  if (!session && authRuntime.googleConfigured) {
-    redirect({ href: "/login", locale });
+  if (!session) {
+    return redirect({ href: "/login", locale });
   }
 
-  return <AppShell session={session ?? null} locale={locale}>{children}</AppShell>;
+  return <AppShell session={session} locale={locale}>{children}</AppShell>;
 }

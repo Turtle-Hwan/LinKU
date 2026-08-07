@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { ExtensionConnectCard } from "@/components/extension-connect-card";
+import { WorkspacePageHeading } from "@/components/workspace-page-heading";
 import { resolveRouteParams } from "@/lib/intl";
 import { createLocalizedMetadata } from "@/lib/seo";
 import { siteEnv } from "@/lib/site";
@@ -32,18 +33,12 @@ export default async function ExtensionConnectPage({
   const state = await readWorkspaceState(getWorkspaceOwnerKey(await auth()));
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-          {t("pages.extensionConnect.eyebrow")}
-        </p>
-        <h1 data-display="true" className="text-5xl tracking-[-0.05em]">
-          {t("pages.extensionConnect.headline")}
-        </h1>
-        <p className="max-w-3xl text-lg leading-8 text-[var(--muted)]">
-          {t("pages.extensionConnect.body")}
-        </p>
-      </div>
+    <div className="flex flex-col gap-8">
+      <WorkspacePageHeading
+        eyebrow={t("pages.extensionConnect.eyebrow")}
+        title={t("pages.extensionConnect.headline")}
+        description={t("pages.extensionConnect.body")}
+      />
 
       <ExtensionConnectCard
         initialState={state.extension}

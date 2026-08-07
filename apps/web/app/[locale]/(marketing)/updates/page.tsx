@@ -1,4 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@linku/ui";
+import { PageHeading } from "@/components/page-heading";
 import { resolveRouteParams } from "@/lib/intl";
 import { createLocalizedMetadata } from "@/lib/seo";
 import { translateUpdateEntries } from "@/lib/site";
@@ -28,32 +30,28 @@ export default async function UpdatesPage({
   const updateEntries = translateUpdateEntries(t);
 
   return (
-    <section className="mx-auto max-w-4xl px-6 py-16">
-      <div className="mb-8 max-w-3xl space-y-4">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-          {t("pages.updates.eyebrow")}
-        </p>
-        <h1 data-display="true" className="text-6xl tracking-[-0.05em]">
-          {t("pages.updates.headline")}
-        </h1>
-        <p className="text-lg leading-8 text-[var(--muted)]">
-          {t("pages.updates.body")}
-        </p>
-      </div>
-      <div className="grid gap-4">
+    <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <PageHeading
+        eyebrow={t("pages.updates.eyebrow")}
+        title={t("pages.updates.headline")}
+        body={t("pages.updates.body")}
+      />
+      <div className="mt-6 grid gap-4">
         {updateEntries.map((entry) => (
-          <article key={entry.slug} className="rounded-[1.5rem] border border-black/8 bg-white/75 p-6">
-            <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-              {entry.publishedAt}
-            </p>
-            <h2 className="mb-3 text-3xl tracking-[-0.04em]">{entry.title}</h2>
-            <p className="mb-5 text-sm leading-7 text-[var(--muted)]">{entry.summary}</p>
-            <ul className="space-y-2 text-sm leading-7">
+          <Card key={entry.slug}>
+            <CardHeader>
+              <Badge variant="outline">{entry.publishedAt}</Badge>
+              <CardTitle>{entry.title}</CardTitle>
+              <CardDescription>{entry.summary}</CardDescription>
+            </CardHeader>
+            <CardContent>
+            <ul className="grid gap-2 text-sm leading-6">
               {entry.bullets.map((bullet) => (
-                <li key={bullet}>- {bullet}</li>
+                <li key={bullet}>• {bullet}</li>
               ))}
             </ul>
-          </article>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </section>

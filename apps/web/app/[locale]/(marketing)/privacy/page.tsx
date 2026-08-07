@@ -1,4 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import { Card, CardDescription, CardHeader } from "@linku/ui";
+import { PageHeading } from "@/components/page-heading";
 import { resolveRouteParams } from "@/lib/intl";
 import { createLocalizedMetadata } from "@/lib/seo";
 
@@ -26,22 +28,22 @@ export default async function PrivacyPage({
   const t = await getTranslations({ locale });
 
   return (
-    <section className="mx-auto max-w-4xl px-6 py-16">
-      <div className="mb-8 max-w-3xl space-y-4">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-          {t("pages.privacy.eyebrow")}
-        </p>
-        <h1 data-display="true" className="text-6xl tracking-[-0.05em]">
-          {t("pages.privacy.headline")}
-        </h1>
-        <p className="text-lg leading-8 text-[var(--muted)]">
-          {t("pages.privacy.body")}
-        </p>
-      </div>
-      <div className="space-y-4 rounded-[1.5rem] border border-black/8 bg-white/75 p-6 text-sm leading-7 text-[var(--muted)]">
-        <p>{t("pages.privacy.point1")}</p>
-        <p>{t("pages.privacy.point2")}</p>
-        <p>{t("pages.privacy.point3")}</p>
+    <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <PageHeading
+        eyebrow={t("pages.privacy.eyebrow")}
+        title={t("pages.privacy.headline")}
+        body={t("pages.privacy.body")}
+      />
+      <div className="mt-6 grid gap-5 md:grid-cols-3">
+        {[t("pages.privacy.point1"), t("pages.privacy.point2"), t("pages.privacy.point3")].map(
+          (point) => (
+            <Card key={point}>
+              <CardHeader>
+                <CardDescription className="leading-6">{point}</CardDescription>
+              </CardHeader>
+            </Card>
+          ),
+        )}
       </div>
     </section>
   );

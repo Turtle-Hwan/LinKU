@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { Badge, Card, CardAction, CardHeader, CardTitle } from "@linku/ui";
 import { CtaLink } from "@/components/cta-link";
+import { PageHeading } from "@/components/page-heading";
 import { resolveRouteParams } from "@/lib/intl";
 import { createLocalizedMetadata } from "@/lib/seo";
 import { guideMap, translateGuides } from "@/lib/site";
@@ -16,7 +18,6 @@ export async function generateMetadata({
 }) {
   const { locale, slug = "" } = await resolveRouteParams(params);
   const guide = guideMap.get(slug);
-
   if (!guide) {
     return createLocalizedMetadata({
       locale,
@@ -25,7 +26,6 @@ export async function generateMetadata({
       path: `/guides/${slug}`,
     });
   }
-
   return createLocalizedMetadata({
     locale,
     titleKey: guide.titleKey,
@@ -41,47 +41,35 @@ export default async function GuideDetailPage({
 }) {
   const { locale, slug } = await resolveRouteParams(params);
   const t = await getTranslations({ locale });
-
-  if (!slug) {
-    notFound();
-  }
-
+  if (!slug) notFound();
   const guide = translateGuides(t).find((item) => item.slug === slug);
-
-  if (!guide) {
-    notFound();
-  }
+  if (!guide) notFound();
 
   return (
-    <section className="mx-auto max-w-4xl px-6 py-16">
-      <p className="mb-3 text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-        {t("common.guide")}
-      </p>
-      <h1 data-display="true" className="mb-5 text-6xl leading-[0.95] tracking-[-0.05em]">
-        {guide.title}
-      </h1>
-      <p className="mb-8 text-lg leading-8 text-[var(--muted)]">{guide.summary}</p>
-      <ol className="grid gap-4">
-        {guide.steps.map((step, index) => (
-          <li
-            key={step}
-            className="rounded-[1.4rem] border border-black/8 bg-white/75 p-6 text-sm leading-7"
-          >
-            <div className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-              {t("common.step")} 0{index + 1}
-            </div>
-            {step}
-          </li>
-        ))}
-      </ol>
-      <div className="mt-8 flex flex-wrap gap-3">
-        <CtaLink href="/install" variant="outline">
-          {t("pages.guideDetail.ctaInstall")}
-        </CtaLink>
-        <CtaLink href="/login" variant="ghost">
-          {t("pages.guideDetail.ctaLogin")}
-        </CtaLink>
-      </div>
-    </section>
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
+      <PageHeading
+        eyebrow={t("common.guide")}
+        title={guide.title}
+        body={guide.summary}
+      />
+      <section>
+        <ol className="grid gap-3">
+          {guide.steps.map((step, index) => (
+            <li key={step}>
+              <Card size="sm">
+                <CardHeader>
+                  <CardAction><Badge>{index + 1}</Badge></CardAction>
+                  <CardTitle className="leading-6">{step}</CardTitle>
+                </CardHeader>
+              </Card>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <CtaLink href="/install">{t("pages.guideDetail.ctaInstall")}</CtaLink>
+          <CtaLink href="/login" variant="outline">{t("pages.guideDetail.ctaLogin")}</CtaLink>
+        </div>
+      </section>
+    </div>
   );
 }

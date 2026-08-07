@@ -4,8 +4,17 @@ import Autoplay from "embla-carousel-autoplay";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BannerItemType, getBannersAPI } from "@/apis";
 import { IMAGE_URL } from "@/constants/URL";
+import { sendBannerOpen } from "@/utils/analytics";
+import GivemeBanner from "@/assets/banners/giveme_banner.png";
+import MogakcoBanner from "@/assets/banners/mogakco.png";
+import WhenWillMeetBanner from "@/assets/banners/whenwillmeet_banner.png";
 
 const bannerPromise = getBannersAPI();
+const localBannerImages: Record<string, string> = {
+  "giveme_banner.png": GivemeBanner,
+  "mogakco.png": MogakcoBanner,
+  "whenwillmeet_banner.png": WhenWillMeetBanner,
+};
 
 const ImageCarousel = () => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);
@@ -48,7 +57,7 @@ const ImageCarousel = () => {
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="embla__container flex">
           {imageList.map((item, idx) => (
-            <Image key={idx} item={item} />
+            <Image key={idx} item={item} position={idx} />
           ))}
         </div>
       </div>
@@ -83,13 +92,16 @@ const ImageCarousel = () => {
   );
 };
 
-const Image = ({ item }: { item: BannerItemType }) => {
+const Image = ({ item, position }: { item: BannerItemType; position: number }) => {
   return (
     <div className="embla__slide flex-[0_0_100%] min-w-0">
       <img
-        src={`${IMAGE_URL}/banners/${item.img}`}
+        src={localBannerImages[item.img] ?? `${IMAGE_URL}banners/${item.img}`}
         alt={item.alt}
-        onClick={() => window.open(item.link)}
+        onClick={() => {
+          sendBannerOpen(item.img, item.alt, position);
+          window.open(item.link);
+        }}
         className="w-full h-full object-cover cursor-pointer"
       />
     </div>

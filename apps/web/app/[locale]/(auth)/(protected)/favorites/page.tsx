@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { FavoritesManager } from "@/components/favorites-manager";
+import { WorkspacePageHeading } from "@/components/workspace-page-heading";
 import { resolveRouteParams } from "@/lib/intl";
 import { createLocalizedMetadata } from "@/lib/seo";
 import { translateServices } from "@/lib/site";
@@ -33,18 +34,12 @@ export default async function FavoritesPage({
   const services = translateServices(t);
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-          {t("pages.favorites.eyebrow")}
-        </p>
-        <h1 data-display="true" className="text-5xl tracking-[-0.05em]">
-          {t("pages.favorites.headline")}
-        </h1>
-        <p className="max-w-3xl text-lg leading-8 text-[var(--muted)]">
-          {t("pages.favorites.body")}
-        </p>
-      </div>
+    <div className="flex flex-col gap-8">
+      <WorkspacePageHeading
+        eyebrow={t("pages.favorites.eyebrow")}
+        title={t("pages.favorites.headline")}
+        description={t("pages.favorites.body")}
+      />
 
       <FavoritesManager
         initialItems={state.favorites}

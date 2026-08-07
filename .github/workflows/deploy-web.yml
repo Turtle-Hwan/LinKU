@@ -1,6 +1,7 @@
 name: Deploy Web
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -16,34 +17,54 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
 
+concurrency:
+  group: web-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID_WEB != '' }}
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
 
     steps:
+      - name: Check deployment configuration
+        id: config
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
+        run: |
+          if [[ -n "$VERCEL_TOKEN" && -n "$VERCEL_ORG_ID" && -n "$VERCEL_PROJECT_ID" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Vercel secrets are not configured; skipping deployment."
+          fi
+
       - name: Checkout
+        if: steps.config.outputs.ready == 'true'
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        if: steps.config.outputs.ready == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10.32.1
 
       - name: Setup Node.js
+        if: steps.config.outputs.ready == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: "pnpm"
 
       - name: Install dependencies
+        if: steps.config.outputs.ready == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Validate web build
+        if: steps.config.outputs.ready == 'true'
         env:
           NEXT_PUBLIC_SITE_URL: https://www.linku.xxx
           NEXT_PUBLIC_EXTENSION_URL: https://chromewebstore.google.com/detail/replace-with-extension-id
@@ -52,13 +73,28 @@ jobs:
         run: pnpm --filter @linku/web build
 
       - name: Pull Vercel project settings
+        if: steps.config.outputs.ready == 'true'
         working-directory: apps/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
         run: pnpm dlx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
       - name: Build Vercel artifact
+        if: steps.config.outputs.ready == 'true'
         working-directory: apps/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
         run: pnpm dlx vercel build --prod --token="$VERCEL_TOKEN"
 
       - name: Deploy to Vercel
+        if: steps.config.outputs.ready == 'true'
         working-directory: apps/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
         run: pnpm dlx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

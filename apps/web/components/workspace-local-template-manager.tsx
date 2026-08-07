@@ -73,12 +73,12 @@ export function WorkspaceLocalTemplateManager({
   const { templates, selectedTemplateId } = state;
   const remoteStatusMessage = !remoteAccess.backendConfigured
     ? locale === "ko"
-      ? "LINKU_API_BASE_URL이 비어 있어 backend 동기화와 게시를 아직 사용할 수 없습니다."
-      : "LINKU_API_BASE_URL is missing, so backend sync and publish are unavailable."
+      ? "템플릿 동기화와 공개 기능을 준비 중입니다."
+      : "Template sync and publishing are not available yet."
     : !remoteAccess.backendConnected
       ? locale === "ko"
-        ? "LinKU backend를 연결하면 local 템플릿을 서버에 동기화하고 공개 갤러리에 게시할 수 있습니다."
-        : "Connect the LinKU backend to sync local templates and publish them to the public gallery."
+        ? "계정을 연결하면 템플릿을 동기화하고 공개 갤러리에 게시할 수 있습니다."
+        : "Connect your account to sync templates and publish them to the public gallery."
       : "";
 
   async function syncTemplate(template: WorkspaceTemplateRecord) {
@@ -111,8 +111,8 @@ export function WorkspaceLocalTemplateManager({
       refresh();
       setMessage(
         locale === "ko"
-          ? `"${template.name}" 템플릿을 backend와 동기화했습니다.`
-          : `Synced "${template.name}" with the backend.`,
+          ? `"${template.name}" 템플릿을 동기화했습니다.`
+          : `Synced "${template.name}".`,
       );
     } catch (caughtError) {
       setError(
@@ -202,47 +202,47 @@ export function WorkspaceLocalTemplateManager({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 data-display="true" className="text-4xl tracking-[-0.05em]">
-            {locale === "ko" ? "웹 로컬 템플릿" : "Web local templates"}
+          <h2 className="text-xl font-semibold">
+            {locale === "ko" ? "이 브라우저의 템플릿" : "Templates on this browser"}
           </h2>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-[var(--muted)]">
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">
             {copy.templates.description}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="secondary" className="rounded-full">
+          <Button asChild variant="secondary">
             <Link href="/gallery">{copy.templates.galleryTitle}</Link>
           </Button>
-          <Button asChild className="rounded-full">
+          <Button asChild>
             <Link href="/editor?source=empty">{copy.templates.createEmpty}</Link>
           </Button>
-          <Button asChild variant="outline" className="rounded-full">
+          <Button asChild variant="outline">
             <Link href="/editor?source=default">{copy.templates.createDefault}</Link>
           </Button>
         </div>
       </div>
 
       {message ? (
-        <p className="rounded-[1.2rem] border border-[#b0c38f] bg-[#eff8df] p-4 text-sm text-[#30411e]">
+        <p className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
           {message}
         </p>
       ) : null}
 
       {error ? (
-        <p className="rounded-[1.2rem] border border-[#d0a7a7] bg-[#fdf0f0] p-4 text-sm text-[#6d2d2d]">
+        <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           {error}
         </p>
       ) : null}
 
       {remoteStatusMessage ? (
-        <div className="rounded-[1.2rem] border border-black/8 bg-white p-4 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
           <p>{remoteStatusMessage}</p>
           <div className="mt-3">
-            <Button asChild variant="outline" className="rounded-full">
+            <Button asChild variant="outline">
               <Link href="/account">{locale === "ko" ? "계정 연결 열기" : "Open account setup"}</Link>
             </Button>
           </div>
@@ -250,7 +250,7 @@ export function WorkspaceLocalTemplateManager({
       ) : null}
 
       {templates.length === 0 ? (
-        <p className="rounded-[1.2rem] border border-dashed border-black/15 bg-white/70 p-5 text-sm leading-7 text-[var(--muted)]">
+        <p className="rounded-lg border bg-muted/40 p-5 text-sm leading-7 text-muted-foreground">
           {copy.templates.empty}
         </p>
       ) : (
@@ -265,7 +265,7 @@ export function WorkspaceLocalTemplateManager({
                 badgeForTemplate(template, locale),
                 template.syncStatus === "synced"
                   ? locale === "ko"
-                    ? "backend 동기화됨"
+                    ? "동기화됨"
                     : "Synced"
                   : template.source === "custom"
                     ? locale === "ko"
@@ -278,7 +278,6 @@ export function WorkspaceLocalTemplateManager({
                   <Button
                     type="button"
                     variant="secondary"
-                    className="rounded-full"
                     onClick={() => {
                       setSelectedWorkspaceTemplateSelection({
                         kind: "local",
@@ -290,14 +289,13 @@ export function WorkspaceLocalTemplateManager({
                     {copy.templates.apply}
                   </Button>
                   {template.source === "custom" ? (
-                    <Button asChild variant="outline" className="rounded-full">
+                    <Button asChild variant="outline">
                       <Link href={`/editor/${template.id}`}>{copy.templates.edit}</Link>
                     </Button>
                   ) : null}
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-full"
                     onClick={() => {
                       cloneWorkspaceTemplate(template, locale);
                       refresh();
@@ -309,7 +307,6 @@ export function WorkspaceLocalTemplateManager({
                     <Button
                       type="button"
                       variant="outline"
-                      className="rounded-full"
                       disabled={!canSyncRemote || busyKey === `sync-${template.id}`}
                       onClick={() => void syncTemplate(template)}
                     >
@@ -318,8 +315,8 @@ export function WorkspaceLocalTemplateManager({
                           ? "다시 동기화"
                           : "Resync"
                         : locale === "ko"
-                          ? "backend 동기화"
-                          : "Sync to backend"}
+                          ? "동기화"
+                          : "Sync"}
                     </Button>
                   ) : null}
                   {template.source === "custom" &&
@@ -327,7 +324,6 @@ export function WorkspaceLocalTemplateManager({
                   template.syncStatus === "synced" ? (
                     <Button
                       type="button"
-                      className="rounded-full"
                       disabled={!canSyncRemote || busyKey === `publish-${template.id}`}
                       onClick={() => void publishTemplate(template)}
                     >
@@ -344,7 +340,6 @@ export function WorkspaceLocalTemplateManager({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="rounded-full"
                       disabled={busyKey === `delete-${template.id}`}
                       onClick={() => void handleDeleteTemplate(template)}
                     >

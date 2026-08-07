@@ -17,6 +17,13 @@
  */
 
 import type { GoogleLoginResponse } from "../types";
+import {
+  debugLog,
+  errorLog,
+  getErrorLogDetails,
+  getHttpErrorLogDetails,
+  warnLog,
+} from "@/utils/logger";
 
 // Backend URL from environment
 const BACKEND_URL = (() => {
@@ -60,15 +67,11 @@ async function saveTokens(
  */
 export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
   try {
-    console.log("[Background] Starting Google OAuth flow");
+    debugLog("[Background] Starting Google OAuth flow");
 
     // 1. Get extension ID and construct redirect URI
     const extensionId = chrome.runtime.id;
     const redirectUri = `https://${extensionId}.chromiumapp.org/`;
-
-    console.log("[Background] Extension ID:", extensionId);
-    console.log("[Background] Redirect URI:", redirectUri);
-    console.log("[Background] Backend URL:", BACKEND_URL);
 
     if (!BACKEND_URL) {
       return {
@@ -81,15 +84,11 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const authUrl = new URL(`${BACKEND_URL}/api/oauth2/google`);
     authUrl.searchParams.set("redirectUri", redirectUri);
 
-    console.log("[Background] Auth URL:", authUrl.toString());
-
     // 3. Launch OAuth flow using chrome.identity API
     const responseUrl = await chrome.identity.launchWebAuthFlow({
       url: authUrl.toString(),
       interactive: true,
     });
-
-    console.log("[Background] Response URL:", responseUrl);
 
     if (!responseUrl) {
       return { success: false, error: "인증이 취소되었습니다." };
@@ -100,10 +99,10 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const code = url.searchParams.get("code");
     const error = url.searchParams.get("error");
 
-    console.log("[Background] Extracted code:", code ? "있음" : "없음");
+    debugLog("[Background] Extracted code:", code ? "있음" : "없음");
 
     if (error) {
-      console.error("[Background] OAuth error:", error);
+      warnLog("[Background] OAuth error returned from provider", { error });
       return {
         success: false,
         error: `OAuth 오류: ${error}`,
@@ -118,13 +117,11 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     }
 
     // 5. Exchange code for token via backend (새 API 스펙)
-    console.log("[Background] Exchanging code for token...");
+    debugLog("[Background] Exchanging code for token...");
 
     const tokenUrl = new URL(`${BACKEND_URL}/api/oauth2/google/login`);
     tokenUrl.searchParams.set("redirectUri", redirectUri);
     tokenUrl.searchParams.set("code", code);
-
-    console.log("[Background] Token URL:", tokenUrl.toString());
 
     const tokenResponse = await fetch(tokenUrl.toString(), {
       method: "GET",
@@ -133,11 +130,18 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
       },
     });
 
-    console.log("[Background] Token Response Status:", tokenResponse.status);
+    debugLog("[Background] Token Response Status:", tokenResponse.status);
 
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error("[Background] Token exchange failed:", errorText);
+      const errorBody = await tokenResponse.text();
+      errorLog(
+        "[Background] Token exchange failed",
+        getHttpErrorLogDetails(
+          tokenResponse.status,
+          tokenResponse.statusText,
+          errorBody,
+        ),
+      );
       return {
         success: false,
         error: `토큰 교환 실패: ${tokenResponse.status} ${tokenResponse.statusText}`,
@@ -145,11 +149,15 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     }
 
     const tokenData = await tokenResponse.json();
-    console.log("[Background] Token Data:", JSON.stringify(tokenData, null, 2));
 
     // 6. Parse backend response
     // 응답 형식: { code: 1000, message: "SUCCESS", result: { accessToken, refreshToken } }
     if (tokenData.code !== 1000) {
+      warnLog("[Background] Backend rejected token exchange", {
+        status: tokenResponse.status,
+        code: tokenData.code,
+        message: tokenData.message,
+      });
       return {
         success: false,
         error: tokenData.message || "토큰 교환에 실패했습니다.",
@@ -159,7 +167,10 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const { accessToken, refreshToken } = tokenData.result || {};
 
     if (!accessToken) {
-      console.error("[Background] No accessToken in response:", tokenData);
+      errorLog("[Background] No accessToken in OAuth response", {
+        status: tokenResponse.status,
+        code: tokenData.code,
+      });
       return {
         success: false,
         error: "백엔드 응답에서 토큰을 찾을 수 없습니다.",
@@ -168,7 +179,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
 
     // 7. Save tokens
     await saveTokens(accessToken, refreshToken);
-    console.log("[Background] Tokens saved successfully");
+    debugLog("[Background] Tokens saved successfully");
 
     // 8. Return success response
     // refreshToken이 없으면 게스트(신규 회원)
@@ -197,9 +208,11 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
         error.message.includes("interrupted"));
 
     if (isUserCancellation) {
-      console.warn("[Background] OAuth cancelled by user:", (error as Error).message);
+      debugLog("[Background] OAuth cancelled by user", {
+        message: error instanceof Error ? error.message : String(error),
+      });
     } else {
-      console.error("[Background] OAuth error:", error);
+      errorLog("[Background] OAuth error", getErrorLogDetails(error));
     }
 
     // User closed the popup or cancelled

@@ -1,26 +1,21 @@
 /**
  * Route definitions for LinKU Chrome Extension
- * Standard React Router v6 pattern: App as root with nested routes
+ * React Router data routes with App as root and lazy feature screens
  */
 
-import { RouteObject } from 'react-router-dom';
-import App from '@/App';
-import MainLayout from '@/components/MainLayout';
-import { EditorLayout } from '@/layouts/EditorLayout';
-import { MainPage } from '@/pages/MainPage';
-import { EditorPage } from '@/pages/EditorPage';
-import { TemplateListPage } from '@/pages/TemplateListPage';
-import { GalleryPage } from '@/pages/GalleryPage';
-import { NotFoundPage } from '@/pages/NotFoundPage';
+import type { RouteObject } from "react-router";
+import App from "@/App";
+import MainLayout from "@/components/MainLayout";
+import { MainPage } from "@/pages/MainPage";
 
 export const routes: RouteObject[] = [
   {
-    path: '/',
+    path: "/",
     element: <App />,  // ← App이 루트 레이아웃
     children: [
       {
         // 팝업 메인 화면
-        path: '/',
+        path: "/",
         element: <MainLayout />,
         children: [
           {
@@ -31,45 +26,69 @@ export const routes: RouteObject[] = [
       },
       {
         // 에디터 화면
-        path: '/editor',
-        element: <EditorLayout />,
+        path: "/editor",
+        lazy: async () => {
+          const { EditorLayout } = await import("@/layouts/EditorLayout");
+          return { Component: EditorLayout };
+        },
         children: [
           {
             index: true,
-            element: <EditorPage />,
+            lazy: async () => {
+              const { EditorPage } = await import("@/pages/EditorPage");
+              return { Component: EditorPage };
+            },
           },
           {
-            path: ':templateId',
-            element: <EditorPage />,
+            path: ":templateId",
+            lazy: async () => {
+              const { EditorPage } = await import("@/pages/EditorPage");
+              return { Component: EditorPage };
+            },
           },
         ],
       },
       {
         // 템플릿 목록 화면
-        path: '/templates',
-        element: <EditorLayout />,
+        path: "/templates",
+        lazy: async () => {
+          const { EditorLayout } = await import("@/layouts/EditorLayout");
+          return { Component: EditorLayout };
+        },
         children: [
           {
             index: true,
-            element: <TemplateListPage />,
+            lazy: async () => {
+              const { TemplateListPage } = await import("@/pages/TemplateListPage");
+              return { Component: TemplateListPage };
+            },
           },
         ],
       },
       {
         // 공개 템플릿 갤러리
-        path: '/gallery',
-        element: <EditorLayout />,
+        path: "/gallery",
+        lazy: async () => {
+          const { EditorLayout } = await import("@/layouts/EditorLayout");
+          return { Component: EditorLayout };
+        },
         children: [
           {
             index: true,
-            element: <GalleryPage />,
+            lazy: async () => {
+              const { GalleryPage } = await import("@/pages/GalleryPage");
+              return { Component: GalleryPage };
+            },
           },
         ],
       },
       {
         // 404 페이지
-        path: '*',
-        element: <NotFoundPage />,
+        path: "*",
+        lazy: async () => {
+          const { NotFoundPage } = await import("@/pages/NotFoundPage");
+          return { Component: NotFoundPage };
+        },
       },
     ],
   },

@@ -8,6 +8,7 @@ interface CtaLinkProps {
   children: React.ReactNode;
   variant?: "default" | "outline" | "secondary" | "ghost" | "link";
   external?: boolean;
+  className?: string;
 }
 
 export function CtaLink({
@@ -15,10 +16,11 @@ export function CtaLink({
   children,
   variant = "default",
   external = false,
+  className = "",
 }: CtaLinkProps) {
   if (external) {
     return (
-      <Button asChild variant={variant} className="rounded-full px-5">
+      <Button asChild variant={variant} className={className}>
         <a href={href} target="_blank" rel="noreferrer">
           {children}
         </a>
@@ -27,7 +29,7 @@ export function CtaLink({
   }
 
   return (
-    <Button asChild variant={variant} className="rounded-full px-5">
+    <Button asChild variant={variant} className={className}>
       <Link href={href}>{children}</Link>
     </Button>
   );

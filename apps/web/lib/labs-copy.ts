@@ -7,12 +7,12 @@ const copy = {
       en: "Labs",
     },
     title: {
-      ko: "확장 프로그램의 보조 도구를 web에서도 바로 씁니다.",
-      en: "Use the extension's utility tools directly on the web.",
+      ko: "필요할 때 꺼내 쓰는 작은 도구",
+      en: "Small tools, ready when you need them",
     },
     body: {
-      ko: "도서관 좌석 확인, 서버 시계, QR 생성기처럼 extension 안에서 쓰던 작은 도구를 같은 LinKU 도메인 위에서 이어서 사용할 수 있습니다.",
-      en: "Library seats, server clock, and QR generation now live on the same LinKU web surface too.",
+      ko: "도서관 좌석 확인, 서버 시계, QR 생성기를 한곳에서 사용할 수 있습니다.",
+      en: "Check library seats, sync a server clock, or create a QR code in one place.",
     },
   },
   library: {
@@ -75,8 +75,8 @@ const copy = {
       en: "Server clock",
     },
     description: {
-      ko: "수강신청 같은 민감한 시점에 대비해 대상 서버의 Date 헤더 기준 시간을 확인합니다.",
-      en: "Check the target server's Date header when timing matters.",
+      ko: "수강신청 같은 민감한 시점에 대비해 건국대 HTTPS 서버의 Date 헤더 기준 시간을 확인합니다.",
+      en: "Check a Konkuk HTTPS server's Date header when timing matters.",
     },
     inputLabel: {
       ko: "대상 URL",
@@ -169,8 +169,8 @@ const copy = {
       en: "Timetable",
     },
     body: {
-      ko: "extension과 마찬가지로 시간표 영역은 다음 단계에서 연결할 준비 상태로 남겨둡니다.",
-      en: "Just like the extension, the timetable area remains a ready placeholder for the next step.",
+      ko: "시간표 기능은 준비 중입니다.",
+      en: "The timetable feature is coming later.",
     },
   },
 } as const;

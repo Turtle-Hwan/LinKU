@@ -7,9 +7,8 @@ const TodoCountBadge = () => {
   useEffect(() => {
     // Initial load of count from storage
     chrome?.storage?.local?.get("todoCount", (data) => {
-      if (typeof data.todoCount === "number") {
-        setTodoCount(data.todoCount);
-      }
+      const count = typeof data.todoCount === "number" ? data.todoCount : 0;
+      setTodoCount(count);
     });
 
     // Listen for changes to todoCount in storage
@@ -18,11 +17,11 @@ const TodoCountBadge = () => {
       namespace: string
     ) => {
       if (namespace === "local" && changes.todoCount) {
-        setTodoCount(
+        const count =
           typeof changes.todoCount.newValue === "number"
             ? changes.todoCount.newValue
-            : 0
-        );
+            : 0;
+        setTodoCount(count);
       }
     };
 

@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { Button } from "@linku/ui";
 import { Link } from "@/i18n/navigation";
 import { resolveRouteParams } from "@/lib/intl";
 
@@ -11,23 +12,21 @@ export default async function LocalizedNotFound({
   const t = await getTranslations({ locale, namespace: "pages.notFound" });
 
   return (
-    <section className="mx-auto flex min-h-[60vh] max-w-3xl flex-col items-start justify-center gap-6 px-6 py-16">
-      <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-        {t("eyebrow")}
-      </p>
-      <h1 data-display="true" className="text-6xl leading-[0.95] tracking-[-0.05em]">
+    <section className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-start justify-center gap-4 px-4 py-10 sm:px-6">
+      <p className="text-sm font-medium text-main">{t("eyebrow")}</p>
+      <h1 className="max-w-3xl text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
         {t("headline")}
       </h1>
-      <p className="max-w-xl text-lg leading-8 text-[var(--muted)]">
+      <p className="max-w-xl text-base leading-7 text-muted-foreground">
         {t("body")}
       </p>
       <div className="flex flex-wrap gap-3">
-        <Link href="/" className="rounded-full border border-black/10 px-5 py-3">
-          {t("ctaHome")}
-        </Link>
-        <Link href="/login" className="rounded-full border border-black/10 px-5 py-3">
-          {t("ctaLogin")}
-        </Link>
+        <Button asChild>
+          <Link href="/">{t("ctaHome")}</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/login">{t("ctaLogin")}</Link>
+        </Button>
       </div>
     </section>
   );

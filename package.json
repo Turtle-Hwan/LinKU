@@ -24,11 +24,19 @@
     "validate": "pnpm lint && pnpm typecheck && pnpm build"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "eslint": "^9.39.4",
-    "eslint-plugin-react-hooks": "^7.0.1",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.1.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
-    "typescript-eslint": "^8.57.0"
+    "typescript-eslint": "^8.57.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "baseline-browser-mapping": "^2.11.7",
+      "postcss": "^8.5.25",
+      "rollup": "^4.59.0",
+      "sharp": "^0.35.3"
+    }
   }
 }

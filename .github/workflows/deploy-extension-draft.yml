@@ -1,6 +1,7 @@
 name: Deploy Extension Draft
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -14,48 +15,127 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
 
+concurrency:
+  group: extension-release
+  cancel-in-progress: false
+
 jobs:
   upload-draft:
-    if: ${{ secrets.CHROME_EXTENSION_ID != '' && secrets.CHROME_CLIENT_ID != '' && secrets.CHROME_CLIENT_SECRET != '' && secrets.CHROME_REFRESH_TOKEN != '' }}
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
+      - name: Check deployment configuration
+        id: config
+        shell: bash
+        env:
+          LINKU_SITE_URL: ${{ vars.LINKU_SITE_URL }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          if [[ -n "$LINKU_SITE_URL" && -n "$VITE_API_BASE_URL" && -n "$VITE_GA_API_SECRET" && -n "$CHROME_EXTENSION_ID" && -n "$CHROME_CLIENT_ID" && -n "$CHROME_CLIENT_SECRET" && -n "$CHROME_REFRESH_TOKEN" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Extension production variables or Chrome Web Store secrets are not configured; skipping draft upload."
+          fi
+
       - name: Checkout
+        if: steps.config.outputs.ready == 'true'
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
+        if: steps.config.outputs.ready == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10.32.1
 
       - name: Setup Node.js
+        if: steps.config.outputs.ready == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: "pnpm"
 
       - name: Install dependencies
+        if: steps.config.outputs.ready == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build extension
+        if: steps.config.outputs.ready == 'true'
         env:
           VITE_ENVIRONMENT: production
-          VITE_SITE_URL: https://www.linku.xxx
-          VITE_WEB_BASE_URL: https://www.linku.xxx
+          VITE_SITE_URL: ${{ vars.LINKU_SITE_URL }}
+          VITE_WEB_BASE_URL: ${{ vars.LINKU_SITE_URL }}
           VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: pnpm --filter @linku/extension build
 
       - name: Create extension archive
+        if: steps.config.outputs.ready == 'true'
         run: |
           cd apps/extension/dist
           zip -r ../../../extension.zip .
 
       - name: Upload draft to Chrome Web Store
+        if: steps.config.outputs.ready == 'true'
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
         run: |
           pnpm dlx chrome-webstore-upload-cli upload \
             --source extension.zip \
-            --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
-            --client-id ${{ secrets.CHROME_CLIENT_ID }} \
-            --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
-            --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }}
+            --extension-id "$CHROME_EXTENSION_ID" \
+            --client-id "$CHROME_CLIENT_ID" \
+            --client-secret "$CHROME_CLIENT_SECRET" \
+            --refresh-token "$CHROME_REFRESH_TOKEN"
+
+      - name: Read manifest version
+        if: steps.config.outputs.ready == 'true'
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./apps/extension/public/manifest.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit manifest version bump
+        if: steps.config.outputs.ready == 'true'
+        shell: bash
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add apps/extension/public/manifest.json
+          if git diff --cached --quiet; then
+            echo "Manifest version is unchanged."
+          else
+            git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+            git push
+          fi
+
+      - name: Create GitHub release
+        if: steps.config.outputs.ready == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: main
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## LinKU ${{ steps.version.outputs.version }}
+
+            This release contains the same extension package uploaded to the
+            Chrome Web Store draft channel.
+          files: extension.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true

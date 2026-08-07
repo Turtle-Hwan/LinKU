@@ -8,7 +8,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, useRef, useEffect } from 'react';
 import type { TemplateItem } from '@/types/api';
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useEditorContext } from '@/hooks/useEditorContext';
 import { cn } from '@/lib/utils';
 import { gridToPixelPosition, gridToPixelSize, pixelToGridSize, clampToGridBounds, GRID_CONFIG } from '@/utils/template';
 import { Maximize2, Trash2 } from 'lucide-react';

@@ -3,6 +3,17 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { ExtensionConnectionState } from "@linku/shared-types";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+} from "@linku/ui";
 
 interface ExtensionConnectCardProps {
   initialState: ExtensionConnectionState;
@@ -65,69 +76,73 @@ export function ExtensionConnectCard({
   }
 
   return (
-    <div className="space-y-5 rounded-[1.5rem] border border-black/8 bg-white p-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+    <Card>
+      <CardHeader>
+        <Badge
+          variant={connectionState.connected ? "default" : "secondary"}
+          className="w-fit"
+        >
           {t("components.extensionConnectCard.eyebrow")}
-        </p>
-        <h2 className="mt-2 text-3xl tracking-[-0.04em]">
+        </Badge>
+        <CardTitle>
           {connectionState.connected
             ? t("components.extensionConnectCard.connectedTitle")
             : t("components.extensionConnectCard.disconnectedTitle")}
-        </h2>
-        <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+        </CardTitle>
+        <CardDescription className="leading-7">
           {t("components.extensionConnectCard.body")}
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
 
-      <label className="block">
-        <span className="text-sm font-medium">
+      <CardContent className="grid gap-5">
+        <div className="grid gap-2">
+          <Label htmlFor="extension-id">
           {t("components.extensionConnectCard.extensionId")}
-        </span>
-        <input
-          value={extensionId}
-          onChange={(event) => setExtensionId(event.target.value)}
-          className="mt-2 w-full rounded-full border border-black/10 px-4 py-3 text-sm"
-        />
-      </label>
+          </Label>
+          <Input
+            id="extension-id"
+            value={extensionId}
+            onChange={(event) => setExtensionId(event.target.value)}
+          />
+        </div>
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={async () => updateConnection(true)}
-          className="rounded-full bg-[#132a22] px-5 py-3 text-sm text-white disabled:opacity-50"
-        >
-          {t("components.extensionConnectCard.markConnected")}
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={async () => updateConnection(false)}
-          className="rounded-full border border-black/10 px-5 py-3 text-sm disabled:opacity-50"
-        >
-          {t("components.extensionConnectCard.clearConnection")}
-        </button>
-      </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            disabled={pending}
+            onClick={async () => updateConnection(true)}
+          >
+            {t("components.extensionConnectCard.markConnected")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={async () => updateConnection(false)}
+          >
+            {t("components.extensionConnectCard.clearConnection")}
+          </Button>
+        </div>
 
-      <div className="rounded-[1.2rem] border border-black/8 bg-[#f6f0e1] p-5 text-sm leading-7 text-[var(--muted)]">
-        <p>
+        <div className="grid gap-1 rounded-lg border bg-muted/40 p-4 text-sm leading-7 text-muted-foreground">
+          <p>
           {t("components.extensionConnectCard.connectedLabel")}:{" "}
           {connectionState.connected ? t("common.yes") : t("common.no")}
-        </p>
-        <p>
+          </p>
+          <p>
           {t("components.extensionConnectCard.extensionId")}:{" "}
           {connectionState.extensionId ||
             t("components.extensionConnectCard.notSet")}
-        </p>
-        <p>
+          </p>
+          <p>
           {t("components.extensionConnectCard.lastChecked")}:{" "}
           {connectionState.lastCheckedAt ||
             t("components.extensionConnectCard.notRecorded")}
-        </p>
-      </div>
+          </p>
+        </div>
 
-      {message ? <p className="text-sm text-[var(--muted)]">{message}</p> : null}
-    </div>
+        {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+      </CardContent>
+    </Card>
   );
 }

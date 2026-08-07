@@ -18,23 +18,23 @@
     "@linku/seo": "workspace:*",
     "@linku/shared-types": "workspace:^",
     "@linku/ui": "workspace:*",
-    "lucide-react": "^0.577.0",
-    "next": "16.1.6",
-    "next-auth": "5.0.0-beta.30",
-    "next-intl": "^4.8.3",
+    "lucide-react": "^1.7.0",
+    "next": "16.2.12",
+    "next-auth": "5.0.0-beta.32",
+    "next-intl": "^4.13.4",
     "qrcode": "^1.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.2.1",
-    "@types/node": "^24.12.0",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/node": "^25.5.0",
     "@types/qrcode": "^1.5.5",
-    "@types/react": "^19.2.14",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4.2.1",
+    "eslint-config-next": "16.2.12",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3"
   }
 }

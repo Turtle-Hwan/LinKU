@@ -1,13 +1,24 @@
 "use client";
 
-import { Badge, Button } from "@linku/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@linku/ui";
 import type { AppLocale } from "@/i18n/routing";
 import { WorkspaceShortcutGrid } from "@/components/workspace-shortcut-grid";
+import type { WorkspaceCustomShortcut } from "@linku/platform";
 
 interface WorkspaceTemplateCardData {
   name: string;
   description: string;
   shortcutIds?: string[];
+  customShortcuts?: WorkspaceCustomShortcut[];
 }
 
 interface WorkspaceTemplateCardProps {
@@ -32,11 +43,11 @@ export function WorkspaceTemplateCard({
   const resolvedItemCount = itemCount ?? template.shortcutIds?.length ?? 0;
 
   return (
-    <article className="rounded-[1.6rem] border border-black/8 bg-white p-5 shadow-[0_20px_50px_rgba(19,42,34,0.05)]">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+    <Card>
+      <CardHeader className="gap-4 lg:grid-cols-[1fr_auto]">
+        <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-2xl tracking-[-0.04em]">{template.name}</h3>
+            <CardTitle>{template.name}</CardTitle>
             {active ? <Badge>{locale === "ko" ? "현재 적용 중" : "Active"}</Badge> : null}
             {badges.map((badge) => (
               <Badge key={badge} variant="secondary">
@@ -44,33 +55,34 @@ export function WorkspaceTemplateCard({
               </Badge>
             ))}
           </div>
-          <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)]">
+          <CardDescription className="max-w-3xl leading-7">
             {template.description}
-          </p>
+          </CardDescription>
         </div>
 
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
-      </div>
+      </CardHeader>
 
-      <div className="mt-5">
+      <CardContent>
         {preview ? (
           preview
         ) : (
           <WorkspaceShortcutGrid
             shortcutIds={template.shortcutIds ?? []}
+            customShortcuts={template.customShortcuts}
             locale={locale}
             compact
           />
         )}
-      </div>
+      </CardContent>
 
-      <div className="mt-4 flex justify-end">
-        <Button variant="ghost" className="rounded-full text-xs text-[var(--muted)]">
+      <CardFooter className="justify-end">
+        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
           {locale === "ko"
             ? `${resolvedItemCount}개 바로가기`
             : `${resolvedItemCount} shortcuts`}
         </Button>
-      </div>
-    </article>
+      </CardFooter>
+    </Card>
   );
 }

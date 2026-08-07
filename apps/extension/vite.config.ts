@@ -5,7 +5,7 @@ import path from "path";
 import svgr from "vite-plugin-svgr";
 import fs from "fs";
 
-const extensionRoot = __dirname;
+const extensionRoot = import.meta.dirname;
 const ghPagesDir = path.resolve(extensionRoot, "gh-pages");
 
 export default defineConfig(({ mode }) => {
@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
       outDir:
         mode === "gh-pages"
           ? ghPagesDir
-          : path.resolve(__dirname, "dist"),
+          : path.resolve(extensionRoot, "dist"),
       emptyOutDir: true,
       assetsDir: "assets",
       copyPublicDir: true,

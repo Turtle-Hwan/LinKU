@@ -4,27 +4,32 @@
  */
 
 import { useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { ErrorBoundary } from "react-error-boundary";
-import { Toaster } from "./components/ui/sonner";
+import { Toaster } from "@linku/ui";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
-import { sendPageView } from "./utils/analytics";
+import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
+import { debugLog } from "@/utils/logger";
 import "./App.css";
 
 function App() {
-  console.log(
-    "%c여길 열어보시다니...\n이 참에 직접 코드 기여도 해주시는 건 어떤가요?",
-    "font-family: Nanum Gothic; color: darkgreen; padding: 6px; border-radius: 4px; font-size:14px"
-  );
-  console.log("https://github.com/Turtle-Hwan/LinKU");
-
-  // Google Analytics: Extension 열릴 때 페이지뷰 전송
+  // GA4: popup mount 시 first_open / session_start / extension_open 자동 전송
   useEffect(() => {
-    sendPageView("LinKU Extension - Popup", "chrome-extension://linku/popup");
+    debugLog(
+      "%c여길 열어보시다니...\n이 참에 직접 코드 기여도 해주시는 건 어떤가요?",
+      "font-family: Nanum Gothic; color: darkgreen; padding: 6px; border-radius: 4px; font-size:14px",
+    );
+    debugLog("https://github.com/Turtle-Hwan/LinKU");
+    sendExtensionOpen("popup_home", "popup");
+    sendPageView("LinKU Extension - Popup");
   }, []);
 
   return (
     <ErrorBoundary
+      onError={(error: unknown) => {
+        const msg = error instanceof Error ? error.message : String(error);
+        sendError("react_error_boundary", msg, "popup_home");
+      }}
       fallback={
         <div className="w-[500px] h-[600px] flex items-center justify-center p-8">
           <div className="text-center space-y-4">

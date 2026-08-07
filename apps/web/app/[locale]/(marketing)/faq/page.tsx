@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { createFaqJsonLd } from "@linku/seo";
+import { Card, CardDescription, CardHeader, CardTitle } from "@linku/ui";
 import { JsonLd } from "@/components/json-ld";
+import { PageHeading } from "@/components/page-heading";
 import { resolveRouteParams } from "@/lib/intl";
 import { createLocalizedMetadata } from "@/lib/seo";
 import { translateFaqItems } from "@/lib/site";
@@ -30,23 +32,21 @@ export default async function FaqPage({
   const faqItems = translateFaqItems(t);
 
   return (
-    <section className="mx-auto max-w-4xl px-6 py-16">
+    <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <JsonLd data={createFaqJsonLd(faqItems)} />
-      <div className="mb-8 max-w-3xl space-y-4">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-          {t("pages.faq.eyebrow")}
-        </p>
-        <h1 data-display="true" className="text-6xl tracking-[-0.05em]">
-          {t("pages.faq.headline")}
-        </h1>
-        <p className="text-lg leading-8 text-[var(--muted)]">{t("pages.faq.body")}</p>
-      </div>
-      <div className="grid gap-4">
+      <PageHeading
+        eyebrow={t("pages.faq.eyebrow")}
+        title={t("pages.faq.headline")}
+        body={t("pages.faq.body")}
+      />
+      <div className="mt-6 grid gap-3">
         {faqItems.map((item) => (
-          <article key={item.slug} className="rounded-[1.4rem] border border-black/8 bg-white/75 p-6">
-            <h2 className="mb-3 text-2xl tracking-[-0.04em]">{item.question}</h2>
-            <p className="text-sm leading-7 text-[var(--muted)]">{item.answer}</p>
-          </article>
+          <Card key={item.slug} size="sm">
+            <CardHeader>
+              <CardTitle>{item.question}</CardTitle>
+              <CardDescription className="max-w-3xl leading-6">{item.answer}</CardDescription>
+            </CardHeader>
+          </Card>
         ))}
       </div>
     </section>

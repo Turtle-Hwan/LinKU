@@ -3,8 +3,8 @@
  * 건국대 이메일 인증 다이얼로그
  */
 
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
+import { toast } from '@linku/ui';
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -21,6 +21,8 @@ import {
   validateKonkukEmail,
   validateAuthCode,
 } from '@/utils/formValidation';
+import { errorLog } from '@/utils/logger';
+import { sendAuthEmailVerificationStart, sendAuthEmailVerificationSuccess } from '@/utils/analytics';
 
 interface EmailVerificationDialogProps {
   open: boolean;
@@ -41,6 +43,11 @@ export function EmailVerificationDialog({
   const [emailId, setEmailId] = useState(''); // ID part only (before @)
   const [authCode, setAuthCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // 다이얼로그가 열릴 때 인증 시작 이벤트 전송
+  useEffect(() => {
+    if (open) sendAuthEmailVerificationStart('settings_dialog');
+  }, [open]);
 
   // Full email address
   const kuMail = emailId ? `${emailId}${EMAIL_DOMAIN}` : '';
@@ -78,7 +85,7 @@ export function EmailVerificationDialog({
         }
       }
     } catch (error) {
-      console.error('Failed to send verification code:', error);
+      errorLog('Failed to send verification code:', error);
       toast.error('인증 코드 발송에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
@@ -101,6 +108,7 @@ export function EmailVerificationDialog({
         toast.success('이메일 인증이 완료되었습니다!');
         // Store verified email
         await chrome.storage.local.set({ kuMail });
+        sendAuthEmailVerificationSuccess('konkuk.ac.kr');
         // Trigger re-login to get member token
         onVerificationComplete();
         handleClose();
@@ -113,7 +121,7 @@ export function EmailVerificationDialog({
         }
       }
     } catch (error) {
-      console.error('Failed to verify code:', error);
+      errorLog('Failed to verify code:', error);
       toast.error('인증에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
@@ -130,7 +138,7 @@ export function EmailVerificationDialog({
         toast.error(response.error?.message || '재발송에 실패했습니다.');
       }
     } catch (error) {
-      console.error('Failed to resend code:', error);
+      errorLog('Failed to resend code:', error);
       toast.error('재발송에 실패했습니다.');
     } finally {
       setIsLoading(false);

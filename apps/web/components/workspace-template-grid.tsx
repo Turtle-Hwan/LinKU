@@ -25,7 +25,7 @@ export function WorkspaceTemplateGrid({
 
   if (items.length === 0) {
     return (
-      <div className="flex min-h-40 items-center justify-center rounded-[1.2rem] border border-dashed border-black/10 bg-[#f6f0e1] text-sm text-[var(--muted)]">
+      <div className="flex min-h-40 items-center justify-center rounded-lg border bg-muted/40 text-sm text-muted-foreground">
         No items yet
       </div>
     );
@@ -33,7 +33,7 @@ export function WorkspaceTemplateGrid({
 
   return (
     <div
-      className="relative overflow-hidden rounded-[1.4rem] border border-black/8 bg-[#f9f7f1]"
+      className="relative overflow-hidden rounded-lg border bg-muted/40"
       style={{ aspectRatio: `6 / ${resolvedRows}` }}
     >
       {items.map((item, index) => {
@@ -45,15 +45,15 @@ export function WorkspaceTemplateGrid({
         };
 
         const body = (
-          <div className="flex h-full items-center gap-3 rounded-[1rem] border border-black/8 bg-white px-3 py-2 shadow-[0_10px_24px_rgba(19,42,34,0.08)]">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#d8f279]/40">
+          <div className="flex h-full items-center gap-3 rounded-md border bg-card px-3 py-2 shadow-sm">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary">
               <img
                 src={item.icon.iconUrl}
                 alt={item.icon.iconName}
                 className="h-5 w-5 object-contain"
               />
             </div>
-            <span className="line-clamp-2 text-sm leading-5 text-[var(--ink)]">
+            <span className="line-clamp-2 text-sm leading-5 text-foreground">
               {item.name}
             </span>
           </div>

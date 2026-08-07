@@ -1,9 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import QRCode from "qrcode";
 import { Download, QrCode } from "lucide-react";
-import { Button, Input } from "@linku/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+} from "@linku/ui";
 import type { AppLocale } from "@/i18n/routing";
 import { getLabsCopy } from "@/lib/labs-copy";
 
@@ -55,49 +64,50 @@ export function LabsQrGenerator({ locale }: { locale: AppLocale }) {
   }
 
   return (
-    <section className="rounded-[1.6rem] border border-black/8 bg-white p-6">
-      <div className="space-y-2">
-        <h2 className="text-2xl tracking-[-0.04em]">{copy.qr.title}</h2>
-        <p className="text-sm leading-7 text-[var(--muted)]">{copy.qr.description}</p>
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>{copy.qr.title}</CardTitle>
+        <CardDescription className="leading-7">{copy.qr.description}</CardDescription>
+      </CardHeader>
 
-      <div className="mt-5 flex flex-col gap-3 md:flex-row">
+      <CardContent className="grid gap-5">
+        <div className="flex flex-col gap-3 md:flex-row">
         <Input
           value={inputValue}
           onChange={(event) => setInputValue(event.target.value)}
           aria-label={copy.qr.inputLabel}
           placeholder={copy.qr.placeholder}
-          className="rounded-full bg-[#f6f0e1]"
         />
         <Button
           type="button"
-          className="rounded-full"
           onClick={() => void generateQrCode()}
           disabled={loading}
         >
           <QrCode className="size-4" />
           {copy.qr.generate}
         </Button>
-      </div>
+        </div>
 
       {error ? (
-        <p className="mt-4 rounded-[1rem] border border-[#d18d7b] bg-[#fff3ef] p-4 text-sm text-[#8a3d2c]">
+        <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           {error}
         </p>
       ) : null}
 
-      <div className="mt-6 flex min-h-72 items-center justify-center rounded-[1.4rem] border border-dashed border-black/10 bg-[#f6f0e1] p-6">
+      <div className="flex min-h-72 items-center justify-center rounded-lg border bg-muted/40 p-6">
         {qrDataUrl ? (
           <div className="flex flex-col items-center gap-4">
-            <img
+            <Image
               src={qrDataUrl}
               alt="LinKU QR"
-              className="h-64 w-64 rounded-[1rem] border border-black/8 bg-white p-3"
+              width={256}
+              height={256}
+              unoptimized
+              className="h-64 w-64 rounded-lg border bg-background p-3"
             />
             <Button
               type="button"
               variant="outline"
-              className="rounded-full"
               onClick={downloadQrCode}
             >
               <Download className="size-4" />
@@ -105,11 +115,12 @@ export function LabsQrGenerator({ locale }: { locale: AppLocale }) {
             </Button>
           </div>
         ) : (
-          <p className="max-w-sm text-center text-sm leading-7 text-[var(--muted)]">
+          <p className="max-w-sm text-center text-sm leading-7 text-muted-foreground">
             {copy.qr.empty}
           </p>
         )}
       </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

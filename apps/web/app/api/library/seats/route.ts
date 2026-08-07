@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import type {
   LibraryApiResponse,
   LibraryLoginData,
@@ -68,6 +69,12 @@ async function fetchSeatRooms(accessToken: string) {
 }
 
 export async function POST(request: Request) {
+  const session = await auth();
+
+  if (!session) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   try {
     const body = (await request.json()) as {
       studentId?: string;

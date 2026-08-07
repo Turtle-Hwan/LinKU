@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { getPublicPostedTemplates, getPostedTemplateDetail, clonePostedTemplate, likePostedTemplate } from '@/apis/posted-templates';
 import { getClonedTemplates, getTemplate } from '@/apis/templates';
 import type { PostedTemplateSummary, PostedTemplateListParams } from '@/types/api';
@@ -21,6 +21,14 @@ import { ArrowLeft, Search, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { isLoggedIn } from '@/utils/oauth';
+import { errorLog } from '@/utils/logger';
+import {
+  sendTemplateGalleryView,
+  sendTemplateGallerySearch,
+  sendTemplateCloneSuccess,
+  sendTemplateCloneFail,
+  sendTemplateLikeToggle,
+} from '@/utils/analytics';
 
 type SortOption = 'newest' | 'oldest' | 'most-liked' | 'most-used';
 
@@ -55,6 +63,11 @@ export const GalleryPage = () => {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const cloneInProgressRef = useRef<number | null>(null);
 
+  // GA4: 갤러리 진입 이벤트 (mount 1회)
+  useEffect(() => {
+    sendTemplateGalleryView('popup');
+  }, []);
+
   // Check login status
   useEffect(() => {
     const checkAuth = async () => {
@@ -81,6 +94,7 @@ export const GalleryPage = () => {
 
     searchTimeoutRef.current = setTimeout(() => {
       setDebouncedQuery(searchQuery);
+      sendTemplateGallerySearch(searchQuery.trim().length, sort);
     }, 300);
 
     return () => {
@@ -88,7 +102,7 @@ export const GalleryPage = () => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, sort]);
 
   // Load templates
   const loadTemplates = useCallback(async (pageNum: number, reset: boolean = false) => {
@@ -135,14 +149,14 @@ export const GalleryPage = () => {
         setHasMore(newTemplates.length === PAGE_SIZE);
         setPage(pageNum);
       } else {
-        console.error('Failed to load templates:', result.error);
+        errorLog('Failed to load templates:', result.error);
         if (reset) {
           setTemplates([]);
         }
         setHasMore(false);
       }
     } catch (error) {
-      console.error('Failed to load templates:', error);
+      errorLog('Failed to load templates:', error);
       toast({
         title: '로드 실패',
         description: '템플릿을 불러오는데 실패했습니다.',
@@ -243,7 +257,7 @@ export const GalleryPage = () => {
               : t
           )
         );
-
+        sendTemplateCloneSuccess(id, Boolean(template.ownerId));
         toast({
           title: '복제 완료',
           description: `"${template.name}" 템플릿이 내 템플릿에 추가되었습니다.`,
@@ -252,7 +266,8 @@ export const GalleryPage = () => {
         throw new Error(result.error?.message || '복제에 실패했습니다.');
       }
     } catch (error) {
-      console.error('Failed to clone template:', error);
+      errorLog('Failed to clone template:', error);
+      sendTemplateCloneFail(id, 'clone_failed', error instanceof Error ? error.message : undefined);
       toast({
         title: '복제 실패',
         description: error instanceof Error ? error.message : '템플릿 복제에 실패했습니다.',
@@ -289,11 +304,12 @@ export const GalleryPage = () => {
               : t
           )
         );
+        sendTemplateLikeToggle(template.postedTemplateId, result.data.isLiked);
       } else {
         throw new Error(result.error?.message || '좋아요 처리에 실패했습니다.');
       }
     } catch (error) {
-      console.error('Failed to like template:', error);
+      errorLog('Failed to like template:', error);
       toast({
         title: '좋아요 실패',
         description: error instanceof Error ? error.message : '좋아요 처리에 실패했습니다.',
@@ -349,7 +365,9 @@ export const GalleryPage = () => {
             {SORT_OPTIONS.map((option) => (
               <DropdownMenuItem
                 key={option.value}
-                onClick={() => setSort(option.value)}
+                onClick={() => {
+                  setSort(option.value);
+                }}
                 className={sort === option.value ? 'bg-accent' : ''}
               >
                 {option.label}

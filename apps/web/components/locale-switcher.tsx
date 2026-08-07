@@ -3,6 +3,7 @@
 import { Suspense, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
+import { cn } from "@linku/ui";
 import { usePathname } from "@/i18n/navigation";
 import { routing, type AppLocale } from "@/i18n/routing";
 
@@ -48,8 +49,10 @@ function LocaleSwitcherContent() {
   }
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white/70 p-1 text-xs text-[var(--muted)]">
-      <span className="px-2">{t("common.switchLanguage")}</span>
+    <div
+      className="inline-flex h-8 items-center gap-1 rounded-lg bg-muted p-[3px] text-xs text-muted-foreground"
+      aria-label={t("common.switchLanguage")}
+    >
       {routing.locales.map((candidate) => {
         const active = candidate === locale;
 
@@ -59,11 +62,12 @@ function LocaleSwitcherContent() {
             type="button"
             disabled={isPending && active}
             onClick={() => handleLocaleChange(candidate)}
-            className={`rounded-full px-3 py-1 transition ${
+            className={cn(
+              "h-[calc(100%-1px)] rounded-md px-2.5 py-1 transition-colors",
               active
-                ? "bg-[#132a22] text-white"
-                : "text-[var(--muted)] hover:bg-black/5 hover:text-[var(--ink)]"
-            }`}
+                ? "bg-white text-foreground shadow-sm"
+                : "hover:bg-white hover:text-foreground",
+            )}
           >
             {t(`common.locale.${candidate}`)}
           </button>
@@ -78,17 +82,20 @@ function LocaleSwitcherFallback() {
   const locale = useLocale() as AppLocale;
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white/70 p-1 text-xs text-[var(--muted)]">
-      <span className="px-2">{t("common.switchLanguage")}</span>
+    <div
+      className="inline-flex h-8 items-center gap-1 rounded-lg bg-muted p-[3px] text-xs text-muted-foreground"
+      aria-label={t("common.switchLanguage")}
+    >
       {routing.locales.map((candidate) => {
         const active = candidate === locale;
 
         return (
           <span
             key={candidate}
-            className={`rounded-full px-3 py-1 ${
-              active ? "bg-[#132a22] text-white" : "text-[var(--muted)]"
-            }`}
+            className={cn(
+              "h-[calc(100%-1px)] rounded-md px-2.5 py-1",
+              active ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+            )}
           >
             {t(`common.locale.${candidate}`)}
           </span>

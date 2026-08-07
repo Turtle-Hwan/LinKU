@@ -60,7 +60,7 @@ export async function createLocalizedSoftwareApplicationJsonLd(
     featureList: [
       t("site.features.todo.title"),
       t("site.features.ecampus.title"),
-      t("site.navigation.app.favorites.title"),
+      t("site.features.bookmarks.title"),
     ],
   } satisfies SoftwareApplicationJsonLdInput);
 }

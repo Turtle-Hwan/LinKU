@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { LinksManager } from "@/components/links-manager";
+import { WorkspacePageHeading } from "@/components/workspace-page-heading";
 import { resolveRouteParams } from "@/lib/intl";
 import { createLocalizedMetadata } from "@/lib/seo";
 import { getWorkspaceOwnerKey, readWorkspaceState } from "@/lib/workspace-store";
@@ -31,18 +32,12 @@ export default async function LinksPage({
   const state = await readWorkspaceState(getWorkspaceOwnerKey(await auth()));
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-          {t("pages.links.eyebrow")}
-        </p>
-        <h1 data-display="true" className="text-5xl tracking-[-0.05em]">
-          {t("pages.links.headline")}
-        </h1>
-        <p className="max-w-3xl text-lg leading-8 text-[var(--muted)]">
-          {t("pages.links.body")}
-        </p>
-      </div>
+    <div className="flex flex-col gap-8">
+      <WorkspacePageHeading
+        eyebrow={t("pages.links.eyebrow")}
+        title={t("pages.links.headline")}
+        description={t("pages.links.body")}
+      />
 
       <LinksManager initialItems={state.links} />
     </div>

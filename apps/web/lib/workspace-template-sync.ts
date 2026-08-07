@@ -7,12 +7,49 @@ import {
 } from "@linku/platform";
 import type { WorkspaceTemplateRecord } from "@/lib/workspace-templates";
 
-function calculateGridPosition(shortcutIds: string[], targetIndex: number) {
+function resolveTemplateShortcut(
+  template: WorkspaceTemplateRecord,
+  shortcutId: string,
+) {
+  const catalogShortcut = WORKSPACE_QUICK_LINKS.find(
+    (item) => item.id === shortcutId,
+  );
+  if (catalogShortcut) {
+    return {
+      id: catalogShortcut.id,
+      name: catalogShortcut.title,
+      href: catalogShortcut.href,
+      icon: catalogShortcut.icon,
+      wide: catalogShortcut.wide,
+    };
+  }
+
+  const customShortcut = template.customShortcuts?.find(
+    (item) => item.id === shortcutId,
+  );
+  return customShortcut
+    ? {
+        id: customShortcut.id,
+        name: { ko: customShortcut.name, en: customShortcut.name },
+        href: customShortcut.href,
+        icon: customShortcut.icon,
+        wide: customShortcut.wide,
+      }
+    : null;
+}
+
+function calculateGridPosition(
+  template: WorkspaceTemplateRecord,
+  targetIndex: number,
+) {
   let currentColumn = 0;
   let currentRow = 0;
 
   for (let index = 0; index < targetIndex; index += 1) {
-    const shortcut = WORKSPACE_QUICK_LINKS.find((item) => item.id === shortcutIds[index]);
+    const shortcut = resolveTemplateShortcut(
+      template,
+      template.shortcutIds[index],
+    );
     if (!shortcut) {
       continue;
     }
@@ -27,8 +64,9 @@ function calculateGridPosition(shortcutIds: string[], targetIndex: number) {
     currentColumn += width;
   }
 
-  const currentShortcut = WORKSPACE_QUICK_LINKS.find(
-    (item) => item.id === shortcutIds[targetIndex],
+  const currentShortcut = resolveTemplateShortcut(
+    template,
+    template.shortcutIds[targetIndex],
   );
   const currentWidth = currentShortcut?.wide ? 3 : 2;
 
@@ -68,16 +106,17 @@ function normalize(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, "");
 }
 
-function matchIcon(shortcutId: string, icons: Icon[]) {
-  const shortcut = WORKSPACE_QUICK_LINKS.find((item) => item.id === shortcutId);
-
+function matchIcon(
+  shortcut: NonNullable<ReturnType<typeof resolveTemplateShortcut>>,
+  icons: Icon[],
+) {
   if (!shortcut) {
     return null;
   }
 
   const normalizedName = normalize(shortcut.icon);
-  const normalizedKoTitle = normalize(localizeWorkspaceText(shortcut.title, "ko"));
-  const normalizedEnTitle = normalize(localizeWorkspaceText(shortcut.title, "en"));
+  const normalizedKoTitle = normalize(localizeWorkspaceText(shortcut.name, "ko"));
+  const normalizedEnTitle = normalize(localizeWorkspaceText(shortcut.name, "en"));
   const keywords = iconKeywordMap[shortcut.icon].map(normalize);
 
   return (
@@ -98,25 +137,25 @@ export function buildRemoteTemplatePayload(
   locale: WorkspaceLocale,
 ) {
   const items = template.shortcutIds.map((shortcutId, index) => {
-    const shortcut = WORKSPACE_QUICK_LINKS.find((item) => item.id === shortcutId);
+    const shortcut = resolveTemplateShortcut(template, shortcutId);
 
     if (!shortcut) {
       throw new Error(`Unknown shortcut id: ${shortcutId}`);
     }
 
-    const icon = matchIcon(shortcutId, icons);
+    const icon = matchIcon(shortcut, icons);
 
     if (!icon) {
       throw new Error(
-        `Unable to map "${localizeWorkspaceText(shortcut.title, locale)}" to a backend icon.`,
+        `Unable to map "${localizeWorkspaceText(shortcut.name, locale)}" to a backend icon.`,
       );
     }
 
     return {
-      name: localizeWorkspaceText(shortcut.title, locale),
+      name: localizeWorkspaceText(shortcut.name, locale),
       siteUrl: shortcut.href,
       iconId: icon.id,
-      position: calculateGridPosition(template.shortcutIds, index),
+      position: calculateGridPosition(template, index),
       size: {
         width: shortcut.wide ? 3 : 2,
         height: 1,

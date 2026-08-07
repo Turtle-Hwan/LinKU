@@ -2,8 +2,8 @@
  * Back Button - Navigate back from editor with unsaved changes warning
  */
 
-import { useNavigate } from 'react-router-dom';
-import { useEditorContext } from '@/contexts/EditorContext';
+import { useNavigate } from 'react-router';
+import { useEditorContext } from '@/hooks/useEditorContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 

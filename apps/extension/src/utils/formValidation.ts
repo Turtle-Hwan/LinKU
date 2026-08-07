@@ -3,6 +3,8 @@
  * Centralized validation logic for editor forms
  */
 
+import { normalizeExternalHttpUrl } from "@linku/platform";
+
 export interface ValidationResult {
   valid: boolean;
   error?: string;
@@ -43,10 +45,7 @@ export function validateUrl(url: string): ValidationResult {
     };
   }
 
-  // Validate URL format
-  try {
-    new URL(url);
-  } catch {
+  if (!normalizeExternalHttpUrl(url)) {
     return {
       valid: false,
       error: '올바른 URL을 입력해주세요.',

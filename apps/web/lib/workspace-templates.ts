@@ -1,7 +1,9 @@
 import {
   DEFAULT_WORKSPACE_TEMPLATE,
+  WORKSPACE_ICON_NAMES,
   WORKSPACE_TEMPLATE_PRESETS,
   localizeWorkspaceText,
+  type WorkspaceCustomShortcut,
   type WorkspaceLocale,
   type WorkspaceTemplatePreset,
 } from "@linku/platform";
@@ -12,6 +14,7 @@ export interface WorkspaceTemplateRecord {
   name: string;
   description: string;
   shortcutIds: string[];
+  customShortcuts?: WorkspaceCustomShortcut[];
   source: "default" | "custom" | "gallery";
   serverTemplateId?: number;
   syncStatus?: "local" | "synced";
@@ -38,6 +41,19 @@ export type WorkspaceTemplateSelection =
       cachedItems?: TemplateItem[];
     };
 
+function isCustomShortcut(value: unknown): value is WorkspaceCustomShortcut {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as WorkspaceCustomShortcut).id === "string" &&
+    typeof (value as WorkspaceCustomShortcut).name === "string" &&
+    typeof (value as WorkspaceCustomShortcut).href === "string" &&
+    WORKSPACE_ICON_NAMES.includes((value as WorkspaceCustomShortcut).icon) &&
+    (typeof (value as WorkspaceCustomShortcut).wide === "boolean" ||
+      (value as WorkspaceCustomShortcut).wide === undefined)
+  );
+}
+
 function isTemplateRecord(value: unknown): value is WorkspaceTemplateRecord {
   return (
     typeof value === "object" &&
@@ -46,6 +62,13 @@ function isTemplateRecord(value: unknown): value is WorkspaceTemplateRecord {
     typeof (value as WorkspaceTemplateRecord).name === "string" &&
     typeof (value as WorkspaceTemplateRecord).description === "string" &&
     Array.isArray((value as WorkspaceTemplateRecord).shortcutIds) &&
+    (Array.isArray((value as WorkspaceTemplateRecord).customShortcuts)
+      ? Boolean(
+          (value as WorkspaceTemplateRecord).customShortcuts?.every(
+            isCustomShortcut,
+          ),
+        )
+      : (value as WorkspaceTemplateRecord).customShortcuts === undefined) &&
     typeof (value as WorkspaceTemplateRecord).source === "string" &&
     (typeof (value as WorkspaceTemplateRecord).serverTemplateId === "number" ||
       (value as WorkspaceTemplateRecord).serverTemplateId === undefined) &&
@@ -114,6 +137,7 @@ function createRecordFromPreset(
     name: localizeWorkspaceText(preset.title, locale),
     description: localizeWorkspaceText(preset.description, locale),
     shortcutIds: preset.shortcutIds,
+    customShortcuts: [],
     source,
     syncStatus: source === "gallery" ? "local" : undefined,
     createdAt: timestamp,
@@ -255,6 +279,7 @@ export function createWorkspaceTemplate(
           : "A custom shortcut setup built on the web",
     shortcutIds:
       mode === "default" ? DEFAULT_WORKSPACE_TEMPLATE.shortcutIds.slice(0, 10) : [],
+    customShortcuts: [],
     source: "custom",
     syncStatus: "local",
     createdAt: timestamp,

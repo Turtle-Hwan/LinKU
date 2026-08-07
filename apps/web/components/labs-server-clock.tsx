@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { Button, Input } from "@linku/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+} from "@linku/ui";
 import type { AppLocale } from "@/i18n/routing";
 import { getLabsCopy } from "@/lib/labs-copy";
 
@@ -69,7 +77,9 @@ export function LabsServerClock({ locale }: { locale: AppLocale }) {
   }, [activeUrl]);
 
   useEffect(() => {
-    void syncTime();
+    const timer = window.setTimeout(() => void syncTime(), 0);
+
+    return () => window.clearTimeout(timer);
   }, [syncTime]);
 
   useEffect(() => {
@@ -115,25 +125,24 @@ export function LabsServerClock({ locale }: { locale: AppLocale }) {
   }, [lastSync, locale]);
 
   return (
-    <section className="rounded-[1.6rem] border border-black/8 bg-white p-6">
-      <div className="space-y-2">
-        <h2 className="text-2xl tracking-[-0.04em]">{copy.clock.title}</h2>
-        <p className="text-sm leading-7 text-[var(--muted)]">
+    <Card>
+      <CardHeader>
+        <CardTitle>{copy.clock.title}</CardTitle>
+        <CardDescription className="leading-7">
           {copy.clock.description}
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
 
-      <div className="mt-5 flex flex-col gap-3 md:flex-row">
+      <CardContent className="grid gap-5">
+        <div className="flex flex-col gap-3 md:flex-row">
         <Input
           value={inputUrl}
           onChange={(event) => setInputUrl(event.target.value)}
           aria-label={copy.clock.inputLabel}
-          className="rounded-full bg-[#f6f0e1]"
         />
         <Button
           type="button"
           variant="secondary"
-          className="rounded-full"
           onClick={() => setActiveUrl(inputUrl.trim() || DEFAULT_SERVER_URL)}
         >
           {copy.clock.apply}
@@ -141,32 +150,31 @@ export function LabsServerClock({ locale }: { locale: AppLocale }) {
         <Button
           type="button"
           variant="outline"
-          className="rounded-full"
           onClick={() => void syncTime()}
           disabled={loading}
         >
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
           {copy.clock.refresh}
         </Button>
-      </div>
+        </div>
 
       {error ? (
-        <p className="mt-4 rounded-[1rem] border border-[#d18d7b] bg-[#fff3ef] p-4 text-sm text-[#8a3d2c]">
+        <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           {error}
         </p>
       ) : null}
 
-      <div className="mt-6 rounded-[1.4rem] border border-black/8 bg-[#132a22] px-5 py-6 text-white">
-        <p className="text-xs uppercase tracking-[0.24em] text-white/60">
+      <div className="rounded-lg border bg-primary px-5 py-6 text-primary-foreground">
+        <p className="text-xs font-medium text-primary-foreground/70">
           {copy.clock.currentTime}
         </p>
         <p className="mt-3 font-mono text-4xl tracking-[-0.04em]">{formattedTime}</p>
         {formattedDate ? (
-          <p className="mt-2 text-sm text-white/75">{formattedDate}</p>
+          <p className="mt-2 text-sm text-primary-foreground/80">{formattedDate}</p>
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[var(--muted)]">
+      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
         <span>
           {copy.clock.lastSync}: {formattedLastSync}
         </span>
@@ -174,6 +182,7 @@ export function LabsServerClock({ locale }: { locale: AppLocale }) {
           {copy.clock.roundTrip}: {roundTripMs}ms
         </span>
       </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

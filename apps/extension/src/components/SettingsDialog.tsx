@@ -6,12 +6,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { DialogDescription } from "@radix-ui/react-dialog";
-import { sendSettingChange, sendButtonClick } from "@/utils/analytics";
+import {
+  sendButtonClick,
+  sendAuthLoginStart,
+  sendAuthLoginSuccess,
+  sendAuthLoginFail,
+  sendAuthLogout,
+  sendSettingsCredentialsSaved,
+  sendSettingsCredentialsDeleted,
+} from "@/utils/analytics";
 import {
   saveECampusCredentials,
   loadECampusCredentials,
@@ -27,8 +35,9 @@ import {
 } from "@/utils/oauth";
 import { eCampusLoginAPI } from "@/apis";
 import { Info, Palette, LogOut, Mail, User } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@linku/ui";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
+import { errorLog } from "@/utils/logger";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -43,29 +52,32 @@ const ECampusCredential = () => {
 
   // 설정 페이지 열릴 때 저장된 계정 정보 불러오기
   useEffect(() => {
-    loadSavedCredentials();
+    let isMounted = true;
+
+    loadECampusCredentials()
+      .then((credentials) => {
+        if (!isMounted) return;
+
+        if (!credentials) {
+          setSavedId("");
+          setSavedPassword("");
+          setHasCredentials(false);
+          return;
+        }
+
+        setSavedId(credentials.id);
+        setSavedPassword(credentials.password);
+        setHasCredentials(true);
+      })
+      .catch((error) => {
+        errorLog("[Settings] Load credentials error:", error);
+        toast.error("인증 정보를 불러오는데 실패했습니다.");
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  // 저장된 인증 정보 불러오기
-  async function loadSavedCredentials() {
-    try {
-      const credentials = await loadECampusCredentials();
-
-      if (!credentials) {
-        setSavedId("");
-        setSavedPassword("");
-        setHasCredentials(false);
-        return;
-      }
-
-      setSavedId(credentials.id);
-      setSavedPassword(credentials.password);
-      setHasCredentials(true);
-    } catch (error) {
-      console.error("[Settings] Load credentials error:", error);
-      toast.error("인증 정보를 불러오는데 실패했습니다.");
-    }
-  }
 
   // 인증 정보 저장하기
   const saveCredentials = async () => {
@@ -79,7 +91,7 @@ const ECampusCredential = () => {
       await saveECampusCredentials(savedId, savedPassword);
 
       setHasCredentials(true);
-      sendSettingChange("credentials", "saved");
+      sendSettingsCredentialsSaved();
       toast.success("인증 정보가 저장되었습니다.");
 
       // 2. 로그인 검증 (백그라운드)
@@ -92,7 +104,7 @@ const ECampusCredential = () => {
         toast.error("eCampus 로그인 실패");
       }
     } catch (error) {
-      console.error("[Settings] Save credentials error:", error);
+      errorLog("[Settings] Save credentials error:", error);
       toast.error("인증 정보 저장에 실패했습니다.");
     }
   };
@@ -106,10 +118,10 @@ const ECampusCredential = () => {
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);
-      sendSettingChange("credentials", "deleted");
+      sendSettingsCredentialsDeleted();
       toast.success("인증 정보가 삭제되었습니다.");
     } catch (error) {
-      console.error("[Settings] Delete credentials error:", error);
+      errorLog("[Settings] Delete credentials error:", error);
       toast.error("인증 정보 삭제에 실패했습니다.");
     }
   };
@@ -230,18 +242,16 @@ const GoogleOAuthSection = () => {
       setUserProfile(profile);
 
       // Load verified email if exists
-      const { kuMail } = (await chrome.storage.local.get({
-        kuMail: null as string | null,
-      })) as { kuMail: string | null };
-      if (kuMail) {
-        setVerifiedEmail(kuMail);
+      const storage = await chrome.storage.local.get(["kuMail"]);
+      if (typeof storage.kuMail === "string") {
+        setVerifiedEmail(storage.kuMail);
       }
     }
   };
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
-    sendButtonClick("google_login", "settings_dialog");
+    sendAuthLoginStart("google", "settings_dialog");
 
     try {
       const result = await startGoogleLogin();
@@ -252,21 +262,26 @@ const GoogleOAuthSection = () => {
         // Check if this is a guest (requires signup)
         if (result.response.requiresSignup) {
           setIsGuest(true);
+          sendAuthLoginSuccess("google", true);
           // Auto-open email verification dialog for guests
           setShowEmailVerification(true);
           toast.info("건국대 이메일 인증이 필요합니다.");
         } else {
           setIsGuest(false);
           setUserProfile(result.response.profile);
+          sendAuthLoginSuccess("google", false);
           toast.success("로그인 성공!");
         }
       } else {
+        sendAuthLoginFail("google", "login_failed", result.error || "알 수 없는 오류");
         toast.error("로그인 실패", {
           description: result.error,
         });
       }
     } catch (error) {
-      console.error("Login error:", error);
+      errorLog("Login error:", error);
+      const errMsg = error instanceof Error ? error.message : "로그인 중 오류가 발생했습니다.";
+      sendAuthLoginFail("google", "exception", errMsg);
       toast.error("오류", {
         description: "로그인 중 오류가 발생했습니다.",
       });
@@ -287,11 +302,9 @@ const GoogleOAuthSection = () => {
         setUserProfile(result.response.profile);
 
         // Load verified email
-        const { kuMail } = (await chrome.storage.local.get({
-          kuMail: null as string | null,
-        })) as { kuMail: string | null };
-        if (kuMail) {
-          setVerifiedEmail(kuMail);
+        const storage = await chrome.storage.local.get(["kuMail"]);
+        if (typeof storage.kuMail === "string") {
+          setVerifiedEmail(storage.kuMail);
         }
 
         toast.success("회원가입 완료!", {
@@ -302,7 +315,7 @@ const GoogleOAuthSection = () => {
         toast.error("인증에 문제가 발생했습니다. 다시 시도해주세요.");
       }
     } catch (error) {
-      console.error("Re-login error:", error);
+      errorLog("Re-login error:", error);
       toast.error("재로그인에 실패했습니다.");
     } finally {
       setIsLoading(false);
@@ -310,7 +323,7 @@ const GoogleOAuthSection = () => {
   };
 
   const handleLogout = async () => {
-    sendButtonClick("google_logout", "settings_dialog");
+    sendAuthLogout("settings_dialog");
 
     await logout();
     setLoggedIn(false);
@@ -441,8 +454,6 @@ const GoogleOAuthSection = () => {
 
 const TemplateEditorSection = () => {
   const handleOpenEditor = () => {
-    sendButtonClick("open_template_editor", "settings_dialog");
-
     // 새 탭에서 템플릿 에디터 열기
     chrome.tabs.create({
       url: chrome.runtime.getURL('index.html#/editor')

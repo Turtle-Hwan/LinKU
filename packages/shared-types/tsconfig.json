@@ -1,7 +1,6 @@
 {
   "extends": "../../tooling/typescript/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "tsBuildInfoFile": "../../node_modules/.tmp/packages-shared-types.tsbuildinfo"
   },
   "include": ["src"]

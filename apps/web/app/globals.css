@@ -1,32 +1,35 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css");
 @import "tailwindcss";
+@import "@linku/ui/theme.css";
+@source "../../../packages/ui/src";
 
-:root {
-  --background: #f7f2e8;
-  --foreground: #132a22;
-  --ink: #132a22;
-  --muted: #53655d;
-  --surface: rgba(255, 255, 255, 0.72);
-  --accent: #d8f279;
+*,
+::before,
+::after {
+  border-color: var(--border);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-body);
-  --font-mono: var(--font-body);
+html {
+  background: white;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background: white;
   color: var(--foreground);
-  font-family: var(--font-body), sans-serif;
+  font-family: "Pretendard", "Nanum Gothic", sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
-h1,
-h2,
-h3,
-[data-display="true"] {
-  font-family: var(--font-display), serif;
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html [data-display="true"] {
+  font-family: "Pretendard", "Nanum Gothic", sans-serif;
+  font-weight: 700;
+  word-break: keep-all;
 }
 
 a {
@@ -35,5 +38,21 @@ a {
 }
 
 ::selection {
-  background: rgba(216, 242, 121, 0.55);
+  background: color-mix(in srgb, var(--main) 20%, white);
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--main) 45%, transparent);
+  outline-offset: 2px;
+}
+
+@layer base {
+  [role="button"],
+  button {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
 }

@@ -69,24 +69,24 @@ export function WorkspaceTemplateManager({
       title: locale === "ko" ? "템플릿 허브" : "Template hub",
       description:
         locale === "ko"
-          ? "웹 로컬 템플릿과 LinKU backend의 owned, cloned, posted 템플릿을 한 곳에서 관리합니다."
-          : "Manage web-local templates and LinKU backend owned, cloned, and posted templates in one place.",
+          ? "내 템플릿과 복제한 템플릿, 공개한 템플릿을 한곳에서 관리합니다."
+          : "Manage your templates, cloned layouts, and public templates in one place.",
       backendNote:
         locale === "ko"
-          ? "LinKU backend를 연결하면 extension에서 쓰던 템플릿 서버 기능을 web에서도 그대로 사용할 수 있습니다."
-          : "Connect the LinKU backend to unlock the same server template flows on the web.",
+          ? "계정을 연결하면 템플릿을 여러 기기에서 이어서 쓰고 갤러리에 공개할 수 있습니다."
+          : "Connect your account to keep templates across devices and publish them to the gallery.",
       remoteNeedsLogin:
         locale === "ko"
-          ? "backend 템플릿 라이브러리를 보려면 LinKU 웹 로그인이 필요합니다."
-          : "Sign in to LinKU web to access the backend template library.",
+          ? "저장한 템플릿을 보려면 로그인해 주세요."
+          : "Sign in to view your saved templates.",
       remoteNeedsConfig:
         locale === "ko"
-          ? "LINKU_API_BASE_URL이 비어 있어 backend 템플릿 기능을 아직 열 수 없습니다."
-          : "LINKU_API_BASE_URL is missing, so backend template features are not available yet.",
+          ? "계정 템플릿 기능을 준비 중입니다."
+          : "Account templates are not available yet.",
       remoteNeedsBackendConnection:
         locale === "ko"
-          ? "LinKU backend를 먼저 연결해야 owned, cloned, posted 템플릿을 불러올 수 있습니다."
-          : "Connect the LinKU backend before loading owned, cloned, and posted templates.",
+          ? "저장한 템플릿을 불러오려면 계정을 연결해 주세요."
+          : "Connect your account to load your saved templates.",
       apply: locale === "ko" ? "적용" : "Apply",
       openGallery: locale === "ko" ? "공개 갤러리 열기" : "Open public gallery",
       delete: locale === "ko" ? "삭제" : "Delete",
@@ -98,12 +98,12 @@ export function WorkspaceTemplateManager({
       refresh: locale === "ko" ? "새로고침" : "Refresh",
       emptyOwned:
         locale === "ko"
-          ? "아직 backend 소유 템플릿이 없습니다."
-          : "No backend-owned templates yet.",
+          ? "아직 저장한 템플릿이 없습니다."
+          : "No saved templates yet.",
       emptyCloned:
         locale === "ko"
-          ? "복제한 backend 템플릿이 없습니다."
-          : "No cloned backend templates yet.",
+          ? "아직 복제한 템플릿이 없습니다."
+          : "No cloned templates yet.",
       emptyPosted:
         locale === "ko"
           ? "공개로 게시한 템플릿이 없습니다."
@@ -195,7 +195,9 @@ export function WorkspaceTemplateManager({
       return;
     }
 
-    void loadRemoteLibraries();
+    const timer = window.setTimeout(() => void loadRemoteLibraries(), 0);
+
+    return () => window.clearTimeout(timer);
   }, [canLoadRemote]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function applyRemoteTemplate(template: TemplateSummaryWithItems) {
@@ -217,7 +219,7 @@ export function WorkspaceTemplateManager({
     setMessage(
       locale === "ko"
         ? `"${template.name}" 템플릿을 웹 대시보드에 적용했습니다.`
-        : `Applied "${template.name}" to the web dashboard.`,
+        : `Applied "${template.name}" to the dashboard.`,
     );
     router.push("/dashboard");
   }
@@ -263,8 +265,8 @@ export function WorkspaceTemplateManager({
       await loadRemoteLibraries();
       setMessage(
         locale === "ko"
-          ? `"${template.name}" 템플릿을 backend 라이브러리에서 삭제했습니다.`
-          : `Deleted "${template.name}" from the backend library.`,
+          ? `"${template.name}" 템플릿을 삭제했습니다.`
+          : `Deleted "${template.name}".`,
       );
     } catch (caughtError) {
       setError(
@@ -343,15 +345,15 @@ export function WorkspaceTemplateManager({
   ) {
     if (loading) {
       return (
-        <div className="rounded-[1.2rem] border border-black/8 bg-white p-5 text-sm text-[var(--muted)]">
-          {locale === "ko" ? "backend 템플릿을 불러오는 중입니다." : "Loading backend templates."}
+        <div className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
+          {locale === "ko" ? "템플릿을 불러오는 중입니다." : "Loading templates."}
         </div>
       );
     }
 
     if (templates.length === 0) {
       return (
-        <div className="rounded-[1.2rem] border border-dashed border-black/10 bg-white/70 p-5 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
           {emptyMessage}
         </div>
       );
@@ -393,7 +395,6 @@ export function WorkspaceTemplateManager({
                 <Button
                   type="button"
                   variant="secondary"
-                  className="rounded-full"
                   onClick={() => void applyRemoteTemplate(template)}
                 >
                   {copy.apply}
@@ -402,7 +403,6 @@ export function WorkspaceTemplateManager({
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-full"
                     disabled={busyKey === `publish-${template.templateId}`}
                     onClick={() => void handlePublish(template)}
                   >
@@ -412,7 +412,6 @@ export function WorkspaceTemplateManager({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="rounded-full"
                   disabled={busyKey === `delete-${template.templateId}`}
                   onClick={() => void handleDeleteTemplate(template)}
                 >
@@ -429,7 +428,7 @@ export function WorkspaceTemplateManager({
   function renderPostedList() {
     if (loading) {
       return (
-        <div className="rounded-[1.2rem] border border-black/8 bg-white p-5 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
           {locale === "ko" ? "공개 템플릿을 불러오는 중입니다." : "Loading posted templates."}
         </div>
       );
@@ -437,7 +436,7 @@ export function WorkspaceTemplateManager({
 
     if (postedTemplates.length === 0) {
       return (
-        <div className="rounded-[1.2rem] border border-dashed border-black/10 bg-white/70 p-5 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
           {copy.emptyPosted}
         </div>
       );
@@ -468,7 +467,6 @@ export function WorkspaceTemplateManager({
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-full"
                   disabled={busyKey === `like-${template.postedTemplateId}`}
                   onClick={() => void handleLike(template)}
                 >
@@ -483,7 +481,6 @@ export function WorkspaceTemplateManager({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="rounded-full"
                   disabled={busyKey === `unpost-${template.postedTemplateId}`}
                   onClick={() => void handleUnpost(template)}
                 >
@@ -498,13 +495,13 @@ export function WorkspaceTemplateManager({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 data-display="true" className="text-5xl tracking-[-0.05em]">
+          <h1 data-display="true" className="text-2xl tracking-tight sm:text-3xl">
             {copy.title}
           </h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-[var(--muted)]">
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">
             {copy.description}
           </p>
         </div>
@@ -513,7 +510,6 @@ export function WorkspaceTemplateManager({
           <Button
             type="button"
             variant="secondary"
-            className="rounded-full"
             disabled={!canLoadRemote}
             onClick={() => void loadRemoteLibraries()}
           >
@@ -521,7 +517,6 @@ export function WorkspaceTemplateManager({
           </Button>
           <Button
             type="button"
-            className="rounded-full"
             onClick={() => router.push("/gallery")}
           >
             {copy.openGallery}
@@ -529,38 +524,38 @@ export function WorkspaceTemplateManager({
         </div>
       </div>
 
-      <div className="rounded-[1.2rem] border border-black/8 bg-[#f6f0e1] p-5 text-sm leading-7 text-[var(--muted)]">
+      <div className="rounded-lg border bg-muted/40 p-5 text-sm leading-7 text-muted-foreground">
         {copy.backendNote}
       </div>
 
       {remoteStatusMessage ? (
-        <div className="rounded-[1.2rem] border border-black/8 bg-white p-4 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
           {remoteStatusMessage}
         </div>
       ) : null}
 
       {message ? (
-        <div className="rounded-[1.2rem] border border-[#b0c38f] bg-[#eff8df] p-4 text-sm text-[#30411e]">
+        <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
           {message}
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-[1.2rem] border border-[#d0a7a7] bg-[#fdf0f0] p-4 text-sm text-[#6d2d2d]">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           {error}
         </div>
       ) : null}
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as LibraryTab)}>
-        <TabsList className="h-auto flex-wrap rounded-[1.2rem] border border-black/8 bg-white p-2">
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="local">
-            {locale === "ko" ? "웹 로컬" : "Web local"}
+            {locale === "ko" ? "이 브라우저" : "This browser"}
           </TabsTrigger>
           <TabsTrigger value="owned">
-            {locale === "ko" ? "내 backend" : "Owned"}
+            {locale === "ko" ? "내 템플릿" : "Mine"}
           </TabsTrigger>
           <TabsTrigger value="cloned">
-            {locale === "ko" ? "복제한 backend" : "Cloned"}
+            {locale === "ko" ? "복제한 템플릿" : "Cloned"}
           </TabsTrigger>
           <TabsTrigger value="posted">
             {locale === "ko" ? "공개 게시" : "Posted"}

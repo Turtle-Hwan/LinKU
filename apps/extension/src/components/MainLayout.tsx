@@ -1,12 +1,12 @@
 import React, { Suspense, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";
 import { Globe, Search, Settings, FlaskConical } from "lucide-react";
 import SettingsDialog from "./SettingsDialog";
 import LabsDialog from "./LabsDialog";
-import { sendButtonClick, sendGAEvent } from "@/utils/analytics";
+import { sendButtonClick, sendSearchSubmit } from "@/utils/analytics";
 import { WEB_LOGIN_URL } from "@/constants/URL";
 
 const MainLayout = () => {
@@ -42,10 +42,7 @@ const Header = () => {
             onChange={(e) => setText((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                sendGAEvent("search", {
-                  search_term: text,
-                  search_location: "header"
-                });
+                sendSearchSubmit(text, "header");
                 window.open(
                   `https://search.konkuk.ac.kr/main.do?keyword=${text}`
                 );
@@ -57,10 +54,7 @@ const Header = () => {
         <div className="flex items-center gap-2 shrink-0">
           <FlaskConical
             className="w-5 h-5 text-gray-600 cursor-pointer"
-            onClick={() => {
-              sendButtonClick("labs_icon", "header");
-              setShowLabs(true);
-            }}
+            onClick={() => setShowLabs(true)}
           />
           <Globe
             className="w-5 h-5 text-gray-600 cursor-pointer"

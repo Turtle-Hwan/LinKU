@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { Button, Card, CardContent, Input } from "@linku/ui";
+import { Link } from "@/i18n/navigation";
 import type { FavoriteItem } from "@/lib/workspace-store";
 
 interface FavoritesManagerProps {
@@ -99,7 +101,7 @@ export function FavoritesManager({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <form
         className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
         onSubmit={async (event) => {
@@ -107,71 +109,78 @@ export function FavoritesManager({
           await addFavorite(title, path);
         }}
       >
-        <input
+        <Input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           placeholder={t("components.favoritesManager.titlePlaceholder")}
-          className="rounded-full border border-black/10 bg-white px-4 py-3 text-sm"
         />
-        <input
+        <Input
           value={path}
           onChange={(event) => setPath(event.target.value)}
           placeholder={t("components.favoritesManager.pathPlaceholder")}
-          className="rounded-full border border-black/10 bg-white px-4 py-3 text-sm"
         />
-        <button
+        <Button
           type="submit"
           disabled={pending}
-          className="rounded-full bg-[#132a22] px-5 py-3 text-sm text-white disabled:opacity-50"
         >
           {t("components.favoritesManager.add")}
-        </button>
+        </Button>
       </form>
 
       {error ? (
-        <p className="rounded-[1rem] border border-[#d18d7b] bg-[#fff3ef] px-4 py-3 text-sm text-[#8a3d2c]">
+        <p className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
         </p>
       ) : null}
 
       <div className="flex flex-wrap gap-2">
         {suggestions.map((suggestion) => (
-          <button
+          <Button
             key={suggestion.path}
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={async () => addFavorite(suggestion.title, suggestion.path)}
-            className="rounded-full border border-black/10 px-4 py-2 text-sm"
           >
             {t("components.favoritesManager.quickAddPrefix", {
               title: suggestion.title,
             })}
-          </button>
+          </Button>
         ))}
       </div>
 
       <div className="grid gap-4">
         {items.length === 0 ? (
-          <p className="rounded-[1.2rem] border border-dashed border-black/15 bg-white/60 p-5 text-sm leading-7 text-[var(--muted)]">
-            {t("components.favoritesManager.empty")}
-          </p>
+          <Card size="sm">
+            <CardContent className="text-sm leading-7 text-muted-foreground">
+              {t("components.favoritesManager.empty")}
+            </CardContent>
+          </Card>
         ) : (
           items.map((item) => (
-            <article
-              key={item.id}
-              className="flex flex-col gap-4 rounded-[1.2rem] border border-black/8 bg-white p-5 md:flex-row md:items-center md:justify-between"
-            >
-              <div>
-                <h3 className="text-lg font-medium">{item.title}</h3>
-                <p className="mt-1 text-sm text-[var(--muted)]">{item.path}</p>
-              </div>
-              <button
-                type="button"
-                onClick={async () => removeFavorite(item.id)}
-                className="rounded-full border border-black/10 px-4 py-2 text-sm"
-              >
-                {t("components.favoritesManager.remove")}
-              </button>
-            </article>
+            <Card key={item.id} size="sm">
+              <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="font-medium">{item.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.path}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href={item.path}>
+                      {t("components.favoritesManager.open")}
+                    </Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => removeFavorite(item.id)}
+                  >
+                    {t("components.favoritesManager.remove")}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ))
         )}
       </div>

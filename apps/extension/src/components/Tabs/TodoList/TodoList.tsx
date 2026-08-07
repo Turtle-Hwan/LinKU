@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   eCampusTodoListAPI,
   eCampusGoLectureAPI,
@@ -19,50 +19,27 @@ import LoginDialog from "./LoginDialog";
 import TodoExportButton from "./TodoExportButton";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@linku/ui";
+import { sortTodosByDDay } from "@linku/core";
+import type { TodoSortMethod } from "@linku/shared-types";
 import KUGoodjob from "@/assets/KU_goodjob.png";
-
-type SortMethod = 'dday-asc' | 'dday-desc';
+import { errorLog } from '@/utils/logger';
+import { sendTodoView, sendTodoItemComplete, sendTodoItemDelete } from '@/utils/analytics';
 
 const SORT_METHOD_KEY = "todoSortMethod";
 
-/**
- * D-Day 문자열을 숫자로 변환
- * "D-3" → -3, "D-Day" → 0, "D+2" → 2
- */
-function parseDDay(dDay: string): number {
-  if (dDay === "D-Day") return 0;
-
-  const match = dDay.match(/D([+-])(\d+)/);
-  if (!match) return 0;
-
-  const sign = match[1] === '+' ? 1 : -1;
-  const value = parseInt(match[2], 10);
-
-  return sign * value;
-}
-
 const TodoList = () => {
+  const viewOpenSentRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [ecampusTodos, setECampusTodos] = useState<ECampusTodoItem[]>([]);
   const [customTodos, setCustomTodos] = useState<TodoItemType[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [error, setError] = useState("");
-  const [sortMethod, setSortMethod] = useState<SortMethod>('dday-desc');
+  const [sortMethod, setSortMethod] = useState<TodoSortMethod>('dday-desc');
 
   // 정렬 방식에 따라 전체 Todo 목록 정렬
   const allTodos: TodoItemType[] = useMemo(() => {
-    const combined = [...ecampusTodos, ...customTodos];
-
-    return combined.sort((a, b) => {
-      if (sortMethod === 'dday-asc') {
-        // D-Day 오름차순: 가장 적게 남은 것부터
-        return parseDDay(a.dDay) - parseDDay(b.dDay);
-      } else {
-        // D-Day 내림차순: 가장 많이 남은 것부터
-        return parseDDay(b.dDay) - parseDDay(a.dDay);
-      }
-    });
+    return sortTodosByDDay([...ecampusTodos, ...customTodos], sortMethod);
   }, [ecampusTodos, customTodos, sortMethod]);
 
   // Save todo count to Chrome storage
@@ -76,7 +53,7 @@ const TodoList = () => {
       const todos = await getCustomTodos();
       setCustomTodos(todos);
     } catch (error) {
-      console.error("Error loading custom todos:", error);
+      errorLog("Error loading custom todos:", error);
     }
   }, []);
 
@@ -100,7 +77,7 @@ const TodoList = () => {
       setError("Todo 목록을 불러오는데 실패했습니다.");
       return false;
     } catch (error) {
-      console.error("Error fetching todo list:", error);
+      errorLog("Error fetching todo list:", error);
       setError("Todo 목록을 불러오는 중 오류가 발생했습니다.");
       return false;
     }
@@ -127,7 +104,7 @@ const TodoList = () => {
 
       return false;
     } catch (error) {
-      console.error("Error with saved credentials:", error);
+      errorLog("Error with saved credentials:", error);
       return false;
     }
   }, [fetchTodoList]);
@@ -158,7 +135,7 @@ const TodoList = () => {
         setShowLoginModal(true);
       }
     } catch (error) {
-      console.error("Error loading todo list:", error);
+      errorLog("Error loading todo list:", error);
       setError("오류가 발생했습니다. 다시 시도해주세요.");
       setShowLoginModal(true);
     } finally {
@@ -171,10 +148,18 @@ const TodoList = () => {
     loadTodoList();
   }, [loadTodoList]);
 
+  // 탭 진입 이벤트 — 로딩 완료 후 1회만 전송
+  useEffect(() => {
+    if (!isLoading && !viewOpenSentRef.current) {
+      viewOpenSentRef.current = true;
+      sendTodoView(ecampusTodos.length + customTodos.length);
+    }
+  }, [isLoading, ecampusTodos.length, customTodos.length]);
+
   // 정렬 방식 불러오기
   useEffect(() => {
     const loadSortMethod = async () => {
-      const savedMethod = await getStorage<SortMethod>(SORT_METHOD_KEY);
+      const savedMethod = await getStorage<TodoSortMethod>(SORT_METHOD_KEY);
       if (savedMethod) {
         setSortMethod(savedMethod);
       }
@@ -184,7 +169,7 @@ const TodoList = () => {
 
   // 정렬 방식 변경 및 저장
   const handleSortMethodChange = async () => {
-    const nextMethod: SortMethod =
+    const nextMethod: TodoSortMethod =
       sortMethod === 'dday-asc' ? 'dday-desc' : 'dday-asc';
 
     setSortMethod(nextMethod);
@@ -196,8 +181,9 @@ const TodoList = () => {
     try {
       await toggleCustomTodo(id);
       await loadCustomTodos();
+      sendTodoItemComplete("custom");
     } catch (error) {
-      console.error("Failed to toggle todo:", error);
+      errorLog("Failed to toggle todo:", error);
       toast.error("상태 변경에 실패했습니다.");
     }
   };
@@ -207,9 +193,10 @@ const TodoList = () => {
     try {
       await deleteCustomTodo(id);
       await loadCustomTodos();
+      sendTodoItemDelete("custom");
       toast.success("할 일이 삭제되었습니다.");
     } catch (error) {
-      console.error("Failed to delete todo:", error);
+      errorLog("Failed to delete todo:", error);
       toast.error("삭제에 실패했습니다.");
     }
   };
@@ -235,7 +222,7 @@ const TodoList = () => {
         window.open(lectureUrl, "_blank");
       }
     } catch (error) {
-      console.error("Failed to navigate to lecture:", error);
+      errorLog("Failed to navigate to lecture:", error);
     } finally {
       setIsLoading(false);
     }

@@ -12,6 +12,7 @@ import {
 } from "@/lib/remote-template-client";
 import { WorkspaceTemplateCard } from "@/components/workspace-template-card";
 import { WorkspaceTemplateGrid } from "@/components/workspace-template-grid";
+import { WorkspacePageHeading } from "@/components/workspace-page-heading";
 
 type SortOption = "newest" | "oldest" | "most-liked" | "most-used";
 
@@ -67,23 +68,23 @@ export function WorkspaceTemplateGallery({
       title: locale === "ko" ? "LinKU 공개 템플릿 갤러리" : "LinKU public template gallery",
       description:
         locale === "ko"
-          ? "extension에서 보던 public template gallery를 web에서도 탐색하고, 좋아요를 누르고, 내 계정으로 복제할 수 있습니다."
-          : "Browse, like, and clone the same public template gallery from the extension on the web.",
+          ? "다른 사용자의 바로가기 구성을 둘러보고 내 템플릿으로 가져올 수 있습니다."
+          : "Browse shortcut layouts from other users and add one to your templates.",
       searchPlaceholder:
         locale === "ko" ? "템플릿 이름 검색" : "Search template names",
       refresh: locale === "ko" ? "새로고침" : "Refresh",
       missingConfig:
         locale === "ko"
-          ? "LINKU_API_BASE_URL이 비어 있어 공개 backend 갤러리를 불러올 수 없습니다."
-          : "LINKU_API_BASE_URL is missing, so the public backend gallery is unavailable.",
+          ? "공개 갤러리를 준비 중입니다."
+          : "The public gallery is not available yet.",
       interactionNeedsBackend:
         locale === "ko"
-          ? "좋아요와 복제를 하려면 먼저 LinKU backend를 연결해야 합니다."
-          : "Connect the LinKU backend before liking or cloning templates.",
+          ? "좋아요와 복제를 사용하려면 계정을 연결해 주세요."
+          : "Connect your account before liking or cloning templates.",
       interactionNeedsLogin:
         locale === "ko"
-          ? "좋아요와 복제를 하려면 LinKU 웹 로그인이 필요합니다."
-          : "Sign in to LinKU web before liking or cloning templates.",
+          ? "좋아요와 복제를 사용하려면 로그인해 주세요."
+          : "Sign in before liking or cloning templates.",
       likes: locale === "ko" ? "좋아요" : "Likes",
       clones: locale === "ko" ? "복제" : "Clones",
       clone: locale === "ko" ? "내 템플릿으로 복제" : "Clone to my templates",
@@ -147,7 +148,9 @@ export function WorkspaceTemplateGallery({
       return;
     }
 
-    void loadGallery();
+    const timer = window.setTimeout(() => void loadGallery(), 0);
+
+    return () => window.clearTimeout(timer);
   }, [backendConfigured, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -181,8 +184,8 @@ export function WorkspaceTemplateGallery({
       );
       setMessage(
         locale === "ko"
-          ? `"${template.name}" 템플릿을 내 backend 템플릿으로 복제했습니다.`
-          : `Cloned "${template.name}" into your backend template library.`,
+          ? `"${template.name}" 템플릿을 내 목록에 추가했습니다.`
+          : `Added "${template.name}" to your templates.`,
       );
     } catch (caughtError) {
       setError(
@@ -236,18 +239,12 @@ export function WorkspaceTemplateGallery({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-          {copy.eyebrow}
-        </p>
-        <h1 data-display="true" className="text-5xl tracking-[-0.05em]">
-          {copy.title}
-        </h1>
-        <p className="max-w-3xl text-lg leading-8 text-[var(--muted)]">
-          {copy.description}
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <WorkspacePageHeading
+        eyebrow={copy.eyebrow}
+        title={copy.title}
+        description={copy.description}
+      />
 
       <form
         className="flex flex-col gap-3 lg:flex-row lg:items-center"
@@ -257,13 +254,12 @@ export function WorkspaceTemplateGallery({
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder={copy.searchPlaceholder}
-          className="rounded-full bg-white"
         />
         <select
           value={sort}
           onChange={(event) => setSort(event.target.value as SortOption)}
           disabled={!backendConfigured}
-          className="h-11 rounded-full border border-black/10 bg-white px-4 text-sm text-[var(--ink)]"
+          className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option} value={option}>
@@ -274,14 +270,12 @@ export function WorkspaceTemplateGallery({
         <Button
           type="submit"
           variant="secondary"
-          className="rounded-full"
           disabled={!backendConfigured}
         >
           {locale === "ko" ? "검색" : "Search"}
         </Button>
         <Button
           type="button"
-          className="rounded-full"
           disabled={!backendConfigured}
           onClick={() => void loadGallery()}
         >
@@ -290,33 +284,33 @@ export function WorkspaceTemplateGallery({
       </form>
 
       {!backendConfigured ? (
-        <div className="rounded-[1.2rem] border border-black/8 bg-white p-4 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
           {copy.missingConfig}
         </div>
       ) : !canInteract ? (
-        <div className="rounded-[1.2rem] border border-black/8 bg-white p-4 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
           {!webSession ? copy.interactionNeedsLogin : copy.interactionNeedsBackend}
         </div>
       ) : null}
 
       {message ? (
-        <div className="rounded-[1.2rem] border border-[#b0c38f] bg-[#eff8df] p-4 text-sm text-[#30411e]">
+        <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
           {message}
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-[1.2rem] border border-[#d0a7a7] bg-[#fdf0f0] p-4 text-sm text-[#6d2d2d]">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="rounded-[1.2rem] border border-black/8 bg-white p-5 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
           {locale === "ko" ? "공개 템플릿을 불러오는 중입니다." : "Loading public templates."}
         </div>
       ) : templates.length === 0 ? (
-        <div className="rounded-[1.2rem] border border-dashed border-black/10 bg-white/70 p-5 text-sm text-[var(--muted)]">
+        <div className="rounded-lg border bg-muted/40 p-5 text-sm text-muted-foreground">
           {copy.empty}
         </div>
       ) : (
@@ -344,7 +338,6 @@ export function WorkspaceTemplateGallery({
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-full"
                     disabled={!canInteract || busyKey === `like-${template.postedTemplateId}`}
                     onClick={() => void handleLike(template)}
                   >
@@ -352,7 +345,6 @@ export function WorkspaceTemplateGallery({
                   </Button>
                   <Button
                     type="button"
-                    className="rounded-full"
                     disabled={!canInteract || busyKey === `clone-${template.postedTemplateId}`}
                     onClick={() => void handleClone(template)}
                   >

@@ -488,6 +488,15 @@ export interface DepartmentAlert {
  */
 export type Alert = GeneralAlert | DepartmentAlert;
 
+export interface WorkspaceAlertItem {
+  id: string;
+  title: string;
+  excerpt: string;
+  category: AlertCategory | RSSAlertCategory;
+  href: string;
+  publishedAt: string;
+}
+
 /**
  * Subscription entity
  */
