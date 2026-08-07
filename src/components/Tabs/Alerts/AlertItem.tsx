@@ -2,9 +2,11 @@ import type { Alert, AlertCategory } from "@/types/api";
 import { ExternalLink, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sendAlertsItemOpen } from "@/utils/analytics";
+import AlertSearchHighlight from "./AlertSearchHighlight";
 
 interface AlertItemProps {
   alert: Alert;
+  searchQuery?: string;
 }
 
 // 일반 공지 카테고리별 라벨 (표시용)
@@ -30,7 +32,7 @@ const categoryColors: Record<AlertCategory, string> = {
 // 표준 카테고리인지 확인 (학과명인 경우 false)
 const standardCategories = new Set<string>(["일반", "학사", "학생", "장학", "취창업", "국제"]);
 
-const AlertItem = ({ alert }: AlertItemProps) => {
+const AlertItem = ({ alert, searchQuery = "" }: AlertItemProps) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const year = date.getFullYear();
@@ -81,31 +83,39 @@ const AlertItem = ({ alert }: AlertItemProps) => {
               categoryColors[alert.category]
             )}
           >
-            {categoryLabels[alert.category]}
+            <AlertSearchHighlight
+              text={categoryLabels[alert.category]}
+              query={searchQuery}
+            />
           </span>
         )}
         {hasDepartment && (
           <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
-            {alert.department.name}
+            <AlertSearchHighlight
+              text={alert.department.name}
+              query={searchQuery}
+            />
           </span>
         )}
         {isDepartmentFromCategory && (
           <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
-            {alert.category}
+            <AlertSearchHighlight text={alert.category} query={searchQuery} />
           </span>
         )}
       </div>
 
       {/* 제목 */}
       <h3 className="font-medium text-base mb-2 flex items-start justify-between gap-2">
-        <span className="flex-1 break-words">{alert.title}</span>
+        <span className="flex-1 break-words">
+          <AlertSearchHighlight text={alert.title} query={searchQuery} />
+        </span>
         {isClickable && <ExternalLink className="h-4 w-4 flex-shrink-0 mt-0.5" />}
       </h3>
 
       {/* 내용 미리보기 */}
       {alert.content && (
         <p className="text-sm text-muted-foreground mb-3 line-clamp-2 break-words">
-          {alert.content}
+          <AlertSearchHighlight text={alert.content} query={searchQuery} />
         </p>
       )}
 

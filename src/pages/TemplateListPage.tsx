@@ -4,9 +4,10 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate } from '@/apis/templates';
 import type { TemplateSummary, PostedTemplateSummary } from '@/types/api';
+import type { BulletinInfo } from '@/constants/bulletin';
 
 // Extended type with needsSync flag
 interface TemplateSummaryWithSync extends TemplateSummary {
@@ -28,14 +29,44 @@ import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import { usePostedTemplates } from '@/hooks/usePostedTemplates';
 import { useTemplateSync } from '@/hooks/useTemplateSync';
 import { useTemplatePublish } from '@/hooks/useTemplatePublish';
+import {
+  resolveLatestBulletin,
+  subscribeLatestBulletin,
+} from '@/apis/external/bulletin';
 import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
 import { areItemsEqual } from '@/utils/templateUtils';
-import { LinkList } from '@/constants/LinkList';
+import { createDefaultLinkList } from '@/constants/LinkList';
 import { isLoggedIn } from '@/utils/oauth';
 import { warnLog, errorLog } from '@/utils/logger';
 import { sendTemplateApply, sendTemplateCreateStart, sendTemplateDelete } from '@/utils/analytics';
+
+function createDefaultTemplate(bulletin: BulletinInfo): TemplateSummary {
+  const defaultLinks = createDefaultLinkList(bulletin);
+  const defaultIcons = defaultLinks.map((link, index) => ({
+    id: index,
+    name: link.label,
+    imageUrl:
+      typeof link.icon === 'string'
+        ? link.icon
+        : convertLucideIconToDataUri(link.icon),
+  }));
+  const items = convertLinkListToTemplateItems(defaultIcons, defaultLinks);
+  const timestamp = new Date().toISOString();
+
+  return {
+    templateId: 0,
+    name: 'LinKU 기본 템플릿',
+    height: 6,
+    cloned: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    itemCount: items.length,
+    syncStatus: 'synced',
+    items,
+  };
+}
 
 export const TemplateListPage = () => {
   const navigate = useNavigate();
@@ -65,6 +96,18 @@ export const TemplateListPage = () => {
   useEffect(() => {
     toastRef.current = toast;
   }, [toast]);
+
+  useEffect(
+    () =>
+      subscribeLatestBulletin((bulletin) => {
+        setOwnedTemplates((templates) =>
+          templates[0]?.templateId === 0
+            ? [createDefaultTemplate(bulletin), ...templates.slice(1)]
+            : templates,
+        );
+      }),
+    [],
+  );
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
@@ -191,36 +234,8 @@ export const TemplateListPage = () => {
       }
 
       // 6. 기본 템플릿 추가 (항상 맨 위에 표시)
-      // Convert LinkList to Icon array (including lucide-react icons)
-      const defaultIcons = LinkList.map((link, index) => {
-        let imageUrl: string;
-
-        if (typeof link.icon === 'string') {
-          // PNG/URL 문자열
-          imageUrl = link.icon;
-        } else {
-          // LucideIcon 컴포넌트 → 데이터 URI 변환
-          imageUrl = convertLucideIconToDataUri(link.icon);
-        }
-
-        return {
-          id: index,
-          name: link.label,
-          imageUrl,
-        };
-      });
-      const defaultTemplateItems = convertLinkListToTemplateItems(defaultIcons);
-      const defaultTemplate: TemplateSummary = {
-        templateId: 0,
-        name: 'LinKU 기본 템플릿',
-        height: 6,
-        cloned: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        itemCount: defaultTemplateItems.length,
-        syncStatus: 'synced',
-        items: defaultTemplateItems,
-      };
+      const latestBulletin = await resolveLatestBulletin();
+      const defaultTemplate = createDefaultTemplate(latestBulletin);
 
       // 7. 최종 정렬 (updatedAt 기준 내림차순)
       mergedOwned.sort((a, b) => {

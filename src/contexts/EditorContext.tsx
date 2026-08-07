@@ -7,6 +7,9 @@ import { useReducer, useEffect, ReactNode } from 'react';
 import type { Template, TemplateItem, Icon } from '@/types/api';
 import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons, getMyIcons } from '@/apis/icons';
+import { resolveLatestBulletin } from '@/apis/external/bulletin';
+import { createDefaultLinkList } from '@/constants/LinkList';
+import { BULLETIN_FALLBACK } from '@/constants/bulletin';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { toast } from 'sonner';
@@ -474,10 +477,13 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      // Fetch both default icons and user icons in parallel
-      const [iconsResult, userIconsResult] = await Promise.allSettled([
+      // Fetch editor icons and resolve the bulletin only for default templates.
+      const [iconsResult, userIconsResult, bulletinResult] = await Promise.allSettled([
         getDefaultIcons(),
         getMyIcons(),
+        startFrom === 'empty'
+          ? Promise.resolve(BULLETIN_FALLBACK)
+          : resolveLatestBulletin(),
       ]);
 
       debugLog('[EditorContext] Icons API full response:', iconsResult);
@@ -542,7 +548,15 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           };
           dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
         } else {
-          const templateItems = convertLinkListToTemplateItems(defaultIcons);
+          const defaultLinks = createDefaultLinkList(
+            bulletinResult.status === 'fulfilled'
+              ? bulletinResult.value
+              : undefined,
+          );
+          const templateItems = convertLinkListToTemplateItems(
+            defaultIcons,
+            defaultLinks,
+          );
           const templateHeight = calculateTemplateHeight();
 
           const newTemplate: Template = {

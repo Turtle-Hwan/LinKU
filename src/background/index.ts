@@ -12,12 +12,14 @@ import {
   BackgroundMessageType,
   isGoogleLoginMessage,
   isSilentReauthMessage,
+  isTimetableImportMessage,
 } from "./types";
 import { debugLog, getErrorLogDetails, warnLog } from "@/utils/logger";
 import type {
   BackgroundMessage,
   GoogleLoginResponse,
   SilentReauthResponse,
+  TimetableImportResponse,
 } from "./types";
 import { handleGoogleLogin } from "./handlers/oauth";
 import {
@@ -25,8 +27,28 @@ import {
   TODO_BADGE_BACKGROUND_COLOR,
   TODO_BADGE_TEXT_COLOR,
 } from "@/utils/todo/badge";
+import {
+  handlePendingImportTabRemoved,
+  handlePendingImportTabUpdated,
+  handleTimetableImport,
+} from "./handlers/timetable";
 
 debugLog("[Background] Service worker initialized");
+
+async function restrictLocalStorageAccess(): Promise<void> {
+  try {
+    await chrome.storage.local.setAccessLevel({
+      accessLevel: "TRUSTED_CONTEXTS",
+    });
+  } catch (error) {
+    warnLog(
+      "[Background] Failed to restrict local storage access",
+      getErrorLogDetails(error),
+    );
+  }
+}
+
+void restrictLocalStorageAccess();
 
 /**
  * Message handler for popup -> background communication
@@ -115,6 +137,29 @@ chrome.runtime.onMessage.addListener(
       return true;
     }
 
+    if (isTimetableImportMessage(typedMessage)) {
+      handleTimetableImport(typedMessage.data?.mode)
+        .then((response: TimetableImportResponse) => {
+          sendResponse(response);
+        })
+        .catch((error: unknown) => {
+          warnLog(
+            "[Background] Timetable import handler error",
+            getErrorLogDetails(error),
+          );
+          sendResponse({
+            success: false,
+            code: "UNKNOWN",
+            error:
+              error instanceof Error
+                ? error.message
+                : "시간표를 가져오지 못했습니다.",
+          } satisfies TimetableImportResponse);
+        });
+
+      return true;
+    }
+
     // Unknown message type
     const unknownType = (message as { type: string }).type;
     warnLog("[Background] Unknown message type", { type: unknownType });
@@ -145,6 +190,27 @@ chrome.runtime.onInstalled.addListener((details) => {
  */
 chrome.runtime.onStartup.addListener(() => {
   debugLog("[Background] Browser started, service worker activated");
+  void restrictLocalStorageAccess();
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  handlePendingImportTabUpdated(tabId, changeInfo, tab).catch(
+    (error: unknown) => {
+      warnLog(
+        "[Background] Pending timetable import resume failed",
+        getErrorLogDetails(error),
+      );
+    },
+  );
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  handlePendingImportTabRemoved(tabId).catch((error: unknown) => {
+    warnLog(
+      "[Background] Pending timetable import cleanup failed",
+      getErrorLogDetails(error),
+    );
+  });
 });
 
 /**
@@ -182,5 +248,10 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 });
 
 // Export for type checking (not used at runtime)
-export type { BackgroundMessage, GoogleLoginResponse, SilentReauthResponse };
+export type {
+  BackgroundMessage,
+  GoogleLoginResponse,
+  SilentReauthResponse,
+  TimetableImportResponse,
+};
 export { BackgroundMessageType };

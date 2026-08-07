@@ -1,4 +1,10 @@
 import { HelloLmsPng } from "@/assets";
+import EverytimeSymbolUrl from "@/assets/everytime_symbol.svg";
+import {
+  BULLETIN_FALLBACK,
+  BULLETIN_LINK_ID,
+  type BulletinInfo,
+} from "@/constants/bulletin";
 import { executeScript, getCurrentTab, updateTabUrl } from "@/utils/chrome";
 import {
   sugangRefreshBtn,
@@ -13,7 +19,6 @@ import {
   Clock,
   Trophy,
   GraduationCap,
-  AlarmClock,
   MapPinned,
   Utensils,
   Building,
@@ -31,6 +36,7 @@ export interface SameHost {
 }
 
 export interface LinkListElement {
+  id?: string;
   icon: LucideIcon | string;
   label: string;
   link: string;
@@ -152,8 +158,8 @@ export const LinkList: LinkListElement[] = [
     link: "https://www.konkuk.ac.kr/general/18211/subview.do",
   },
   {
-    icon: AlarmClock,
-    iconColor: "text-red-600",
+    icon: EverytimeSymbolUrl,
+    type: "svg",
     label: "에브리타임",
     link: "https://account.everytime.kr/login",
   },
@@ -177,9 +183,10 @@ export const LinkList: LinkListElement[] = [
 
   // row6
   {
+    id: BULLETIN_LINK_ID,
     icon: ScrollText,
-    label: "2025 요람",
-    link: "https://www.konkuk.ac.kr/sites/bulletins25/index.do",
+    label: BULLETIN_FALLBACK.label,
+    link: BULLETIN_FALLBACK.url,
   },
   {
     icon: Building,
@@ -192,3 +199,13 @@ export const LinkList: LinkListElement[] = [
     link: "https://startup.konkuk.ac.kr",
   },
 ];
+
+export function createDefaultLinkList(
+  bulletin: BulletinInfo = BULLETIN_FALLBACK,
+): LinkListElement[] {
+  return LinkList.map((item) =>
+    item.id === BULLETIN_LINK_ID
+      ? { ...item, label: bulletin.label, link: bulletin.url }
+      : item,
+  );
+}

@@ -1,5 +1,5 @@
 import React, { Suspense, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import ImageCarousel from "./Tabs/ImageCarousel";
 import { GitHubSvg, LinkuLogoSvg } from "@/assets";
 import { Input } from "./ui/input";

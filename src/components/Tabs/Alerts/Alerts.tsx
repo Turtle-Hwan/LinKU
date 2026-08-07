@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
-import { getAlerts } from "@/apis";
+import { useState, useEffect, useMemo } from "react";
+import { getAlerts, getCachedAlerts } from "@/apis";
 import type { Alert, AlertCategory } from "@/types/api";
 import { getStorage, setStorage } from "@/utils/chrome";
 import { isLoggedIn as checkLoggedIn } from "@/utils/oauth";
 import { toast } from "sonner";
 import AlertItem from "./AlertItem";
 import AlertFilter from "./AlertFilter";
+import AlertSearch from "./AlertSearch";
 import MyAlertsView from "./MyAlertsView";
 import { Badge } from "@/components/ui/badge";
 import { errorLog } from '@/utils/logger';
 import { sendAlertsView } from '@/utils/analytics';
+import { matchesAlertQuery } from "./alertSearchUtils";
 
 type AlertViewMode = "all" | "my";
 
@@ -33,35 +35,13 @@ const Alerts = () => {
   const [viewMode, setViewMode] = useState<AlertViewMode>("all");
   const [selectedCategory, setSelectedCategory] = useState<AlertCategory | undefined>(undefined);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // 공지사항 목록 가져오기
-  const fetchAlerts = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
-      const result = await getAlerts(selectedCategory ? { category: selectedCategory } : undefined);
-
-      if (result.success && result.data) {
-        let sortedData = result.data;
-
-        // "전체" 선택 시 날짜/시간 순서대로 정렬 (최신순)
-        if (selectedCategory === undefined) {
-          sortedData = [...result.data].sort((a, b) =>
-            new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-          );
-        }
-
-        setAlerts(sortedData);
-      } else {
-        toast.error(result.error?.message || "공지사항을 불러오는데 실패했습니다.");
-      }
-    } catch (error) {
-      errorLog("Error fetching alerts:", error);
-      toast.error("공지사항을 불러오는 중 오류가 발생했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedCategory]);
+  const filteredAlerts = useMemo(
+    () => alerts.filter((alert) => matchesAlertQuery(alert, searchQuery)),
+    [alerts, searchQuery]
+  );
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
   // 초기화: 설정 + 로그인 상태를 한 번에 로드
   useEffect(() => {
@@ -94,12 +74,63 @@ const Alerts = () => {
     initialize();
   }, []);
 
-  // viewMode가 "all"일 때만 공지사항 가져오기
+  // 캐시를 먼저 표시하고 만료된 source만 뒤에서 갱신한다.
   useEffect(() => {
-    if (viewMode === "all") {
-      fetchAlerts();
+    if (!isInitialized || viewMode !== "all") {
+      return;
     }
-  }, [viewMode, fetchAlerts]);
+
+    let cancelled = false;
+
+    const loadAlerts = async () => {
+      const params = selectedCategory
+        ? { category: selectedCategory }
+        : undefined;
+      let hasCachedAlerts = false;
+      setIsLoading(true);
+
+      try {
+        const cachedAlerts = await getCachedAlerts(params);
+        if (cancelled) return;
+
+        if (cachedAlerts.length > 0) {
+          hasCachedAlerts = true;
+          setAlerts(cachedAlerts);
+          setIsLoading(false);
+        } else {
+          setAlerts([]);
+        }
+
+        const result = await getAlerts(params);
+        if (cancelled) return;
+
+        if (result.success && result.data) {
+          setAlerts(result.data);
+        } else if (!hasCachedAlerts) {
+          toast.error(
+            result.error?.message || "공지사항을 불러오는데 실패했습니다.",
+          );
+        }
+      } catch (error) {
+        if (cancelled) return;
+
+        errorLog("Error fetching alerts:", error);
+        if (!hasCachedAlerts) {
+          toast.error("공지사항을 불러오는 중 오류가 발생했습니다.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadAlerts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitialized, selectedCategory, viewMode]);
 
   // 뷰 모드 변경
   const handleViewModeChange = async (mode: AlertViewMode) => {
@@ -135,6 +166,8 @@ const Alerts = () => {
           />
         </div>
 
+        <AlertSearch value={searchQuery} onValueChange={setSearchQuery} />
+
         {/* 카테고리 필터 (모든 공지 모드일 때만 표시) */}
         <div className={viewMode === "all" ? "flex gap-2 flex-wrap" : "hidden"}>
           {categories.map((category) => (
@@ -157,7 +190,7 @@ const Alerts = () => {
       >
         {/* 내 공지 모드 */}
         <div className={viewMode === "my" ? "" : "hidden"}>
-          {loggedIn && <MyAlertsView />}
+          {loggedIn && <MyAlertsView searchQuery={searchQuery} />}
         </div>
         {/* 모든 공지 모드 */}
         <div className={viewMode === "all" ? "space-y-3" : "hidden"}>
@@ -165,13 +198,21 @@ const Alerts = () => {
             <div className="flex justify-center p-8">
               <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
             </div>
-          ) : alerts.length > 0 ? (
-            alerts.map((alert) => (
-              <AlertItem key={alert.alertId} alert={alert} />
+          ) : filteredAlerts.length > 0 ? (
+            filteredAlerts.map((alert) => (
+              <AlertItem
+                key={alert.url || alert.alertId}
+                alert={alert}
+                searchQuery={searchQuery}
+              />
             ))
           ) : (
             <div className="text-center p-8 text-muted-foreground">
-              <p>공지사항이 없습니다</p>
+              <p>
+                {hasSearchQuery && alerts.length > 0
+                  ? "검색 결과가 없습니다."
+                  : "공지사항이 없습니다."}
+              </p>
             </div>
           )}
         </div>

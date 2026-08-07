@@ -1,9 +1,9 @@
 /**
  * Route definitions for LinKU Chrome Extension
- * Standard React Router v6 pattern: App as root with nested routes
+ * App as root with nested routes
  */
 
-import { RouteObject } from 'react-router-dom';
+import type { RouteObject } from 'react-router';
 import App from '@/App';
 import MainLayout from '@/components/MainLayout';
 import { EditorLayout } from '@/layouts/EditorLayout';

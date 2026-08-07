@@ -1,4 +1,4 @@
-name: Upload Chrome Extension Draft
+name: Release Chrome Extension
 
 on:
   push:
@@ -8,65 +8,110 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-chrome-extension
+  cancel-in-progress: false
+
 jobs:
-  upload-draft:
+  release:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Validate Chrome Web Store configuration
+        env:
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+        shell: bash
+        run: |
+          missing=()
+
+          for name in CLIENT_ID CLIENT_SECRET REFRESH_TOKEN EXTENSION_ID PUBLISHER_ID; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing Chrome Web Store configuration: ${missing[*]}"
+            exit 1
+          fi
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Update version
-        run: node scripts/updateVersion.js
+        id: version
+        run: |
+          node scripts/updateVersion.js
+          VERSION=$(node -p "require('./public/manifest.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build extension
         env:
           VITE_GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-        run: tsc -b && pnpm exec vite build --mode production
+        run: tsc -b && pnpm exec vite build --mode production && pnpm run check:content-scripts
 
-      - name: Create extension zip
-        run: |
-          cd dist
-          zip -r ../extension.zip .
-          cd ..
+      - name: Create dist.zip
+        run: (cd dist && zip -r ../dist.zip .)
 
       - name: Install chrome-webstore-upload-cli
-        run: npm install -g chrome-webstore-upload-cli
+        run: npm install --global chrome-webstore-upload-cli@4.0.1
 
       - name: Upload to Chrome Web Store (Draft only)
-        run: |
-          chrome-webstore-upload upload \
-            --source extension.zip \
-            --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
-            --client-id ${{ secrets.CHROME_CLIENT_ID }} \
-            --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
-            --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }}
+        env:
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+        run: chrome-webstore-upload upload --source dist.zip
 
       - name: Commit and push version update
+        id: commit
         run: |
-          # Git 설정
-          git config --local user.email ${{ secrets.GIT_USER_EMAIL }}
-          git config --local user.name "Turtle-Hwan"
-
-          # 현재 버전 읽기
-          VERSION=$(node -p "require('./public/manifest.json').version")
-
-          # 변경사항 커밋 및 푸시
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add public/manifest.json
-          git commit -m "chore: bump version to ${VERSION} [skip ci]"
-          git push
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.version }}
+          target_commitish: ${{ steps.commit.outputs.sha }}
+          body: |
+            ## LinKU ${{ steps.version.outputs.version }}
+
+            ### 설치 방법
+
+            #### [크롬 확장 스토어에서 바로 다운로드하기](https://chromewebstore.google.com/detail/linku/fmfbhmifnohhfiblebbdjlioppfppbgh?hl=ko)
+
+            #### 로컬 설치 방법
+            1. dist.zip 파일을 다운로드하고 압축을 풉니다
+            2. Chrome 확장 프로그램 페이지에서 "개발자 모드"를 활성화합니다
+            3. "압축해제된 확장 프로그램을 로드합니다"를 클릭하고 압축 해제한 폴더를 선택합니다
+          files: dist.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true

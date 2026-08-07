@@ -37,6 +37,11 @@ export default defineConfig(({ mode }) => {
               main: path.resolve(__dirname, "index.html"),
               // Background service worker entry point
               "background/index": path.resolve(__dirname, "src/background/index.ts"),
+              // Everytime timetable capture content script
+              "content/everytime-timetable": path.resolve(
+                __dirname,
+                "src/content/everytime-timetable.ts",
+              ),
             }
           : undefined,
         output: {

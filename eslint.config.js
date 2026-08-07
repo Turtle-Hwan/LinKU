@@ -19,6 +19,11 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // LinKU does not use React Compiler yet. Keep the pre-7.1 lint contract
+      // until compiler-oriented hook migrations can be handled separately.
+      'react-hooks/immutability': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
       'no-console': 'error',
       'react-refresh/only-export-components': [
         'warn',

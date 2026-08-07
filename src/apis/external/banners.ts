@@ -12,6 +12,8 @@ export interface BannerItemType {
   img: string;
   alt: string;
   link: string;
+  startAt?: string;
+  endAt?: string;
 }
 
 /**

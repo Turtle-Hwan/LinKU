@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <table id="primary-legacy" name="기본 시간표" primary="1" />
+  <table id="secondary" name="다른 시간표" primary="0" />
+  <table id="primary-current" name="새 속성 시간표" is_primary="1" />
+</response>
