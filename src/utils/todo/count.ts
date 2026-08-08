@@ -67,11 +67,14 @@ const writeTodoCount = async (
  * popup 진입 시 eCampus를 새로 불러오고 전체 count를 갱신한다.
  * 일시 실패는 마지막 정상 eCampus count를 유지하고, 로그인 해제는 0으로 반영한다.
  */
-export const refreshTodoCount = async (): Promise<number> => {
+export const refreshTodoCount = async (
+  expectedGeneration?: number,
+): Promise<number> => {
   try {
     const result = await loadECampusTodos({
       allowAutoLogin: true,
       clearExpiredCredentials: true,
+      expectedGeneration,
     });
 
     return await writeTodoCount((snapshot) => {

@@ -22,6 +22,7 @@ import {
   sendTodoView,
 } from "@/utils/analytics";
 import { subscribeECampusTodosChange } from "@/utils/ecampus/todos";
+import { resolveECampusTodosAfterLoad } from "@/utils/ecampus/todoState";
 import { errorLog } from "@/utils/logger";
 import {
   syncTodoCountAfterCustomChange,
@@ -99,15 +100,17 @@ export function useTodoListData() {
         return null;
       }
 
+      setECampusTodos((currentTodos) =>
+        resolveECampusTodosAfterLoad(currentTodos, result),
+      );
+
       if (result.success) {
-        updateECampusTodos(result.todos);
         setECampusNeedsLogin(false);
         setECampusError("");
         await syncTodoCountWithECampusTodos(result.todos);
         return null;
       }
 
-      updateECampusTodos([]);
       setECampusNeedsLogin(Boolean(result.needsLogin));
       setECampusError(result.needsLogin ? "" : (result.error ?? ""));
       if (result.needsLogin) {
@@ -117,7 +120,7 @@ export function useTodoListData() {
       }
       return result.error ?? (result.needsLogin ? "로그인이 필요합니다." : null);
     },
-    [updateECampusTodos],
+    [],
   );
 
   const loadECampusTodoList = useCallback(async () => {
@@ -133,7 +136,6 @@ export function useTodoListData() {
       await applyECampusResult(result);
     } catch (error) {
       errorLog("Error loading eCampus todo list:", error);
-      updateECampusTodos([]);
       setECampusNeedsLogin(false);
       setECampusError("eCampus 할 일을 불러오는 중 오류가 발생했습니다.");
       await syncTodoCountAfterCustomChange();
@@ -143,7 +145,6 @@ export function useTodoListData() {
   }, [
     applyECampusResult,
     loadECampusTodosWithAuth,
-    updateECampusTodos,
   ]);
 
   const loadTodoList = useCallback(async () => {
@@ -194,19 +195,21 @@ export function useTodoListData() {
     await syncTodoCountAfterCustomChange();
   }, [loadAndStoreCustomTodos]);
 
-  const handleLoginSuccess = useCallback(async (): Promise<LoginResult> => {
+  const handleLoginSuccess = useCallback(async (
+    expectedGeneration: number,
+  ): Promise<LoginResult> => {
     setIsECampusLoading(true);
 
     try {
       const result = await loadECampusTodosWithAuth({
         allowAutoLogin: false,
         openLoginModal: false,
+        expectedGeneration,
       });
 
       return await applyECampusResult(result);
     } catch (error) {
       errorLog("Error loading eCampus todos after login:", error);
-      updateECampusTodos([]);
       setECampusNeedsLogin(false);
       setECampusError(
         "eCampus 할 일을 다시 불러오는 중 오류가 발생했습니다.",
@@ -219,7 +222,6 @@ export function useTodoListData() {
   }, [
     applyECampusResult,
     loadECampusTodosWithAuth,
-    updateECampusTodos,
   ]);
 
   const handleToggleTodo = useCallback(

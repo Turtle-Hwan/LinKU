@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-import { eCampusLoginAPI, type ECampusLoginResponse } from "@/apis";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,14 +14,18 @@ import {
   clearECampusCredentials,
   saveECampusCredentials,
 } from "@/utils/credentials";
-import { invalidateECampusTodosCache } from "@/utils/ecampus/todos";
+import {
+  isECampusAccountCurrent,
+  loginECampusAccount,
+  notifyECampusTodosChange,
+} from "@/utils/ecampus/todos";
 import { errorLog } from "@/utils/logger";
 import { clearECampusTodoCount } from "@/utils/todo/count";
 
 interface LoginDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onLoginSuccess: () => Promise<string | null>;
+  onLoginSuccess: (expectedGeneration: number) => Promise<string | null>;
 }
 
 const LoginDialog = ({
@@ -52,12 +55,17 @@ const LoginDialog = ({
     setIsSubmitting(true);
 
     try {
-      invalidateECampusTodosCache();
-
-      const loginResult: ECampusLoginResponse = await eCampusLoginAPI(
+      const loginAttempt = await loginECampusAccount(
         userId,
         userPw,
       );
+
+      if (loginAttempt.superseded) {
+        setError("다른 eCampus 계정 변경으로 로그인 요청이 취소되었습니다.");
+        return;
+      }
+
+      const loginResult = loginAttempt.result;
 
       if (!loginResult.success) {
         setError(
@@ -66,10 +74,6 @@ const LoginDialog = ({
         );
         return;
       }
-
-      await clearECampusTodoCount().catch((countError) => {
-        errorLog("[LoginDialog] Failed to clear eCampus todo count:", countError);
-      });
 
       if (rememberLogin) {
         try {
@@ -81,7 +85,21 @@ const LoginDialog = ({
         await clearECampusCredentials();
       }
 
-      const loadError = await onLoginSuccess();
+      if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
+        setError("다른 eCampus 계정 변경으로 로그인 요청이 취소되었습니다.");
+        return;
+      }
+
+      await clearECampusTodoCount().catch((countError) => {
+        errorLog("[LoginDialog] Failed to clear eCampus todo count:", countError);
+      });
+      if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
+        setError("다른 eCampus 계정 변경으로 로그인 요청이 취소되었습니다.");
+        return;
+      }
+
+      notifyECampusTodosChange("clear");
+      const loadError = await onLoginSuccess(loginAttempt.requestGeneration);
       if (loadError) {
         setError(loadError);
         return;
@@ -116,6 +134,7 @@ const LoginDialog = ({
               value={userId}
               onChange={(event) => setUserId(event.target.value)}
               placeholder="아이디 입력"
+              disabled={isSubmitting}
               onKeyDown={(event) =>
                 event.key === "Enter" && void handleLogin()
               }
@@ -132,6 +151,7 @@ const LoginDialog = ({
               value={userPw}
               onChange={(event) => setUserPw(event.target.value)}
               placeholder="비밀번호 입력"
+              disabled={isSubmitting}
               onKeyDown={(event) =>
                 event.key === "Enter" && void handleLogin()
               }
@@ -145,6 +165,7 @@ const LoginDialog = ({
               className="h-4 w-4 mr-2 text-primary border-gray-300 rounded focus:ring-primary"
               checked={rememberLogin}
               onChange={(event) => setRememberLogin(event.target.checked)}
+              disabled={isSubmitting}
             />
             <label htmlFor="rememberLogin" className="text-sm font-medium">
               로그인 상태 유지

@@ -34,10 +34,12 @@ export function useECampusAuth() {
       const {
         allowAutoLogin = true,
         openLoginModal: shouldOpenLoginModal = true,
+        expectedGeneration,
       } = options;
       const result = await loadECampusTodosWithLogin({
         allowAutoLogin,
         clearExpiredCredentials: true,
+        expectedGeneration,
       });
 
       if (result.loginOutcome === "auto-login-succeeded") {

@@ -1,4 +1,8 @@
-import { eCampusLoginAPI, eCampusTodoListAPI } from "@/apis";
+import {
+  eCampusLoginAPI,
+  eCampusTodoListAPI,
+  type ECampusLoginResponse,
+} from "@/apis";
 import type { ECampusTodoItem } from "@/types/todo";
 import {
   clearECampusCredentials,
@@ -6,9 +10,15 @@ import {
 } from "@/utils/credentials";
 import { debugLog, errorLog } from "@/utils/logger";
 
+import {
+  createSerializedAuthQueue,
+  type SerializedAuthAttempt,
+} from "./authQueue";
+
 export interface LoadECampusTodosOptions {
   allowAutoLogin?: boolean;
   clearExpiredCredentials?: boolean;
+  expectedGeneration?: number;
 }
 
 export interface LoadECampusTodosResult {
@@ -37,10 +47,19 @@ interface CachedECampusTodosResult {
 export type ECampusTodosChange = "clear" | "refresh";
 type ECampusTodosChangeListener = (change: ECampusTodosChange) => void;
 
+export type ECampusAccountLoginAttempt =
+  | { superseded: true }
+  | {
+      superseded: false;
+      result: ECampusLoginResponse;
+      requestGeneration: number;
+    };
+
 const ECAMPUS_TODO_CACHE_TTL_MS = 30_000;
 const cachedResults = new Map<string, CachedECampusTodosResult>();
 const inFlightLoads = new Map<string, Promise<LoadECampusTodosResult>>();
 const changeListeners = new Set<ECampusTodosChangeListener>();
+const eCampusAuthQueue = createSerializedAuthQueue();
 let cacheGeneration = 0;
 
 const normalizeOptions = (
@@ -73,11 +92,15 @@ const withoutLoginOutcome = (
 /**
  * 로그인 세션 또는 저장된 계정이 바뀌면 이전 계정의 cache와 진행 중 결과를 폐기한다.
  */
-export const invalidateECampusTodosCache = () => {
+export const invalidateECampusTodosCache = (): number => {
   cacheGeneration += 1;
   cachedResults.clear();
   inFlightLoads.clear();
+  return cacheGeneration;
 };
+
+export const isECampusAccountCurrent = (requestGeneration: number): boolean =>
+  requestGeneration === cacheGeneration;
 
 /**
  * 계정 변경 결과를 현재 열려 있는 Todo 화면에 명시적으로 전달한다.
@@ -93,6 +116,35 @@ export const subscribeECampusTodosChange = (
   return () => {
     changeListeners.delete(listener);
   };
+};
+
+const authenticateECampusAccount = (
+  userId: string,
+  userPassword: string,
+  requestGeneration: number,
+): Promise<SerializedAuthAttempt<ECampusLoginResponse>> =>
+  eCampusAuthQueue.run(
+    () => requestGeneration === cacheGeneration,
+    () => eCampusLoginAPI(userId, userPassword),
+  );
+
+/**
+ * 수동 로그인도 자동 로그인과 같은 queue를 사용해 기존 세션을 덮어쓰지 않게 한다.
+ */
+export const loginECampusAccount = (
+  userId: string,
+  userPassword: string,
+): Promise<ECampusAccountLoginAttempt> => {
+  const requestGeneration = invalidateECampusTodosCache();
+  return authenticateECampusAccount(
+    userId,
+    userPassword,
+    requestGeneration,
+  ).then((attempt) =>
+    attempt.superseded
+      ? attempt
+      : { ...attempt, requestGeneration },
+  );
 };
 
 const fetchECampusTodos = async (): Promise<LoadECampusTodosResult> => {
@@ -126,6 +178,7 @@ const fetchECampusTodos = async (): Promise<LoadECampusTodosResult> => {
 
 const loadECampusTodosUncached = async (
   options: NormalizedLoadECampusTodosOptions,
+  requestGeneration: number,
 ): Promise<LoadECampusTodosResult> => {
   const { allowAutoLogin, clearExpiredCredentials } = options;
 
@@ -144,13 +197,27 @@ const loadECampusTodosUncached = async (
       return directResult;
     }
 
-    const loginResult = await eCampusLoginAPI(
+    if (requestGeneration !== cacheGeneration) {
+      return createSupersededResult();
+    }
+
+    const loginAttempt = await authenticateECampusAccount(
       credentials.id,
-      credentials.password
+      credentials.password,
+      requestGeneration,
     );
+    if (loginAttempt.superseded) {
+      return createSupersededResult();
+    }
+
+    const loginResult = loginAttempt.result;
 
     if (loginResult.success) {
       const retryResult = await fetchECampusTodos();
+      if (requestGeneration !== cacheGeneration) {
+        return createSupersededResult();
+      }
+
       if (retryResult.success) {
         return {
           ...retryResult,
@@ -176,8 +243,12 @@ const loadECampusTodosUncached = async (
 
     if (loginResult.data?.isError) {
       debugLog("[Auto-login] Auth failed, clearing credentials");
-      if (clearExpiredCredentials) {
+      if (clearExpiredCredentials && requestGeneration === cacheGeneration) {
         await clearECampusCredentials();
+      }
+
+      if (requestGeneration !== cacheGeneration) {
+        return createSupersededResult();
       }
 
       return {
@@ -204,7 +275,11 @@ const loadECampusTodosUncached = async (
 export const loadECampusTodos = (
   options: LoadECampusTodosOptions = {},
 ): Promise<LoadECampusTodosResult> => {
-  const requestGeneration = cacheGeneration;
+  const requestGeneration = options.expectedGeneration ?? cacheGeneration;
+  if (!isECampusAccountCurrent(requestGeneration)) {
+    return Promise.resolve(createSupersededResult());
+  }
+
   const normalizedOptions = normalizeOptions(options);
   const requestKey = getRequestKey(normalizedOptions);
   const cached = cachedResults.get(requestKey);
@@ -219,7 +294,7 @@ export const loadECampusTodos = (
     return inFlight;
   }
 
-  const request = loadECampusTodosUncached(normalizedOptions)
+  const request = loadECampusTodosUncached(normalizedOptions, requestGeneration)
     .then((result) => {
       if (requestGeneration !== cacheGeneration) {
         return createSupersededResult();

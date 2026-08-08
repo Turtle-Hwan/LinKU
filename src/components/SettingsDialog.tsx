@@ -34,7 +34,6 @@ import {
   isGuestUser,
   UserProfile,
 } from "@/utils/oauth";
-import { eCampusLoginAPI } from "@/apis";
 import { Info, Palette, LogOut, Mail, User, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
@@ -43,6 +42,8 @@ import TodoDeadlineBadge from "@/components/Tabs/TodoList/TodoDeadlineBadge";
 import { calculateDDay } from "@/utils/todo/dateFormat";
 import {
   invalidateECampusTodosCache,
+  isECampusAccountCurrent,
+  loginECampusAccount,
   notifyECampusTodosChange,
 } from "@/utils/ecampus/todos";
 import {
@@ -61,6 +62,7 @@ const ECampusCredential = () => {
   const [savedPassword, setSavedPassword] = useState<string>("");
   const [hasCredentials, setHasCredentials] = useState<boolean>(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // 설정 페이지 열릴 때 저장된 계정 정보 불러오기
   useEffect(() => {
@@ -98,38 +100,60 @@ const ECampusCredential = () => {
       return;
     }
 
+    setIsSaving(true);
+
     try {
-      // 1. 암호화 및 저장
+      const loginAttempt = await loginECampusAccount(savedId, savedPassword);
+      if (loginAttempt.superseded) {
+        toast.error("다른 계정 변경으로 저장을 완료하지 않았습니다.");
+        return;
+      }
+
+      if (!loginAttempt.result.success) {
+        toast.error(
+          loginAttempt.result.data?.message ??
+            "eCampus 로그인에 실패했습니다. ID와 비밀번호를 확인해주세요.",
+        );
+        return;
+      }
+
+      // 검증에 성공한 계정만 브라우저에 저장한다.
       await saveECampusCredentials(savedId, savedPassword);
-      invalidateECampusTodosCache();
+      if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
+        return;
+      }
 
       setHasCredentials(true);
       sendSettingsCredentialsSaved();
-      toast.success("인증 정보가 저장되었습니다.");
 
-      // 2. 로그인 검증 (백그라운드)
-      const loginResult = await eCampusLoginAPI(savedId, savedPassword);
-
-      // 2-1. 검증 결과 별도 toast
-      if (loginResult.success) {
-        await clearECampusTodoCount().catch((countError) => {
-          errorLog("[Settings] Failed to clear eCampus todo count:", countError);
-        });
-        await refreshTodoCount();
-        notifyECampusTodosChange("refresh");
-        toast.success("eCampus 로그인 성공");
-      } else {
-        toast.error("eCampus 로그인 실패");
+      await clearECampusTodoCount().catch((countError) => {
+        errorLog("[Settings] Failed to clear eCampus todo count:", countError);
+      });
+      if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
+        return;
       }
+
+      notifyECampusTodosChange("clear");
+      await refreshTodoCount(loginAttempt.requestGeneration);
+      if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
+        return;
+      }
+
+      notifyECampusTodosChange("refresh");
+      toast.success("인증 정보를 저장하고 eCampus 로그인을 확인했습니다.");
     } catch (error) {
       errorLog("[Settings] Save credentials error:", error);
       toast.error("인증 정보 저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   // 인증 정보 삭제하기
   const deleteCredentials = async () => {
     if (!confirm("저장된 인증 정보를 삭제하시겠습니까?")) return;
+
+    setIsSaving(true);
 
     try {
       await clearECampusCredentials();
@@ -146,6 +170,8 @@ const ECampusCredential = () => {
     } catch (error) {
       errorLog("[Settings] Delete credentials error:", error);
       toast.error("인증 정보 삭제에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -164,6 +190,7 @@ const ECampusCredential = () => {
               value={savedId}
               onChange={(e) => setSavedId(e.target.value)}
               placeholder="아이디 입력"
+              disabled={isSaving}
             />
           </div>
 
@@ -178,10 +205,12 @@ const ECampusCredential = () => {
                 value={savedPassword}
                 onChange={(e) => setSavedPassword(e.target.value)}
                 placeholder="비밀번호 입력"
+                disabled={isSaving}
               />
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isSaving}
                 onClick={() => {
                   sendButtonClick("password_toggle", "settings_dialog");
                   setIsPasswordVisible(!isPasswordVisible);
@@ -203,13 +232,13 @@ const ECampusCredential = () => {
         <Button
           variant="outline"
           onClick={deleteCredentials}
-          disabled={!hasCredentials}
+          disabled={!hasCredentials || isSaving}
           className="flex-1"
         >
           삭제
         </Button>
-        <Button onClick={saveCredentials} className="flex-1">
-          저장
+        <Button onClick={saveCredentials} disabled={isSaving} className="flex-1">
+          {isSaving ? "확인 중..." : "저장"}
         </Button>
       </div>
     </>
