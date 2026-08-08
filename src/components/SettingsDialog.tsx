@@ -19,6 +19,7 @@ import {
   sendAuthLogout,
   sendSettingsCredentialsSaved,
   sendSettingsCredentialsDeleted,
+  sendSettingChange,
 } from "@/utils/analytics";
 import {
   saveECampusCredentials,
@@ -33,10 +34,22 @@ import {
   isGuestUser,
   UserProfile,
 } from "@/utils/oauth";
-import { eCampusLoginAPI } from "@/apis";
-import { Info, Palette, LogOut, Mail, User } from "lucide-react";
+import { Info, Palette, LogOut, Mail, User, Timer } from "lucide-react";
 import { toast } from "sonner";
+import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
+import TodoDeadlineBadge from "@/components/Tabs/TodoList/TodoDeadlineBadge";
+import { calculateDDay } from "@/utils/todo/dateFormat";
+import {
+  invalidateECampusTodosCache,
+  isECampusAccountCurrent,
+  loginECampusAccount,
+  notifyECampusTodosChange,
+} from "@/utils/ecampus/todos";
+import {
+  clearECampusTodoCount,
+  refreshTodoCount,
+} from "@/utils/todo/count";
 import { errorLog } from '@/utils/logger';
 
 interface SettingsDialogProps {
@@ -49,6 +62,7 @@ const ECampusCredential = () => {
   const [savedPassword, setSavedPassword] = useState<string>("");
   const [hasCredentials, setHasCredentials] = useState<boolean>(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // 설정 페이지 열릴 때 저장된 계정 정보 불러오기
   useEffect(() => {
@@ -86,26 +100,52 @@ const ECampusCredential = () => {
       return;
     }
 
+    setIsSaving(true);
+
     try {
-      // 1. 암호화 및 저장
+      const loginAttempt = await loginECampusAccount(savedId, savedPassword);
+      if (loginAttempt.superseded) {
+        toast.error("다른 계정 변경으로 저장을 완료하지 않았습니다.");
+        return;
+      }
+
+      if (!loginAttempt.result.success) {
+        toast.error(
+          loginAttempt.result.data?.message ??
+            "eCampus 로그인에 실패했습니다. ID와 비밀번호를 확인해주세요.",
+        );
+        return;
+      }
+
+      // 검증에 성공한 계정만 브라우저에 저장한다.
       await saveECampusCredentials(savedId, savedPassword);
+      if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
+        return;
+      }
 
       setHasCredentials(true);
       sendSettingsCredentialsSaved();
-      toast.success("인증 정보가 저장되었습니다.");
 
-      // 2. 로그인 검증 (백그라운드)
-      const loginResult = await eCampusLoginAPI(savedId, savedPassword);
-
-      // 2-1. 검증 결과 별도 toast
-      if (loginResult.success) {
-        toast.success("eCampus 로그인 성공");
-      } else {
-        toast.error("eCampus 로그인 실패");
+      await clearECampusTodoCount().catch((countError) => {
+        errorLog("[Settings] Failed to clear eCampus todo count:", countError);
+      });
+      if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
+        return;
       }
+
+      notifyECampusTodosChange("clear");
+      await refreshTodoCount(loginAttempt.requestGeneration);
+      if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
+        return;
+      }
+
+      notifyECampusTodosChange("refresh");
+      toast.success("인증 정보를 저장하고 eCampus 로그인을 확인했습니다.");
     } catch (error) {
       errorLog("[Settings] Save credentials error:", error);
       toast.error("인증 정보 저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -113,8 +153,15 @@ const ECampusCredential = () => {
   const deleteCredentials = async () => {
     if (!confirm("저장된 인증 정보를 삭제하시겠습니까?")) return;
 
+    setIsSaving(true);
+
     try {
       await clearECampusCredentials();
+      invalidateECampusTodosCache();
+      await clearECampusTodoCount().catch((countError) => {
+        errorLog("[Settings] Failed to clear eCampus todo count:", countError);
+      });
+      notifyECampusTodosChange("clear");
       setSavedId("");
       setSavedPassword("");
       setHasCredentials(false);
@@ -123,6 +170,8 @@ const ECampusCredential = () => {
     } catch (error) {
       errorLog("[Settings] Delete credentials error:", error);
       toast.error("인증 정보 삭제에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -141,6 +190,7 @@ const ECampusCredential = () => {
               value={savedId}
               onChange={(e) => setSavedId(e.target.value)}
               placeholder="아이디 입력"
+              disabled={isSaving}
             />
           </div>
 
@@ -155,10 +205,12 @@ const ECampusCredential = () => {
                 value={savedPassword}
                 onChange={(e) => setSavedPassword(e.target.value)}
                 placeholder="비밀번호 입력"
+                disabled={isSaving}
               />
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isSaving}
                 onClick={() => {
                   sendButtonClick("password_toggle", "settings_dialog");
                   setIsPasswordVisible(!isPasswordVisible);
@@ -180,13 +232,13 @@ const ECampusCredential = () => {
         <Button
           variant="outline"
           onClick={deleteCredentials}
-          disabled={!hasCredentials}
+          disabled={!hasCredentials || isSaving}
           className="flex-1"
         >
           삭제
         </Button>
-        <Button onClick={saveCredentials} className="flex-1">
-          저장
+        <Button onClick={saveCredentials} disabled={isSaving} className="flex-1">
+          {isSaving ? "확인 중..." : "저장"}
         </Button>
       </div>
     </>
@@ -242,9 +294,9 @@ const GoogleOAuthSection = () => {
       setUserProfile(profile);
 
       // Load verified email if exists
-      const storage = await chrome.storage.local.get(['kuMail']);
-      if (typeof storage.kuMail === 'string') {
-        setVerifiedEmail(storage.kuMail);
+      const kuMail = await getStorage<string>('kuMail');
+      if (kuMail) {
+        setVerifiedEmail(kuMail);
       }
     }
   };
@@ -302,9 +354,9 @@ const GoogleOAuthSection = () => {
         setUserProfile(result.response.profile);
 
         // Load verified email
-        const storage = await chrome.storage.local.get(['kuMail']);
-        if (typeof storage.kuMail === 'string') {
-          setVerifiedEmail(storage.kuMail);
+        const kuMail = await getStorage<string>('kuMail');
+        if (kuMail) {
+          setVerifiedEmail(kuMail);
         }
 
         toast.success("회원가입 완료!", {
@@ -454,10 +506,18 @@ const GoogleOAuthSection = () => {
 
 const TemplateEditorSection = () => {
   const handleOpenEditor = () => {
-    // 새 탭에서 템플릿 에디터 열기
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('index.html#/editor')
-    });
+    sendButtonClick("open_template_editor", "settings_dialog");
+
+    const chromeApi = getChromeApi();
+    const editorUrl = chromeApi?.runtime?.getURL
+      ? chromeApi.runtime.getURL('index.html#/editor')
+      : `${window.location.origin}/#/editor`;
+
+    if (chromeApi?.tabs?.create) {
+      chromeApi.tabs.create({ url: editorUrl });
+    } else {
+      window.open(editorUrl, "_blank");
+    }
 
     toast.success("템플릿 에디터를 새 탭에서 열었습니다.");
   };
@@ -465,10 +525,16 @@ const TemplateEditorSection = () => {
   const handleOpenTemplateList = () => {
     sendButtonClick("open_template_list", "settings_dialog");
 
-    // 새 탭에서 템플릿 목록 열기
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('index.html#/templates')
-    });
+    const chromeApi = getChromeApi();
+    const templateListUrl = chromeApi?.runtime?.getURL
+      ? chromeApi.runtime.getURL('index.html#/templates')
+      : `${window.location.origin}/#/templates`;
+
+    if (chromeApi?.tabs?.create) {
+      chromeApi.tabs.create({ url: templateListUrl });
+    } else {
+      window.open(templateListUrl, "_blank");
+    }
 
     toast.success("템플릿 목록을 새 탭에서 열었습니다.");
   };
@@ -505,10 +571,128 @@ const TemplateEditorSection = () => {
   );
 };
 
+const RealtimeTimer = () => {
+  const [enabled, setEnabled] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [previewDeadline] = useState(() => {
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + 1);
+    const pad = (value: number) => String(value).padStart(2, "0");
+
+    return {
+      date: `${deadline.getFullYear()}.${pad(deadline.getMonth() + 1)}.${pad(deadline.getDate())}`,
+      time: `${pad(deadline.getHours())}:${pad(deadline.getMinutes())}`,
+    };
+  });
+  const previewDDay = calculateDDay(
+    previewDeadline.date,
+    previewDeadline.time,
+  );
+
+  // 설정 페이지 열릴 때 저장된 설정 불러오기
+  useEffect(() => {
+    let isMounted = true;
+
+    getStorage<boolean>("realtimeTimerEnabled")
+      .then((saved) => {
+        if (isMounted) {
+          setEnabled(saved ?? true);
+        }
+      })
+      .catch((error) => {
+        errorLog("[Settings] Load timer setting error:", error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleToggle = async () => {
+    if (isSaving) return;
+
+    const newValue = !enabled;
+    setIsSaving(true);
+
+    try {
+      await setStorage({ realtimeTimerEnabled: newValue });
+      setEnabled(newValue);
+      sendSettingChange("realtime_timer", newValue ? "enabled" : "disabled");
+      toast.success(
+        newValue
+          ? "실시간 타이머가 활성화되었습니다."
+          : "실시간 타이머가 비활성화되었습니다."
+      );
+    } catch (error) {
+      errorLog("[Settings] Save timer setting error:", error);
+      toast.error("설정 저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <Timer className="h-5 w-5" />
+          실시간 TODO 타이머
+        </h2>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">타이머 표시</p>
+              <p className="text-xs text-muted-foreground">
+                24시간 이하 남은 Todo에 실시간 카운트다운 표시
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              aria-label="실시간 Todo 타이머 표시"
+              disabled={isSaving}
+              onClick={handleToggle}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                enabled ? "bg-main" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  enabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div
+            className="space-y-2 rounded-md border border-gray-200 bg-gray-50/50 p-3"
+            aria-label="타이머 미리보기"
+          >
+            <p className="text-xs font-medium text-muted-foreground">
+              타이머 미리보기
+            </p>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold">마감 임박 Todo</span>
+              <TodoDeadlineBadge
+                dDay={previewDDay}
+                dueDate={previewDeadline.date}
+                dueTime={previewDeadline.time}
+                timerEnabled={enabled}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>설정</DialogTitle>
           <DialogDescription className="hidden">설정</DialogDescription>
@@ -529,6 +713,9 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
           <TabsContent value="ecampus" className="space-y-4 mt-4">
             <SettingsDialog.ECampusCredential />
+            <div className="pt-4 border-t">
+              <SettingsDialog.RealtimeTimer />
+            </div>
           </TabsContent>
         </Tabs>
 
@@ -541,5 +728,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 SettingsDialog.GoogleOAuth = GoogleOAuthSection;
 SettingsDialog.ECampusCredential = ECampusCredential;
 SettingsDialog.TemplateEditor = TemplateEditorSection;
+SettingsDialog.RealtimeTimer = RealtimeTimer;
 
 export default SettingsDialog;

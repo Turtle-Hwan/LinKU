@@ -23,6 +23,7 @@ import {
 } from '@/utils/formValidation';
 import { errorLog } from '@/utils/logger';
 import { sendAuthEmailVerificationStart, sendAuthEmailVerificationSuccess } from '@/utils/analytics';
+import { setStorage } from '@/utils/chrome';
 
 interface EmailVerificationDialogProps {
   open: boolean;
@@ -107,7 +108,7 @@ export function EmailVerificationDialog({
       if (response.success) {
         toast.success('이메일 인증이 완료되었습니다!');
         // Store verified email
-        await chrome.storage.local.set({ kuMail });
+        await setStorage({ kuMail });
         sendAuthEmailVerificationSuccess('konkuk.ac.kr');
         // Trigger re-login to get member token
         onVerificationComplete();

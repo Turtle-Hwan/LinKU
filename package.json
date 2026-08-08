@@ -17,6 +17,7 @@
     "check:content-scripts": "node scripts/checkContentScripts.js",
     "lint": "eslint .",
     "test:timetable": "node --experimental-strip-types --test tests/timetable/*.test.ts",
+    "test:todo": "node --experimental-strip-types --test tests/todo/*.test.ts",
     "preview": "vite preview",
     "deploy": "git subtree push --prefix gh-pages origin gh-pages"
   },

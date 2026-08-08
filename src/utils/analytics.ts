@@ -41,7 +41,7 @@
  */
 
 import { getOrCreateClientId } from "./clientId";
-import { getStorage, setStorage } from "./chrome";
+import { getStorage, isExtensionEnvironment, setStorage } from "./chrome";
 import { debugLog, warnLog, errorLog } from "@/utils/logger";
 
 /** GA4 이벤트 파라미터 타입 — string, number, boolean만 허용 */
@@ -124,6 +124,13 @@ async function sendGAEvent(
   eventName: string,
   eventParams: Record<string, GAEventParam> = {}
 ): Promise<void> {
+  if (!isExtensionEnvironment()) {
+    if (DEBUG_MODE) {
+      debugLog("[GA] Skipping event outside extension context:", eventName);
+    }
+    return;
+  }
+
   if (!API_SECRET) {
     warnLog("[GA] API Secret not configured. Event not sent:", eventName);
     return;
@@ -195,6 +202,13 @@ export async function sendExtensionOpen(
   screenName: string,
   entryPoint: string
 ): Promise<void> {
+  if (!isExtensionEnvironment()) {
+    if (DEBUG_MODE) {
+      debugLog("[GA] Skipping lifecycle events outside extension context.");
+    }
+    return;
+  }
+
   if (!API_SECRET) {
     warnLog("[GA] API Secret not configured. Lifecycle events not sent.");
     return;
@@ -332,6 +346,16 @@ export async function sendButtonClick(
   await sendGAEvent("button_click", {
     button_name: buttonName,
     ...(buttonLocation && { button_location: buttonLocation }),
+  });
+}
+
+export async function sendSettingChange(
+  settingName: string,
+  settingValue: string,
+): Promise<void> {
+  await sendGAEvent("setting_change", {
+    setting_name: settingName,
+    setting_value: settingValue,
   });
 }
 
