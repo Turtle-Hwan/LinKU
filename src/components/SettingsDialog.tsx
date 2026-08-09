@@ -1,16 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import UtilityDialog from "@/components/UtilityDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { DialogDescription } from "@radix-ui/react-dialog";
+import { usePersistentDialogTab } from "@/hooks/usePersistentDialogTab";
 import {
   sendButtonClick,
   sendAuthLoginStart,
@@ -34,7 +28,15 @@ import {
   isGuestUser,
   UserProfile,
 } from "@/utils/oauth";
-import { Info, Palette, LogOut, Mail, User, Timer } from "lucide-react";
+import {
+  Info,
+  Palette,
+  LogOut,
+  Mail,
+  Settings as SettingsIcon,
+  Timer,
+  User,
+} from "lucide-react";
 import { toast } from "sonner";
 import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
 import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
@@ -56,6 +58,9 @@ interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const SETTINGS_TABS = ["google", "ecampus"] as const;
+const LAST_SETTINGS_TAB_STORAGE_KEY = "ui:lastSettingsTab:v1";
 
 const ECampusCredential = () => {
   const [savedId, setSavedId] = useState<string>("");
@@ -690,38 +695,48 @@ const RealtimeTimer = () => {
 };
 
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
+  const tabs = usePersistentDialogTab({
+    open,
+    storageKey: LAST_SETTINGS_TAB_STORAGE_KEY,
+    values: SETTINGS_TABS,
+    defaultValue: "google",
+    featureArea: "settings",
+  });
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>설정</DialogTitle>
-          <DialogDescription className="hidden">설정</DialogDescription>
-        </DialogHeader>
+    <UtilityDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={SettingsIcon}
+      title="설정"
+      description="계정과 사용 환경을 관리해요."
+      contentClassName="sm:max-w-[480px]"
+    >
+      <Tabs
+        value={tabs.value}
+        onValueChange={tabs.onValueChange}
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="google">Google / Konkuk 계정 연동</TabsTrigger>
+          <TabsTrigger value="ecampus">eCampus 계정</TabsTrigger>
+        </TabsList>
 
-        <Tabs defaultValue="google" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="google">Google / Konkuk 계정 연동</TabsTrigger>
-            <TabsTrigger value="ecampus">eCampus 계정</TabsTrigger>
-          </TabsList>
+        <TabsContent value="google" className="space-y-4 mt-4">
+          <SettingsDialog.GoogleOAuth />
+          <div className="pt-4">
+            <SettingsDialog.TemplateEditor />
+          </div>
+        </TabsContent>
 
-          <TabsContent value="google" className="space-y-4 mt-4">
-            <SettingsDialog.GoogleOAuth />
-            <div className="pt-4">
-              <SettingsDialog.TemplateEditor />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="ecampus" className="space-y-4 mt-4">
-            <SettingsDialog.ECampusCredential />
-            <div className="pt-4 border-t">
-              <SettingsDialog.RealtimeTimer />
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter className="flex flex-row gap-2 space-x-0" />
-      </DialogContent>
-    </Dialog>
+        <TabsContent value="ecampus" className="space-y-4 mt-4">
+          <SettingsDialog.ECampusCredential />
+          <div className="pt-4 border-t">
+            <SettingsDialog.RealtimeTimer />
+          </div>
+        </TabsContent>
+      </Tabs>
+    </UtilityDialog>
   );
 };
 
