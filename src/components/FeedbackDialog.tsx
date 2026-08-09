@@ -44,9 +44,7 @@ const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
       void sendButtonClick("voc_submit", "voc_dialog");
 
       if (result.status === "persisted") {
-        toast.success("의견을 접수했어요.", {
-          description: "담당자가 확인할게요.",
-        });
+        toast.success("소중한 의견 감사해요.");
       } else {
         toast.info("의견을 이 기기에 임시 저장했어요.", {
           description: "다음에 LinKU를 열면 자동으로 다시 전송합니다.",
