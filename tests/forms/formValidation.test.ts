@@ -55,6 +55,10 @@ test("건국대 이메일과 인증 코드는 형식과 도메인을 함께 검�
     success: true,
     data: "student@konkuk.ac.kr",
   });
+  assert.deepEqual(konkukEmailSchema.safeParse("a..b@konkuk.ac.kr"), {
+    success: true,
+    data: "a..b@konkuk.ac.kr",
+  });
   assert.equal(konkukEmailSchema.safeParse("student@example.com").success, false);
   assert.equal(authCodeSchema.safeParse("123456").success, true);
   assert.equal(authCodeSchema.safeParse("12345a").success, false);

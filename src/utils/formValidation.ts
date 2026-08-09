@@ -33,9 +33,9 @@ export const linkFormSchema = z.object({
   iconId: iconIdSchema,
 });
 
-const emailSchema = z.pipe(
-  trimmedString().check(z.minLength(1, "이메일을 입력해주세요.")),
-  z.email("올바른 이메일 형식을 입력해주세요."),
+const emailSchema = trimmedString().check(
+  z.minLength(1, "이메일을 입력해주세요."),
+  z.regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "올바른 이메일 형식을 입력해주세요."),
 );
 
 export const konkukEmailSchema = z.pipe(
