@@ -1,16 +1,17 @@
 import {
   feedbackEndpointResponseSchema,
   feedbackInputSchema,
-  feedbackSubmissionSchema,
   type FeedbackDeliveryResult,
   type FeedbackEndpointResponse,
   type FeedbackInput,
   type FeedbackSubmission,
 } from "@/types/feedback";
-import { getStorage, setStorage } from "@/utils/chrome";
 import { errorLog } from "@/utils/logger";
+import {
+  readFeedbackOutbox,
+  writeFeedbackOutbox,
+} from "@/apis/feedbackOutbox";
 
-const FEEDBACK_OUTBOX_STORAGE_KEY = "linkuFeedbackOutboxV1";
 const MAX_OUTBOX_SIZE = 50;
 const REQUEST_TIMEOUT_MS = 12_000;
 
@@ -45,16 +46,6 @@ function getExtensionVersion() {
   }
 }
 
-async function readOutbox() {
-  const stored = await getStorage<unknown>(FEEDBACK_OUTBOX_STORAGE_KEY);
-  if (!Array.isArray(stored)) return [];
-
-  return stored.flatMap((item) => {
-    const result = feedbackSubmissionSchema.safeParse(item);
-    return result.success ? [result.data] : [];
-  });
-}
-
 function withOutboxLock<T>(operation: () => Promise<T>): Promise<T> {
   const result = outboxOperation.then(operation, operation);
   outboxOperation = result.then(
@@ -66,7 +57,7 @@ function withOutboxLock<T>(operation: () => Promise<T>): Promise<T> {
 
 async function enqueueFeedback(submission: FeedbackSubmission) {
   await withOutboxLock(async () => {
-    const outbox = await readOutbox();
+    const outbox = await readFeedbackOutbox();
     if (outbox.some((item) => item.submissionId === submission.submissionId)) {
       return;
     }
@@ -75,21 +66,19 @@ async function enqueueFeedback(submission: FeedbackSubmission) {
       throw new Error("FEEDBACK_OUTBOX_FULL");
     }
 
-    await setStorage({
-      [FEEDBACK_OUTBOX_STORAGE_KEY]: [...outbox, submission],
-    });
+    await writeFeedbackOutbox([...outbox, submission]);
   });
 }
 
 async function removeFromOutbox(submissionId: string) {
   await withOutboxLock(async () => {
-    const outbox = await readOutbox();
+    const outbox = await readFeedbackOutbox();
     const nextOutbox = outbox.filter(
       (item) => item.submissionId !== submissionId,
     );
 
     if (nextOutbox.length !== outbox.length) {
-      await setStorage({ [FEEDBACK_OUTBOX_STORAGE_KEY]: nextOutbox });
+      await writeFeedbackOutbox(nextOutbox);
     }
   });
 }
@@ -193,7 +182,7 @@ export function flushFeedbackOutbox() {
 
   activeFlush = (async () => {
     try {
-      const outbox = await readOutbox();
+      const outbox = await readFeedbackOutbox();
 
       // 한 건의 실패가 뒤의 제출을 막지 않도록 각 항목을 독립적으로 처리합니다.
       for (const submission of outbox) {
