@@ -59,8 +59,9 @@
 | --- | --- | --- | --- |
 | `screen_name` | string | 현재 화면/페이지 | `popup_home`, `template_editor` |
 | `entry_point` | string | 진입 경로 | `popup`, `settings_dialog`, `gallery_page` |
-| `feature_area` | string | 상위 기능 영역 | `links`, `templates`, `alerts`, `todo`, `labs`, `auth` |
+| `feature_area` | string | 상위 기능 영역 | `links`, `templates`, `alerts`, `todo`, `labs`, `settings`, `auth` |
 | `ui_location` | string | UI 내 위치 | `header`, `tab_bar`, `card_action`, `dialog` |
+| `view_source` | string | 화면이 표시된 경로 | `default`, `restored`, `user_select` |
 | `template_id` | number | 템플릿 식별자 | `12345` |
 | `template_origin` | string | 템플릿 출처 | `default`, `owned`, `cloned`, `posted`, `local_only` |
 | `result` | string | 성공/실패/취소 | `success`, `fail`, `cancel` |
@@ -91,6 +92,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | Event Name | 상태 | 목적 | 주요 Params | 비고 |
 | --- | --- | --- | --- | --- |
 | `navigation_tab_select` | 구현됨 | 어떤 탭이 실제로 사용되는지 | `tab_name`, `feature_area?` | `ui_location`은 미전송 |
+| `navigation_tab_view` | 구현됨 | 다이얼로그 탭의 실제 노출 | `tab_name`, `feature_area`, `ui_location`, `view_source` | 복원과 사용자 선택을 구분 |
 | `search_submit` | 구현됨 | 검색 기능 사용률 측정 | `search_term`, `search_location?` | |
 | `link_open` | 구현됨 | LinKU 핵심 가치 행동 | `link_name`, `link_url`, `link_group?`, `same_host_variant?` | same-host 버튼은 `samehost_primary` / `samehost_secondary`로 구분 |
 | `banner_open` | 구현됨 | 배너 클릭 효율 측정 | `banner_id`, `banner_title`, `banner_position` | |
@@ -262,13 +264,14 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `setting_change` | 계정 정보 변경 | eCampus 자격증명 변경 파악 (레거시) | `setting_name`, `setting_value` | `SettingsDialog.tsx` 내부 병렬 발송 | MP_settingsCredentials_* 와 동시 발화 |
 | `tab_change` | 탭 선택 | 탭 사용 패턴 파악 | `tab_name`, `feature_area?` | `TabsLayout.tsx · handleTabChange` | - |
 
-### 신규 이벤트 (택소노미 정립 후, MP_ prefix)
+### 신규 이벤트 (택소노미 정립 후)
 
 | 이벤트명 | 항목 | 수집 목적 | 수집 속성 | 사용 코드 | 비고 |
 | --- | --- | --- | --- | --- | --- |
 | `extension_first_open` | 최초 실행 | 첫 사용 cohort 정의 | `screen_name`, `entry_point` | `App.tsx · sendExtensionOpen` 내부 자동 처리 | `firstOpenSent` 플래그로 기기당 1회 보장 |
 | `extension_open` | 팝업 열기 | 실제 사용 시작 기록 | `screen_name`, `entry_point` | `App.tsx · useEffect → sendExtensionOpen` | - |
 | `extension_session_start` | 세션 시작 | 세션 기준 정의 | `screen_name`, `entry_point` | `App.tsx · sendExtensionOpen` 내부 자동 처리 | 30분 inactivity 초과 시에만 전송 |
+| `navigation_tab_view` | 다이얼로그 탭 노출 | 실제로 표시된 실험실·설정 탭 측정 | `feature_area`, `tab_name`, `ui_location`, `view_source` | `usePersistentDialogTab.ts` | 기본값·복원·사용자 선택을 구분 |
 | `MP_alerts_view` | 공지 탭 진입 | 공지 탭 사용 여부 | `view_mode`, `category` | `Alerts.tsx · initialize()` | - |
 | `MP_alertsItem_open` | 공지 클릭 | 공지 클릭률 측정 | `alert_id`, `category`, `source` | `AlertItem.tsx · handleClick` | - |
 | `MP_alertsSubscription_update` | 구독 변경 | 학과 구독 변경 파악 | `category`, `subscription_result`(`subscribe`\|`unsubscribe`) | `SubscriptionManager.tsx · handleSubscribe`, `handleUnsubscribe` | - |

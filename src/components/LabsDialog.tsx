@@ -1,12 +1,13 @@
 import { useEffect } from "react";
+import { FlaskConical } from "lucide-react";
+import UtilityDialog from "@/components/UtilityDialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { usePersistentDialogTab } from "@/hooks/usePersistentDialogTab";
 import ServerClockSection from "./Labs/ServerClockSection";
 import QRGeneratorSection from "./Labs/QRGeneratorSection";
 import LibrarySeatSection from "./Labs/LibrarySeatSection";
@@ -17,30 +18,54 @@ interface LabsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const LABS_TABS = ["library", "clock", "qr"] as const;
+const LAST_LABS_TAB_STORAGE_KEY = "ui:lastLabsTab:v1";
+
 const LabsDialog = ({ open, onOpenChange }: LabsDialogProps) => {
+  const tabs = usePersistentDialogTab({
+    open,
+    storageKey: LAST_LABS_TAB_STORAGE_KEY,
+    values: LABS_TABS,
+    defaultValue: "library",
+    featureArea: "labs",
+  });
+
   useEffect(() => {
-    if (open) sendLabsOpen();
+    if (open) void sendLabsOpen();
   }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>실험실</DialogTitle>
-          <DialogDescription className="hidden">
-            실험적 기능들
-          </DialogDescription>
-        </DialogHeader>
+    <UtilityDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={FlaskConical}
+      title="실험실"
+      description="새 기능을 먼저 써보세요."
+    >
+      <Tabs
+        value={tabs.value}
+        onValueChange={tabs.onValueChange}
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="library">도서관 좌석</TabsTrigger>
+          <TabsTrigger value="clock">서버 시계</TabsTrigger>
+          <TabsTrigger value="qr">QR 생성</TabsTrigger>
+        </TabsList>
 
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-6 pr-4">
-            <LibrarySeatSection />
-            <ServerClockSection />
-            <QRGeneratorSection />
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+        <TabsContent value="library" className="mt-4">
+          <LibrarySeatSection />
+        </TabsContent>
+
+        <TabsContent value="clock" className="mt-4">
+          <ServerClockSection />
+        </TabsContent>
+
+        <TabsContent value="qr" className="mt-4">
+          <QRGeneratorSection />
+        </TabsContent>
+      </Tabs>
+    </UtilityDialog>
   );
 };
 

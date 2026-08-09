@@ -17,6 +17,7 @@
     "check:content-scripts": "node scripts/checkContentScripts.js",
     "lint": "eslint .",
     "test:timetable": "node --experimental-strip-types --test tests/timetable/*.test.ts",
+    "test:feedback": "node --experimental-strip-types --test tests/feedback/*.test.ts",
     "test:todo": "node --experimental-strip-types --test tests/todo/*.test.ts",
     "preview": "vite preview",
     "deploy": "git subtree push --prefix gh-pages origin gh-pages"
@@ -43,7 +44,8 @@
     "react-error-boundary": "^6.1.2",
     "react-router": "^8.3.0",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

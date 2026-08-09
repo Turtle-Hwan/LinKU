@@ -12,7 +12,7 @@
  * - setting_change: sendSettingChange (settings_credentials_saved/deleted 내부에서 병렬 발송)
  * - error         : sendError
  *
- * ### 신규 이벤트 (택소노미 정립 후 — `MP_` prefix)
+ * ### 도메인 이벤트 (기존 `MP_` 이름은 연속성 유지)
  * - Lifecycle  : sendExtensionOpen
  * - Search     : sendSearchSubmit
  * - Auth       : sendAuthLoginStart, sendAuthLoginSuccess, sendAuthLoginFail,
@@ -29,11 +29,12 @@
  * - Alerts     : sendAlertsView, sendAlertsItemOpen, sendAlertsSubscriptionChange
  * - Todo       : sendTodoView, sendTodoItemCreate, sendTodoItemComplete, sendTodoItemDelete
  * - Labs       : sendLabsOpen, sendLabsFeatureUse
+ * - Navigation : sendNavigationTabView
  * - Generic    : sendButtonClick (별도 이벤트 없는 범용 클릭)
  *
  * ## 설계 원칙
  * - sendGAEvent는 외부에 export하지 않는다. 호출 지점은 도메인 헬퍼만 import할 것
- * - MP_ prefix: 택소노미 정립 이전(레거시) / 이후 이벤트를 구분한다
+ * - 기존 MP_ 이벤트명은 연속성을 위해 유지하고 새 이벤트는 lower_snake_case를 사용한다
  * - 이벤트 네이밍과 파라미터 패턴: docs/GA4-Data-Taxonomy.md 기준을 따른다
  *
  * ## 전송 흐름
@@ -327,6 +328,26 @@ export async function sendTabChange(
   await sendGAEvent("tab_change", {
     tab_name: tabName,
     ...(featureArea && { feature_area: featureArea }),
+  });
+}
+
+export type NavigationTabFeatureArea = "labs" | "settings";
+export type NavigationTabViewSource =
+  | "default"
+  | "restored"
+  | "user_select";
+
+/** 다이얼로그 탭이 실제로 표시될 때 전송하는 진입 이벤트 */
+export async function sendNavigationTabView(
+  featureArea: NavigationTabFeatureArea,
+  tabName: string,
+  viewSource: NavigationTabViewSource,
+): Promise<void> {
+  await sendGAEvent("navigation_tab_view", {
+    feature_area: featureArea,
+    tab_name: tabName,
+    ui_location: "dialog",
+    view_source: viewSource,
   });
 }
 
