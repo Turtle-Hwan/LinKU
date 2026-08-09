@@ -27,13 +27,16 @@ const VOC_HEADERS = Object.freeze([
   "notification_sent",
   "notification_attempts",
   "last_notification_error",
+  "contact_email",
 ]);
+
+const LEGACY_VOC_HEADERS = Object.freeze(VOC_HEADERS.slice(0, -1));
 
 const VOC_CATEGORY_LABELS = Object.freeze({
   feature: "기능 제안",
   bug: "오류 제보",
   experience: "사용 경험",
-  other: "기타 의견",
+  other: "의견",
 });
 
 /**
@@ -117,10 +120,17 @@ function doPost(event) {
     const existingRow = findSubmissionRow_(sheet, submission.submissionId);
     const duplicate = existingRow !== null;
     if (duplicate) {
+      const contactEmailStored = ensureContactEmail_(
+        sheet,
+        existingRow,
+        submission.contactEmail,
+      );
+      SpreadsheetApp.flush();
       return jsonResponse_({
         success: true,
         persisted: true,
         duplicate: true,
+        contactEmailStored: contactEmailStored,
       });
     }
 
@@ -134,6 +144,7 @@ function doPost(event) {
       success: true,
       persisted: true,
       duplicate: false,
+      contactEmailStored: true,
     });
   } catch (error) {
     const errorCode = getErrorCode_(error);
@@ -262,6 +273,7 @@ function parseSubmission_(event) {
   const category = normalizeText_(payload.category);
   const title = normalizeText_(payload.title).trim();
   const message = normalizeText_(payload.message).trim();
+  const contactEmail = normalizeText_(payload.contactEmail).trim().toLowerCase();
   const extensionVersion = normalizeText_(payload.extensionVersion).trim();
   const createdAt = normalizeText_(payload.createdAt).trim();
   const website = normalizeText_(payload.website).trim();
@@ -269,10 +281,11 @@ function parseSubmission_(event) {
   const valid =
     /^[A-Za-z0-9-]{20,64}$/.test(submissionId) &&
     Object.prototype.hasOwnProperty.call(VOC_CATEGORY_LABELS, category) &&
-    title.length >= 2 &&
+    title.length >= 1 &&
     title.length <= 80 &&
-    message.length >= 10 &&
+    message.length >= 1 &&
     message.length <= 500 &&
+    (contactEmail === "" || isValidContactEmail_(contactEmail)) &&
     extensionVersion.length >= 1 &&
     extensionVersion.length <= 32 &&
     !Number.isNaN(Date.parse(createdAt)) &&
@@ -285,9 +298,16 @@ function parseSubmission_(event) {
     category: category,
     title: title,
     message: message,
+    contactEmail: contactEmail,
     extensionVersion: extensionVersion,
     createdAt: createdAt,
   };
+}
+
+function isValidContactEmail_(email) {
+  return (
+    email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  );
 }
 
 function getConfiguredSpreadsheet_() {
@@ -317,7 +337,22 @@ function getOrCreateFeedbackSheet_(spreadsheet) {
       .getRange(1, 1, 1, VOC_HEADERS.length)
       .getDisplayValues()[0];
     if (existingHeaders.join("\u0000") !== VOC_HEADERS.join("\u0000")) {
-      throw new Error("INVALID_SHEET_SCHEMA");
+      const existingLegacyHeaders = existingHeaders.slice(
+        0,
+        LEGACY_VOC_HEADERS.length,
+      );
+      const contactEmailHeader = existingHeaders[LEGACY_VOC_HEADERS.length];
+      if (
+        existingLegacyHeaders.join("\u0000") ===
+          LEGACY_VOC_HEADERS.join("\u0000") &&
+        contactEmailHeader === ""
+      ) {
+        sheet
+          .getRange(1, VOC_HEADERS.length)
+          .setValue(VOC_HEADERS[VOC_HEADERS.length - 1]);
+      } else {
+        throw new Error("INVALID_SHEET_SCHEMA");
+      }
     }
   }
 
@@ -335,6 +370,27 @@ function findSubmissionRow_(sheet, submissionId) {
   return match ? match.getRow() : null;
 }
 
+function ensureContactEmail_(sheet, rowNumber, contactEmail) {
+  if (!contactEmail) return true;
+
+  const emailColumn = VOC_HEADERS.indexOf("contact_email") + 1;
+  const storedEmail = String(
+    sheet.getRange(rowNumber, emailColumn).getDisplayValue(),
+  )
+    .trim()
+    .toLowerCase();
+  if (storedEmail === contactEmail) return true;
+  if (storedEmail !== "") return false;
+
+  sheet.getRange(rowNumber, emailColumn).setValue(safeSheetText_(contactEmail));
+  const notificationSentColumn = VOC_HEADERS.indexOf("notification_sent") + 1;
+  if (sheet.getRange(rowNumber, notificationSentColumn).getValue() === true) {
+    // 이전 수집기가 이메일 없이 이미 보고한 건도 답장 주소와 함께 한 번 더 알립니다.
+    sheet.getRange(rowNumber, notificationSentColumn).setValue(false);
+  }
+  return true;
+}
+
 function appendSubmission_(sheet, submission) {
   sheet.appendRow([
     safeSheetText_(submission.submissionId),
@@ -347,12 +403,15 @@ function appendSubmission_(sheet, submission) {
     false,
     0,
     "",
+    safeSheetText_(submission.contactEmail),
   ]);
   return sheet.getLastRow();
 }
 
 function readSubmission_(sheet, rowNumber) {
-  const row = sheet.getRange(rowNumber, 1, 1, 10).getValues()[0];
+  const row = sheet
+    .getRange(rowNumber, 1, 1, VOC_HEADERS.length)
+    .getValues()[0];
   return {
     submissionId: String(row[0]),
     receivedAt: row[1],
@@ -360,6 +419,7 @@ function readSubmission_(sheet, rowNumber) {
     category: String(row[3]),
     title: String(row[4]),
     message: String(row[5]),
+    contactEmail: String(row[10] || ""),
     extensionVersion: String(row[6]),
     notificationSent: row[7] === true,
     notificationAttempts: Number(row[8]) || 0,
@@ -395,7 +455,7 @@ function buildDailyDigest_(pending, digestDate, spreadsheetUrl) {
       VOC_CONFIG.digestTimezone,
       "yyyy-MM-dd HH:mm",
     );
-    const section = [
+    const sectionLines = [
       includedItems.length +
         1 +
         ". [" +
@@ -404,9 +464,15 @@ function buildDailyDigest_(pending, digestDate, spreadsheetUrl) {
         submission.title,
       "접수: " + receivedAt,
       "내용: " + submission.message,
+    ];
+    if (submission.contactEmail) {
+      sectionLines.push("답장 이메일: " + submission.contactEmail);
+    }
+    sectionLines.push(
       "확장 프로그램 버전: " + submission.extensionVersion,
       "제출 ID: " + submission.submissionId,
-    ].join("\n");
+    );
+    const section = sectionLines.join("\n");
     const candidateBody = header
       .concat([
         "",

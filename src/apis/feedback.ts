@@ -1,8 +1,11 @@
-import type {
-  FeedbackCategory,
-  FeedbackDeliveryResult,
-  FeedbackEndpointResponse,
-  FeedbackSubmission,
+import {
+  feedbackEndpointResponseSchema,
+  feedbackInputSchema,
+  feedbackSubmissionSchema,
+  type FeedbackDeliveryResult,
+  type FeedbackEndpointResponse,
+  type FeedbackInput,
+  type FeedbackSubmission,
 } from "@/types/feedback";
 import { getStorage, setStorage } from "@/utils/chrome";
 import { errorLog } from "@/utils/logger";
@@ -10,12 +13,6 @@ import { errorLog } from "@/utils/logger";
 const FEEDBACK_OUTBOX_STORAGE_KEY = "linkuFeedbackOutboxV1";
 const MAX_OUTBOX_SIZE = 50;
 const REQUEST_TIMEOUT_MS = 12_000;
-
-interface FeedbackInput {
-  category: FeedbackCategory;
-  title: string;
-  message: string;
-}
 
 const activeDeliveries = new Map<
   string,
@@ -48,26 +45,14 @@ function getExtensionVersion() {
   }
 }
 
-function isFeedbackSubmission(value: unknown): value is FeedbackSubmission {
-  if (!value || typeof value !== "object") return false;
-
-  const candidate = value as Partial<FeedbackSubmission>;
-  return (
-    typeof candidate.submissionId === "string" &&
-    typeof candidate.category === "string" &&
-    typeof candidate.title === "string" &&
-    typeof candidate.message === "string" &&
-    typeof candidate.extensionVersion === "string" &&
-    typeof candidate.createdAt === "string" &&
-    typeof candidate.website === "string"
-  );
-}
-
 async function readOutbox() {
   const stored = await getStorage<unknown>(FEEDBACK_OUTBOX_STORAGE_KEY);
   if (!Array.isArray(stored)) return [];
 
-  return stored.filter(isFeedbackSubmission);
+  return stored.flatMap((item) => {
+    const result = feedbackSubmissionSchema.safeParse(item);
+    return result.success ? [result.data] : [];
+  });
 }
 
 function withOutboxLock<T>(operation: () => Promise<T>): Promise<T> {
@@ -132,9 +117,17 @@ async function postFeedback(submission: FeedbackSubmission) {
         signal: controller.signal,
       });
 
-      const responseBody = (await response.json()) as FeedbackEndpointResponse;
+      const responseBody = feedbackEndpointResponseSchema.parse(
+        await response.json(),
+      );
       if (!response.ok || !responseBody.success || !responseBody.persisted) {
         throw new Error(responseBody.error || "FEEDBACK_NOT_PERSISTED");
+      }
+      if (
+        submission.contactEmail &&
+        responseBody.contactEmailStored !== true
+      ) {
+        throw new Error("FEEDBACK_CONTACT_EMAIL_NOT_PERSISTED");
       }
 
       return responseBody;
@@ -167,11 +160,15 @@ async function deliverFeedback(submission: FeedbackSubmission) {
 export async function submitFeedback(
   input: FeedbackInput,
 ): Promise<FeedbackDeliveryResult> {
+  const { contactEmail, title, message } = feedbackInputSchema.parse(input);
+
   const submission: FeedbackSubmission = {
     submissionId: crypto.randomUUID(),
-    category: input.category,
-    title: input.title.trim(),
-    message: input.message.trim(),
+    // 기존 Sheet 스키마와 아직 전송되지 않은 의견을 보존하기 위한 내부 기본값입니다.
+    category: "other",
+    title,
+    message,
+    contactEmail,
     extensionVersion: getExtensionVersion(),
     createdAt: new Date().toISOString(),
     website: "",
