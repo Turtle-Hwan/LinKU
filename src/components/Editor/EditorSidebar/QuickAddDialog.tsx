@@ -20,7 +20,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { validateLinkForm } from '@/utils/formValidation';
+import {
+  getFirstValidationMessage,
+  linkFormSchema,
+} from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
 import type { Icon } from '@/types/api';
 
@@ -73,19 +76,17 @@ const QuickAddDialogContent = ({
   );
 
   const handleAdd = () => {
-    // Validate form using centralized validation
-    const validation = validateLinkForm(name, url, selectedIconId, 15);
-    if (!validation.valid) {
-      toast.error(validation.error!);
+    const validation = linkFormSchema.safeParse({
+      name,
+      url,
+      iconId: selectedIconId,
+    });
+    if (!validation.success) {
+      toast.error(getFirstValidationMessage(validation.error));
       return;
     }
 
-    // Add link with iconId
-    onAdd({
-      name: name.trim(),
-      url: url.trim(),
-      iconId: selectedIconId!,
-    });
+    onAdd(validation.data);
 
     // Close dialog
     onOpenChange(false);

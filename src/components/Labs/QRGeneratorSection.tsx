@@ -6,6 +6,7 @@ import { Info, Download, Check, Upload, X } from "lucide-react";
 import QRCode from "qrcode";
 import { warnLog } from '@/utils/logger';
 import { sendLabsFeatureUse } from '@/utils/analytics';
+import { qrUrlSchema } from '@/utils/formValidation';
 
 // LinKU 로고 (public/assets/icon128.png) - 고해상도 사용
 const LINKU_LOGO_URL = "/assets/icon128.png";
@@ -90,16 +91,14 @@ const QRGeneratorSection = () => {
       return;
     }
 
-    // URL 유효성 검사
-    try {
-      new URL(inputUrl);
-    } catch {
+    const validation = qrUrlSchema.safeParse(inputUrl);
+    if (!validation.success) {
       setError("올바른 URL 형식이 아닙니다");
       setQrDataUrl("");
       return;
     }
 
-    setActiveUrl(inputUrl);
+    setActiveUrl(validation.data);
     setError("");
   }, [inputUrl]);
 

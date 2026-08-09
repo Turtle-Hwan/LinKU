@@ -13,6 +13,10 @@ import { addCustomTodo } from "@/utils/todo/customTodo";
 import { toast } from "sonner";
 import { errorLog } from '@/utils/logger';
 import { sendTodoItemCreate } from '@/utils/analytics';
+import {
+  getFirstValidationMessage,
+  todoInputSchema,
+} from '@/utils/formValidation';
 
 interface TodoAddDialogProps {
   open: boolean;
@@ -56,34 +60,32 @@ const TodoAddDialog = ({ open, onOpenChange, onSuccess }: TodoAddDialogProps) =>
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim()) {
-      toast.error("할 일 제목을 입력해주세요.");
+    const validation = todoInputSchema.safeParse({
+      title,
+      subject,
+      dueDate,
+      dueTime,
+    });
+    if (!validation.success) {
+      toast.error(getFirstValidationMessage(validation.error));
       return;
     }
 
-    if (!dueDate) {
-      toast.error("마감일을 선택해주세요.");
-      return;
-    }
-
-    if (!dueTime) {
-      toast.error("마감 시간을 선택해주세요.");
-      return;
-    }
+    const todo = validation.data;
 
     setIsSubmitting(true);
 
     try {
       // YYYY-MM-DD → YYYY.MM.DD 변환
-      const formattedDate = dueDate.replace(/-/g, '.');
+      const formattedDate = todo.dueDate.replace(/-/g, '.');
 
       await addCustomTodo(
-        title.trim(),
+        todo.title,
         formattedDate,
-        dueTime,
-        subject.trim() || undefined
+        todo.dueTime,
+        todo.subject || undefined
       );
-      sendTodoItemCreate("dialog", Boolean(dueDate));
+      sendTodoItemCreate("dialog", Boolean(todo.dueDate));
       toast.success("할 일이 추가되었습니다.");
 
       // 다이얼로그 닫기 (폼 초기화는 useEffect에서 처리)
