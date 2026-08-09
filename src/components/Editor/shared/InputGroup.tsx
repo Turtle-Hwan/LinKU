@@ -67,7 +67,7 @@ export const InputGroup = ({ title, fields }: InputGroupProps) => {
               value={field.value}
               onChange={(e) => handleChange(field, e.target.value)}
               onBlur={() => handleBlur(field)}
-              className="h-8 text-sm"
+              className="h-8"
               placeholder={`${field.min}-${field.max}`}
             />
           </div>

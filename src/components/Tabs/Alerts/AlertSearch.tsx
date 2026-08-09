@@ -25,7 +25,7 @@ const AlertSearch = ({ value, onValueChange }: AlertSearchProps) => {
         aria-label="공지사항 검색"
         placeholder="공지사항의 제목 혹은 내용 검색이 가능합니다"
         autoComplete="off"
-        className="pl-9 pr-9 text-sm [&::-webkit-search-cancel-button]:appearance-none"
+        className="pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
       />
       {value.length > 0 && (
         <button

@@ -191,7 +191,7 @@ const ItemPropertiesPanelForm = ({
               }
             }}
             placeholder="예: 이캠퍼스"
-            className="h-8 text-sm"
+            className="h-8"
             maxLength={15}
           />
         </div>
@@ -205,7 +205,7 @@ const ItemPropertiesPanelForm = ({
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://example.com"
-            className="h-8 text-sm"
+            className="h-8"
           />
         </div>
 
