@@ -53,6 +53,10 @@ import {
   refreshTodoCount,
 } from "@/utils/todo/count";
 import { errorLog } from '@/utils/logger';
+import {
+  eCampusCredentialsSchema,
+  getFirstValidationMessage,
+} from "@/utils/formValidation";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -100,15 +104,24 @@ const ECampusCredential = () => {
 
   // 인증 정보 저장하기
   const saveCredentials = async () => {
-    if (!savedId || !savedPassword) {
-      toast.error("ID와 비밀번호를 모두 입력해주세요.");
+    const validation = eCampusCredentialsSchema.safeParse({
+      userId: savedId,
+      userPw: savedPassword,
+    });
+    if (!validation.success) {
+      toast.error(getFirstValidationMessage(validation.error));
       return;
     }
+
+    const credentials = validation.data;
 
     setIsSaving(true);
 
     try {
-      const loginAttempt = await loginECampusAccount(savedId, savedPassword);
+      const loginAttempt = await loginECampusAccount(
+        credentials.userId,
+        credentials.userPw,
+      );
       if (loginAttempt.superseded) {
         toast.error("다른 계정 변경으로 저장을 완료하지 않았습니다.");
         return;
@@ -123,7 +136,7 @@ const ECampusCredential = () => {
       }
 
       // 검증에 성공한 계정만 브라우저에 저장한다.
-      await saveECampusCredentials(savedId, savedPassword);
+      await saveECampusCredentials(credentials.userId, credentials.userPw);
       if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
         return;
       }

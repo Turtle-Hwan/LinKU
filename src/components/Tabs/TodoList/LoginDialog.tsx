@@ -21,6 +21,10 @@ import {
 } from "@/utils/ecampus/todos";
 import { errorLog } from "@/utils/logger";
 import { clearECampusTodoCount } from "@/utils/todo/count";
+import {
+  eCampusCredentialsSchema,
+  getFirstValidationMessage,
+} from "@/utils/formValidation";
 
 interface LoginDialogProps {
   isOpen: boolean;
@@ -46,18 +50,21 @@ const LoginDialog = ({
   }, [isOpen]);
 
   const handleLogin = async () => {
-    if (!userId || !userPw) {
-      setError("ID와 비밀번호를 모두 입력해주세요.");
+    const validation = eCampusCredentialsSchema.safeParse({ userId, userPw });
+    if (!validation.success) {
+      setError(getFirstValidationMessage(validation.error));
       return;
     }
+
+    const credentials = validation.data;
 
     setError("");
     setIsSubmitting(true);
 
     try {
       const loginAttempt = await loginECampusAccount(
-        userId,
-        userPw,
+        credentials.userId,
+        credentials.userPw,
       );
 
       if (loginAttempt.superseded) {
@@ -77,7 +84,7 @@ const LoginDialog = ({
 
       if (rememberLogin) {
         try {
-          await saveECampusCredentials(userId, userPw);
+          await saveECampusCredentials(credentials.userId, credentials.userPw);
         } catch (saveError) {
           errorLog("Failed to save credentials:", saveError);
         }

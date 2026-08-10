@@ -12,7 +12,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trash2, Save, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { GRID_CONFIG } from '@/utils/template';
-import { validateLinkForm } from '@/utils/formValidation';
+import {
+  getFirstValidationMessage,
+  LINK_NAME_MAX_LENGTH,
+  linkFormSchema,
+} from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
 import type { TemplateIcon, TemplateItem } from '@/types/api';
 import { InputGroup } from '@/components/Editor/shared/InputGroup';
@@ -96,16 +100,21 @@ const ItemPropertiesPanelForm = ({
   }, [selectedItem]);
 
   const handleSave = () => {
-    // Validate form using centralized validation
-    const validation = validateLinkForm(name, url, selectedIconId, 15);
-    if (!validation.valid) {
-      toast.error(validation.error!);
+    const validation = linkFormSchema.safeParse({
+      name,
+      url,
+      iconId: selectedIconId,
+    });
+    if (!validation.success) {
+      toast.error(getFirstValidationMessage(validation.error));
       return;
     }
 
+    const { name: validatedName, url: validatedUrl, iconId } = validation.data;
+
     // Find selected icon
     const allIcons = [...defaultIcons, ...userIcons];
-    const icon = allIcons.find((i) => i.id === selectedIconId);
+    const icon = allIcons.find((i) => i.id === iconId);
     if (!icon) {
       toast.error('선택한 아이콘을 찾을 수 없습니다.');
       return;
@@ -129,8 +138,8 @@ const ItemPropertiesPanelForm = ({
       payload: {
         id: selectedItem.templateItemId,
         changes: {
-          name: name.trim(),
-          siteUrl: url.trim(),
+          name: validatedName,
+          siteUrl: validatedUrl,
           icon: {
             iconId: icon.id,
             iconName: icon.name,
@@ -180,19 +189,21 @@ const ItemPropertiesPanelForm = ({
 
         {/* Name Input */}
         <div className="space-y-2">
-          <Label htmlFor="item-name" className="text-xs">링크 이름 (최대 15자)</Label>
+          <Label htmlFor="item-name" className="text-xs">
+            링크 이름 (최대 {LINK_NAME_MAX_LENGTH}자)
+          </Label>
           <Input
             id="item-name"
             value={name}
             onChange={(e) => {
               const value = e.target.value;
-              if (value.length <= 15) {
+              if (value.length <= LINK_NAME_MAX_LENGTH) {
                 setName(value);
               }
             }}
             placeholder="예: 이캠퍼스"
             className="h-8"
-            maxLength={15}
+            maxLength={LINK_NAME_MAX_LENGTH}
           />
         </div>
 

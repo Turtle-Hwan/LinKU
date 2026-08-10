@@ -18,8 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { sendVerificationCode, verifyEmailCode } from '@/apis/auth';
 import {
-  validateKonkukEmail,
-  validateAuthCode,
+  authCodeSchema,
+  getFirstValidationMessage,
+  konkukEmailSchema,
 } from '@/utils/formValidation';
 import { errorLog } from '@/utils/logger';
 import { sendAuthEmailVerificationStart, sendAuthEmailVerificationSuccess } from '@/utils/analytics';
@@ -60,18 +61,18 @@ export function EmailVerificationDialog({
       return;
     }
 
-    // Validate full email
-    const validation = validateKonkukEmail(kuMail);
-    if (!validation.valid) {
-      toast.error(validation.error);
+    const validation = konkukEmailSchema.safeParse(kuMail);
+    if (!validation.success) {
+      toast.error(getFirstValidationMessage(validation.error));
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await sendVerificationCode({ kuMail });
+      const response = await sendVerificationCode({ kuMail: validation.data });
 
       if (response.success) {
+        setEmailId(validation.data.slice(0, -EMAIL_DOMAIN.length));
         toast.success('인증 코드가 발송되었습니다. 이메일을 확인해주세요.');
         setStep('code');
       } else {
@@ -94,16 +95,18 @@ export function EmailVerificationDialog({
   };
 
   const handleVerifyCode = async () => {
-    // Validate code
-    const validation = validateAuthCode(authCode);
-    if (!validation.valid) {
-      toast.error(validation.error);
+    const validation = authCodeSchema.safeParse(authCode);
+    if (!validation.success) {
+      toast.error(getFirstValidationMessage(validation.error));
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await verifyEmailCode({ kuMail, authCode });
+      const response = await verifyEmailCode({
+        kuMail,
+        authCode: validation.data,
+      });
 
       if (response.success) {
         toast.success('이메일 인증이 완료되었습니다!');
