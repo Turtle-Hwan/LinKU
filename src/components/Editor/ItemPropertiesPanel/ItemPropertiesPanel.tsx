@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { GRID_CONFIG } from '@/utils/template';
 import {
   getFirstValidationMessage,
+  LINK_NAME_MAX_LENGTH,
   linkFormSchema,
 } from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
@@ -188,19 +189,21 @@ const ItemPropertiesPanelForm = ({
 
         {/* Name Input */}
         <div className="space-y-2">
-          <Label htmlFor="item-name" className="text-xs">링크 이름 (최대 15자)</Label>
+          <Label htmlFor="item-name" className="text-xs">
+            링크 이름 (최대 {LINK_NAME_MAX_LENGTH}자)
+          </Label>
           <Input
             id="item-name"
             value={name}
             onChange={(e) => {
               const value = e.target.value;
-              if (value.length <= 15) {
+              if (value.length <= LINK_NAME_MAX_LENGTH) {
                 setName(value);
               }
             }}
             placeholder="예: 이캠퍼스"
             className="h-8"
-            maxLength={15}
+            maxLength={LINK_NAME_MAX_LENGTH}
           />
         </div>
 

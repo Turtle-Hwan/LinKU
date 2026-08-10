@@ -22,6 +22,7 @@ import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getFirstValidationMessage,
+  LINK_NAME_MAX_LENGTH,
   linkFormSchema,
 } from '@/utils/formValidation';
 import { IconGrid } from '@/components/Editor/shared/IconGrid';
@@ -104,19 +105,19 @@ const QuickAddDialogContent = ({
         <div className="space-y-4 py-4">
           {/* Name Input */}
           <div className="space-y-2">
-            <Label htmlFor="link-name">링크 이름 (최대 15자)</Label>
+            <Label htmlFor="link-name">링크 이름 (최대 {LINK_NAME_MAX_LENGTH}자)</Label>
             <Input
               id="link-name"
               placeholder="예: 이캠퍼스"
               value={name}
               onChange={(e) => {
                 const value = e.target.value;
-                if (value.length <= 15) {
+                if (value.length <= LINK_NAME_MAX_LENGTH) {
                   setName(value);
                 }
               }}
               autoComplete="off"
-              maxLength={15}
+              maxLength={LINK_NAME_MAX_LENGTH}
             />
           </div>
 
