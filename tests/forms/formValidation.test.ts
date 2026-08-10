@@ -5,6 +5,7 @@ import {
   authCodeSchema,
   eCampusCredentialsSchema,
   konkukEmailSchema,
+  LINK_NAME_MAX_LENGTH,
   linkFormSchema,
   qrUrlSchema,
   todoInputSchema,
@@ -43,6 +44,23 @@ test("링크 폼은 공백을 정리하고 기존 오류 문구를 유지한다"
   expectError(
     linkFormSchema.safeParse({ name: "링크", url: "not-a-url", iconId: 1 }),
     "올바른 URL을 입력해주세요.",
+  );
+  const maxLengthName = "가".repeat(LINK_NAME_MAX_LENGTH);
+  assert.equal(
+    linkFormSchema.safeParse({
+      name: maxLengthName,
+      url: "https://example.com",
+      iconId: 1,
+    }).success,
+    true,
+  );
+  expectError(
+    linkFormSchema.safeParse({
+      name: `${maxLengthName}가`,
+      url: "https://example.com",
+      iconId: 1,
+    }),
+    `링크 이름은 ${LINK_NAME_MAX_LENGTH}자 이하로 입력해주세요.`,
   );
   expectError(
     linkFormSchema.safeParse({ name: "링크", url: "https://example.com", iconId: null }),
