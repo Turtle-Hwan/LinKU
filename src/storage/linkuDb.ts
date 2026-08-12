@@ -1,24 +1,12 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Template, TemplateItem } from "@/types/api";
 
-export type TemplateSyncState =
-  | "local"
-  | "pending"
-  | "syncing"
-  | "synced"
-  | "offline"
-  | "conflict"
-  | "error";
-
 export interface StoredTemplate {
   template: Template;
   stagingItems: TemplateItem[];
   metadata: {
     lastSaved: number;
     savedLocally: true;
-    syncedWithServer: boolean;
-    syncState: TemplateSyncState;
-    serverSyncedAt?: number;
   };
 }
 

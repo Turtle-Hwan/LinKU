@@ -5,23 +5,16 @@
  * imported once. Legacy values are retained as a rollback source.
  */
 
-import {
-  getLinkuDb,
-  type StoredTemplate,
-  type TemplateSyncState,
-} from "@/storage/linkuDb";
+import { getLinkuDb, type StoredTemplate } from "@/storage/linkuDb";
 import type { Template, TemplateItem } from "@/types/api";
 import { errorLog } from "@/utils/logger";
 
-export type { StoredTemplate, TemplateSyncState } from "@/storage/linkuDb";
+export type { StoredTemplate } from "@/storage/linkuDb";
 
 export interface TemplateIndexEntry {
   templateId: number;
-  syncId: string;
   name: string;
   lastSaved: number;
-  syncedWithServer: boolean;
-  syncState: TemplateSyncState;
 }
 
 const STORAGE_PREFIX = "linku_template_";
@@ -51,7 +44,6 @@ function normalizeStoredTemplate(value: unknown): StoredTemplate | null {
   }
 
   const metadata = isRecord(value.metadata) ? value.metadata : {};
-  const syncedWithServer = Boolean(metadata.syncedWithServer);
   const now = new Date().toISOString();
   const template = templateValue as unknown as Template;
   return {
@@ -70,7 +62,7 @@ function normalizeStoredTemplate(value: unknown): StoredTemplate | null {
         typeof templateValue.updatedAt === "string"
           ? templateValue.updatedAt
           : now,
-      syncStatus: syncedWithServer ? "synced" : "local",
+      syncStatus: "local",
     },
     stagingItems: Array.isArray(value.stagingItems)
       ? (value.stagingItems as TemplateItem[])
@@ -81,12 +73,6 @@ function normalizeStoredTemplate(value: unknown): StoredTemplate | null {
           ? metadata.lastSaved
           : Date.now(),
       savedLocally: true,
-      syncedWithServer,
-      syncState: syncedWithServer ? "synced" : "local",
-      serverSyncedAt:
-        typeof metadata.serverSyncedAt === "number"
-          ? metadata.serverSyncedAt
-          : undefined,
     },
   };
 }
@@ -180,7 +166,6 @@ async function ensureMigration(): Promise<void> {
 export async function saveTemplateToLocalStorage(
   template: Template,
   stagingItems: TemplateItem[] = [],
-  syncedWithServer = false,
 ): Promise<void> {
   await ensureMigration();
   const database = await getLinkuDb();
@@ -189,15 +174,12 @@ export async function saveTemplateToLocalStorage(
     template: {
       ...template,
       id: template.id || crypto.randomUUID(),
-      syncStatus: syncedWithServer ? "synced" : "local",
+      syncStatus: "local",
     },
     stagingItems,
     metadata: {
       lastSaved: now,
       savedLocally: true,
-      syncedWithServer,
-      syncState: syncedWithServer ? "synced" : "local",
-      serverSyncedAt: syncedWithServer ? now : undefined,
     },
   };
 
@@ -234,11 +216,8 @@ export async function getTemplatesIndex(): Promise<TemplateIndexEntry[]> {
   return templates
     .map((stored) => ({
       templateId: stored.template.templateId,
-      syncId: stored.template.id,
       name: stored.template.name,
       lastSaved: stored.metadata.lastSaved,
-      syncedWithServer: stored.metadata.syncedWithServer,
-      syncState: stored.metadata.syncState,
     }))
     .sort((left, right) => right.lastSaved - left.lastSaved);
 }
@@ -278,38 +257,6 @@ export function checkTemplateStorageAvailability(): {
     : { available: false, error: "IndexedDB를 사용할 수 없습니다." };
 }
 
-export async function updateTemplateSyncStatus(
-  templateId: number,
-  syncedWithServer: boolean,
-  syncState: TemplateSyncState = syncedWithServer ? "synced" : "local",
-): Promise<void> {
-  await ensureMigration();
-  const database = await getLinkuDb();
-  const transaction = database.transaction("templates", "readwrite");
-  const store = transaction.objectStore("templates");
-  const stored = await store.get(templateId);
-  if (!stored) {
-    await transaction.done;
-    return;
-  }
-
-  stored.template.syncStatus = syncedWithServer ? "synced" : "local";
-  stored.metadata.syncedWithServer = syncedWithServer;
-  stored.metadata.syncState = syncState;
-  stored.metadata.serverSyncedAt = syncedWithServer ? Date.now() : undefined;
-  await store.put(stored, templateId);
-  await transaction.done;
-}
-
-export async function findTemplateBySyncId(
-  syncId: string,
-): Promise<StoredTemplate | null> {
-  await ensureMigration();
-  const database = await getLinkuDb();
-  const templates = await database.getAll("templates");
-  return templates.find((stored) => stored.template.id === syncId) ?? null;
-}
-
 export async function importSharedTemplate(
   template: Template,
   stagingItems: TemplateItem[] = [],
@@ -340,8 +287,6 @@ export async function importSharedTemplate(
     metadata: {
       lastSaved: Date.now(),
       savedLocally: true,
-      syncedWithServer: false,
-      syncState: "local",
     },
   };
   await store.put(stored, templateId);

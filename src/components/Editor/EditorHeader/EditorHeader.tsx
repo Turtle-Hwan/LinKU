@@ -44,7 +44,6 @@ export const EditorHeader = () => {
       await saveTemplateToLocalStorage(
         savedTemplate,
         state.stagingItems,
-        false,
       );
       dispatch({ type: 'SAVE_SUCCESS', payload: savedTemplate });
 
