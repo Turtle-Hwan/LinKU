@@ -56,6 +56,7 @@ TypeScript, React hook, shared utility를 수정했다면 lint를 실행합니�
 ```bash
 pnpm run lint
 pnpm run test:timetable
+pnpm run test:template-share
 ```
 
 변경 유형별 추가 확인:
@@ -65,6 +66,8 @@ pnpm run test:timetable
 - 외부 사이트 parser: 실제 페이지·응답과 fallback. 로그인 정보나 원문 응답을
   로그 또는 fixture에 남기지 않습니다.
 - Permission: 추가된 API/domain이 최소 범위인지 확인합니다.
+- Template share: codec test와 `pnpm run build:gh-pages`를 함께 실행하고,
+  fragment가 네트워크 요청에 포함되지 않는지 확인합니다.
 - 배너 운영 기간: `startAt`/`endAt`에 timezone이 포함된 ISO 8601 값을 사용하고,
   즉시 내려야 하는 배너는 이전 확장도 고려해 목록에서 제거합니다.
 

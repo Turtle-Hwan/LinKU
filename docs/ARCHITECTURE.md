@@ -39,6 +39,27 @@ extension build는 다음 entry를 `dist/`에 생성합니다.
 
 ## 주요 데이터 흐름
 
+### 개인 템플릿과 공유
+
+개인 템플릿 CRUD는 LinKU backend와 분리되어 있습니다. popup과 editor는
+`src/utils/templateStorage.ts`의 저장소 경계만 사용하고, 실제 템플릿·draft는
+`linku` IndexedDB에 저장합니다. 사용자가 올린 아이콘도 256px 이하 WebP로
+정규화한 뒤 같은 DB의 별도 store에 저장합니다.
+
+기존 `localStorage` 템플릿과 draft는 popup이 처음 저장소를 열 때 한 번
+IndexedDB로 복사합니다. 이전 값은 한 릴리즈 동안 rollback 원본으로 남기므로
+마이그레이션 실패가 기존 데이터 삭제로 이어지지 않습니다.
+
+작은 템플릿 공유 링크는 압축한 payload를 GitHub Pages URL의 fragment(`#`)에
+담습니다. fragment는 HTTP 요청에 포함되지 않으며 Pages의 `/share/` 화면에서만
+검증·해제됩니다. URL 제한을 넘는 템플릿은 서버에 자동 업로드하지 않고
+`.linku.json` 파일로 내보냅니다. Pages에서 확장 프로그램으로 가져오는 외부
+메시지는 manifest와 background 양쪽에서 LinKU share 경로로 제한합니다.
+
+계정 로그인, 여러 기기 동기화, 충돌 처리와 cloud share는 이 로컬 저장소 위에
+별도 계층으로 추가하며, 로컬 저장 성공 여부와 분리해야 합니다. 상세 경계는
+`docs/LOCAL_FIRST.md`를 참고합니다.
+
 ### Backend와 인증
 
 `src/apis/client.ts`가 `VITE_API_BASE_URL`을 기준으로 backend 요청, bearer token,
@@ -80,7 +101,9 @@ popup이 닫힌 동안 background polling은 실행하지 않습니다.
 
 - `chrome.storage.local`: auth, 설정, todo, badge, 공지 캐시, 시간표 metadata와
   snapshot/override.
-- `localStorage`: template draft와 local template.
+- IndexedDB `linku`: 개인 template, draft, 사용자 icon blob.
+- `localStorage`: non-extension 시간표 fallback과 이전 template/draft의 1회
+  마이그레이션 원본. 새 template 데이터는 쓰지 않습니다.
 - IndexedDB: 사용자가 직접 올린 시간표 이미지 blob.
 
 시간표 metadata의 read-modify-write는 Web Locks로 popup과 background 사이에서
