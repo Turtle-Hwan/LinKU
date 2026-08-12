@@ -2,8 +2,6 @@ name: PR Build Check
 
 on:
   pull_request:
-    branches:
-      - main
 
 jobs:
   build:
@@ -36,6 +34,11 @@ jobs:
 
       - name: Build GitHub Pages share viewer
         run: pnpm run build:gh-pages
+
+      - name: Test and build Cloudflare Worker
+        run: |
+          pnpm run test:worker
+          pnpm run build:worker
 
       - name: Build success
         run: echo "✅ Build completed successfully!"
