@@ -51,6 +51,18 @@ test("실행 가능한 SVG data URL을 거부한다", () => {
   assert.throws(() => validateTemplateSharePayload(svgIcon), /이미지 아이콘/u);
 });
 
+test("외부 추적이 가능한 remote icon 형식을 거부한다", () => {
+  const remoteIcon = structuredClone(payload) as unknown as {
+    template: { items: Array<{ icon: unknown }> };
+  };
+  remoteIcon.template.items[0].icon = {
+    kind: "remote",
+    name: "tracker",
+    url: "https://tracker.example/icon.png",
+  };
+  assert.throws(() => validateTemplateSharePayload(remoteIcon), /아이콘/u);
+});
+
 test("손상된 압축 fragment를 사용자용 오류로 변환한다", async () => {
   await assert.rejects(
     decodeTemplateSharePayload("#v1.invalid"),

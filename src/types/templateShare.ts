@@ -9,16 +9,7 @@ export interface PortableIconData {
   dataUrl: string;
 }
 
-export interface PortableIconRemote {
-  kind: "remote";
-  name: string;
-  url: string;
-}
-
-export type PortableIcon =
-  | PortableIconBuiltin
-  | PortableIconData
-  | PortableIconRemote;
+export type PortableIcon = PortableIconBuiltin | PortableIconData;
 
 export interface PortableTemplateItem {
   name: string;

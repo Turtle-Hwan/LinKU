@@ -112,7 +112,7 @@ function validatePortableItem(
   }
 
   const icon = item.icon as Record<string, unknown> | undefined;
-  if (!icon || !["builtin", "data", "remote"].includes(String(icon.kind))) {
+  if (!icon || !["builtin", "data"].includes(String(icon.kind))) {
     throw new Error(`${index + 1}번째 항목의 아이콘이 올바르지 않습니다.`);
   }
   if (
@@ -132,17 +132,6 @@ function validatePortableItem(
     ) {
       throw new Error(`${index + 1}번째 이미지 아이콘이 올바르지 않습니다.`);
     }
-  }
-  if (icon.kind === "remote") {
-    if (
-      typeof icon.name !== "string" ||
-      icon.name.length === 0 ||
-      icon.name.length > 80 ||
-      typeof icon.url !== "string"
-    ) {
-      throw new Error(`${index + 1}번째 원격 아이콘이 올바르지 않습니다.`);
-    }
-    assertHttpUrl(icon.url);
   }
 }
 

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TemplatePreviewCanvas } from '@/components/Editor/TemplatePreview/TemplatePreviewCanvas';
+import type { Template } from '@/types/api';
 import type { TemplateSharePayloadV1 } from '@/types/templateShare';
 import {
   decodeTemplateSharePayload,
@@ -47,9 +48,14 @@ export function MessagePage({ title, message }: { title: string; message: string
   );
 }
 
-export function SharedTemplatePage({ payload }: { payload: TemplateSharePayloadV1 }) {
+export function SharedTemplatePage({
+  payload,
+  template,
+}: {
+  payload: TemplateSharePayloadV1;
+  template: Template;
+}) {
   const [status, setStatus] = useState('');
-  const template = portablePayloadToTemplate(payload);
 
   const handleImport = async () => {
     setStatus('가져오는 중...');
@@ -93,7 +99,10 @@ export function SharedTemplatePage({ payload }: { payload: TemplateSharePayloadV
 
 export function ShareApp() {
   const [hash, setHash] = useState(() => window.location.hash);
-  const [payload, setPayload] = useState<TemplateSharePayloadV1 | null>(null);
+  const [sharedTemplate, setSharedTemplate] = useState<{
+    payload: TemplateSharePayloadV1;
+    template: Template;
+  } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -104,11 +113,16 @@ export function ShareApp() {
 
   useEffect(() => {
     let active = true;
-    setPayload(null);
+    setSharedTemplate(null);
     setError('');
     void decodeTemplateSharePayload(hash)
       .then((decoded) => {
-        if (active) setPayload(decoded);
+        if (active) {
+          setSharedTemplate({
+            payload: decoded,
+            template: portablePayloadToTemplate(decoded),
+          });
+        }
       })
       .catch((decodeError: unknown) => {
         if (active) {
@@ -125,8 +139,10 @@ export function ShareApp() {
   }, [hash]);
 
   if (error) return <MessagePage title="공유 링크 오류" message={error} />;
-  if (!payload) return <MessagePage title="공유 템플릿" message="읽는 중..." />;
-  return <SharedTemplatePage payload={payload} />;
+  if (!sharedTemplate) {
+    return <MessagePage title="공유 템플릿" message="읽는 중..." />;
+  }
+  return <SharedTemplatePage {...sharedTemplate} />;
 }
 
 createRoot(document.getElementById('root')!).render(

@@ -19,28 +19,41 @@ export {
 
 export const SHARE_URL_LIMIT = 1_800;
 export const SHARE_PAGE_URL = "https://turtle-hwan.github.io/LinKU/share/";
+const GENERIC_LINK_ICON_KEY = "linku:generic-link";
+const PORTABLE_DATA_ICON_PATTERN = /^data:image\/(?:png|jpeg|webp);base64,/u;
+const GENERIC_LINK_ICON_URL = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/></svg>',
+)}`;
+
+function genericLinkIcon(name = "링크"): TemplateIcon {
+  return {
+    iconId: -1,
+    iconName: name,
+    iconUrl: GENERIC_LINK_ICON_URL,
+  };
+}
 
 function toPortableIcon(icon: TemplateIcon): PortableIcon {
   const builtin = getBundledTemplateIcons().find(
     (candidate) =>
-      candidate.id === icon.iconId &&
       candidate.name.toLowerCase() === icon.iconName.toLowerCase(),
   );
   if (builtin) return { kind: "builtin", key: builtin.name };
 
-  if (icon.iconUrl.startsWith("data:image/")) {
+  if (PORTABLE_DATA_ICON_PATTERN.test(icon.iconUrl)) {
     return { kind: "data", name: icon.iconName, dataUrl: icon.iconUrl };
   }
 
-  return { kind: "remote", name: icon.iconName, url: icon.iconUrl };
+  return { kind: "builtin", key: GENERIC_LINK_ICON_KEY };
 }
 
 function fromPortableIcon(icon: PortableIcon): TemplateIcon {
   if (icon.kind === "builtin") {
+    if (icon.key === GENERIC_LINK_ICON_KEY) return genericLinkIcon();
     const bundled = getBundledTemplateIcons().find(
       (candidate) => candidate.name.toLowerCase() === icon.key.toLowerCase(),
     );
-    if (!bundled) throw new Error(`알 수 없는 기본 아이콘입니다: ${icon.key}`);
+    if (!bundled) return genericLinkIcon(icon.key);
     return {
       iconId: bundled.id,
       iconName: bundled.name,
@@ -51,7 +64,7 @@ function fromPortableIcon(icon: PortableIcon): TemplateIcon {
   return {
     iconId: -Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
     iconName: icon.name,
-    iconUrl: icon.kind === "data" ? icon.dataUrl : icon.url,
+    iconUrl: icon.dataUrl,
   };
 }
 
