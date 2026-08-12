@@ -1,7 +1,7 @@
 import type { TemplateSummary } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { TemplatePreviewCanvas } from './TemplatePreviewCanvas';
-import { Check, HardDrive, Trash2 } from 'lucide-react';
+import { Check, HardDrive, Loader2, Share2, Trash2 } from 'lucide-react';
 
 interface TemplateCardProps {
   template: TemplateSummary;
@@ -10,7 +10,9 @@ interface TemplateCardProps {
   isSelected?: boolean;
   onApply?: (event: React.MouseEvent) => void;
   onDelete?: (event: React.MouseEvent) => void;
+  onShare?: (event: React.MouseEvent) => void;
   showDelete?: boolean;
+  isActionLoading?: boolean;
 }
 
 export const TemplateCard = ({
@@ -20,7 +22,9 @@ export const TemplateCard = ({
   isSelected,
   onApply,
   onDelete,
+  onShare,
   showDelete = false,
+  isActionLoading = false,
 }: TemplateCardProps) => (
   <div
     className={cn(
@@ -50,6 +54,21 @@ export const TemplateCard = ({
         isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
       )}
     >
+      {isActionLoading && (
+        <div className="rounded-md bg-background p-2 shadow-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      )}
+      {onShare && !isActionLoading && (
+        <button
+          type="button"
+          onClick={onShare}
+          className="cursor-pointer rounded-md bg-publish p-2 text-publish-foreground shadow-sm hover:bg-publish/90"
+          title="템플릿 공유"
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
+      )}
       {template.templateId !== 0 && (
         <div
           className="rounded-md bg-background/95 p-2 text-muted-foreground shadow-sm"

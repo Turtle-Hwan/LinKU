@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /LinKU/share/
+
+Sitemap: https://turtle-hwan.github.io/LinKU/sitemap.xml

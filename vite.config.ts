@@ -8,6 +8,22 @@ import fs from "fs";
 export default defineConfig(({ mode }) => {
   // Chrome Extension build configuration
   const isChromeExtension = mode !== "gh-pages";
+  const rollupInput: Record<string, string> = isChromeExtension
+    ? {
+        main: path.resolve(__dirname, "index.html"),
+        "background/index": path.resolve(
+          __dirname,
+          "src/background/index.ts",
+        ),
+        "content/everytime-timetable": path.resolve(
+          __dirname,
+          "src/content/everytime-timetable.ts",
+        ),
+      }
+    : {
+        main: path.resolve(__dirname, "web/index.html"),
+        "share/index": path.resolve(__dirname, "web/share/index.html"),
+      };
 
   return {
     plugins: [
@@ -15,35 +31,25 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       svgr(),
       mode === "gh-pages" && copyBannersForGhPages(),
+      mode === "gh-pages" && moveGhPagesWebFilesToRoot(),
     ],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
     },
-    // base를 상대경로로 설정
-    base: "",
+    publicDir: mode === "gh-pages" ? "web/public" : "public",
+    base: mode === "gh-pages" ? "/LinKU/" : "",
     build: {
       // 빌드 결과물이 dist/ 폴더에 생성되도록 설정
       outDir: mode === "gh-pages" ? "gh-pages" : "dist",
+      emptyOutDir: true,
       // assets 폴더를 dist에 직접 생성
       assetsDir: "dist/assets",
       // public 폴더의 파일들을 dist로 복사
       copyPublicDir: true,
       rollupOptions: {
-        input: isChromeExtension
-          ? {
-              // Popup entry point
-              main: path.resolve(__dirname, "index.html"),
-              // Background service worker entry point
-              "background/index": path.resolve(__dirname, "src/background/index.ts"),
-              // Everytime timetable capture content script
-              "content/everytime-timetable": path.resolve(
-                __dirname,
-                "src/content/everytime-timetable.ts",
-              ),
-            }
-          : undefined,
+        input: rollupInput,
         output: {
           assetFileNames: "[name][extname]",
           chunkFileNames: "[name].js",
@@ -68,6 +74,25 @@ function copyBannersForGhPages() {
       } else {
         console.warn(`Source directory ${sourceDir} does not exist.`);
       }
+    },
+  };
+}
+
+function moveGhPagesWebFilesToRoot() {
+  return {
+    name: "move-gh-pages-web-files-to-root",
+    closeBundle() {
+      const outputDir = path.resolve(__dirname, "gh-pages");
+      const webDir = path.resolve(outputDir, "web");
+      if (!fs.existsSync(webDir)) return;
+
+      for (const entry of fs.readdirSync(webDir)) {
+        const source = path.resolve(webDir, entry);
+        const target = path.resolve(outputDir, entry);
+        if (fs.existsSync(target)) fs.rmSync(target, { recursive: true });
+        fs.renameSync(source, target);
+      }
+      fs.rmSync(webDir, { recursive: true });
     },
   };
 }

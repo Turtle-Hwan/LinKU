@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { FileText, LayoutTemplate, Plus, Sparkles } from 'lucide-react';
+import { FileText, FileUp, LayoutTemplate, Plus, Sparkles } from 'lucide-react';
 import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,8 +16,16 @@ import type { Template, TemplateSummary } from '@/types/api';
 import {
   deleteTemplateFromLocalStorage,
   getTemplatesIndex,
+  importSharedTemplate,
   loadTemplateFromLocalStorage,
 } from '@/utils/templateStorage';
+import {
+  createTemplateShareUrl,
+  downloadTemplatePayload,
+  MAX_SHARE_FILE_BYTES,
+  portablePayloadToTemplate,
+  validateTemplateSharePayload,
+} from '@/utils/templateShare';
 import { createBundledDefaultTemplate } from '@/utils/defaultTemplate';
 import {
   resolveLatestBulletin,
@@ -54,6 +62,8 @@ export const TemplateListPage = () => {
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'owned' | 'cloned'>('owned');
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const applyBulletin = (bulletin: Parameters<typeof createBundledDefaultTemplate>[0]) => {
@@ -161,6 +171,71 @@ export const TemplateListPage = () => {
     }
   };
 
+  const handleShareTemplate = async (templateId: number) => {
+    setActionLoading(templateId);
+    try {
+      const stored =
+        templateId === 0
+          ? { template: defaultTemplate }
+          : await loadTemplateFromLocalStorage(templateId);
+      if (!stored) throw new Error('이 기기에서 템플릿을 찾을 수 없습니다.');
+
+      const share = await createTemplateShareUrl(stored.template);
+      if (share.mode === 'url') {
+        await navigator.clipboard.writeText(share.url);
+        toast({
+          title: '공유 링크 복사 완료',
+          description: '템플릿 데이터는 링크의 fragment에만 들어 있습니다.',
+        });
+      } else {
+        downloadTemplatePayload(share.payload);
+        toast({
+          title: '공유 파일 저장 완료',
+          description: '링크에 담기 큰 템플릿이라 파일로 저장했습니다.',
+        });
+      }
+    } catch (error) {
+      errorLog('Failed to share template', error);
+      toast({
+        title: '공유 실패',
+        description:
+          error instanceof Error ? error.message : '공유 데이터를 만들지 못했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      if (file.size > MAX_SHARE_FILE_BYTES) {
+        throw new Error('템플릿 가져오기 파일은 256KB 이하여야 합니다.');
+      }
+      const value: unknown = JSON.parse(await file.text());
+      validateTemplateSharePayload(value);
+      const imported = await importSharedTemplate(
+        portablePayloadToTemplate(value),
+      );
+      await loadTemplates();
+      setActiveTab('cloned');
+      toast({
+        title: '템플릿 가져오기 완료',
+        description: `“${imported.template.name}”을 이 기기에 저장했습니다.`,
+      });
+    } catch (error) {
+      toast({
+        title: '가져오기 실패',
+        description:
+          error instanceof Error ? error.message : '템플릿 파일을 읽지 못했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
+
   const renderList = () => {
     if (loading) {
       return <p className="py-12 text-center text-muted-foreground">불러오는 중...</p>;
@@ -200,7 +275,12 @@ export const TemplateListPage = () => {
               event.stopPropagation();
               void handleDeleteTemplate(template);
             }}
+            onShare={(event) => {
+              event.stopPropagation();
+              void handleShareTemplate(template.templateId);
+            }}
             showDelete={template.templateId !== 0}
+            isActionLoading={actionLoading === template.templateId}
           />
         ))}
       </div>
@@ -231,8 +311,18 @@ export const TemplateListPage = () => {
               <DropdownMenuItem onClick={handleCreateEmpty}>
                 <FileText className="mr-2 h-4 w-4" />빈 템플릿에서 시작
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => importInputRef.current?.click()}>
+                <FileUp className="mr-2 h-4 w-4" />파일에서 가져오기
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <input
+            ref={importInputRef}
+            className="hidden"
+            type="file"
+            accept=".json,.linku.json,application/json"
+            onChange={(event) => void handleImportFile(event.target.files?.[0])}
+          />
         </div>
       </div>
 
