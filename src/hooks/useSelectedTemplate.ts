@@ -5,7 +5,6 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { getTemplate } from "@/apis/templates";
 import {
   resolveLatestBulletin,
   subscribeLatestBulletin,
@@ -232,28 +231,10 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         return;
       }
 
-      // Fallback: Load from server
-      const result = await getTemplate(templateId);
-
-      if (isStaleRequest()) {
-        return;
-      }
-
-      if (result.success && result.data) {
-        debugLog(
-          "[useSelectedTemplate] Loaded template from server:",
-          templateId,
-        );
-        setTemplateData(result.data);
-        setLinkItems(convertTemplateToLinkList(result.data));
-      } else {
-        // Failed to load template - fallback to default
-        errorLog("Failed to load template:", result.error);
-        setError(result.error?.message || "템플릿을 불러올 수 없습니다.");
-        setTemplateData(null);
-        setSelectedTemplateId(null);
-        setLinkItems(defaultLinkItemsRef.current);
-      }
+      setError("이 기기에서 템플릿을 찾을 수 없어 기본 템플릿을 표시합니다.");
+      setTemplateData(null);
+      setSelectedTemplateId(null);
+      setLinkItems(defaultLinkItemsRef.current);
     } catch (err) {
       if (isStaleRequest()) {
         return;

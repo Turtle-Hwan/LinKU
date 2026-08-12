@@ -5,14 +5,13 @@
 
 import { useReducer, useEffect, ReactNode } from 'react';
 import type { Template, TemplateItem, Icon } from '@/types/api';
-import { getTemplate } from '@/apis/templates';
 import { getDefaultIcons, getMyIcons } from '@/apis/icons';
 import { resolveLatestBulletin } from '@/apis/external/bulletin';
 import { createDefaultLinkList } from '@/constants/LinkList';
 import { BULLETIN_FALLBACK } from '@/constants/bulletin';
+import { getBundledTemplateIcons } from '@/constants/templateIcons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
-import { toast } from 'sonner';
 import { debugLog, errorLog } from '@/utils/logger';
 import { EditorContext } from './EditorContextObject';
 
@@ -450,16 +449,10 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         return;
       }
 
-      // Fallback: Load from server
-      const result = await getTemplate(id);
-      if (result.success && result.data) {
-        dispatch({ type: 'LOAD_TEMPLATE', payload: result.data });
-      } else {
-        dispatch({
-          type: 'SET_ERROR',
-          payload: result.error?.message || '템플릿을 불러올 수 없습니다.',
-        });
-      }
+      dispatch({
+        type: 'SET_ERROR',
+        payload: '이 기기에서 템플릿을 찾을 수 없습니다.',
+      });
     } catch (error) {
       dispatch({
         type: 'SET_ERROR',
@@ -477,7 +470,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      // Fetch editor icons and resolve the bulletin only for default templates.
+      // Read bundled/user icons and resolve the public bulletin when needed.
       const [iconsResult, userIconsResult, bulletinResult] = await Promise.allSettled([
         getDefaultIcons(),
         getMyIcons(),
@@ -506,7 +499,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
 
       debugLog('[EditorContext] Final defaultIcons count:', defaultIcons.length);
 
-      // Load server icons for icon picker (even if empty)
+      // Load bundled icons for the icon picker.
       dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
 
       // Load user icons for icon picker
@@ -532,46 +525,29 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         };
         dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
       } else {
-        // Default template - convert LinkList using server icons
-        // If no icons available, show warning and create empty template (still saveable locally)
-        if (defaultIcons.length === 0) {
-          toast.warning('서버 아이콘을 불러올 수 없어 빈 템플릿으로 시작합니다.');
-          const emptyTemplate: Template = {
-            templateId: 0,
-            name: '새 템플릿',
-            height: 6,
-            cloned: false,
-            items: [],
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
-        } else {
-          const defaultLinks = createDefaultLinkList(
-            bulletinResult.status === 'fulfilled'
-              ? bulletinResult.value
-              : undefined,
-          );
-          const templateItems = convertLinkListToTemplateItems(
-            defaultIcons,
-            defaultLinks,
-          );
-          const templateHeight = calculateTemplateHeight();
+        const defaultLinks = createDefaultLinkList(
+          bulletinResult.status === 'fulfilled'
+            ? bulletinResult.value
+            : undefined,
+        );
+        const templateItems = convertLinkListToTemplateItems(
+          getBundledTemplateIcons(defaultLinks),
+          defaultLinks,
+        );
+        const templateHeight = calculateTemplateHeight();
 
-          const newTemplate: Template = {
-            templateId: 0,
-            name: '새 템플릿',
-            height: templateHeight,
-            cloned: false,
-            items: templateItems,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
+        const newTemplate: Template = {
+          templateId: 0,
+          name: '새 템플릿',
+          height: templateHeight,
+          cloned: false,
+          items: templateItems,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
 
-          dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
-        }
+        dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
       }
     } catch (error) {
       errorLog('[EditorContext] Failed to initialize template:', error);
