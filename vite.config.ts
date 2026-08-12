@@ -86,12 +86,15 @@ function moveGhPagesWebFilesToRoot() {
       const webDir = path.resolve(outputDir, "web");
       if (!fs.existsSync(webDir)) return;
 
-      for (const entry of fs.readdirSync(webDir)) {
-        const source = path.resolve(webDir, entry);
-        const target = path.resolve(outputDir, entry);
-        if (fs.existsSync(target)) fs.rmSync(target, { recursive: true });
-        fs.renameSync(source, target);
-      }
+      const webIndex = path.resolve(webDir, "index.html");
+      const rootIndex = path.resolve(outputDir, "index.html");
+      if (fs.existsSync(rootIndex)) fs.rmSync(rootIndex);
+      fs.renameSync(webIndex, rootIndex);
+
+      const webShareIndex = path.resolve(webDir, "share/index.html");
+      const shareDir = path.resolve(outputDir, "share");
+      fs.mkdirSync(shareDir, { recursive: true });
+      fs.renameSync(webShareIndex, path.resolve(shareDir, "index.html"));
       fs.rmSync(webDir, { recursive: true });
     },
   };
