@@ -2,6 +2,7 @@ import { getBundledTemplateIcons } from "@/constants/templateIcons";
 import type { Template, TemplateIcon, TemplateItem } from "@/types/api";
 import type {
   PortableIcon,
+  PortableTemplateItem,
   TemplateSharePayloadV1,
 } from "@/types/templateShare";
 import {
@@ -68,6 +69,31 @@ function fromPortableIcon(icon: PortableIcon): TemplateIcon {
   };
 }
 
+export function templateItemsToPortable(
+  items: TemplateItem[],
+): PortableTemplateItem[] {
+  return items.map((item) => ({
+    name: item.name,
+    siteUrl: item.siteUrl,
+    position: item.position,
+    size: item.size,
+    icon: toPortableIcon(item.icon),
+  }));
+}
+
+export function portableItemsToTemplateItems(
+  items: PortableTemplateItem[],
+): TemplateItem[] {
+  return items.map((item, index) => ({
+    templateItemId: -(index + 1),
+    name: item.name,
+    siteUrl: item.siteUrl,
+    position: item.position,
+    size: item.size,
+    icon: fromPortableIcon(item.icon),
+  }));
+}
+
 export function createTemplateSharePayload(
   template: Template,
 ): TemplateSharePayloadV1 {
@@ -76,13 +102,7 @@ export function createTemplateSharePayload(
     template: {
       name: template.name.slice(0, 80),
       height: template.height,
-      items: template.items.map((item) => ({
-        name: item.name,
-        siteUrl: item.siteUrl,
-        position: item.position,
-        size: item.size,
-        icon: toPortableIcon(item.icon),
-      })),
+      items: templateItemsToPortable(template.items),
     },
   };
 }
@@ -92,14 +112,7 @@ export function portablePayloadToTemplate(
 ): Template {
   validateTemplateSharePayload(payload);
   const now = new Date().toISOString();
-  const items: TemplateItem[] = payload.template.items.map((item, index) => ({
-    templateItemId: -(index + 1),
-    name: item.name,
-    siteUrl: item.siteUrl,
-    position: item.position,
-    size: item.size,
-    icon: fromPortableIcon(item.icon),
-  }));
+  const items = portableItemsToTemplateItems(payload.template.items);
   return {
     id: crypto.randomUUID(),
     templateId: Date.now(),
