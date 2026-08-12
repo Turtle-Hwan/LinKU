@@ -25,21 +25,23 @@ import {
   logout,
   isLoggedIn,
   getUserProfile,
-  isGuestUser,
   UserProfile,
 } from "@/utils/oauth";
+import { deleteCloudAccount, syncAccount } from "@/utils/accountSync";
+import {
+  clearAccountSyncState,
+  SyncAccountMismatchError,
+} from "@/storage/linkuDb";
 import {
   Info,
   Palette,
   LogOut,
-  Mail,
   Settings as SettingsIcon,
   Timer,
   User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
-import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
 import TodoDeadlineBadge from "@/components/Tabs/TodoList/TodoDeadlineBadge";
 import { calculateDDay } from "@/utils/todo/dateFormat";
 import {
@@ -265,11 +267,9 @@ const ECampusCredential = () => {
 
 const GoogleOAuthSection = () => {
   const [loggedIn, setLoggedIn] = useState<boolean>(false);
-  const [isGuest, setIsGuest] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showEmailVerification, setShowEmailVerification] = useState<boolean>(false);
-  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Check login status on mount
   useEffect(() => {
@@ -280,14 +280,11 @@ const GoogleOAuthSection = () => {
   useEffect(() => {
     const handleLogout = () => {
       setLoggedIn(false);
-      setIsGuest(false);
       setUserProfile(null);
-      setVerifiedEmail(null);
     };
 
     const handleUnauthorized = () => {
       setLoggedIn(false);
-      setIsGuest(false);
       setUserProfile(null);
     };
 
@@ -305,17 +302,8 @@ const GoogleOAuthSection = () => {
     setLoggedIn(loggedIn);
 
     if (loggedIn) {
-      const guest = await isGuestUser();
-      setIsGuest(guest);
-
       const profile = await getUserProfile();
       setUserProfile(profile);
-
-      // Load verified email if exists
-      const kuMail = await getStorage<string>('kuMail');
-      if (kuMail) {
-        setVerifiedEmail(kuMail);
-      }
     }
   };
 
@@ -328,19 +316,30 @@ const GoogleOAuthSection = () => {
 
       if (result.success) {
         setLoggedIn(true);
-
-        // Check if this is a guest (requires signup)
-        if (result.response.requiresSignup) {
-          setIsGuest(true);
-          sendAuthLoginSuccess("google", true);
-          // Auto-open email verification dialog for guests
-          setShowEmailVerification(true);
-          toast.info("건국대 이메일 인증이 필요합니다.");
-        } else {
-          setIsGuest(false);
-          setUserProfile(result.response.profile);
-          sendAuthLoginSuccess("google", false);
-          toast.success("로그인 성공!");
+        setUserProfile(result.profile);
+        sendAuthLoginSuccess("google");
+        try {
+          const syncResult = await syncAccount();
+          toast.success("로그인 성공!", {
+            description:
+              syncResult.failed === 0
+                ? "이 기기의 템플릿을 계정과 동기화했습니다."
+                : "로그인은 완료됐고, 일부 변경은 다음 동기화 때 다시 시도합니다.",
+          });
+        } catch (syncError) {
+          if (syncError instanceof SyncAccountMismatchError) {
+            await logout();
+            setLoggedIn(false);
+            setUserProfile(null);
+            toast.error("계정을 바로 전환할 수 없습니다", {
+              description: syncError.message,
+            });
+            return;
+          }
+          toast.success("로그인 성공!", {
+            description:
+              "동기화는 완료하지 못했지만 로컬 데이터는 그대로 유지됩니다.",
+          });
         }
       } else {
         sendAuthLoginFail("google", "login_failed", result.error || "알 수 없는 오류");
@@ -360,48 +359,42 @@ const GoogleOAuthSection = () => {
     }
   };
 
-  // Called after email verification is complete
-  const handleVerificationComplete = async () => {
-    // Re-login to get member token
-    setIsLoading(true);
-    try {
-      const result = await startGoogleLogin();
-
-      if (result.success && !result.response.requiresSignup) {
-        setIsGuest(false);
-        setUserProfile(result.response.profile);
-
-        // Load verified email
-        const kuMail = await getStorage<string>('kuMail');
-        if (kuMail) {
-          setVerifiedEmail(kuMail);
-        }
-
-        toast.success("회원가입 완료!", {
-          description: "이제 모든 기능을 사용할 수 있습니다.",
-        });
-      } else {
-        // Still guest after re-login (edge case)
-        toast.error("인증에 문제가 발생했습니다. 다시 시도해주세요.");
-      }
-    } catch (error) {
-      errorLog("Re-login error:", error);
-      toast.error("재로그인에 실패했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleLogout = async () => {
     sendAuthLogout("settings_dialog");
 
     await logout();
     setLoggedIn(false);
-    setIsGuest(false);
     setUserProfile(null);
-    setVerifiedEmail(null);
 
     toast.success("로그아웃 완료");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (
+      !confirm(
+        "계정에 동기화된 템플릿과 공유 데이터를 모두 삭제할까요? 이 기기의 로컬 템플릿은 유지됩니다.",
+      )
+    ) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteCloudAccount();
+      await logout();
+      await clearAccountSyncState();
+      setLoggedIn(false);
+      setUserProfile(null);
+      toast.success("계정 데이터 삭제 완료", {
+        description: "이 기기에 저장된 템플릿은 그대로 남아 있습니다.",
+      });
+    } catch (error) {
+      toast.error("계정 데이터 삭제 실패", {
+        description:
+          error instanceof Error ? error.message : "잠시 후 다시 시도해주세요.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Get initials for avatar fallback
@@ -419,13 +412,13 @@ const GoogleOAuthSection = () => {
     // Not logged in - show login button
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold">Google / Konkuk 계정 연동</h2>
+        <h2 className="text-base font-semibold">LinKU 계정 동기화</h2>
 
         <div className="space-y-3">
           <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
             <p className="text-xs text-muted-foreground leading-relaxed">
-              계정 연동을 하면 템플릿을 서버에 저장하고 여러 기기에서 동기화할 수 있습니다.
+              Google 로그인만으로 계정 기능을 바로 이용하고 템플릿을 여러 기기에서 동기화할 수 있습니다.
             </p>
           </div>
 
@@ -441,54 +434,10 @@ const GoogleOAuthSection = () => {
     );
   }
 
-  // Guest user - show email verification prompt
-  if (isGuest) {
-    return (
-      <>
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold">이메일 인증 필요</h2>
-
-          <div className="space-y-3">
-            <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3">
-              <Mail className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
-              <p className="text-xs text-amber-700 leading-relaxed">
-                건국대학교 이메일 인증을 완료해야 템플릿 동기화 기능을 사용할 수 있습니다.
-              </p>
-            </div>
-
-            <Button
-              onClick={() => setShowEmailVerification(true)}
-              className="w-full"
-              disabled={isLoading}
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              건국대 이메일 인증하기
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="w-full text-muted-foreground"
-            >
-              다른 계정으로 로그인
-            </Button>
-          </div>
-        </div>
-
-        <EmailVerificationDialog
-          open={showEmailVerification}
-          onOpenChange={setShowEmailVerification}
-          onVerificationComplete={handleVerificationComplete}
-        />
-      </>
-    );
-  }
-
-  // Logged in as member - show user profile
+  // A verified Google account can use sync without a separate school-email gate.
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-semibold">Google / Konkuk 계정 연동</h2>
+      <h2 className="text-base font-semibold">LinKU 계정 동기화</h2>
 
       <div className="space-y-3">
         <div className="flex items-center gap-3 rounded-lg border p-4">
@@ -504,7 +453,7 @@ const GoogleOAuthSection = () => {
               {userProfile?.name || "사용자"}
             </p>
             <p className="text-sm text-muted-foreground truncate">
-              {verifiedEmail || userProfile?.email || "인증된 사용자"}
+              {userProfile?.email || "Google 계정"}
             </p>
           </div>
 
@@ -517,6 +466,17 @@ const GoogleOAuthSection = () => {
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
+        <Button
+          variant="destructive"
+          className="w-full"
+          disabled={isDeleting}
+          onClick={handleDeleteAccount}
+        >
+          {isDeleting ? "계정 데이터 삭제 중..." : "계정 데이터 삭제"}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          R2에 동기화된 데이터와 로그인 세션만 삭제합니다. 이 기기의 로컬 템플릿은 유지됩니다.
+        </p>
       </div>
     </div>
   );

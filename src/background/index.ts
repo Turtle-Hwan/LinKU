@@ -21,7 +21,6 @@ import type {
   SilentReauthResponse,
   TimetableImportResponse,
 } from "./types";
-import { handleGoogleLogin } from "./handlers/oauth";
 import {
   formatTodoBadgeCount,
   TODO_BADGE_BACKGROUND_COLOR,
@@ -35,14 +34,20 @@ import {
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
 import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
+import {
+  handleGoogleLogin,
+  handleSilentReauth,
+  logoutSession,
+} from "./handlers/oauth";
 
 debugLog("[Background] Service worker initialized");
 
 async function restrictLocalStorageAccess(): Promise<void> {
   try {
-    await chrome.storage.local.setAccessLevel({
-      accessLevel: "TRUSTED_CONTEXTS",
-    });
+    await Promise.all([
+      chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }),
+      chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }),
+    ]);
   } catch (error) {
     warnLog(
       "[Background] Failed to restrict local storage access",
@@ -76,12 +81,20 @@ chrome.runtime.onMessage.addListener(
     const typedMessage = message as BackgroundMessage;
     debugLog("[Background] Message received:", typedMessage.type);
 
-    // Handle Google Login
+    if (typedMessage.type === BackgroundMessageType.LOGOUT) {
+      void logoutSession()
+        .then(() => sendResponse({ success: true }))
+        .catch(() =>
+          sendResponse({ success: false, error: "로그아웃에 실패했습니다." }),
+        );
+      return true;
+    }
+
     if (isGoogleLoginMessage(typedMessage)) {
       debugLog("[Background] Handling Google login request");
 
       // Handle async OAuth flow
-      handleGoogleLogin()
+      void handleGoogleLogin()
         .then((response: GoogleLoginResponse) => {
           debugLog("[Background] Sending OAuth response to popup");
           sendResponse(response);
@@ -111,20 +124,8 @@ chrome.runtime.onMessage.addListener(
       );
 
       // Reuse Google OAuth flow for silent reauth
-      handleGoogleLogin()
-        .then((response: GoogleLoginResponse) => {
-          debugLog(
-            "[Background] Silent reauth completed:",
-            response.success,
-          );
-          const reauthResponse: SilentReauthResponse = {
-            success: response.success,
-            error: response.success
-              ? undefined
-              : (response as { error?: string }).error,
-          };
-          sendResponse(reauthResponse);
-        })
+      void handleSilentReauth()
+        .then((response: SilentReauthResponse) => sendResponse(response))
         .catch((error: unknown) => {
           warnLog(
             "[Background] Silent reauth error",

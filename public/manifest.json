@@ -39,7 +39,8 @@
     "*://ecampus.konkuk.ac.kr/*",
     "*://library.konkuk.ac.kr/*",
     "https://www.google-analytics.com/*",
-    "https://ku-linku.store/*"
+    "https://ku-linku.store/*",
+    "https://linku.turtlehwan.dev/*"
   ],
   "externally_connectable": {
     "matches": [
