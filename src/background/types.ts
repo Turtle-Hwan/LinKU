@@ -3,7 +3,7 @@
  * Type definitions for communication between popup and background script
  */
 
-import type { GoogleOAuthResponse } from '../types/api';
+import type { AuthProfile } from '@/types/serverless';
 import type {
   TimetableImportMode,
   TimetableImportResponse,
@@ -15,6 +15,7 @@ import type {
 export enum BackgroundMessageType {
   GOOGLE_LOGIN = 'GOOGLE_LOGIN',
   SILENT_REAUTH = 'SILENT_REAUTH',
+  LOGOUT = 'LOGOUT',
   TIMETABLE_IMPORT = 'TIMETABLE_IMPORT',
 }
 
@@ -38,7 +39,7 @@ export interface GoogleLoginMessage extends BackgroundMessage {
  */
 export interface GoogleLoginSuccessResponse {
   success: true;
-  response: GoogleOAuthResponse;
+  profile: AuthProfile;
 }
 
 /**

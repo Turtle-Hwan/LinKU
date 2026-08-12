@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { FileText, FileUp, LayoutTemplate, Plus, Sparkles } from 'lucide-react';
+import {
+  FileText,
+  FileUp,
+  LayoutTemplate,
+  Plus,
+  RefreshCw,
+  Sparkles,
+} from 'lucide-react';
 import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +26,9 @@ import {
   importSharedTemplate,
   loadTemplateFromLocalStorage,
 } from '@/utils/templateStorage';
+import { getTemplateSyncState } from '@/storage/linkuDb';
+import { createCloudShare, syncAccount } from '@/utils/accountSync';
+import { isLoggedIn } from '@/utils/oauth';
 import {
   createTemplateShareUrl,
   downloadTemplatePayload,
@@ -38,7 +48,10 @@ import {
   sendTemplateDelete,
 } from '@/utils/analytics';
 
-function toSummary(template: Template): TemplateSummary {
+function toSummary(
+  template: Template,
+  syncStatus: TemplateSummary['syncStatus'] = 'local',
+): TemplateSummary {
   return {
     templateId: template.templateId,
     name: template.name,
@@ -47,7 +60,7 @@ function toSummary(template: Template): TemplateSummary {
     createdAt: template.createdAt,
     updatedAt: template.updatedAt,
     itemCount: template.items.length,
-    syncStatus: 'local',
+    syncStatus,
     items: template.items,
   };
 }
@@ -63,7 +76,9 @@ export const TemplateListPage = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'owned' | 'cloned'>('owned');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const autoSyncAttempted = useRef(false);
 
   useEffect(() => {
     const applyBulletin = (bulletin: Parameters<typeof createBundledDefaultTemplate>[0]) => {
@@ -81,11 +96,16 @@ export const TemplateListPage = () => {
       const storedTemplates = await Promise.all(
         index.map((entry) => loadTemplateFromLocalStorage(entry.templateId)),
       );
-      setTemplates(
-        storedTemplates
-          .filter((stored) => stored !== null)
-          .map((stored) => toSummary(stored.template)),
+      const available = storedTemplates.filter((stored) => stored !== null);
+      const summaries = await Promise.all(
+        available.map(async (stored) =>
+          toSummary(
+            stored.template,
+            await getTemplateSyncState(stored.template.id),
+          ),
+        ),
       );
+      setTemplates(summaries);
     } catch (error) {
       errorLog('Failed to load IndexedDB templates', error);
       setTemplates([]);
@@ -101,6 +121,20 @@ export const TemplateListPage = () => {
 
   useEffect(() => {
     void loadTemplates();
+  }, [loadTemplates]);
+
+  useEffect(() => {
+    if (autoSyncAttempted.current) return;
+    autoSyncAttempted.current = true;
+    void isLoggedIn()
+      .then(async (loggedIn) => {
+        if (!loggedIn) return;
+        await syncAccount();
+        await loadTemplates();
+      })
+      .catch((error: unknown) => {
+        errorLog('Background account sync deferred', error);
+      });
   }, [loadTemplates]);
 
   useEffect(() => {
@@ -196,11 +230,32 @@ export const TemplateListPage = () => {
           description: '템플릿 데이터는 링크의 fragment에만 들어 있습니다.',
         });
       } else {
-        downloadTemplatePayload(share.payload);
-        toast({
-          title: '공유 파일 저장 완료',
-          description: '링크에 담기 큰 템플릿이라 파일로 저장했습니다.',
-        });
+        if (await isLoggedIn()) {
+          let url: string;
+          try {
+            url = await createCloudShare(share.payload);
+          } catch (cloudError) {
+            errorLog('Cloud share unavailable; downloading file instead', cloudError);
+            downloadTemplatePayload(share.payload);
+            toast({
+              title: '공유 파일 저장 완료',
+              description:
+                '계정 서버에 연결할 수 없어 큰 템플릿을 파일로 저장했습니다.',
+            });
+            return;
+          }
+          await navigator.clipboard.writeText(url);
+          toast({
+            title: '클라우드 공유 링크 복사 완료',
+            description: '큰 템플릿 공유는 30일 후 만료됩니다.',
+          });
+        } else {
+          downloadTemplatePayload(share.payload);
+          toast({
+            title: '공유 파일 저장 완료',
+            description: '로그인하지 않아 큰 템플릿을 파일로 저장했습니다.',
+          });
+        }
       }
     } catch (error) {
       errorLog('Failed to share template', error);
@@ -212,6 +267,37 @@ export const TemplateListPage = () => {
       });
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await syncAccount();
+      await loadTemplates();
+      if (result.failed > 0) {
+        toast({
+          title: '일부 동기화 실패',
+          description: `${result.failed}개 변경은 이 기기에 보존되어 있습니다. 다시 시도해주세요.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: '동기화 완료',
+          description: `업로드 ${result.synced}개 · 내려받기 ${result.pulled}개`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: '동기화하지 못했습니다',
+        description:
+          error instanceof Error
+            ? error.message
+            : '로그인과 네트워크 상태를 확인해주세요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -305,6 +391,10 @@ export const TemplateListPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" disabled={isSyncing} onClick={() => void handleSync()}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? '동기화 중' : '계정 동기화'}
+          </Button>
           <Button variant="outline" onClick={() => navigate('/gallery')}>
             <Sparkles className="mr-2 h-4 w-4" />둘러보기
           </Button>

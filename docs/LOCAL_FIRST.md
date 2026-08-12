@@ -38,9 +38,9 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 - Pages에서 보낸 가져오기 요청은 service worker가 `chrome.storage.local` queue에
   보관하고, popup이 열릴 때 검증 후 IndexedDB에 저장합니다.
 
-## 후속 stateful 계층의 계약
+## Stateful 계층의 계약
 
-계정 동기화 PR은 다음 원칙을 지켜 이 기반 위에 추가합니다.
+계정 동기화 계층은 다음 원칙을 지켜 이 기반 위에서 동작합니다.
 
 1. IndexedDB 저장은 항상 먼저 완료하고 성공 UI를 반환합니다.
 2. 동기화는 durable outbox로 별도 수행하며 네트워크 실패가 로컬 저장을 rollback하지
@@ -52,5 +52,5 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 5. Worker는 인증, 사용자별 object namespace, optimistic concurrency와 공유 수명만
    담당합니다. 템플릿 편집·검증·압축·미리보기는 프론트에 둡니다.
 
-stateful 계층이 추가되기 전에는 로그인, 여러 기기 동기화, cloud share, 커뮤니티
-게시를 제공한다고 표시하지 않습니다.
+로그인과 여러 기기 템플릿 동기화, 큰 payload의 30일 cloud share만 제공합니다.
+커뮤니티 게시·검색·좋아요는 아직 제공하지 않습니다.

@@ -32,8 +32,6 @@ export const ENDPOINTS = {
   // Auth
   AUTH: {
     GOOGLE_OAUTH: "/oauth2/authorization/google",
-    SEND_CODE: "/auth/send-code",
-    VERIFY_CODE: "/auth/verify-code",
   },
 
   // Templates
@@ -88,7 +86,6 @@ async function clearAccessToken(): Promise<void> {
   await removeStorage([
     "accessToken",
     "refreshToken",
-    "guestToken",
   ]);
 }
 

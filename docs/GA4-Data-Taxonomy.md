@@ -14,7 +14,7 @@
 | 핵심 가치 행동 파악 | 어떤 행동이 LinKU의 핵심 가치를 보여주는가 | link click rate, template apply rate, alert/todo usage |
 | 기능 채택 파악 | 사용자가 어떤 기능을 실제로 쓰는가 | feature adoption by domain |
 | 템플릿 기능 성과 파악 | 템플릿 생성/저장/동기화/게시 흐름이 잘 작동하는가 | editor conversion funnel |
-| 계정 연동 파악 | 로그인/이메일 인증이 사용성에 어떤 영향을 주는가 | login start -> success, guest -> verified |
+| 계정 연동 파악 | Google 로그인이 사용성에 어떤 영향을 주는가 | login start -> success |
 
 ## Principles
 
@@ -68,7 +68,6 @@
 | `error_code` | string | 실패 코드 | `network_error`, `auth_required` |
 | `error_message` | string | 사람이 읽는 에러 설명 | `sync_failed` |
 | `is_logged_in` | boolean | 로그인 상태 | `true` |
-| `is_guest` | boolean | 게스트 회원 여부 | `false` |
 
 > **구현 상태 표기**
 > - `구현됨` — `analytics.ts`에 헬퍼 함수가 존재하고 call site에 연결됨
@@ -103,11 +102,9 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | Event Name | 상태 | 목적 | 주요 Params | 우선순위 |
 | --- | --- | --- | --- | --- |
 | `auth_login_start` | 구현됨 | 로그인 의도 파악 | `provider`, `ui_location` | P1 |
-| `auth_login_success` | 구현됨 | 실제 로그인 성공률 측정 | `provider`, `is_guest` | P1 |
+| `auth_login_success` | 구현됨 | 실제 로그인 성공률 측정 | `provider` | P1 |
 | `auth_login_fail` | 구현됨 | 로그인 장애 파악 | `provider`, `error_code`, `error_message` | P1 |
 | `auth_logout` | 구현됨 | 로그아웃 행동 파악 | `ui_location` | P2 |
-| `auth_email_verification_start` | 구현됨 | 게스트 → 회원 전환 시작점 | `ui_location` | P1 |
-| `auth_email_verification_success` | 구현됨 | 회원 전환 완료 | `domain_type` | P1 |
 
 ## Template Events
 
@@ -182,7 +179,6 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | --- | --- | --- |
 | `search_submit` | `MP_search_submit` | MP_ prefix 적용 |
 | `auth_login_start/success/fail` | `MP_authLogin_start/success/fail` | prefix + camelCase trio |
-| `auth_email_verification_start/success` | `MP_authEmailVerification_start/success` | prefix + camelCase |
 | `auth_logout` | `MP_auth_logout` | prefix 적용 |
 | `settings_open` | `MP_settings_open` | prefix 적용 |
 | `settings_credentials_saved/deleted` | `MP_settingsCredentials_save/delete` | prefix + camelCase, 이벤트명은 동작형 save/delete 사용 |
@@ -223,7 +219,6 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | P0 | `template_apply` | 구현됨 |
 | P1 | `auth_login_start` | 구현됨 |
 | P1 | `auth_login_success` | 구현됨 |
-| P1 | `auth_email_verification_success` | 구현됨 |
 | P1 | `template_editor_open` | 구현됨 |
 | P1 | `template_item_add` | 구현됨 |
 | P1 | `system_error` | 구현됨 |
@@ -236,7 +231,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | Session-based return cohort | `extension_session_start` |
 | Core action retention | `extension_first_open` cohort + `link_open` return condition |
 | Template funnel | `template_editor_open` → `template_item_add` → `template_save_success` → `template_sync_success` → `template_publish_success` |
-| Auth funnel | `auth_login_start` → `auth_login_success` → `auth_email_verification_success` |
+| Auth funnel | `auth_login_start` → `auth_login_success` |
 
 ## Non-Goals
 
@@ -275,11 +270,9 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `MP_alerts_view` | 공지 탭 진입 | 공지 탭 사용 여부 | `view_mode`, `category` | `Alerts.tsx · initialize()` | - |
 | `MP_alertsItem_open` | 공지 클릭 | 공지 클릭률 측정 | `alert_id`, `category`, `source` | `AlertItem.tsx · handleClick` | - |
 | `MP_alertsSubscription_update` | 구독 변경 | 학과 구독 변경 파악 | `category`, `subscription_result`(`subscribe`\|`unsubscribe`) | `SubscriptionManager.tsx · handleSubscribe`, `handleUnsubscribe` | - |
-| `MP_authEmailVerification_start` | 이메일 인증 시작 | 게스트→회원 전환 시작점 | `ui_location` | `EmailVerificationDialog.tsx · useEffect([open])` | 다이얼로그 재진입마다 전송 → funnel 시작 수 과집계 가능 |
-| `MP_authEmailVerification_success` | 이메일 인증 완료 | 회원 전환 완료 | `domain_type` | `EmailVerificationDialog.tsx · handleVerifyCode` | - |
 | `MP_authLogin_fail` | 로그인 실패 | 로그인 장애 파악 | `provider`, `error_code`, `error_message` | `SettingsDialog.tsx · handleGoogleLogin` (결과·예외 분기) | - |
 | `MP_authLogin_start` | 로그인 시도 | 로그인 의도 파악 | `provider`, `ui_location` | `SettingsDialog.tsx · handleGoogleLogin` | - |
-| `MP_authLogin_success` | 로그인 성공 | 실제 로그인 성공률 측정 | `provider`, `is_guest` | `SettingsDialog.tsx · handleGoogleLogin` | - |
+| `MP_authLogin_success` | 로그인 성공 | 실제 로그인 성공률 측정 | `provider` | `SettingsDialog.tsx · handleGoogleLogin` | Google 인증 성공 시 모든 계정 기능 사용 가능 |
 | `MP_auth_logout` | 로그아웃 | 로그아웃 행동 파악 | `ui_location` | `SettingsDialog.tsx · handleLogout` | - |
 | `MP_banner_open` | 배너 클릭 | 배너 클릭 효율 측정 | `banner_id`, `banner_title`, `banner_position` | `ImageCarousel.tsx · Image onClick` | - |
 | `MP_labsFeature_use` | Labs 기능 사용 | Labs 기능 사용 측정 | `feature_name`, `result?` | `QRGeneratorSection.tsx · regenerate()`, `LibrarySeatSection.tsx · handleOpenRoom` | ServerClockSection 미연결 |

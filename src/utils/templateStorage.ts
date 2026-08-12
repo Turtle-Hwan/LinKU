@@ -187,7 +187,21 @@ export async function saveTemplateToLocalStorage(
     if (template.templateId === 0) {
       await database.put("drafts", stored, "current");
     } else {
-      await database.put("templates", stored, template.templateId);
+      const transaction = database.transaction(
+        ["templates", "outbox"],
+        "readwrite",
+      );
+      await transaction
+        .objectStore("templates")
+        .put(stored, template.templateId);
+      await transaction.objectStore("outbox").put({
+        key: `template:${stored.template.id}`,
+        resourceId: stored.template.id,
+        operation: "put",
+        queuedAt: now,
+        attempts: 0,
+      });
+      await transaction.done;
     }
   } catch (error) {
     errorLog("Failed to save template to IndexedDB", error);
@@ -227,7 +241,22 @@ export async function deleteTemplateFromLocalStorage(
 ): Promise<void> {
   await ensureMigration();
   const database = await getLinkuDb();
-  await database.delete("templates", templateId);
+  const transaction = database.transaction(
+    ["templates", "outbox"],
+    "readwrite",
+  );
+  const stored = await transaction.objectStore("templates").get(templateId);
+  await transaction.objectStore("templates").delete(templateId);
+  if (stored) {
+    await transaction.objectStore("outbox").put({
+      key: `template:${stored.template.id}`,
+      resourceId: stored.template.id,
+      operation: "delete",
+      queuedAt: Date.now(),
+      attempts: 0,
+    });
+  }
+  await transaction.done;
 
   if (typeof localStorage !== "undefined") {
     try {
@@ -260,10 +289,14 @@ export function checkTemplateStorageAvailability(): {
 export async function importSharedTemplate(
   template: Template,
   stagingItems: TemplateItem[] = [],
+  nameSuffix = "(가져옴)",
 ): Promise<StoredTemplate> {
   await ensureMigration();
   const database = await getLinkuDb();
-  const transaction = database.transaction("templates", "readwrite");
+  const transaction = database.transaction(
+    ["templates", "outbox"],
+    "readwrite",
+  );
   const store = transaction.objectStore("templates");
   let templateId = Date.now();
   while (await store.get(templateId)) templateId += 1;
@@ -273,9 +306,9 @@ export async function importSharedTemplate(
     ...template,
     id: crypto.randomUUID(),
     templateId,
-    name: template.name.endsWith("(가져옴)")
+    name: template.name.endsWith(nameSuffix)
       ? template.name
-      : `${template.name} (가져옴)`,
+      : `${template.name} ${nameSuffix}`,
     cloned: true,
     syncStatus: "local",
     createdAt: now,
@@ -290,6 +323,60 @@ export async function importSharedTemplate(
     },
   };
   await store.put(stored, templateId);
+  await transaction.objectStore("outbox").put({
+    key: `template:${imported.id}`,
+    resourceId: imported.id,
+    operation: "put",
+    queuedAt: Date.now(),
+    attempts: 0,
+  });
   await transaction.done;
   return stored;
+}
+
+export async function findTemplateBySyncId(
+  resourceId: string,
+): Promise<StoredTemplate | null> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  const templates = await database.getAll("templates");
+  return templates.find((stored) => stored.template.id === resourceId) ?? null;
+}
+
+export async function saveRemoteTemplate(
+  template: Template,
+  stagingItems: TemplateItem[] = [],
+  existingTemplateId?: number,
+): Promise<StoredTemplate> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  const transaction = database.transaction("templates", "readwrite");
+  const store = transaction.objectStore("templates");
+  let templateId = existingTemplateId ?? Date.now();
+  if (existingTemplateId === undefined) {
+    while (await store.get(templateId)) templateId += 1;
+  }
+  const stored: StoredTemplate = {
+    template: {
+      ...template,
+      templateId,
+      syncStatus: "synced",
+    },
+    stagingItems,
+    metadata: {
+      lastSaved: Date.now(),
+      savedLocally: true,
+    },
+  };
+  await store.put(stored, templateId);
+  await transaction.done;
+  return stored;
+}
+
+export async function removeLocalTemplateWithoutSync(
+  templateId: number,
+): Promise<void> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  await database.delete("templates", templateId);
 }

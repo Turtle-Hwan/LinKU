@@ -176,7 +176,7 @@ export interface Template extends BaseEntity {
   height: number; // Template height in rows (e.g., 6 for 6-row grid)
   cloned: boolean;
   items: TemplateItem[];
-  syncStatus?: 'local' | 'synced'; // Local-only or synced with server
+  syncStatus?: 'local' | 'pending' | 'synced' | 'error';
 }
 
 /**
@@ -217,7 +217,7 @@ export interface TemplateSummary {
   createdAt: string;
   updatedAt: string;
   itemCount?: number;
-  syncStatus?: 'local' | 'synced'; // Local-only or synced with server
+  syncStatus?: 'local' | 'pending' | 'synced' | 'error';
   previewUrl?: string;
   items?: TemplateItem[]; // For preview rendering
 }
@@ -314,70 +314,6 @@ export interface LikeTemplateResponse {
   isLiked: boolean;
   likeCount: number;
 }
-
-// ============================================================================
-// Auth
-// ============================================================================
-
-/**
- * Google OAuth authorization request
- */
-export interface GoogleOAuthRequest {
-  authorizationCode: string;
-  redirectUri: string;
-}
-
-/**
- * Google OAuth authorization response
- */
-export interface GoogleOAuthResponse {
-  guestToken: string;
-  requiresSignup: boolean;
-  expiresAt: string;
-  profile: {
-    email: string;
-    name: string;
-    picture: string;
-  };
-}
-
-/**
- * Send verification code request
- * POST /auth/send-code
- */
-export interface SendCodeRequest {
-  kuMail: string; // 건국대 이메일 (@konkuk.ac.kr)
-}
-
-/**
- * Send verification code response
- * 성공 시 result: null
- */
-export type SendCodeResponse = null;
-
-/**
- * Verify code request
- * POST /auth/verify-code
- */
-export interface VerifyCodeRequest {
-  kuMail: string; // 건국대 이메일 (@konkuk.ac.kr)
-  authCode: string; // 6자리 인증 코드
-}
-
-/**
- * Verify code response
- * 성공 시 result: null
- */
-export type VerifyCodeResponse = null;
-
-/**
- * Auth error codes
- */
-export const AUTH_ERROR_CODES = {
-  INVALID_INPUT: 1005, // 입력 값이 유효하지 않습니다
-  DUPLICATE_EMAIL: 5014, // 이미 존재하는 건국대학교 이메일입니다
-  INVALID_CODE: 5015, // 인증 코드가 올바르지 않습니다
-} as const;
 
 // ============================================================================
 // Alerts

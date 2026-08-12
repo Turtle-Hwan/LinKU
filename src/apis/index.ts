@@ -7,7 +7,6 @@
 export * from "./client";
 
 // Domain APIs
-export * from "./auth";
 export * from "./templates";
 export * from "./icons";
 export * from "./posted-templates";

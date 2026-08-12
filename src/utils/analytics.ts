@@ -16,7 +16,7 @@
  * - Lifecycle  : sendExtensionOpen
  * - Search     : sendSearchSubmit
  * - Auth       : sendAuthLoginStart, sendAuthLoginSuccess, sendAuthLoginFail,
- *                sendAuthLogout, sendAuthEmailVerificationStart/Success
+ *                sendAuthLogout
  * - Settings   : sendSettingsOpen, sendSettingsCredentialsSaved, sendSettingsCredentialsDeleted
  * - System     : sendError
  * - Template   : sendTemplateEditorView, sendTemplateCreateStart,
@@ -435,15 +435,12 @@ export async function sendAuthLoginStart(
 /**
  * 로그인 성공 이벤트 전송
  * @param provider 인증 제공자 (예: "google")
- * @param isGuest 게스트 계정 여부
  */
 export async function sendAuthLoginSuccess(
   provider: string,
-  isGuest: boolean
 ): Promise<void> {
   await sendGAEvent("MP_authLogin_success", {
     provider,
-    is_guest: isGuest,
   });
 }
 
@@ -471,28 +468,6 @@ export async function sendAuthLoginFail(
  */
 export async function sendAuthLogout(uiLocation: string): Promise<void> {
   await sendGAEvent("MP_auth_logout", { ui_location: uiLocation });
-}
-
-/**
- * 이메일 인증 시작 이벤트 전송 (게스트 → 정회원 전환 시작)
- * @param uiLocation 버튼이 위치한 UI (예: "settings_dialog")
- */
-export async function sendAuthEmailVerificationStart(
-  uiLocation: string
-): Promise<void> {
-  await sendGAEvent("MP_authEmailVerification_start", {
-    ui_location: uiLocation,
-  });
-}
-
-/**
- * 이메일 인증 완료 이벤트 전송 (게스트 → 정회원 전환 완료)
- * @param domainType 인증된 이메일 도메인 유형 (예: "konkuk.ac.kr")
- */
-export async function sendAuthEmailVerificationSuccess(
-  domainType: string
-): Promise<void> {
-  await sendGAEvent("MP_authEmailVerification_success", { domain_type: domainType });
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────

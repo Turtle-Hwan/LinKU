@@ -1,0 +1,47 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "linku-api",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-08-11",
+  "routes": [
+    {
+      "pattern": "linku.turtlehwan.dev",
+      "custom_domain": true
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "LINKU_DATA",
+      "bucket_name": "linku-data",
+      "preview_bucket_name": "linku-data-preview"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "149001",
+      "simple": { "limit": 20, "period": 60 }
+    },
+    {
+      "name": "PUBLIC_RATE_LIMITER",
+      "namespace_id": "149002",
+      "simple": { "limit": 120, "period": 60 }
+    },
+    {
+      "name": "USER_RATE_LIMITER",
+      "namespace_id": "149003",
+      "simple": { "limit": 120, "period": 60 }
+    }
+  ],
+  "vars": {
+    "API_ORIGIN": "https://linku.turtlehwan.dev",
+    "WEB_ORIGIN": "https://turtle-hwan.github.io",
+    "SHARE_PAGE_URL": "https://turtle-hwan.github.io/LinKU/share/",
+    "EXTENSION_ID": "fmfbhmifnohhfiblebbdjlioppfppbgh"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "limits": { "cpu_ms": 10 }
+}

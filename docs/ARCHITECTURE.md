@@ -56,16 +56,23 @@ IndexedDB로 복사합니다. 이전 값은 한 릴리즈 동안 rollback 원본
 `.linku.json` 파일로 내보냅니다. Pages에서 확장 프로그램으로 가져오는 외부
 메시지는 manifest와 background 양쪽에서 LinKU share 경로로 제한합니다.
 
-계정 로그인, 여러 기기 동기화, 충돌 처리와 cloud share는 이 로컬 저장소 위에
-별도 계층으로 추가하며, 로컬 저장 성공 여부와 분리해야 합니다. 상세 경계는
-`docs/LOCAL_FIRST.md`를 참고합니다.
+Google 로그인 후에는 IndexedDB v2의 outbox가 템플릿 변경을 Cloudflare Worker와
+R2에 동기화합니다. 로컬 저장 성공 여부와 원격 동기화 상태는 분리하며, ETag 충돌은
+로컬본을 충돌 복사본으로 보존합니다. 상세 경계와 운영 방법은
+`docs/LOCAL_FIRST.md`, `docs/SERVERLESS.md`를 참고합니다.
 
 ### Backend와 인증
 
-`src/apis/client.ts`가 `VITE_API_BASE_URL`을 기준으로 backend 요청, bearer token,
-response parsing, 만료 감지를 중앙 처리합니다. Google OAuth는
-`src/background/handlers/oauth.ts`에서 `chrome.identity.launchWebAuthFlow`를
-사용하며 token은 `chrome.storage.local`에 저장합니다.
+기존 feature API는 `src/apis/client.ts`가 `VITE_API_BASE_URL`을 기준으로 처리합니다.
+계정 동기화는 `src/utils/accountSync.ts`가 `https://linku.turtlehwan.dev/api`와 직접
+통신합니다. Google OAuth 시작은 `src/background/handlers/oauth.ts`에서
+`chrome.identity.launchWebAuthFlow`를 사용합니다. access token은
+`chrome.storage.session`, refresh token과 profile은 `chrome.storage.local`에
+저장합니다.
+
+검증된 모든 Google 계정은 같은 계정 기능을 사용합니다. KU 이메일 인증,
+guest/member 승격, 이메일 도메인 제한은 없으며 계정 key는 Google `sub`에서 만든
+opaque ID입니다.
 
 feature API는 이 client와 background 경계를 재사용해야 합니다. auth code,
 token, authorization header를 로그에 남기지 않습니다.
@@ -101,7 +108,8 @@ popup이 닫힌 동안 background polling은 실행하지 않습니다.
 
 - `chrome.storage.local`: auth, 설정, todo, badge, 공지 캐시, 시간표 metadata와
   snapshot/override.
-- IndexedDB `linku`: 개인 template, draft, 사용자 icon blob.
+- IndexedDB `linku`: 개인 template, draft, 사용자 icon blob, sync outbox와 계정별
+  ETag metadata.
 - `localStorage`: non-extension 시간표 fallback과 이전 template/draft의 1회
   마이그레이션 원본. 새 template 데이터는 쓰지 않습니다.
 - IndexedDB: 사용자가 직접 올린 시간표 이미지 blob.
