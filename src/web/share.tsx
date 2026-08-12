@@ -5,15 +5,18 @@ import { Button } from '@/components/ui/button';
 import { TemplatePreviewCanvas } from '@/components/Editor/TemplatePreview/TemplatePreviewCanvas';
 import type { Template } from '@/types/api';
 import type { TemplateSharePayloadV1 } from '@/types/templateShare';
+import type { ApiResult } from '@/types/serverless';
 import {
   decodeTemplateSharePayload,
   downloadTemplatePayload,
   portablePayloadToTemplate,
+  validateTemplateSharePayload,
 } from '@/utils/templateShare';
 import '@/App.css';
 
 const EXTENSION_ID = 'fmfbhmifnohhfiblebbdjlioppfppbgh';
 const EXTENSION_URL = `https://chromewebstore.google.com/detail/linku/${EXTENSION_ID}`;
+const CLOUD_SHARE_API = 'https://linku.turtlehwan.dev/api/shares/v1';
 
 interface ImportResponse {
   success?: boolean;
@@ -36,6 +39,26 @@ async function importIntoExtension(
   }
 }
 
+async function fetchCloudShare(id: string): Promise<TemplateSharePayloadV1> {
+  if (!/^[A-Za-z0-9_-]{20,32}$/u.test(id)) {
+    throw new Error('클라우드 공유 주소가 올바르지 않습니다.');
+  }
+  const response = await fetch(`${CLOUD_SHARE_API}/${encodeURIComponent(id)}`);
+  const result = (await response.json().catch(() => null)) as ApiResult<unknown> | null;
+  if (!response.ok) {
+    throw new Error(
+      result && !result.ok
+        ? result.error.message
+        : '클라우드 공유를 불러오지 못했습니다.',
+    );
+  }
+  if (!result?.ok) {
+    throw new Error('클라우드 공유 응답이 올바르지 않습니다.');
+  }
+  validateTemplateSharePayload(result.data);
+  return result.data;
+}
+
 export function MessagePage({ title, message }: { title: string; message: string }) {
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-6 py-20 text-center">
@@ -51,9 +74,11 @@ export function MessagePage({ title, message }: { title: string; message: string
 export function SharedTemplatePage({
   payload,
   template,
+  isCloudShare = false,
 }: {
   payload: TemplateSharePayloadV1;
   template: Template;
+  isCloudShare?: boolean;
 }) {
   const [status, setStatus] = useState('');
 
@@ -90,8 +115,9 @@ export function SharedTemplatePage({
       </div>
       {status && <p className="mt-4 text-sm text-muted-foreground">{status}</p>}
       <p className="mt-10 text-xs leading-5 text-muted-foreground">
-        이 페이지는 URL의 # 뒤에 담긴 데이터를 브라우저에서만 읽습니다. 템플릿
-        내용은 GitHub Pages 서버로 전송되지 않습니다.
+        {isCloudShare
+          ? '이 큰 템플릿은 공유를 위해 Cloudflare R2에 최대 30일 동안 보관됩니다.'
+          : '이 페이지는 URL의 # 뒤에 담긴 데이터를 브라우저에서만 읽습니다. 템플릿 내용은 GitHub Pages 서버로 전송되지 않습니다.'}
       </p>
     </main>
   );
@@ -104,6 +130,7 @@ export function ShareApp() {
     template: Template;
   } | null>(null);
   const [error, setError] = useState('');
+  const cloudShareId = new URLSearchParams(window.location.search).get('cloud');
 
   useEffect(() => {
     const handleHashChange = () => setHash(window.location.hash);
@@ -115,7 +142,10 @@ export function ShareApp() {
     let active = true;
     setSharedTemplate(null);
     setError('');
-    void decodeTemplateSharePayload(hash)
+    const loadPayload = cloudShareId
+      ? fetchCloudShare(cloudShareId)
+      : decodeTemplateSharePayload(hash);
+    void loadPayload
       .then((decoded) => {
         if (active) {
           setSharedTemplate({
@@ -136,13 +166,13 @@ export function ShareApp() {
     return () => {
       active = false;
     };
-  }, [hash]);
+  }, [cloudShareId, hash]);
 
   if (error) return <MessagePage title="공유 링크 오류" message={error} />;
   if (!sharedTemplate) {
     return <MessagePage title="공유 템플릿" message="읽는 중..." />;
   }
-  return <SharedTemplatePage {...sharedTemplate} />;
+  return <SharedTemplatePage {...sharedTemplate} isCloudShare={Boolean(cloudShareId)} />;
 }
 
 createRoot(document.getElementById('root')!).render(
