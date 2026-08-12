@@ -103,6 +103,14 @@ export const TemplateListPage = () => {
     void loadTemplates();
   }, [loadTemplates]);
 
+  useEffect(() => {
+    const handleTemplatesChanged = () => void loadTemplates();
+    window.addEventListener('linku:templates-changed', handleTemplatesChanged);
+    return () => {
+      window.removeEventListener('linku:templates-changed', handleTemplatesChanged);
+    };
+  }, [loadTemplates]);
+
   const ownedTemplates = useMemo(
     () => [toSummary(defaultTemplate), ...templates.filter((template) => !template.cloned)],
     [defaultTemplate, templates],

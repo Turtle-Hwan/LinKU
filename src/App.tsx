@@ -9,7 +9,10 @@ import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
 import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
-import { debugLog } from "@/utils/logger";
+import { debugLog, errorLog } from "@/utils/logger";
+import { consumePendingTemplateImports } from "@/utils/pendingTemplateImports";
+import { portablePayloadToTemplate } from "@/utils/templateShare";
+import { importSharedTemplate } from "@/utils/templateStorage";
 import "./App.css";
 
 function App() {
@@ -22,6 +25,20 @@ function App() {
     debugLog("https://github.com/Turtle-Hwan/LinKU");
     sendExtensionOpen("popup_home", "popup");
     sendPageView("LinKU Extension - Popup");
+  }, []);
+
+  useEffect(() => {
+    void consumePendingTemplateImports(async (payload) => {
+      await importSharedTemplate(portablePayloadToTemplate(payload));
+    })
+      .then((importedCount) => {
+        if (importedCount > 0) {
+          window.dispatchEvent(new Event("linku:templates-changed"));
+        }
+      })
+      .catch((error: unknown) => {
+        errorLog("Failed to process pending template imports", error);
+      });
   }, []);
 
   return (

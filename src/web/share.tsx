@@ -55,7 +55,7 @@ export function SharedTemplatePage({ payload }: { payload: TemplateSharePayloadV
     setStatus('가져오는 중...');
     try {
       await importIntoExtension(payload);
-      setStatus('이 기기의 LinKU에 저장했습니다. 확장 프로그램을 열어 확인하세요.');
+      setStatus('가져오기 요청을 저장했습니다. LinKU를 열면 이 기기에 추가됩니다.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '가져오지 못했습니다.');
     }

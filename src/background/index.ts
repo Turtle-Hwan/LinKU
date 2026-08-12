@@ -33,11 +33,8 @@ import {
   handleTimetableImport,
 } from "./handlers/timetable";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
-import { importSharedTemplate } from "@/utils/templateStorage";
-import {
-  portablePayloadToTemplate,
-  validateTemplateSharePayload,
-} from "@/utils/templateShare";
+import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
+import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 
 debugLog("[Background] Service worker initialized");
 
@@ -209,7 +206,7 @@ chrome.runtime.onMessageExternal.addListener(
       return false;
     }
 
-    void importSharedTemplate(portablePayloadToTemplate(payload))
+    void enqueuePendingTemplateImport(payload)
       .then(() => sendResponse({ success: true }))
       .catch((error: unknown) =>
         sendResponse({
