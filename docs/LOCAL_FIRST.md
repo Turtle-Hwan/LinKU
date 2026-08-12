@@ -17,10 +17,13 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 | 작은 템플릿 공유 | GitHub Pages URL fragment | 서버 저장 없이 미리보기·가져오기 가능 |
 | 큰 템플릿 공유 | `.linku.json` 파일 | 파일 전달로 내보내기·가져오기 가능 |
 
-`templateStorage.ts`의 기존 함수 이름은 호출부 호환을 위해 유지하지만 모든 읽기와
-쓰기는 비동기 IndexedDB 작업입니다. 과거 `localStorage` 값은
+`templateStorage.ts`의 저장 함수 이름은 기존 호출부와 migration 의미를 드러내기
+위해 유지하지만 모든 읽기와 쓰기는 비동기 IndexedDB 작업입니다. 과거
+`localStorage` 값은
 `local-storage-templates-v1` migration이 완료되기 전에 복사하며, migration 완료
-기록과 데이터 저장을 같은 transaction에서 처리합니다.
+기록과 데이터 저장을 같은 transaction에서 처리합니다. rollback을 위해 원본 값은
+남겨 두되, 사용자가 IndexedDB에서 템플릿을 삭제하면 같은 legacy 항목도 함께
+삭제하여 다음 migration에서 되살아나지 않게 합니다.
 
 ## 공유 보안 경계
 
@@ -28,8 +31,12 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 - payload는 template 1개, item 최대 36개, 6×6 grid, HTTP(S) 링크만 허용합니다.
 - 압축 해제 결과와 파일은 256KB 이하만 처리합니다.
 - 실행 가능한 SVG data URL은 받지 않고 PNG, JPEG, WebP base64만 허용합니다.
+- 외부 URL 아이콘은 내보낼 때 기본 링크 아이콘으로 바꾸고, 가져올 때는 거부해
+  미리보기만으로 제3자 서버에 요청하지 않게 합니다.
 - Pages의 외부 extension message는
   `https://turtle-hwan.github.io/LinKU/share/`에서만 받습니다.
+- Pages에서 보낸 가져오기 요청은 service worker가 `chrome.storage.local` queue에
+  보관하고, popup이 열릴 때 검증 후 IndexedDB에 저장합니다.
 
 ## 후속 stateful 계층의 계약
 
