@@ -20,6 +20,9 @@ pnpm run build:local
 backend 기능에는 유효한 `VITE_API_BASE_URL`이 필요합니다. 실제 secret은 commit하지
 마세요.
 
+Cloudflare 계정 동기화는 `docs/SERVERLESS.md`를 따릅니다. 로컬 Worker secret은
+`.dev.vars`에만 두고, Google client secret을 Vite 환경 변수로 노출하지 마세요.
+
 ## 작업 원칙
 
 - 하나의 branch와 PR은 하나의 목적에 집중합니다.
@@ -57,6 +60,8 @@ TypeScript, React hook, shared utility를 수정했다면 lint를 실행합니�
 pnpm run lint
 pnpm run test:timetable
 pnpm run test:template-share
+pnpm run test:worker
+pnpm run build:worker
 ```
 
 변경 유형별 추가 확인:
