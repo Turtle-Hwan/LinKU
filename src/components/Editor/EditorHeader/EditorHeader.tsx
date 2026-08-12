@@ -5,7 +5,7 @@ import { BackButton } from './BackButton';
 import { SaveButton } from './SaveButton';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import {
-  checkLocalStorageSpace,
+  checkTemplateStorageAvailability,
   saveTemplateToLocalStorage,
 } from '@/utils/templateStorage';
 import { toast } from 'sonner';
@@ -27,7 +27,7 @@ export const EditorHeader = () => {
 
     dispatch({ type: 'START_SAVING' });
     try {
-      const storageCheck = checkLocalStorageSpace();
+      const storageCheck = checkTemplateStorageAvailability();
       if (!storageCheck.available) throw new Error(storageCheck.error);
 
       const now = new Date().toISOString();

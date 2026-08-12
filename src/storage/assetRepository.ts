@@ -60,12 +60,19 @@ export async function saveAsset(name: string, source: Blob): Promise<StoredAsset
   const blob = await normalizeIconBlob(source);
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   const id = bytesToHex(new Uint8Array(digest));
+  const dataUrl = await blobToDataUrl(blob);
+  const createdAt = Date.now();
   const database = await getLinkuDb();
-  const existing = await database.get("assets", id);
-  if (existing) return existing;
+  const transaction = database.transaction("assets", "readwrite");
+  const store = transaction.objectStore("assets");
+  const existing = await store.get(id);
+  if (existing) {
+    await transaction.done;
+    return existing;
+  }
 
   let numericId = Date.now();
-  while (await database.getFromIndex("assets", "by-numeric-id", numericId)) {
+  while (await store.index("by-numeric-id").get(numericId)) {
     numericId += 1;
   }
 
@@ -74,10 +81,11 @@ export async function saveAsset(name: string, source: Blob): Promise<StoredAsset
     numericId,
     name,
     blob,
-    dataUrl: await blobToDataUrl(blob),
-    createdAt: Date.now(),
+    dataUrl,
+    createdAt,
   };
-  await database.put("assets", asset);
+  await store.put(asset);
+  await transaction.done;
   return asset;
 }
 
@@ -89,10 +97,16 @@ export async function listAssets(): Promise<StoredAsset[]> {
 
 export async function renameAsset(id: string, name: string): Promise<StoredAsset> {
   const database = await getLinkuDb();
-  const asset = await database.get("assets", id);
-  if (!asset) throw new Error("아이콘을 찾을 수 없습니다.");
+  const transaction = database.transaction("assets", "readwrite");
+  const store = transaction.objectStore("assets");
+  const asset = await store.get(id);
+  if (!asset) {
+    transaction.abort();
+    throw new Error("아이콘을 찾을 수 없습니다.");
+  }
   const renamed = { ...asset, name };
-  await database.put("assets", renamed);
+  await store.put(renamed);
+  await transaction.done;
   return renamed;
 }
 

@@ -31,22 +31,62 @@ const MIGRATION_KEY = "local-storage-templates-v1";
 
 let migrationPromise: Promise<void> | undefined;
 
-function normalizeStoredTemplate(value: StoredTemplate): StoredTemplate {
-  const syncedWithServer = Boolean(value.metadata?.syncedWithServer);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function normalizeStoredTemplate(value: unknown): StoredTemplate | null {
+  if (!isRecord(value) || !isRecord(value.template)) return null;
+  const templateValue = value.template;
+  if (
+    !Number.isSafeInteger(templateValue.templateId) ||
+    Number(templateValue.templateId) < 0 ||
+    typeof templateValue.name !== "string" ||
+    !Number.isInteger(templateValue.height) ||
+    Number(templateValue.height) < 1 ||
+    Number(templateValue.height) > 6 ||
+    !Array.isArray(templateValue.items)
+  ) {
+    return null;
+  }
+
+  const metadata = isRecord(value.metadata) ? value.metadata : {};
+  const syncedWithServer = Boolean(metadata.syncedWithServer);
+  const now = new Date().toISOString();
+  const template = templateValue as unknown as Template;
   return {
-    ...value,
     template: {
-      ...value.template,
-      id: value.template.id || crypto.randomUUID(),
+      ...template,
+      id:
+        typeof templateValue.id === "string" && templateValue.id.length > 0
+          ? templateValue.id
+          : crypto.randomUUID(),
+      cloned: Boolean(templateValue.cloned),
+      createdAt:
+        typeof templateValue.createdAt === "string"
+          ? templateValue.createdAt
+          : now,
+      updatedAt:
+        typeof templateValue.updatedAt === "string"
+          ? templateValue.updatedAt
+          : now,
       syncStatus: syncedWithServer ? "synced" : "local",
     },
-    stagingItems: Array.isArray(value.stagingItems) ? value.stagingItems : [],
+    stagingItems: Array.isArray(value.stagingItems)
+      ? (value.stagingItems as TemplateItem[])
+      : [],
     metadata: {
-      lastSaved: value.metadata?.lastSaved ?? Date.now(),
+      lastSaved:
+        typeof metadata.lastSaved === "number"
+          ? metadata.lastSaved
+          : Date.now(),
       savedLocally: true,
       syncedWithServer,
       syncState: syncedWithServer ? "synced" : "local",
-      serverSyncedAt: value.metadata?.serverSyncedAt,
+      serverSyncedAt:
+        typeof metadata.serverSyncedAt === "number"
+          ? metadata.serverSyncedAt
+          : undefined,
     },
   };
 }
@@ -87,8 +127,8 @@ async function migrateLegacyLocalStorage(): Promise<void> {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
       try {
-        const stored = normalizeStoredTemplate(JSON.parse(raw) as StoredTemplate);
-        if (stored.template.templateId !== 0) {
+        const stored = normalizeStoredTemplate(JSON.parse(raw) as unknown);
+        if (stored && stored.template.templateId !== 0) {
           await transaction
             .objectStore("templates")
             .put(stored, stored.template.templateId);
@@ -101,9 +141,10 @@ async function migrateLegacyLocalStorage(): Promise<void> {
     const draft = localStorage.getItem(DRAFT_KEY);
     if (draft) {
       try {
-        await transaction
-          .objectStore("drafts")
-          .put(normalizeStoredTemplate(JSON.parse(draft) as StoredTemplate), "current");
+        const storedDraft = normalizeStoredTemplate(JSON.parse(draft) as unknown);
+        if (storedDraft) {
+          await transaction.objectStore("drafts").put(storedDraft, "current");
+        }
       } catch (error) {
         errorLog("Failed to migrate legacy template draft", error);
       }
@@ -114,7 +155,11 @@ async function migrateLegacyLocalStorage(): Promise<void> {
       .put({ completedAt: Date.now() }, MIGRATION_KEY);
     await transaction.done;
   } catch (error) {
-    transaction.abort();
+    try {
+      transaction.abort();
+    } catch {
+      // The transaction may already be aborted by IndexedDB.
+    }
     errorLog("Failed to migrate template localStorage to IndexedDB", error);
     throw error;
   }
@@ -123,8 +168,10 @@ async function migrateLegacyLocalStorage(): Promise<void> {
 async function ensureMigration(): Promise<void> {
   if (!migrationPromise) {
     migrationPromise = migrateLegacyLocalStorage().catch((error) => {
-      migrationPromise = undefined;
-      throw error;
+      errorLog(
+        "Legacy template migration failed; continuing with IndexedDB",
+        error,
+      );
     });
   }
   await migrationPromise;
@@ -202,9 +249,27 @@ export async function deleteTemplateFromLocalStorage(
   await ensureMigration();
   const database = await getLinkuDb();
   await database.delete("templates", templateId);
+
+  if (typeof localStorage !== "undefined") {
+    try {
+      localStorage.removeItem(`${STORAGE_PREFIX}${templateId}`);
+      const legacyIndex = localStorage.getItem(INDEX_KEY);
+      if (legacyIndex) {
+        const entries = JSON.parse(legacyIndex) as Array<{ templateId?: number }>;
+        localStorage.setItem(
+          INDEX_KEY,
+          JSON.stringify(
+            entries.filter((entry) => entry.templateId !== templateId),
+          ),
+        );
+      }
+    } catch (error) {
+      errorLog("Failed to remove deleted template from legacy storage", error);
+    }
+  }
 }
 
-export function checkLocalStorageSpace(): {
+export function checkTemplateStorageAvailability(): {
   available: boolean;
   error?: string;
 } {
@@ -220,14 +285,20 @@ export async function updateTemplateSyncStatus(
 ): Promise<void> {
   await ensureMigration();
   const database = await getLinkuDb();
-  const stored = await database.get("templates", templateId);
-  if (!stored) return;
+  const transaction = database.transaction("templates", "readwrite");
+  const store = transaction.objectStore("templates");
+  const stored = await store.get(templateId);
+  if (!stored) {
+    await transaction.done;
+    return;
+  }
 
   stored.template.syncStatus = syncedWithServer ? "synced" : "local";
   stored.metadata.syncedWithServer = syncedWithServer;
   stored.metadata.syncState = syncState;
   stored.metadata.serverSyncedAt = syncedWithServer ? Date.now() : undefined;
-  await database.put("templates", stored, templateId);
+  await store.put(stored, templateId);
+  await transaction.done;
 }
 
 export async function findTemplateBySyncId(
@@ -245,8 +316,10 @@ export async function importSharedTemplate(
 ): Promise<StoredTemplate> {
   await ensureMigration();
   const database = await getLinkuDb();
+  const transaction = database.transaction("templates", "readwrite");
+  const store = transaction.objectStore("templates");
   let templateId = Date.now();
-  while (await database.get("templates", templateId)) templateId += 1;
+  while (await store.get(templateId)) templateId += 1;
 
   const now = new Date().toISOString();
   const imported: Template = {
@@ -261,8 +334,17 @@ export async function importSharedTemplate(
     createdAt: now,
     updatedAt: now,
   };
-  await saveTemplateToLocalStorage(imported, stagingItems, false);
-  const stored = await loadTemplateFromLocalStorage(imported.templateId);
-  if (!stored) throw new Error("가져온 템플릿을 저장하지 못했습니다.");
+  const stored: StoredTemplate = {
+    template: imported,
+    stagingItems,
+    metadata: {
+      lastSaved: Date.now(),
+      savedLocally: true,
+      syncedWithServer: false,
+      syncState: "local",
+    },
+  };
+  await store.put(stored, templateId);
+  await transaction.done;
   return stored;
 }

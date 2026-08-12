@@ -77,6 +77,9 @@ export function getLinkuDb(): Promise<IDBPDatabase<LinkuDatabase>> {
         databasePromise = undefined;
       },
     });
+    void databasePromise.catch(() => {
+      databasePromise = undefined;
+    });
   }
 
   return databasePromise;
