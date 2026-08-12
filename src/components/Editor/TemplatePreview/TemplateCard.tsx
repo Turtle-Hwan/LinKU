@@ -1,7 +1,16 @@
 import type { TemplateSummary } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { TemplatePreviewCanvas } from './TemplatePreviewCanvas';
-import { Check, HardDrive, Loader2, Share2, Trash2 } from 'lucide-react';
+import {
+  Check,
+  Cloud,
+  CloudOff,
+  HardDrive,
+  Loader2,
+  RefreshCw,
+  Share2,
+  Trash2,
+} from 'lucide-react';
 
 interface TemplateCardProps {
   template: TemplateSummary;
@@ -14,6 +23,35 @@ interface TemplateCardProps {
   showDelete?: boolean;
   isActionLoading?: boolean;
 }
+
+const SyncStatus = ({ status }: { status: TemplateSummary['syncStatus'] }) => {
+  if (status === 'synced') {
+    return (
+      <div className="rounded-md bg-background/95 p-2 text-main shadow-sm" title="계정과 동기화됨">
+        <Cloud className="h-4 w-4" />
+      </div>
+    );
+  }
+  if (status === 'pending') {
+    return (
+      <div className="rounded-md bg-background/95 p-2 text-amber-600 shadow-sm" title="동기화 대기 중">
+        <RefreshCw className="h-4 w-4" />
+      </div>
+    );
+  }
+  if (status === 'error') {
+    return (
+      <div className="rounded-md bg-background/95 p-2 text-destructive shadow-sm" title="동기화 실패 · 이 기기에는 저장됨">
+        <CloudOff className="h-4 w-4" />
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md bg-background/95 p-2 text-muted-foreground shadow-sm" title="이 기기에만 저장됨">
+      <HardDrive className="h-4 w-4" />
+    </div>
+  );
+};
 
 export const TemplateCard = ({
   template,
@@ -70,12 +108,7 @@ export const TemplateCard = ({
         </button>
       )}
       {template.templateId !== 0 && (
-        <div
-          className="rounded-md bg-background/95 p-2 text-muted-foreground shadow-sm"
-          title="이 기기에 저장됨"
-        >
-          <HardDrive className="h-4 w-4" />
-        </div>
+        <SyncStatus status={template.syncStatus} />
       )}
       {onApply &&
         (isSelected ? (
