@@ -215,15 +215,15 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     const isStaleRequest = () => requestId !== loadRequestIdRef.current;
 
     try {
-      // Try loading from localStorage first (for local-only templates)
-      const localData = loadTemplateFromLocalStorage(templateId);
+      // Try loading from IndexedDB first (for local-only templates)
+      const localData = await loadTemplateFromLocalStorage(templateId);
       if (localData) {
         if (isStaleRequest()) {
           return;
         }
 
         debugLog(
-          "[useSelectedTemplate] Loaded template from localStorage:",
+          "[useSelectedTemplate] Loaded template from IndexedDB:",
           templateId,
         );
         setTemplateData(localData.template);

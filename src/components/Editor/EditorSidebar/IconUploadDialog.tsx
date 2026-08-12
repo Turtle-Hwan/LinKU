@@ -26,8 +26,8 @@ interface IconUploadDialogProps {
   onIconUploaded?: (icon: Icon) => void;
 }
 
-const VALID_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg'];
-const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+const VALID_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const MAX_SIZE = 5 * 1024 * 1024;
 
 export const IconUploadDialog = ({
   open,
@@ -54,10 +54,10 @@ export const IconUploadDialog = ({
 
   const validateFile = (file: File): string | null => {
     if (!VALID_TYPES.includes(file.type)) {
-      return 'SVG, PNG, JPG 파일만 업로드 가능합니다.';
+      return 'SVG, PNG, JPG, WebP 파일만 사용할 수 있습니다.';
     }
     if (file.size > MAX_SIZE) {
-      return '파일 크기는 20MB 이하이어야 합니다.';
+      return '파일 크기는 5MB 이하이어야 합니다.';
     }
     return null;
   };
@@ -160,7 +160,7 @@ export const IconUploadDialog = ({
         <DialogHeader>
           <DialogTitle>아이콘 업로드</DialogTitle>
           <DialogDescription>
-            아이콘 이미지를 업로드합니다. (SVG, PNG, JPG / 최대 20MB)
+            아이콘은 이 기기에 WebP로 변환해 저장합니다. (최대 5MB)
           </DialogDescription>
         </DialogHeader>
 
@@ -215,7 +215,7 @@ export const IconUploadDialog = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".svg,.png,.jpg,.jpeg,image/svg+xml,image/png,image/jpeg"
+            accept=".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp"
             onChange={handleFileInputChange}
             className="hidden"
           />

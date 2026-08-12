@@ -37,7 +37,7 @@ export function useTemplateSync() {
 
         // 이전 ID와 새 ID가 다르면 이전 localStorage 삭제
         if (oldTemplateId !== newTemplateId) {
-          deleteTemplateFromLocalStorage(oldTemplateId);
+          await deleteTemplateFromLocalStorage(oldTemplateId);
         }
 
         // 새 ID로 저장 (동기화 상태 포함)

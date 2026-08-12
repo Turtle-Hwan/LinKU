@@ -1,222 +1,268 @@
 /**
- * Template LocalStorage Management
- * Handles saving and loading templates to/from browser's localStorage
+ * IndexedDB-backed template persistence.
+ *
+ * Existing function names remain stable while legacy localStorage data is
+ * imported once. Legacy values are retained as a rollback source.
  */
 
-import type { Template, TemplateItem } from '@/types/api';
-import { errorLog } from '@/utils/logger';
+import {
+  getLinkuDb,
+  type StoredTemplate,
+  type TemplateSyncState,
+} from "@/storage/linkuDb";
+import type { Template, TemplateItem } from "@/types/api";
+import { errorLog } from "@/utils/logger";
 
-export interface StoredTemplate {
-  template: Template;
-  stagingItems: TemplateItem[];
-  metadata: {
-    lastSaved: number;
-    savedLocally: boolean;
-    syncedWithServer: boolean;
-    serverSyncedAt?: number;
-  };
-}
+export type { StoredTemplate, TemplateSyncState } from "@/storage/linkuDb";
 
 export interface TemplateIndexEntry {
   templateId: number;
+  syncId: string;
   name: string;
   lastSaved: number;
   syncedWithServer: boolean;
+  syncState: TemplateSyncState;
 }
 
-const STORAGE_PREFIX = 'linku_template_';
-const INDEX_KEY = 'linku_templates_index';
-const DRAFT_KEY = 'linku_template_draft';
+const STORAGE_PREFIX = "linku_template_";
+const INDEX_KEY = "linku_templates_index";
+const DRAFT_KEY = "linku_template_draft";
+const MIGRATION_KEY = "local-storage-templates-v1";
 
-/**
- * Save template to localStorage
- */
+let migrationPromise: Promise<void> | undefined;
+
+function normalizeStoredTemplate(value: StoredTemplate): StoredTemplate {
+  const syncedWithServer = Boolean(value.metadata?.syncedWithServer);
+  return {
+    ...value,
+    template: {
+      ...value.template,
+      id: value.template.id || crypto.randomUUID(),
+      syncStatus: syncedWithServer ? "synced" : "local",
+    },
+    stagingItems: Array.isArray(value.stagingItems) ? value.stagingItems : [],
+    metadata: {
+      lastSaved: value.metadata?.lastSaved ?? Date.now(),
+      savedLocally: true,
+      syncedWithServer,
+      syncState: syncedWithServer ? "synced" : "local",
+      serverSyncedAt: value.metadata?.serverSyncedAt,
+    },
+  };
+}
+
+async function migrateLegacyLocalStorage(): Promise<void> {
+  const database = await getLinkuDb();
+  if (await database.get("migrations", MIGRATION_KEY)) return;
+
+  if (typeof localStorage === "undefined") return;
+
+  const transaction = database.transaction(
+    ["templates", "drafts", "migrations"],
+    "readwrite",
+  );
+
+  try {
+    const keys = new Set<string>();
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith(STORAGE_PREFIX)) keys.add(key);
+    }
+
+    const legacyIndex = localStorage.getItem(INDEX_KEY);
+    if (legacyIndex) {
+      try {
+        const entries = JSON.parse(legacyIndex) as Array<{ templateId?: number }>;
+        for (const entry of entries) {
+          if (typeof entry.templateId === "number" && entry.templateId !== 0) {
+            keys.add(`${STORAGE_PREFIX}${entry.templateId}`);
+          }
+        }
+      } catch (error) {
+        errorLog("Failed to read legacy template index", error);
+      }
+    }
+
+    for (const key of keys) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const stored = normalizeStoredTemplate(JSON.parse(raw) as StoredTemplate);
+        if (stored.template.templateId !== 0) {
+          await transaction
+            .objectStore("templates")
+            .put(stored, stored.template.templateId);
+        }
+      } catch (error) {
+        errorLog(`Failed to migrate legacy template ${key}`, error);
+      }
+    }
+
+    const draft = localStorage.getItem(DRAFT_KEY);
+    if (draft) {
+      try {
+        await transaction
+          .objectStore("drafts")
+          .put(normalizeStoredTemplate(JSON.parse(draft) as StoredTemplate), "current");
+      } catch (error) {
+        errorLog("Failed to migrate legacy template draft", error);
+      }
+    }
+
+    await transaction
+      .objectStore("migrations")
+      .put({ completedAt: Date.now() }, MIGRATION_KEY);
+    await transaction.done;
+  } catch (error) {
+    transaction.abort();
+    errorLog("Failed to migrate template localStorage to IndexedDB", error);
+    throw error;
+  }
+}
+
+async function ensureMigration(): Promise<void> {
+  if (!migrationPromise) {
+    migrationPromise = migrateLegacyLocalStorage().catch((error) => {
+      migrationPromise = undefined;
+      throw error;
+    });
+  }
+  await migrationPromise;
+}
+
 export async function saveTemplateToLocalStorage(
   template: Template,
   stagingItems: TemplateItem[] = [],
-  syncedWithServer = false
+  syncedWithServer = false,
 ): Promise<void> {
-  try {
-    const stored: StoredTemplate = {
-      template,
-      stagingItems,
-      metadata: {
-        lastSaved: Date.now(),
-        savedLocally: true,
-        syncedWithServer,
-        serverSyncedAt: syncedWithServer ? Date.now() : undefined,
-      },
-    };
-
-    // Save template data
-    const key =
-      template.templateId === 0
-        ? DRAFT_KEY
-        : `${STORAGE_PREFIX}${template.templateId}`;
-
-    localStorage.setItem(key, JSON.stringify(stored));
-
-    // Update index
-    await updateTemplateIndex(template, syncedWithServer);
-  } catch (error) {
-    errorLog('Failed to save template to localStorage:', error);
-    throw Object.assign(new Error('LocalStorage 저장 실패'), { cause: error });
-  }
-}
-
-/**
- * Load template from localStorage
- */
-export function loadTemplateFromLocalStorage(
-  templateId: number
-): StoredTemplate | null {
-  try {
-    const key =
-      templateId === 0 ? DRAFT_KEY : `${STORAGE_PREFIX}${templateId}`;
-
-    const data = localStorage.getItem(key);
-    if (!data) return null;
-
-    return JSON.parse(data) as StoredTemplate;
-  } catch (error) {
-    errorLog('Failed to load template from localStorage:', error);
-    return null;
-  }
-}
-
-/**
- * Update template index
- */
-async function updateTemplateIndex(
-  template: Template,
-  syncedWithServer: boolean
-): Promise<void> {
-  try {
-    const indexData = localStorage.getItem(INDEX_KEY);
-    const index: TemplateIndexEntry[] = indexData ? JSON.parse(indexData) : [];
-
-    // Skip draft templates (templateId === 0) - they should not be in the index
-    // Draft templates are stored separately under DRAFT_KEY
-    // Also remove any existing draft entries from the index
-    if (template.templateId === 0) {
-      // Remove any existing entries with templateId === 0 from index
-      const filteredIndex = index.filter((t) => t.templateId !== 0);
-      if (filteredIndex.length !== index.length) {
-        localStorage.setItem(INDEX_KEY, JSON.stringify(filteredIndex));
-      }
-      return;
-    }
-
-    // Find existing entry or create new
-    const existingIndex = index.findIndex(
-      (t) => t.templateId === template.templateId
-    );
-
-    const entry: TemplateIndexEntry = {
-      templateId: template.templateId,
-      name: template.name,
-      lastSaved: Date.now(),
+  await ensureMigration();
+  const database = await getLinkuDb();
+  const now = Date.now();
+  const stored: StoredTemplate = {
+    template: {
+      ...template,
+      id: template.id || crypto.randomUUID(),
+      syncStatus: syncedWithServer ? "synced" : "local",
+    },
+    stagingItems,
+    metadata: {
+      lastSaved: now,
+      savedLocally: true,
       syncedWithServer,
-    };
+      syncState: syncedWithServer ? "synced" : "local",
+      serverSyncedAt: syncedWithServer ? now : undefined,
+    },
+  };
 
-    if (existingIndex >= 0) {
-      index[existingIndex] = entry;
+  try {
+    if (template.templateId === 0) {
+      await database.put("drafts", stored, "current");
     } else {
-      index.push(entry);
-    }
-
-    localStorage.setItem(INDEX_KEY, JSON.stringify(index));
-  } catch (error) {
-    errorLog('Failed to update template index:', error);
-  }
-}
-
-/**
- * Get all templates index
- */
-export function getTemplatesIndex(): TemplateIndexEntry[] {
-  try {
-    const data = localStorage.getItem(INDEX_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (error) {
-    errorLog('Failed to load templates index:', error);
-    return [];
-  }
-}
-
-/**
- * Delete template from localStorage
- */
-export function deleteTemplateFromLocalStorage(templateId: number): void {
-  try {
-    const key = `${STORAGE_PREFIX}${templateId}`;
-    localStorage.removeItem(key);
-
-    // Update index
-    const indexData = localStorage.getItem(INDEX_KEY);
-    if (indexData) {
-      const index: TemplateIndexEntry[] = JSON.parse(indexData);
-      const filtered = index.filter((t) => t.templateId !== templateId);
-      localStorage.setItem(INDEX_KEY, JSON.stringify(filtered));
+      await database.put("templates", stored, template.templateId);
     }
   } catch (error) {
-    errorLog('Failed to delete template from localStorage:', error);
+    errorLog("Failed to save template to IndexedDB", error);
+    throw Object.assign(new Error("브라우저 저장소에 저장하지 못했습니다."), {
+      cause: error,
+    });
   }
 }
 
-/**
- * Check if localStorage has available space
- */
+export async function loadTemplateFromLocalStorage(
+  templateId: number,
+): Promise<StoredTemplate | null> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  const value =
+    templateId === 0
+      ? await database.get("drafts", "current")
+      : await database.get("templates", templateId);
+  return value ?? null;
+}
+
+export async function getTemplatesIndex(): Promise<TemplateIndexEntry[]> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  const templates = await database.getAll("templates");
+  return templates
+    .map((stored) => ({
+      templateId: stored.template.templateId,
+      syncId: stored.template.id,
+      name: stored.template.name,
+      lastSaved: stored.metadata.lastSaved,
+      syncedWithServer: stored.metadata.syncedWithServer,
+      syncState: stored.metadata.syncState,
+    }))
+    .sort((left, right) => right.lastSaved - left.lastSaved);
+}
+
+export async function deleteTemplateFromLocalStorage(
+  templateId: number,
+): Promise<void> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  await database.delete("templates", templateId);
+}
+
 export function checkLocalStorageSpace(): {
   available: boolean;
   error?: string;
 } {
-  try {
-    // Test write with 1MB test data
-    const testKey = '__storage_test__';
-    const testData = 'x'.repeat(1024 * 1024); // 1MB
-    localStorage.setItem(testKey, testData);
-    localStorage.removeItem(testKey);
-    return { available: true };
-  } catch {
-    return {
-      available: false,
-      error: 'LocalStorage 공간이 부족합니다.',
-    };
-  }
+  return typeof indexedDB !== "undefined"
+    ? { available: true }
+    : { available: false, error: "IndexedDB를 사용할 수 없습니다." };
 }
 
-/**
- * Update sync status for a template
- */
-export function updateTemplateSyncStatus(
+export async function updateTemplateSyncStatus(
   templateId: number,
-  syncedWithServer: boolean
-): void {
-  try {
-    // Update stored template
-    const key = `${STORAGE_PREFIX}${templateId}`;
-    const data = localStorage.getItem(key);
-    if (data) {
-      const stored: StoredTemplate = JSON.parse(data);
-      stored.metadata.syncedWithServer = syncedWithServer;
-      stored.metadata.serverSyncedAt = syncedWithServer
-        ? Date.now()
-        : undefined;
-      localStorage.setItem(key, JSON.stringify(stored));
-    }
+  syncedWithServer: boolean,
+  syncState: TemplateSyncState = syncedWithServer ? "synced" : "local",
+): Promise<void> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  const stored = await database.get("templates", templateId);
+  if (!stored) return;
 
-    // Update index
-    const indexData = localStorage.getItem(INDEX_KEY);
-    if (indexData) {
-      const index: TemplateIndexEntry[] = JSON.parse(indexData);
-      const entry = index.find((t) => t.templateId === templateId);
-      if (entry) {
-        entry.syncedWithServer = syncedWithServer;
-        localStorage.setItem(INDEX_KEY, JSON.stringify(index));
-      }
-    }
-  } catch (error) {
-    errorLog('Failed to update sync status:', error);
-  }
+  stored.template.syncStatus = syncedWithServer ? "synced" : "local";
+  stored.metadata.syncedWithServer = syncedWithServer;
+  stored.metadata.syncState = syncState;
+  stored.metadata.serverSyncedAt = syncedWithServer ? Date.now() : undefined;
+  await database.put("templates", stored, templateId);
+}
+
+export async function findTemplateBySyncId(
+  syncId: string,
+): Promise<StoredTemplate | null> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  const templates = await database.getAll("templates");
+  return templates.find((stored) => stored.template.id === syncId) ?? null;
+}
+
+export async function importSharedTemplate(
+  template: Template,
+  stagingItems: TemplateItem[] = [],
+): Promise<StoredTemplate> {
+  await ensureMigration();
+  const database = await getLinkuDb();
+  let templateId = Date.now();
+  while (await database.get("templates", templateId)) templateId += 1;
+
+  const now = new Date().toISOString();
+  const imported: Template = {
+    ...template,
+    id: crypto.randomUUID(),
+    templateId,
+    name: template.name.endsWith("(가져옴)")
+      ? template.name
+      : `${template.name} (가져옴)`,
+    cloned: true,
+    syncStatus: "local",
+    createdAt: now,
+    updatedAt: now,
+  };
+  await saveTemplateToLocalStorage(imported, stagingItems, false);
+  const stored = await loadTemplateFromLocalStorage(imported.templateId);
+  if (!stored) throw new Error("가져온 템플릿을 저장하지 못했습니다.");
+  return stored;
 }

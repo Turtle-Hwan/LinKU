@@ -137,7 +137,7 @@ export const TemplateListPage = () => {
       }
 
       // 3. localStorage에서 템플릿 인덱스 가져오기 (항상 로드)
-      const localIndex = getTemplatesIndex();
+      const localIndex = await getTemplatesIndex();
 
       // 4. 서버 템플릿과 localStorage 템플릿 병합 (로컬 우선)
       let mergedOwned: TemplateSummaryWithSync[] = [];
@@ -147,7 +147,7 @@ export const TemplateListPage = () => {
           ownedResult.data.map(async (serverTemplate) => {
             try {
               // 1. 먼저 localStorage에서 데이터 확인
-              const localStored = loadTemplateFromLocalStorage(serverTemplate.templateId);
+              const localStored = await loadTemplateFromLocalStorage(serverTemplate.templateId);
 
               // 2. 서버에서 상세 정보 로드
               const detailResult = await getTemplate(serverTemplate.templateId);
@@ -189,19 +189,20 @@ export const TemplateListPage = () => {
       }
 
       // 4. localStorage에만 있는 템플릿 추가
-      localIndex
-        .filter(localTemplate => localTemplate.templateId !== 0) // Skip draft templates (templateId: 0)
-        .forEach(localTemplate => {
+      const localOnlyTemplates: Array<TemplateSummaryWithSync | null> = await Promise.all(
+        localIndex
+          .filter(localTemplate => localTemplate.templateId !== 0)
+          .map(async localTemplate => {
           // 서버 목록에 없는 템플릿만 추가
           const existsInServer = mergedOwned.some(
             t => t.templateId === localTemplate.templateId
           );
 
           if (!existsInServer) {
-            // localStorage에서 전체 템플릿 데이터 로드
-            const stored = loadTemplateFromLocalStorage(localTemplate.templateId);
+            // IndexedDB에서 전체 템플릿 데이터 로드
+            const stored = await loadTemplateFromLocalStorage(localTemplate.templateId);
             if (stored) {
-              mergedOwned.push({
+              return {
                 templateId: stored.template.templateId,
                 name: stored.template.name,
                 height: stored.template.height,
@@ -211,10 +212,17 @@ export const TemplateListPage = () => {
                 itemCount: stored.template.items.length,
                 syncStatus: stored.metadata.syncedWithServer ? 'synced' : 'local',
                 items: stored.template.items, // Add items for preview
-              });
+              } satisfies TemplateSummaryWithSync;
             }
           }
-        });
+          return null;
+        }),
+      );
+      mergedOwned.push(
+        ...localOnlyTemplates.filter(
+          (template): template is TemplateSummaryWithSync => template !== null,
+        ),
+      );
 
       // 5. 중복 검사 및 경고 (Deduplication check)
       const seenIds = new Set<number>();
@@ -360,7 +368,7 @@ export const TemplateListPage = () => {
     try {
       // Local-only template: Delete from localStorage only
       if (syncStatus === 'local') {
-        deleteTemplateFromLocalStorage(templateId);
+        await deleteTemplateFromLocalStorage(templateId);
 
         const origin = clonedTemplates.some(t => t.templateId === templateId) ? 'cloned' : 'owned';
         sendTemplateDelete(templateId, origin, 'local');
@@ -386,7 +394,7 @@ export const TemplateListPage = () => {
 
       if (result.success) {
         // Also delete from localStorage if exists
-        deleteTemplateFromLocalStorage(templateId);
+        await deleteTemplateFromLocalStorage(templateId);
 
         const origin = clonedTemplates.some(t => t.templateId === templateId) ? 'cloned' : 'owned';
         sendTemplateDelete(templateId, origin, 'synced');
@@ -426,7 +434,7 @@ export const TemplateListPage = () => {
     e.stopPropagation();
 
     // Load full template data from localStorage
-    const stored = loadTemplateFromLocalStorage(templateId);
+    const stored = await loadTemplateFromLocalStorage(templateId);
     if (!stored) {
       toast({
         title: '동기화 실패',

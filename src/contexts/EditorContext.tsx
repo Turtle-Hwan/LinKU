@@ -436,8 +436,8 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         dispatch({ type: 'LOAD_USER_ICONS', payload: userIcons });
       }
 
-      // Try loading from localStorage first
-      const localData = loadTemplateFromLocalStorage(id);
+      // Try loading from IndexedDB first
+      const localData = await loadTemplateFromLocalStorage(id);
       if (localData) {
         dispatch({ type: 'LOAD_TEMPLATE', payload: localData.template });
 
@@ -446,7 +446,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           dispatch({ type: 'ADD_TO_STAGING', payload: item });
         });
 
-        debugLog('[EditorContext] Loaded template from localStorage', id);
+        debugLog('[EditorContext] Loaded template from IndexedDB', id);
         return;
       }
 
