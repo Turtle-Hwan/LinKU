@@ -92,12 +92,21 @@ export function SharedTemplatePage({ payload }: { payload: TemplateSharePayloadV
 }
 
 export function ShareApp() {
+  const [hash, setHash] = useState(() => window.location.hash);
   const [payload, setPayload] = useState<TemplateSharePayloadV1 | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const handleHashChange = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
     let active = true;
-    void decodeTemplateSharePayload(window.location.hash)
+    setPayload(null);
+    setError('');
+    void decodeTemplateSharePayload(hash)
       .then((decoded) => {
         if (active) setPayload(decoded);
       })
@@ -113,7 +122,7 @@ export function ShareApp() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [hash]);
 
   if (error) return <MessagePage title="공유 링크 오류" message={error} />;
   if (!payload) return <MessagePage title="공유 템플릿" message="읽는 중..." />;

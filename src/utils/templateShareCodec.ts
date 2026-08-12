@@ -191,10 +191,14 @@ export async function decodeTemplateSharePayload(
   ) {
     throw new Error("지원하지 않는 공유 링크입니다.");
   }
-  const json = await decompress(
-    base64UrlToBytes(normalized.slice(SHARE_FRAGMENT_PREFIX.length)),
-  );
-  const payload: unknown = JSON.parse(json);
-  validateTemplateSharePayload(payload);
-  return payload;
+  try {
+    const json = await decompress(
+      base64UrlToBytes(normalized.slice(SHARE_FRAGMENT_PREFIX.length)),
+    );
+    const payload: unknown = JSON.parse(json);
+    validateTemplateSharePayload(payload);
+    return payload;
+  } catch {
+    throw new Error("공유 링크 데이터가 손상되었거나 지원되지 않습니다.");
+  }
 }

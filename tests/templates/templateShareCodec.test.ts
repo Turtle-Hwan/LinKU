@@ -50,3 +50,10 @@ test("실행 가능한 SVG data URL을 거부한다", () => {
   };
   assert.throws(() => validateTemplateSharePayload(svgIcon), /이미지 아이콘/u);
 });
+
+test("손상된 압축 fragment를 사용자용 오류로 변환한다", async () => {
+  await assert.rejects(
+    decodeTemplateSharePayload("#v1.invalid"),
+    /손상되었거나 지원되지 않습니다/u,
+  );
+});
