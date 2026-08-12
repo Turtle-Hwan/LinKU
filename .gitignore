@@ -30,3 +30,6 @@ gh-pages
 *.sw?
 
 .claude
+.wrangler
+.dev.vars*
+!.dev.vars.example
