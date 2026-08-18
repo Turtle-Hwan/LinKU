@@ -3,9 +3,10 @@
 LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝트로 묶습니다.
 
 - popup: React Error Boundary와 전역 브라우저 오류
-- API client: 네트워크·응답 파싱·5xx와 토큰 정리 실패
-- background: OAuth, silent reauth, 시간표 import, pending tab 처리 실패
-- content: Everytime 시간표 DOM/API 처리의 예상하지 못한 Promise 실패
+- background: 전역 오류·unhandled rejection, OAuth, silent reauth, 시간표 import, pending tab, badge, service worker lifecycle
+- content: 전역 오류·unhandled rejection, Everytime 입력 검증·DOM/API 처리·message 응답 실패
+- API/Chrome bridge: 모든 non-2xx 응답, 네트워크·응답 파싱·토큰 정리, storage/tab/script injection 실패
+- handled application errors: 공통 `errorLog`와 주요 UI fallback 경로
 
 ## 런타임 정책
 
@@ -13,10 +14,19 @@ LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝�
 Sentry를 초기화하지 않으므로 로컬 기본 빌드가 외부로 이벤트를 보내지 않습니다.
 
 - `sendDefaultPii: false`
+- SDK 기본 global handler는 끄고 popup/background/content에 동일한 전역 `error`와
+  `unhandledrejection` handler를 설치
+- 최대 200개 breadcrumb, stacktrace 자동 첨부, 중첩 객체 normalization depth 6
 - user, request header/cookie/body 삭제
-- URL의 민감한 query value와 breadcrumb/extra의 token·email 계열 값 비식별화
+- URL의 민감한 query value와 exception/message/breadcrumb/extra의 token·email·credential 값 비식별화
 - tracing과 session replay를 기본 활성화하지 않음
 - 기존 GA4 `sendError`와 React fallback UI는 유지
+
+처리된 오류도 누락하지 않도록 `errorLog`는 console 출력과 함께 handled Sentry exception을
+기록합니다. 응답 원문·request body·토큰·쿠키는 수집하지 않고, API 오류는 endpoint path,
+HTTP method/status, error code, response shape와 직전 breadcrumbs로 재현에 필요한 맥락을
+남깁니다. background/content의 `runtime.sendResponse`는 one-shot responder로 감싸 중복
+응답과 채널 종료 오류도 별도 기록합니다.
 
 content script는 Chrome의 standalone classic-script 계약을 지키기 위해 별도 단일-entry
 IIFE로 빌드합니다. `pnpm run build:local`과 release workflow는 일반 확장 번들과 content
@@ -61,7 +71,7 @@ pnpm run build:local
 ```
 
 생성된 `dist/`를 unpacked extension으로 로드한 뒤 popup을 열고 background/content
-runtime을 한 번 발생시키고, Sentry `linku` 프로젝트에서 runtime tag가
+runtime을 각각 한 번 발생시키고, Sentry `linku` 프로젝트에서 runtime tag가
 `popup`, `background`, `content`로 들어오는지 확인합니다. 확인 후 smoke 변수는 즉시
 제거하고, 실제 production release에서는 `VITE_SENTRY_SMOKE_TEST`를 설정하지 않습니다.
 
