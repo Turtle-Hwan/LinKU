@@ -1,13 +1,18 @@
 import * as Sentry from "@sentry/browser";
-import type {
-  Breadcrumb,
-  ErrorEvent as SentryErrorEvent,
-} from "@sentry/browser";
+import type { Breadcrumb } from "@sentry/browser";
 import {
-  isSensitiveKey,
-  redactSensitiveString as redactString,
-  redactSensitiveUrl as redactUrl,
-} from "./redaction";
+  MONITORING_FLUSH_TIMEOUT_MS,
+  MONITORING_MAX_BREADCRUMBS,
+  MONITORING_MAX_VALUE_LENGTH,
+  MONITORING_NORMALIZE_DEPTH,
+  MONITORING_NORMALIZE_MAX_BREADTH,
+} from "./constants";
+import { redactSensitiveString } from "./redaction";
+import {
+  scrubSentryBreadcrumb,
+  scrubSentryEvent,
+  scrubValue,
+} from "./scrubber";
 import type {
   CaptureContext,
   MonitoringCollector,
@@ -19,119 +24,6 @@ import type {
 let activeRuntime: MonitoringRuntime | undefined;
 let activeExtensionVersion: string | undefined;
 let sentryReady = false;
-
-function scrubValue(
-  value: unknown,
-  depth = 0,
-  seen: WeakSet<object> = new WeakSet(),
-): unknown {
-  if (depth > 4 || value == null) {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    return redactString(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => scrubValue(item, depth + 1, seen));
-  }
-
-  if (typeof value !== "object") {
-    return value;
-  }
-
-  if (seen.has(value)) {
-    return "[Circular]";
-  }
-
-  seen.add(value);
-
-  try {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [
-        key,
-        isSensitiveKey(key)
-          ? "[REDACTED]"
-          : /^(url|uri|href)$/i.test(key) && typeof item === "string"
-            ? redactUrl(item)
-            : scrubValue(item, depth + 1, seen),
-      ]),
-    );
-  } catch {
-    return "[Uninspectable Object]";
-  }
-}
-
-function scrubEvent(event: SentryErrorEvent): SentryErrorEvent {
-  delete event.user;
-
-  if (event.request) {
-    delete event.request.headers;
-    delete event.request.cookies;
-    delete event.request.data;
-    event.request.url = redactUrl(event.request.url);
-  }
-
-  if (event.tags) {
-    event.tags = scrubValue(event.tags) as Record<string, string>;
-  }
-
-  if (event.contexts) {
-    event.contexts = scrubValue(event.contexts) as typeof event.contexts;
-  }
-
-  if (event.message) {
-    event.message = redactString(event.message);
-  }
-
-  if (event.transaction) {
-    event.transaction = redactString(event.transaction);
-  }
-
-  if (event.exception?.values) {
-    event.exception.values = event.exception.values.map((exception) => {
-      const stacktrace = exception.stacktrace
-        ? {
-            ...exception.stacktrace,
-            frames: exception.stacktrace.frames?.map((frame) => ({
-              ...frame,
-              filename: frame.filename
-                ? redactString(frame.filename)
-                : frame.filename,
-              abs_path: frame.abs_path
-                ? redactString(frame.abs_path)
-                : frame.abs_path,
-            })),
-          }
-        : exception.stacktrace;
-
-      return {
-        ...exception,
-        value: exception.value ? redactString(exception.value) : exception.value,
-        stacktrace,
-      };
-    });
-  }
-
-  if (event.extra) {
-    event.extra = scrubValue(event.extra) as Record<string, unknown>;
-  }
-
-  if (event.breadcrumbs) {
-    event.breadcrumbs = event.breadcrumbs.map((breadcrumb) => ({
-      ...breadcrumb,
-      message: breadcrumb.message
-        ? redactString(breadcrumb.message)
-        : breadcrumb.message,
-      data: breadcrumb.data
-        ? (scrubValue(breadcrumb.data) as Record<string, unknown>)
-        : breadcrumb.data,
-    }));
-  }
-
-  return event;
-}
 
 function getExtensionVersion(): string | undefined {
   try {
@@ -209,10 +101,10 @@ function initSentry(runtime: MonitoringRuntime): MonitoringInitResult {
       sendDefaultPii: false,
       tracesSampleRate: 0,
       attachStacktrace: true,
-      maxBreadcrumbs: 200,
-      maxValueLength: 1_000,
-      normalizeDepth: 6,
-      normalizeMaxBreadth: 100,
+      maxBreadcrumbs: MONITORING_MAX_BREADCRUMBS,
+      maxValueLength: MONITORING_MAX_VALUE_LENGTH,
+      normalizeDepth: MONITORING_NORMALIZE_DEPTH,
+      normalizeMaxBreadth: MONITORING_NORMALIZE_MAX_BREADTH,
       integrations(defaultIntegrations) {
         // The SDK's global handler integration is disabled so the common
         // reporter can install the same handlers in every MV3 runtime.
@@ -220,37 +112,31 @@ function initSentry(runtime: MonitoringRuntime): MonitoringInitResult {
           (integration) => integration.name !== "GlobalHandlers",
         );
       },
-      beforeSend: scrubEvent,
-      beforeBreadcrumb(breadcrumb) {
-        return {
-          ...breadcrumb,
-          message: breadcrumb.message
-            ? redactString(breadcrumb.message)
-            : breadcrumb.message,
-          data: breadcrumb.data
-            ? (scrubValue(breadcrumb.data) as Record<string, unknown>)
-            : breadcrumb.data,
-        };
-      },
+      beforeSend: scrubSentryEvent,
+      beforeBreadcrumb: scrubSentryBreadcrumb,
     });
   } catch {
     activeRuntime = undefined;
     return { initialized: false };
   }
 
-  Sentry.setTags({
-    linku_runtime: runtime,
-    linku_collection_mode: "full_errors",
-    ...(version ? { linku_extension_version: version } : {}),
-  });
-  Sentry.setContext("linku_extension", {
-    runtime,
-    extension_version: version,
-    manifest_version: version,
-    is_chrome_extension: true,
-  });
   activeExtensionVersion = version;
   sentryReady = true;
+  try {
+    Sentry.setTags({
+      linku_runtime: runtime,
+      linku_collection_mode: "full_errors",
+      ...(version ? { linku_extension_version: version } : {}),
+    });
+    Sentry.setContext("linku_extension", {
+      runtime,
+      extension_version: version,
+      manifest_version: version,
+      is_chrome_extension: true,
+    });
+  } catch {
+    // Static context is best-effort; the collector remains usable without it.
+  }
   return { initialized: true, extensionVersion: version };
 }
 
@@ -290,7 +176,7 @@ function captureSentryMessage(
     Sentry.withScope((scope) => {
       applyCaptureScope(scope, options);
       scope.setLevel(level);
-      Sentry.captureMessage(redactString(message));
+      Sentry.captureMessage(redactSensitiveString(message));
     });
   } catch {
     // Capturing an error must never throw a second error into the product.
@@ -308,19 +194,21 @@ function addSentryBreadcrumb(
   }
 
   try {
-    const breadcrumb: Breadcrumb = {
+    const breadcrumb = scrubSentryBreadcrumb({
       category,
-      message: redactString(message),
+      message,
       level,
-      ...(data ? { data: scrubValue(data) as Record<string, unknown> } : {}),
-    };
+      ...(data ? { data } : {}),
+    } satisfies Breadcrumb);
     Sentry.addBreadcrumb(breadcrumb);
   } catch {
     // Breadcrumbs are best-effort context and must not affect product code.
   }
 }
 
-function flushSentry(timeout = 2_000): Promise<boolean> {
+function flushSentry(
+  timeout = MONITORING_FLUSH_TIMEOUT_MS,
+): Promise<boolean> {
   if (!sentryReady) {
     return Promise.resolve(true);
   }
