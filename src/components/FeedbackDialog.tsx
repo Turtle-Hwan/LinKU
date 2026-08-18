@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FEEDBACK_LIMITS, feedbackInputSchema } from "@/types/feedback";
 import { sendButtonClick } from "@/utils/analytics";
+import { errorLog } from "@/utils/logger";
 
 interface FeedbackDialogProps {
   open: boolean;
@@ -55,7 +56,8 @@ const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
       setTitle("");
       setMessage("");
       onOpenChange(false);
-    } catch {
+    } catch (error) {
+      errorLog("[Feedback] Failed to submit feedback:", error);
       toast.error("의견을 저장하지 못했어요.", {
         description: "잠시 후 다시 시도해 주세요.",
       });

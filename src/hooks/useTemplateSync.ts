@@ -11,6 +11,7 @@ import {
   deleteTemplateFromLocalStorage,
 } from '@/utils/templateStorage';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
+import { errorLog } from '@/utils/logger';
 import type { Template, TemplateItem } from '@/types/api';
 
 interface SyncResult {
@@ -52,7 +53,8 @@ export function useTemplateSync() {
         const errorMsg = getErrorMessage(result, '동기화 실패');
         return { success: false, error: errorMsg };
       }
-    } catch {
+    } catch (error) {
+      errorLog('[TemplateSync] Failed to sync template:', error);
       return { success: false, error: '서버와 연결할 수 없습니다.' };
     } finally {
       setIsSyncing(false);

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Info, Download, Check, Upload, X } from "lucide-react";
 import QRCode from "qrcode";
-import { warnLog } from '@/utils/logger';
+import { errorLog, warnLog } from '@/utils/logger';
 import { sendLabsFeatureUse } from '@/utils/analytics';
 import { qrUrlSchema } from '@/utils/formValidation';
 
@@ -72,7 +72,8 @@ const QRGeneratorSection = () => {
             // 로고 그리기
             ctx.drawImage(logo, position, position, logoSize, logoSize);
           }
-        } catch {
+        } catch (error) {
+          errorLog('[QR] Failed to load logo:', error);
           warnLog("로고 로드 실패, 로고 없이 생성");
         }
       }
@@ -121,7 +122,8 @@ const QRGeneratorSection = () => {
         setQrDataUrl(dataUrl);
         setError("");
         sendLabsFeatureUse('qr_generator', 'success');
-      } catch {
+      } catch (error) {
+        errorLog('[QR] Failed to generate QR code:', error);
         setError("QR 코드 생성에 실패했습니다");
         setQrDataUrl("");
         sendLabsFeatureUse('qr_generator', 'fail');
