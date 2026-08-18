@@ -69,13 +69,13 @@ Actions repository variable로 관리합니다. 조직 토큰은 절대 `VITE_` 
 
 | 종류 | 이름 | 용도 |
 | --- | --- | --- |
-| Secret | `SENTRY_AUTH_TOKEN` | production release와 source map 업로드 |
+| Secret | `SENTRY_AUTH_TOKEN` | production release와 source map 업로드 (`org:ci`, `org:read`) |
 | Variable | `SENTRY_ORG` | `turtlehwan-yr` |
 | Variable | `SENTRY_PROJECT` | `linku` |
 | Variable | `VITE_SENTRY_DSN` | `linku` Client Key DSN |
 
-토큰은 Sentry의 조직 토큰 생성 화면에서 source map/release 업로드에 필요한 최소
-권한으로 발급합니다. 실제 token, DSN, API secret은 저장소 파일에 기록하지 않습니다.
+토큰은 개인 계정과 분리된 Sentry Internal Integration의 조직 토큰으로 만들고 `org:ci`와
+`org:read`만 부여합니다. 실제 token, DSN, API secret은 저장소 파일에 기록하지 않습니다.
 
 release workflow는 manifest version을 올린 뒤 다음 형식의 release를 사용합니다.
 
