@@ -14,13 +14,16 @@ LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝�
 Sentry SDK를 직접 import하는 파일은 collector adapter인 `src/monitoring/sentry.ts` 하나로
 제한합니다.
 
-- `reporter.ts`: unknown 오류 정규화, feature/category/mechanism 문맥, 오류 breadcrumb,
-  short-lived MV3 runtime용 flush, 전역 `error`/`unhandledrejection` 정책
+- `reporter.ts`: feature/category/mechanism 문맥, 오류 breadcrumb, short-lived MV3 runtime용
+  flush, 전역 `error`/`unhandledrejection` 정책과 no-throw 수집 경계
+- `normalizeError.ts`: `Error`가 아닌 rejection 값을 안전한 `Error`와 원본 문맥으로 정규화
 - `runtimeMessage.ts`: background/content 공통 message type 판별, one-shot 응답,
   중복 응답과 닫힌 channel 수집
 - `redaction.ts`: console logger와 Sentry collector가 함께 쓰는 token·credential·개인정보
   제거 규칙
-- `sentry.ts`: SDK 초기화, scope 연결, 최종 event/breadcrumb scrub, transport flush
+- `scrubber.ts`: 깊이·너비 제한, 순환 참조 처리, 최종 event/breadcrumb 개인정보 제거
+- `constants.ts`: SDK와 공통 reporter가 함께 쓰는 수집량·정규화·flush 정책
+- `sentry.ts`: SDK 초기화, scope 연결, scrubber hook, transport flush
 - `src/errors/userFacingError.ts`: 내부 상세 오류와 사용자에게 노출해도 되는 문구의 경계
 
 API, Chrome bridge, background, content처럼 기본 category와 mechanism이 반복되는 영역은
@@ -42,8 +45,9 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 - SDK 기본 global handler는 끄고 popup/background/content에 동일한 전역 `error`와
   `unhandledrejection` handler를 설치
 - 최대 200개 breadcrumb, stacktrace 자동 첨부, 중첩 객체 normalization depth 6
-- user, request header/cookie/body 삭제
-- URL의 민감한 query value와 exception/message/breadcrumb/extra의 token·email·credential 값 비식별화
+- user, request header/cookie/body/raw query string 삭제
+- URL의 민감한 query value와 exception/message/breadcrumb/extra를 포함한 모든 중첩 문맥의
+  token·email·credential 값 비식별화
 - tracing과 session replay를 기본 활성화하지 않음
 - 기존 GA4 `sendError`와 React fallback UI는 유지
 
