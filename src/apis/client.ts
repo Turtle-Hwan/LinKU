@@ -8,11 +8,33 @@ import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
 import { getChromeApi, getStorage, removeStorage } from "../utils/chrome";
 import { debugLog, errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
+import { captureSentryException, flushSentry } from "@/monitoring/sentry";
 
 /**
  * Token expired error code from backend
  */
 const TOKEN_EXPIRED_CODE = 5004;
+
+function getSafeEndpoint(url: string): string {
+  try {
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "chrome-extension://linku.invalid";
+    return new URL(url, baseUrl).pathname;
+  } catch {
+    return url.split("?")[0] || "[unknown]";
+  }
+}
+
+function reportApiException(
+  error: unknown,
+  feature: string,
+  extras?: Record<string, unknown>,
+): void {
+  captureSentryException(error, { feature, extras });
+  void flushSentry();
+}
 
 /**
  * Reauth state to prevent multiple simultaneous OAuth popups
@@ -132,6 +154,7 @@ async function handleTokenExpired(): Promise<boolean> {
         return false;
       }
     } catch (error) {
+      reportApiException(error, "silent_reauth_request");
       warnLog("[API Client] Silent reauth error", getErrorLogDetails(error));
       return false;
     } finally {
@@ -169,7 +192,9 @@ function applyResponseInterceptors<T>(
   response: ApiResponse<T>,
 ): ApiResponse<T> {
   if (response.status === 401) {
-    clearAccessToken();
+    void clearAccessToken().catch((error: unknown) => {
+      reportApiException(error, "clear_expired_access_token");
+    });
     window.dispatchEvent(new CustomEvent("auth:unauthorized"));
   }
   return response;
@@ -204,6 +229,8 @@ async function request<T = unknown>(
   config?: RequestConfig,
   isRetry: boolean = false,
 ): Promise<ApiResponse<T>> {
+  let safeEndpoint = getSafeEndpoint(url);
+
   try {
     const { headers = {}, params, ...restConfig } = config || {};
 
@@ -213,6 +240,7 @@ async function request<T = unknown>(
       url.startsWith("http://") || url.startsWith("https://")
         ? urlWithParams
         : `${API_BASE_URL}${urlWithParams}`;
+    safeEndpoint = getSafeEndpoint(fullUrl);
 
     // Build request options
     let requestOptions: RequestInit = {
@@ -258,10 +286,14 @@ async function request<T = unknown>(
         data = (await response.text()) as T;
       }
     } catch (parseError) {
+      reportApiException(parseError, "api_response_parse", {
+        endpoint: safeEndpoint,
+        status: response.status,
+      });
       errorLog("[API Client] Response parsing error", {
         ...getErrorLogDetails(parseError),
         status: response.status,
-        url: fullUrl,
+        endpoint: safeEndpoint,
       });
       // If parsing fails, return error response
       return {
@@ -312,6 +344,17 @@ async function request<T = unknown>(
     // Handle error responses FIRST (preserve original error data before result extraction)
     if (!response.ok) {
       const errorData = data as Record<string, unknown>;
+      if (response.status >= 500) {
+        reportApiException(
+          new Error(
+            typeof errorData?.message === "string"
+              ? errorData.message
+              : `HTTP Error: ${response.status} ${response.statusText}`,
+          ),
+          "api_server_error",
+          { endpoint: safeEndpoint, status: response.status },
+        );
+      }
       return applyResponseInterceptors({
         success: false,
         error: {
@@ -342,6 +385,10 @@ async function request<T = unknown>(
       status: response.status,
     });
   } catch (error) {
+    reportApiException(error, "api_network_error", {
+      endpoint: safeEndpoint,
+      method,
+    });
     warnLog("[API Client] Request error", getErrorLogDetails(error));
     return {
       success: false,

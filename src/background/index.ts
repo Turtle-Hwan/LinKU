@@ -32,8 +32,19 @@ import {
   handlePendingImportTabUpdated,
   handleTimetableImport,
 } from "./handlers/timetable";
+import {
+  captureSentryException,
+  flushSentry,
+  initSentry,
+} from "@/monitoring/sentry";
 
+initSentry("background");
 debugLog("[Background] Service worker initialized");
+
+function reportBackgroundException(error: unknown, feature: string): void {
+  captureSentryException(error, { feature });
+  void flushSentry();
+}
 
 async function restrictLocalStorageAccess(): Promise<void> {
   try {
@@ -41,6 +52,7 @@ async function restrictLocalStorageAccess(): Promise<void> {
       accessLevel: "TRUSTED_CONTEXTS",
     });
   } catch (error) {
+    reportBackgroundException(error, "storage_access_level");
     warnLog(
       "[Background] Failed to restrict local storage access",
       getErrorLogDetails(error),
@@ -84,6 +96,7 @@ chrome.runtime.onMessage.addListener(
           sendResponse(response);
         })
         .catch((error: unknown) => {
+          reportBackgroundException(error, "oauth");
           warnLog(
             "[Background] OAuth handler error",
             getErrorLogDetails(error),
@@ -123,6 +136,7 @@ chrome.runtime.onMessage.addListener(
           sendResponse(reauthResponse);
         })
         .catch((error: unknown) => {
+          reportBackgroundException(error, "silent_reauth");
           warnLog(
             "[Background] Silent reauth error",
             getErrorLogDetails(error),
@@ -143,6 +157,7 @@ chrome.runtime.onMessage.addListener(
           sendResponse(response);
         })
         .catch((error: unknown) => {
+          reportBackgroundException(error, "timetable_import");
           warnLog(
             "[Background] Timetable import handler error",
             getErrorLogDetails(error),
@@ -196,6 +211,7 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   handlePendingImportTabUpdated(tabId, changeInfo, tab).catch(
     (error: unknown) => {
+      reportBackgroundException(error, "pending_import_resume");
       warnLog(
         "[Background] Pending timetable import resume failed",
         getErrorLogDetails(error),
@@ -206,6 +222,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   handlePendingImportTabRemoved(tabId).catch((error: unknown) => {
+    reportBackgroundException(error, "pending_import_cleanup");
     warnLog(
       "[Background] Pending timetable import cleanup failed",
       getErrorLogDetails(error),

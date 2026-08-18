@@ -12,7 +12,10 @@ import { createRoot } from "react-dom/client";
 import { createHashRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import { routes } from "./routes";
+import { initSentry } from "./monitoring/sentry";
 import "./App.css";
+
+initSentry("popup");
 
 // Create hash router for Chrome Extension
 // Hash routing allows deep linking and preserves state on refresh

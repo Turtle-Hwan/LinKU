@@ -8,6 +8,7 @@ import { Outlet } from "react-router";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
+import { captureSentryException } from "./monitoring/sentry";
 import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
 import { debugLog } from "@/utils/logger";
 import "./App.css";
@@ -26,8 +27,12 @@ function App() {
 
   return (
     <ErrorBoundary
-      onError={(error: unknown) => {
+      onError={(error: unknown, info) => {
         const msg = error instanceof Error ? error.message : String(error);
+        captureSentryException(error, {
+          feature: "react_error_boundary",
+          extras: { componentStack: info.componentStack },
+        });
         sendError("react_error_boundary", msg, "popup_home");
       }}
       fallback={

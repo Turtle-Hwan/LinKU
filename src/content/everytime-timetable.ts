@@ -12,6 +12,13 @@ import {
   isEverytimeSubjectColor,
 } from "@/utils/everytimeTimetableColor";
 import { isPrimaryEverytimeTable } from "@/utils/everytimeTimetableParsing";
+import {
+  captureSentryException,
+  flushSentry,
+  initSentry,
+} from "@/monitoring/sentry";
+
+initSentry("content");
 
 type CaptureRequest =
   | { type: "LINKU_EVERYTIME_CAPTURE_PING" }
@@ -45,6 +52,11 @@ const EVERYTIME_WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const TIMETABLE_RENDER_TIMEOUT_MS = 5_000;
 const EVERYTIME_API_TIMEOUT_MS = 10_000;
 const SEMESTER_METADATA_CACHE_TTL_MS = 5 * 60 * 1_000;
+
+function reportContentException(error: unknown, feature: string): void {
+  captureSentryException(error, { feature });
+  void flushSentry();
+}
 
 const linkuWindow = window as Window & {
   __LINKU_EVERYTIME_CAPTURE_INSTALLED__?: boolean;
@@ -652,12 +664,26 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
       if (message.type === "LINKU_EVERYTIME_CAPTURE_CURRENT") {
         waitForRenderedTimetable(message.data.semester).then((timetable) =>
           sendResponse({ success: true, timetable }),
-        );
+        ).catch((error: unknown) => {
+          reportContentException(error, "everytime_capture_current");
+          sendResponse({
+            success: false,
+            error: "에브리타임 시간표를 읽지 못했습니다.",
+          });
+        });
         return true;
       }
 
       if (message.type === "LINKU_EVERYTIME_FETCH_SEMESTERS") {
-        fetchSemestersFromApi(message.data.semesters).then(sendResponse);
+        fetchSemestersFromApi(message.data.semesters)
+          .then(sendResponse)
+          .catch((error: unknown) => {
+            reportContentException(error, "everytime_fetch_semesters");
+            sendResponse({
+              success: false,
+              error: "에브리타임 시간표 API를 불러오지 못했습니다.",
+            });
+          });
         return true;
       }
 
