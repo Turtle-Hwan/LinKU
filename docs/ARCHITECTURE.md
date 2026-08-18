@@ -103,3 +103,9 @@ Chrome permission과 `host_permissions`는 `public/manifest.json`에서 관리�
 PR은 `.github/workflows/pr-build-check.yml`에서 build를 검증합니다. main의 release
 workflow가 manifest version, Chrome Web Store draft, GitHub Release와 Pages 배포를
 관리하므로 일반 PR에서 `public/manifest.json` version을 직접 수정하지 않습니다.
+
+Sentry 관측성은 `docs/OBSERVABILITY.md`에 정리합니다. popup, background service
+worker, Everytime content script는 공통 초기화 정책을 사용하며, content script는
+standalone classic script로 별도 빌드합니다. production release는 `linku@<manifest-
+version>` release에 source map을 업로드한 뒤 확장 프로그램 zip에서 source map을
+제거합니다.

@@ -4,7 +4,7 @@ import {
   createBulletinInfo,
   type BulletinInfo,
 } from "@/constants/bulletin";
-import { debugLog } from "@/utils/logger";
+import { errorLog } from "@/utils/logger";
 
 type BulletinVerification = "verified" | "unverified";
 type BulletinListener = (bulletin: BulletinInfo) => void;
@@ -193,7 +193,7 @@ async function verifyBulletin(
 
     return verifyBulletinBody(await response.text(), year);
   } catch (error) {
-    debugLog("[bulletin] Failed to check annual bulletin", error);
+    errorLog("[bulletin] Failed to check annual bulletin", error);
     return "unverified";
   } finally {
     globalThis.clearTimeout(timeoutId);
@@ -243,7 +243,7 @@ async function refreshLatestBulletin(
   try {
     await storage.set({ [BULLETIN_CACHE_KEY]: updatedCache });
   } catch (error) {
-    debugLog("[bulletin] Failed to persist bulletin cache", error);
+    errorLog("[bulletin] Failed to persist bulletin cache", error);
   }
 
   if (resolvedYear > cache.resolvedYear) {
@@ -267,7 +267,7 @@ function startBulletinRefresh(
     currentYear,
     nowMs,
   ).catch((error) => {
-    debugLog("[bulletin] Failed to refresh annual bulletin", error);
+    errorLog("[bulletin] Failed to refresh annual bulletin", error);
   });
   sessionRefresh = { calendarYear: currentYear, promise };
 
@@ -299,7 +299,7 @@ export async function resolveLatestBulletin(
     const stored = await storage.get(BULLETIN_CACHE_KEY);
     cache = parseCache(stored[BULLETIN_CACHE_KEY], currentYear, nowMs);
   } catch (error) {
-    debugLog("[bulletin] Failed to read bulletin cache", error);
+    errorLog("[bulletin] Failed to read bulletin cache", error);
     return BULLETIN_FALLBACK;
   }
 

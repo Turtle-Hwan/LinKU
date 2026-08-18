@@ -75,6 +75,7 @@ export function usePostedTemplates() {
           error: result.error?.message || '게시 취소에 실패했습니다.',
         };
       } catch (error) {
+        errorLog('[PostedTemplates] Failed to unpost template:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : '네트워크 오류',
@@ -108,6 +109,7 @@ export function usePostedTemplates() {
           error: result.error?.message || '좋아요 처리에 실패했습니다.',
         };
       } catch (error) {
+        errorLog('[PostedTemplates] Failed to like template:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : '네트워크 오류',

@@ -12,6 +12,15 @@ import {
   isEverytimeSubjectColor,
 } from "@/utils/everytimeTimetableColor";
 import { isPrimaryEverytimeTable } from "@/utils/everytimeTimetableParsing";
+import {
+  createErrorReporter,
+  createRuntimeMessageResponder,
+  getRuntimeMessageType,
+  initMonitoring,
+  recordBreadcrumb,
+} from "@/monitoring";
+
+initMonitoring("content");
 
 type CaptureRequest =
   | { type: "LINKU_EVERYTIME_CAPTURE_PING" }
@@ -45,6 +54,49 @@ const EVERYTIME_WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const TIMETABLE_RENDER_TIMEOUT_MS = 5_000;
 const EVERYTIME_API_TIMEOUT_MS = 10_000;
 const SEMESTER_METADATA_CACHE_TTL_MS = 5 * 60 * 1_000;
+
+const captureContentException = createErrorReporter({
+  category: "content.error",
+  mechanism: "content.handler",
+});
+
+function reportContentException(error: unknown, feature: string): void {
+  captureContentException(error, {
+    feature,
+    breadcrumbMessage: `${feature} captured`,
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
+}
+
+function isCaptureRequest(value: unknown): value is CaptureRequest {
+  if (!isRecord(value) || typeof value.type !== "string") {
+    return false;
+  }
+
+  if (
+    value.type === "LINKU_EVERYTIME_CAPTURE_PING" ||
+    value.type === "LINKU_EVERYTIME_LIST_SEMESTERS"
+  ) {
+    return true;
+  }
+
+  if (!isRecord(value.data)) {
+    return false;
+  }
+
+  if (value.type === "LINKU_EVERYTIME_CAPTURE_CURRENT") {
+    return typeof value.data.semester === "string";
+  }
+
+  return (
+    value.type === "LINKU_EVERYTIME_FETCH_SEMESTERS" &&
+    Array.isArray(value.data.semesters) &&
+    value.data.semesters.every((semester) => typeof semester === "string")
+  );
+}
 
 const linkuWindow = window as Window & {
   __LINKU_EVERYTIME_CAPTURE_INSTALLED__?: boolean;
@@ -603,12 +655,10 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
       );
       await Promise.all(workers);
     } catch (error) {
+      reportContentException(error, "everytime_fetch_semesters");
       return {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "에브리타임 시간표 API를 불러오지 못했습니다.",
+        error: "에브리타임 시간표 API를 불러오지 못했습니다.",
       };
     }
 
@@ -631,37 +681,83 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
 
   chrome.runtime.onMessage.addListener(
     (
-      message: CaptureRequest,
+      message: unknown,
       _sender: chrome.runtime.MessageSender,
       sendResponse: (response: CaptureResponse) => void,
     ) => {
-      if (message.type === "LINKU_EVERYTIME_CAPTURE_PING") {
-        sendResponse({ success: true, ready: true });
-        return false;
-      }
+      const messageType = getRuntimeMessageType(message);
+      const respond = createRuntimeMessageResponder({
+        runtime: "content",
+        messageType,
+        sendResponse,
+      });
 
-      if (message.type === "LINKU_EVERYTIME_LIST_SEMESTERS") {
-        sendResponse({
-          success: true,
-          semesters: readSemesterOptions(),
-          currentSemester: readSemester(),
+      try {
+        recordBreadcrumb("content.message", "message received", {
+          message_type: messageType,
+        });
+
+        if (!isCaptureRequest(message)) {
+          respond({
+            success: false,
+            error: "Invalid Everytime capture message.",
+          });
+          return false;
+        }
+
+        if (message.type === "LINKU_EVERYTIME_CAPTURE_PING") {
+          respond({ success: true, ready: true });
+          return false;
+        }
+
+        if (message.type === "LINKU_EVERYTIME_LIST_SEMESTERS") {
+          respond({
+            success: true,
+            semesters: readSemesterOptions(),
+            currentSemester: readSemester(),
+          });
+          return false;
+        }
+
+        if (message.type === "LINKU_EVERYTIME_CAPTURE_CURRENT") {
+          waitForRenderedTimetable(message.data.semester)
+            .then((timetable) => respond({ success: true, timetable }))
+            .catch((error: unknown) => {
+              reportContentException(error, "everytime_capture_current");
+              respond({
+                success: false,
+                error: "에브리타임 시간표를 읽지 못했습니다.",
+              });
+            });
+          return true;
+        }
+
+        if (message.type === "LINKU_EVERYTIME_FETCH_SEMESTERS") {
+          fetchSemestersFromApi(message.data.semesters)
+            .then(respond)
+            .catch((error: unknown) => {
+              reportContentException(error, "everytime_fetch_semesters");
+              respond({
+                success: false,
+                error: "에브리타임 시간표 API를 불러오지 못했습니다.",
+              });
+            });
+          return true;
+        }
+
+        respond({
+          success: false,
+          error: "Unsupported Everytime capture message.",
+        });
+        return false;
+      } catch (error) {
+        reportContentException(error, "message_handler");
+        respond({
+          success: false,
+          error: "에브리타임 요청을 처리하지 못했습니다.",
         });
         return false;
       }
-
-      if (message.type === "LINKU_EVERYTIME_CAPTURE_CURRENT") {
-        waitForRenderedTimetable(message.data.semester).then((timetable) =>
-          sendResponse({ success: true, timetable }),
-        );
-        return true;
-      }
-
-      if (message.type === "LINKU_EVERYTIME_FETCH_SEMESTERS") {
-        fetchSemestersFromApi(message.data.semesters).then(sendResponse);
-        return true;
-      }
-
-      return false;
     },
   );
 }

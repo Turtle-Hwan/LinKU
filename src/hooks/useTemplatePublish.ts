@@ -11,6 +11,7 @@ import {
   getPostedTemplateDetail,
 } from '@/apis/posted-templates';
 import { areItemsEqual } from '@/utils/templateUtils';
+import { errorLog } from '@/utils/logger';
 import type { TemplateItem, PostTemplateResponse } from '@/types/api';
 
 interface PublishResult {
@@ -46,7 +47,8 @@ export function useTemplatePublish() {
                   };
                 }
               }
-            } catch {
+            } catch (error) {
+              errorLog('[TemplatePublish] Failed to load posted template detail:', error);
               // Skip if detail load fails
             }
           }
@@ -62,7 +64,8 @@ export function useTemplatePublish() {
         success: false,
         error: result.error?.message || '게시에 실패했습니다.',
       };
-    } catch {
+    } catch (error) {
+      errorLog('[TemplatePublish] Failed to publish template:', error);
       return { success: false, error: '네트워크 오류' };
     } finally {
       setIsPublishing(false);

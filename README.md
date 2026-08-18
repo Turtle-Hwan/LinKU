@@ -240,6 +240,9 @@ CLI가 다음을 차례로 요청합니다:
 3. **"Add secret"** 클릭
 4. 4개 모두 추가될 때까지 반복
 
+Sentry release와 source map 업로드에 필요한 별도 Secret/Variable은
+[`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md)의 설정 표를 따릅니다.
+
 ### 4단계: 배포 확인 및 심사 제출
 
 #### 4.1 자동 배포 확인
