@@ -75,7 +75,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     if (!BACKEND_URL) {
       return {
         success: false,
-        error: "Backend URL이 설정되지 않았습니다. 환경 변수를 확인해주세요.",
+        error: "로그인 기능을 사용할 수 없습니다. 잠시 후 다시 시도해주세요.",
       };
     }
 
@@ -104,7 +104,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
       errorLog("[Background] OAuth error returned from provider", { error });
       return {
         success: false,
-        error: `OAuth 오류: ${error}`,
+        error: "인증 제공자가 로그인을 완료하지 못했습니다.",
       };
     }
 
@@ -144,7 +144,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
       );
       return {
         success: false,
-        error: `토큰 교환 실패: ${tokenResponse.status} ${tokenResponse.statusText}`,
+        error: "로그인 정보를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
       };
     }
 
@@ -160,7 +160,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
       });
       return {
         success: false,
-        error: tokenData.message || "토큰 교환에 실패했습니다.",
+        error: "로그인 정보를 처리하지 못했습니다. 잠시 후 다시 시도해주세요.",
       };
     }
 
@@ -173,7 +173,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
       });
       return {
         success: false,
-        error: "백엔드 응답에서 토큰을 찾을 수 없습니다.",
+        error: "로그인 응답을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.",
       };
     }
 
@@ -248,10 +248,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
 
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "알 수 없는 오류가 발생했습니다.",
+      error: "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

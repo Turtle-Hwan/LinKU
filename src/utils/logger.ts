@@ -23,10 +23,12 @@
  *
  * 이를 통해 build:local 환경에서 debug 로그가 정상 출력된다.
  */
+import { reportError } from "@/monitoring";
 import {
-  captureSentryException,
-  flushSentry,
-} from "@/monitoring/sentry";
+  isSensitiveKey,
+  redactSensitiveString,
+  REDACTED,
+} from "@/monitoring/redaction";
 
 const IS_DEV = import.meta.env.MODE === 'development';
 
@@ -34,21 +36,10 @@ const MAX_STRING_LENGTH = 400;
 const MAX_ARRAY_LENGTH = 20;
 const MAX_OBJECT_KEYS = 20;
 const MAX_DEPTH = 4;
-const REDACTED = "[REDACTED]";
 const TRUNCATED_ARRAY_META_KEY = "__truncated_items__";
 const TRUNCATED_OBJECT_META_KEY = "__truncated_keys__";
 const ERROR_ACCESSING_PROPERTY = "[Error accessing property]";
 const UNINSPECTABLE_OBJECT = "[Uninspectable Object]";
-
-const EMAIL_PATTERN =
-  /\b([A-Z0-9._%+-])([A-Z0-9._%+-]*)(@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
-const BEARER_PATTERN = /Bearer\s+[-A-Z0-9._~+/=]+/gi;
-const SENSITIVE_VALUE_PATTERN =
-  /((?:["']?)(?:access[_-]?token|refresh[_-]?token|guest[_-]?token|id[_-]?token|authorization|cookie|password|secret|api[_-]?key|token|code|state|user[_-]?id|student[_-]?id)(?:["']?\s*[:=]\s*))(["']?)[^"'&,\s}\]]+/gi;
-const TOKEN_QUERY_PATTERN =
-  /([?&#])(code|access_token|refresh_token|guest_token|id_token|token|email|user_id|student_id)=([^&#\s]+)/gi;
-const SENSITIVE_KEY_PATTERN =
-  /accessToken|refreshToken|guestToken|idToken|secret|authorization|cookie|password|apiKey/i;
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -83,22 +74,7 @@ function getObjectTypeName(value: object): string | null {
 }
 
 function sanitizeString(value: string): string {
-  const maskedEmail = value.replace(EMAIL_PATTERN, "[REDACTED_EMAIL]");
-
-  const maskedBearer = maskedEmail.replace(BEARER_PATTERN, "Bearer [REDACTED]");
-  const maskedSensitiveValues = maskedBearer.replace(
-    SENSITIVE_VALUE_PATTERN,
-    "$1$2[REDACTED]",
-  );
-
-  const maskedQuery = maskedSensitiveValues.replace(
-    TOKEN_QUERY_PATTERN,
-    (_match, separator: string, key: string) => `${separator}${key}=${REDACTED}`,
-  );
-
-  return maskedQuery.length > MAX_STRING_LENGTH
-    ? `${maskedQuery.slice(0, MAX_STRING_LENGTH)}...`
-    : maskedQuery;
+  return redactSensitiveString(value, MAX_STRING_LENGTH);
 }
 
 function sanitizeValue(
@@ -184,7 +160,7 @@ function sanitizeValue(
 
     const keys = allKeys.slice(0, MAX_OBJECT_KEYS);
     const sanitizedObject = keys.reduce<Record<string, unknown>>((acc, key) => {
-      if (SENSITIVE_KEY_PATTERN.test(key)) {
+      if (isSensitiveKey(key)) {
         acc[key] = REDACTED;
         return acc;
       }
@@ -276,10 +252,12 @@ export function errorLog(message: string, ...args: unknown[]): void {
   const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
   const originalError = args.find((arg): arg is Error => arg instanceof Error);
 
-  captureSentryException(
+  reportError(
     originalError ?? new Error(sanitizedMessage),
     {
       feature: "handled_error",
+      category: "logger.error",
+      breadcrumbMessage: sanitizedMessage,
       mechanism: "logger.error",
       handled: true,
       tags: { linku_log_level: "error" },
@@ -289,7 +267,6 @@ export function errorLog(message: string, ...args: unknown[]): void {
       },
     },
   );
-  void flushSentry().catch(() => false);
 }
 
 export function getErrorLogDetails(error: unknown): Record<string, unknown> {

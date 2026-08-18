@@ -9,10 +9,9 @@ import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
 import {
-  addSentryBreadcrumb,
-  captureSentryException,
-  flushSentry,
-} from "./monitoring/sentry";
+  recordBreadcrumb,
+  reportError,
+} from "./monitoring";
 import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
 import { debugLog } from "@/utils/logger";
 import "./App.css";
@@ -25,7 +24,7 @@ function App() {
       "font-family: Nanum Gothic; color: darkgreen; padding: 6px; border-radius: 4px; font-size:14px",
     );
     debugLog("https://github.com/Turtle-Hwan/LinKU");
-    addSentryBreadcrumb("popup.lifecycle", "popup mounted", {
+    recordBreadcrumb("popup.lifecycle", "popup mounted", {
       route: window.location.hash || "#/",
     });
     sendExtensionOpen("popup_home", "popup");
@@ -36,11 +35,13 @@ function App() {
     <ErrorBoundary
       onError={(error: unknown, info) => {
         const msg = error instanceof Error ? error.message : String(error);
-        captureSentryException(error, {
+        reportError(error, {
           feature: "react_error_boundary",
+          category: "popup.error",
+          breadcrumbMessage: "React error boundary captured an error",
+          mechanism: "react.error_boundary",
           extras: { componentStack: info.componentStack },
         });
-        void flushSentry().catch(() => false);
         sendError("react_error_boundary", msg, "popup_home");
       }}
       fallback={

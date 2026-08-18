@@ -1,22 +1,24 @@
-import { errorLog } from '@/utils/logger';
+import { getErrorLogDetails, warnLog } from '@/utils/logger';
 import {
-  addSentryBreadcrumb,
-  captureSentryException,
-  flushSentry,
-} from "@/monitoring/sentry";
+  createErrorReporter,
+  recordBreadcrumb,
+} from "@/monitoring";
+
+const reportChromeError = createErrorReporter({
+  category: "chrome.api",
+  mechanism: "chrome.api",
+});
 
 function reportChromeFailure(
   error: unknown,
   feature: string,
   extras: Record<string, unknown> = {},
 ): void {
-  addSentryBreadcrumb("chrome.api", `${feature} failed`, extras, "error");
-  captureSentryException(error, {
+  reportChromeError(error, {
     feature: `chrome_${feature}`,
-    mechanism: "chrome.api",
+    breadcrumbMessage: `${feature} failed`,
     extras,
   });
-  void flushSentry().catch(() => false);
 }
 
 function getStorageKeyCount(key: string | string[]): number {
@@ -45,7 +47,7 @@ export const getCurrentTab = async () => {
       return null;
     }
     const [tab] = tabs;
-    addSentryBreadcrumb("chrome.api", "active tab queried", {
+    recordBreadcrumb("chrome.api", "active tab queried", {
       result_count: tabs.length,
       has_tab_id: typeof tab?.id === "number",
     });
@@ -86,7 +88,7 @@ export const executeScript = async (tabId: number, func: () => void) => {
       func: func,
     });
     // debugLog("Injection Success", result);
-    addSentryBreadcrumb("chrome.api", "inline script executed", {
+    recordBreadcrumb("chrome.api", "inline script executed", {
       tab_id: tabId,
       all_frames: true,
     });
@@ -96,7 +98,10 @@ export const executeScript = async (tabId: number, func: () => void) => {
       tab_id: tabId,
       all_frames: true,
     });
-    errorLog("[Chrome] Failed to execute inline script", err);
+    warnLog(
+      "[Chrome] Failed to execute inline script",
+      getErrorLogDetails(err),
+    );
     throw err;
   }
 };
@@ -118,7 +123,7 @@ export const executeScriptFile = async (tabId: number, files: string[]) => {
       files,
     });
     // debugLog("Injection Success", result);
-    addSentryBreadcrumb("chrome.api", "script file executed", {
+    recordBreadcrumb("chrome.api", "script file executed", {
       tab_id: tabId,
       file_count: files.length,
       all_frames: true,
@@ -130,7 +135,10 @@ export const executeScriptFile = async (tabId: number, files: string[]) => {
       file_count: files.length,
       all_frames: true,
     });
-    errorLog("[Chrome] Failed to execute script file", err);
+    warnLog(
+      "[Chrome] Failed to execute script file",
+      getErrorLogDetails(err),
+    );
     throw err;
   }
 };
@@ -155,7 +163,7 @@ export const getStorage = <T>(key: string): Promise<T | undefined> => {
           return;
         }
 
-        addSentryBreadcrumb("chrome.api", "storage value read", {
+        recordBreadcrumb("chrome.api", "storage value read", {
           key_count: 1,
         });
         resolve(data?.[key] as T | undefined);
@@ -188,7 +196,7 @@ export const setStorage = <T extends Record<string, unknown>>(
           return;
         }
 
-        addSentryBreadcrumb("chrome.api", "storage values written", {
+        recordBreadcrumb("chrome.api", "storage values written", {
           key_count: Object.keys(data).length,
         });
         resolve();
@@ -221,7 +229,7 @@ export const removeStorage = (key: string | string[]): Promise<void> => {
           return;
         }
 
-        addSentryBreadcrumb("chrome.api", "storage values removed", {
+        recordBreadcrumb("chrome.api", "storage values removed", {
           key_count: getStorageKeyCount(key),
         });
         resolve();

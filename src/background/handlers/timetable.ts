@@ -19,6 +19,10 @@ import {
   parseEverytimeSemester,
   type EverytimeSemesterPeriod,
 } from "@/utils/everytimeSemester";
+import {
+  getUserFacingErrorMessage,
+  UserFacingError,
+} from "@/errors/userFacingError";
 
 const EVERYTIME_TIMETABLE_URL = "https://everytime.kr/timetable";
 const EVERYTIME_TIMETABLE_PATTERN = "https://everytime.kr/timetable*";
@@ -152,7 +156,9 @@ async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
 
     const timeoutId = setTimeout(() => {
       rejectOnce(
-        new Error("에브리타임 페이지를 불러오는 데 시간이 걸리고 있습니다."),
+        new UserFacingError(
+          "에브리타임 페이지를 불러오는 데 시간이 걸리고 있습니다.",
+        ),
       );
     }, TAB_LOAD_TIMEOUT_MS);
 
@@ -243,7 +249,9 @@ async function listSemesters(tabId: number): Promise<SemesterListResponse> {
   })) as EverytimeResponse | undefined;
 
   if (!isSemesterListResponse(response) || response.semesters.length === 0) {
-    throw new Error("에브리타임의 학기 목록을 확인하지 못했습니다.");
+    throw new UserFacingError(
+      "에브리타임의 학기 목록을 확인하지 못했습니다.",
+    );
   }
 
   return response;
@@ -260,7 +268,7 @@ async function captureRenderedTimetable(
   })) as EverytimeResponse | undefined;
 
   if (!isCurrentTimetableResponse(response)) {
-    throw new Error(
+    throw new UserFacingError(
       getEverytimeResponseError(
         response,
         "에브리타임 시간표를 불러오지 못했습니다.",
@@ -282,7 +290,7 @@ async function fetchSemestersFromApi(
   })) as EverytimeResponse | undefined;
 
   if (!isSemesterFetchResponse(response)) {
-    throw new Error(
+    throw new UserFacingError(
       getEverytimeResponseError(
         response,
         "에브리타임 시간표 API를 불러오지 못했습니다.",
@@ -312,13 +320,13 @@ async function captureSemesterInTemporaryTab(
 
   const tab = await chrome.tabs.create({ url, active: false });
   if (tab.id == null) {
-    throw new Error("에브리타임 시간표 탭을 열지 못했습니다.");
+    throw new UserFacingError("에브리타임 시간표 탭을 열지 못했습니다.");
   }
 
   try {
     const loadedTab = await waitForTabToSettle(tab.id);
     if (isEverytimeLoginUrl(loadedTab.url)) {
-      throw new Error("에브리타임 로그인이 필요합니다.");
+      throw new UserFacingError("에브리타임 로그인이 필요합니다.");
     }
 
     if (!isEverytimeTimetableUrl(loadedTab.url)) {
@@ -547,10 +555,10 @@ async function importSemesterBatchFromTab(
       return {
         success: false,
         code: "CAPTURE_FAILED",
-        error:
-          error instanceof Error
-            ? error.message
-            : "에브리타임 시간표를 가져오지 못했습니다.",
+        error: getUserFacingErrorMessage(
+          error,
+          "에브리타임 시간표를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
+        ),
       };
     } finally {
       if (createdByLinku && !keepOwnedTabOpen) {

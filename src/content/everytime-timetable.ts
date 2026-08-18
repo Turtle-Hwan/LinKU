@@ -13,14 +13,14 @@ import {
 } from "@/utils/everytimeTimetableColor";
 import { isPrimaryEverytimeTable } from "@/utils/everytimeTimetableParsing";
 import {
-  addSentryBreadcrumb,
-  captureSentryException,
-  captureSentryMessage,
-  flushSentry,
-  initSentry,
-} from "@/monitoring/sentry";
+  createErrorReporter,
+  createRuntimeMessageResponder,
+  getRuntimeMessageType,
+  initMonitoring,
+  recordBreadcrumb,
+} from "@/monitoring";
 
-initSentry("content");
+initMonitoring("content");
 
 type CaptureRequest =
   | { type: "LINKU_EVERYTIME_CAPTURE_PING" }
@@ -55,10 +55,16 @@ const TIMETABLE_RENDER_TIMEOUT_MS = 5_000;
 const EVERYTIME_API_TIMEOUT_MS = 10_000;
 const SEMESTER_METADATA_CACHE_TTL_MS = 5 * 60 * 1_000;
 
+const captureContentException = createErrorReporter({
+  category: "content.error",
+  mechanism: "content.handler",
+});
+
 function reportContentException(error: unknown, feature: string): void {
-  addSentryBreadcrumb("content.error", `${feature} captured`, undefined, "error");
-  captureSentryException(error, { feature });
-  void flushSentry().catch(() => false);
+  captureContentException(error, {
+    feature,
+    breadcrumbMessage: `${feature} captured`,
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -90,35 +96,6 @@ function isCaptureRequest(value: unknown): value is CaptureRequest {
     Array.isArray(value.data.semesters) &&
     value.data.semesters.every((semester) => typeof semester === "string")
   );
-}
-
-function createSafeResponder(
-  sendResponse: (response: CaptureResponse) => void,
-  messageType: string,
-): (response: CaptureResponse) => void {
-  let hasResponded = false;
-
-  return (response: CaptureResponse) => {
-    if (hasResponded) {
-      captureSentryMessage("Content response attempted more than once", "warning", {
-        feature: "content_response_duplicate",
-        mechanism: "runtime.sendResponse",
-        tags: { message_type: messageType },
-      });
-      return;
-    }
-
-    hasResponded = true;
-    try {
-      sendResponse(response);
-      addSentryBreadcrumb("content.message", "response sent", {
-        message_type: messageType,
-        success: response.success,
-      });
-    } catch (error) {
-      reportContentException(error, "message_response");
-    }
-  };
 }
 
 const linkuWindow = window as Window & {
@@ -681,10 +658,7 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
       reportContentException(error, "everytime_fetch_semesters");
       return {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "에브리타임 시간표 API를 불러오지 못했습니다.",
+        error: "에브리타임 시간표 API를 불러오지 못했습니다.",
       };
     }
 
@@ -711,13 +685,15 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
       _sender: chrome.runtime.MessageSender,
       sendResponse: (response: CaptureResponse) => void,
     ) => {
-      const messageType = isRecord(message) && typeof message.type === "string"
-        ? message.type
-        : "invalid";
-      const respond = createSafeResponder(sendResponse, messageType);
+      const messageType = getRuntimeMessageType(message);
+      const respond = createRuntimeMessageResponder({
+        runtime: "content",
+        messageType,
+        sendResponse,
+      });
 
       try {
-        addSentryBreadcrumb("content.message", "message received", {
+        recordBreadcrumb("content.message", "message received", {
           message_type: messageType,
         });
 

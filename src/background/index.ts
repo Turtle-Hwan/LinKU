@@ -33,82 +33,34 @@ import {
   handleTimetableImport,
 } from "./handlers/timetable";
 import {
-  addSentryBreadcrumb,
-  captureSentryException,
-  captureSentryMessage,
-  flushSentry,
-  initSentry,
-} from "@/monitoring/sentry";
+  createErrorReporter,
+  createRuntimeMessageResponder,
+  flushMonitoring,
+  getRuntimeMessageType,
+  initMonitoring,
+  recordBreadcrumb,
+} from "@/monitoring";
+import { getUserFacingErrorMessage } from "@/errors/userFacingError";
 
-initSentry("background");
+initMonitoring("background");
 debugLog("[Background] Service worker initialized");
-addSentryBreadcrumb("background.lifecycle", "service worker initialized");
+recordBreadcrumb("background.lifecycle", "service worker initialized");
+
+const captureBackgroundException = createErrorReporter({
+  category: "background.error",
+  mechanism: "background.handler",
+});
 
 function reportBackgroundException(
   error: unknown,
   feature: string,
   extras: Record<string, unknown> = {},
 ): void {
-  addSentryBreadcrumb("background.error", `${feature} captured`, extras, "error");
-  captureSentryException(error, { feature, extras });
-  void flushSentry().catch(() => false);
-}
-
-function getMessageType(message: unknown): string {
-  if (
-    message &&
-    typeof message === "object" &&
-    "type" in message &&
-    typeof (message as { type?: unknown }).type === "string"
-  ) {
-    return (message as { type: string }).type;
-  }
-
-  return "invalid";
-}
-
-function getResponseSummary(response: unknown): Record<string, unknown> {
-  if (!response || typeof response !== "object") {
-    return { response_type: typeof response };
-  }
-
-  const typedResponse = response as { success?: unknown; error?: unknown };
-  return {
-    success: typedResponse.success === true,
-    has_error: typeof typedResponse.error === "string",
-  };
-}
-
-function createSafeResponder(
-  sendResponse: (response: unknown) => void,
-  messageType: string,
-): (response: unknown) => void {
-  let hasResponded = false;
-
-  return (response: unknown) => {
-    if (hasResponded) {
-      captureSentryMessage("Background response attempted more than once", "warning", {
-        feature: "message_response_duplicate",
-        mechanism: "runtime.sendResponse",
-        tags: { message_type: messageType },
-      });
-      return;
-    }
-
-    hasResponded = true;
-    try {
-      sendResponse(response);
-      addSentryBreadcrumb("background.message", "response sent", {
-        message_type: messageType,
-        ...getResponseSummary(response),
-      });
-    } catch (error) {
-      reportBackgroundException(error, "message_response", {
-        message_type: messageType,
-        response_sent: false,
-      });
-    }
-  };
+  captureBackgroundException(error, {
+    feature,
+    breadcrumbMessage: `${feature} captured`,
+    extras,
+  });
 }
 
 async function restrictLocalStorageAccess(): Promise<void> {
@@ -136,11 +88,15 @@ chrome.runtime.onMessage.addListener(
     _sender: chrome.runtime.MessageSender,
     sendResponse: (response: unknown) => void,
   ) => {
-    const messageType = getMessageType(message);
-    const respond = createSafeResponder(sendResponse, messageType);
+    const messageType = getRuntimeMessageType(message);
+    const respond = createRuntimeMessageResponder({
+      runtime: "background",
+      messageType,
+      sendResponse,
+    });
 
     try {
-      addSentryBreadcrumb("background.message", "message received", {
+      recordBreadcrumb("background.message", "message received", {
         message_type: messageType,
       });
 
@@ -178,10 +134,10 @@ chrome.runtime.onMessage.addListener(
             );
             respond({
               success: false,
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "알 수 없는 오류가 발생했습니다.",
+              error: getUserFacingErrorMessage(
+                error,
+                "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.",
+              ),
             });
           });
 
@@ -220,8 +176,10 @@ chrome.runtime.onMessage.addListener(
             );
             respond({
               success: false,
-              error:
-                error instanceof Error ? error.message : "재인증에 실패했습니다.",
+              error: getUserFacingErrorMessage(
+                error,
+                "재인증에 실패했습니다. 다시 로그인해주세요.",
+              ),
             } as SilentReauthResponse);
           });
 
@@ -244,10 +202,10 @@ chrome.runtime.onMessage.addListener(
             respond({
               success: false,
               code: "UNKNOWN",
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "시간표를 가져오지 못했습니다.",
+              error: getUserFacingErrorMessage(
+                error,
+                "시간표를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
+              ),
             } satisfies TimetableImportResponse);
           });
 
@@ -280,7 +238,7 @@ chrome.runtime.onMessage.addListener(
  */
 chrome.runtime.onInstalled.addListener((details) => {
   debugLog("[Background] Extension installed/updated:", details.reason);
-  addSentryBreadcrumb("background.lifecycle", "extension installed event", {
+  recordBreadcrumb("background.lifecycle", "extension installed event", {
     reason: details.reason,
   });
 
@@ -296,17 +254,17 @@ chrome.runtime.onInstalled.addListener((details) => {
  */
 chrome.runtime.onStartup.addListener(() => {
   debugLog("[Background] Browser started, service worker activated");
-  addSentryBreadcrumb("background.lifecycle", "browser startup event");
+  recordBreadcrumb("background.lifecycle", "browser startup event");
   void restrictLocalStorageAccess();
 });
 
 chrome.runtime.onSuspend.addListener(() => {
-  addSentryBreadcrumb("background.lifecycle", "service worker suspending");
-  void flushSentry(2_000).catch(() => false);
+  recordBreadcrumb("background.lifecycle", "service worker suspending");
+  void flushMonitoring(2_000).catch(() => false);
 });
 
 chrome.runtime.onSuspendCanceled.addListener(() => {
-  addSentryBreadcrumb("background.lifecycle", "service worker suspend canceled");
+  recordBreadcrumb("background.lifecycle", "service worker suspend canceled");
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {

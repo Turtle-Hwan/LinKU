@@ -7,13 +7,12 @@ import type { ApiResponse, RequestConfig } from "../types/api";
 import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
 import { getChromeApi, getStorage, removeStorage } from "../utils/chrome";
-import { debugLog, errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
+import { debugLog, getErrorLogDetails, warnLog } from "@/utils/logger";
 import {
-  addSentryBreadcrumb,
-  captureSentryException,
-  captureSentryMessage,
-  flushSentry,
-} from "@/monitoring/sentry";
+  createErrorReporter,
+  recordBreadcrumb,
+  reportMessage,
+} from "@/monitoring";
 
 /**
  * Token expired error code from backend
@@ -32,14 +31,21 @@ function getSafeEndpoint(url: string): string {
   }
 }
 
+const captureApiException = createErrorReporter({
+  category: "api.error",
+  mechanism: "fetch",
+});
+
 function reportApiException(
   error: unknown,
   feature: string,
   extras?: Record<string, unknown>,
 ): void {
-  addSentryBreadcrumb("api.error", `${feature} captured`, extras, "error");
-  captureSentryException(error, { feature, extras });
-  void flushSentry().catch(() => false);
+  captureApiException(error, {
+    feature,
+    breadcrumbMessage: `${feature} captured`,
+    extras,
+  });
 }
 
 function getApiErrorCode(data: unknown): string | undefined {
@@ -87,9 +93,11 @@ function reportApiHttpFailure(
     ...getResponseShape(data),
   };
 
-  addSentryBreadcrumb("api.response", "non-success HTTP response", extras, level);
-  captureSentryMessage(`LinKU API HTTP ${status}`, level, {
+  reportMessage(`LinKU API HTTP ${status}`, {
     feature: "api_http_error",
+    category: "api.response",
+    breadcrumbMessage: "non-success HTTP response",
+    level,
     mechanism: "fetch.response",
     tags: {
       http_status: String(status),
@@ -97,7 +105,6 @@ function reportApiHttpFailure(
     },
     extras,
   });
-  void flushSentry().catch(() => false);
 }
 
 /**
@@ -336,7 +343,7 @@ async function request<T = unknown>(
     // Apply interceptors
     requestOptions = await applyRequestInterceptors(requestOptions);
 
-    addSentryBreadcrumb("api.request", "request started", {
+    recordBreadcrumb("api.request", "request started", {
       endpoint: safeEndpoint,
       method: method.toUpperCase(),
       retry: isRetry,
@@ -345,7 +352,7 @@ async function request<T = unknown>(
 
     // Fetch
     const response = await fetch(fullUrl, requestOptions);
-    addSentryBreadcrumb(
+    recordBreadcrumb(
       "api.response",
       "response received",
       {
@@ -377,7 +384,7 @@ async function request<T = unknown>(
         status: response.status,
         content_type: contentType,
       });
-      errorLog("[API Client] Response parsing error", {
+      warnLog("[API Client] Response parsing error", {
         ...getErrorLogDetails(parseError),
         status: response.status,
         endpoint: safeEndpoint,
@@ -387,7 +394,7 @@ async function request<T = unknown>(
         success: false,
         error: {
           code: "PARSE_ERROR",
-          message: `응답 파싱 실패: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+          message: "서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해주세요.",
         },
         status: response.status,
       };
@@ -407,18 +414,14 @@ async function request<T = unknown>(
         status: response.status,
         error_code: String(TOKEN_EXPIRED_CODE),
       };
-      addSentryBreadcrumb(
-        "api.auth",
-        "expired token response handled",
-        authExtras,
-        "warning",
-      );
-      captureSentryMessage("LinKU API token expired", "warning", {
+      reportMessage("LinKU API token expired", {
         feature: "api_token_expired",
+        category: "api.auth",
+        breadcrumbMessage: "expired token response handled",
+        level: "warning",
         mechanism: "api.response.code",
         extras: authExtras,
       });
-      void flushSentry().catch(() => false);
       debugLog(
         "[API Client] Detected 5004 token expired error, attempting reauth...",
       );
@@ -492,7 +495,7 @@ async function request<T = unknown>(
       success: false,
       error: {
         code: "NETWORK_ERROR",
-        message: error instanceof Error ? error.message : String(error),
+        message: "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
       },
     };
   }
@@ -560,7 +563,7 @@ export async function publicRequest<T = unknown>(
       : `${API_BASE_URL}${urlWithParams}`;
     safeEndpoint = getSafeEndpoint(fullUrl);
 
-    addSentryBreadcrumb("api.request", "public request started", {
+    recordBreadcrumb("api.request", "public request started", {
       endpoint: safeEndpoint,
       method: method.toUpperCase(),
       has_body: body !== undefined,
@@ -629,7 +632,10 @@ export async function publicRequest<T = unknown>(
     warnLog("[API Client] Public request error", getErrorLogDetails(error));
     return {
       success: false,
-      error: { code: "NETWORK_ERROR", message: String(error) },
+      error: {
+        code: "NETWORK_ERROR",
+        message: "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
+      },
     };
   }
 }
