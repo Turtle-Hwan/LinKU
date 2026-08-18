@@ -13,7 +13,7 @@ import {
   saveEverytimeTimetable,
   setActiveTimetable,
 } from "@/utils/timetableStorage";
-import { getErrorLogDetails, warnLog } from "@/utils/logger";
+import { errorLog, getErrorLogDetails } from "@/utils/logger";
 import {
   getLatestEverytimeSemesterAnchor,
   parseEverytimeSemester,
@@ -405,7 +405,7 @@ async function findFirstPopulatedSemesterBatch(
     try {
       response = await fetchSemestersFromApi(tabId, semesters);
     } catch (error) {
-      warnLog(
+      errorLog(
         "[Timetable] Everytime API unavailable; using rendered DOM fallback",
         getErrorLogDetails(error),
       );
@@ -539,7 +539,7 @@ async function importSemesterBatchFromTab(
         skippedCount: response.skippedSemesters.length,
       };
     } catch (error) {
-      warnLog(
+      errorLog(
         "[Timetable] Everytime import failed",
         getErrorLogDetails(error),
       );

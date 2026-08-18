@@ -22,7 +22,6 @@ import {
   errorLog,
   getErrorLogDetails,
   getHttpErrorLogDetails,
-  warnLog,
 } from "@/utils/logger";
 
 // Backend URL from environment
@@ -102,7 +101,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     debugLog("[Background] Extracted code:", code ? "있음" : "없음");
 
     if (error) {
-      warnLog("[Background] OAuth error returned from provider", { error });
+      errorLog("[Background] OAuth error returned from provider", { error });
       return {
         success: false,
         error: `OAuth 오류: ${error}`,
@@ -110,6 +109,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     }
 
     if (!code) {
+      errorLog("[Background] OAuth response did not include an authorization code");
       return {
         success: false,
         error: "인증 코드를 받지 못했습니다.",
@@ -153,7 +153,7 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     // 6. Parse backend response
     // 응답 형식: { code: 1000, message: "SUCCESS", result: { accessToken, refreshToken } }
     if (tokenData.code !== 1000) {
-      warnLog("[Background] Backend rejected token exchange", {
+      errorLog("[Background] Backend rejected token exchange", {
         status: tokenResponse.status,
         code: tokenData.code,
         message: tokenData.message,
