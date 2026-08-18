@@ -8,7 +8,12 @@ import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
 import { getChromeApi, getStorage, removeStorage } from "../utils/chrome";
 import { debugLog, errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
-import { captureSentryException, flushSentry } from "@/monitoring/sentry";
+import {
+  addSentryBreadcrumb,
+  captureSentryException,
+  captureSentryMessage,
+  flushSentry,
+} from "@/monitoring/sentry";
 
 /**
  * Token expired error code from backend
@@ -32,8 +37,67 @@ function reportApiException(
   feature: string,
   extras?: Record<string, unknown>,
 ): void {
+  addSentryBreadcrumb("api.error", `${feature} captured`, extras, "error");
   captureSentryException(error, { feature, extras });
-  void flushSentry();
+  void flushSentry().catch(() => false);
+}
+
+function getApiErrorCode(data: unknown): string | undefined {
+  if (!data || typeof data !== "object" || !("code" in data)) {
+    return undefined;
+  }
+
+  const code = (data as Record<string, unknown>).code;
+  return typeof code === "string" || typeof code === "number"
+    ? String(code).slice(0, 64)
+    : undefined;
+}
+
+function getResponseShape(data: unknown): Record<string, unknown> {
+  if (Array.isArray(data)) {
+    return { response_type: "array", response_length: data.length };
+  }
+
+  if (data && typeof data === "object") {
+    const keys = Object.keys(data);
+    return {
+      response_type: "object",
+      response_key_count: keys.length,
+      response_keys: keys.slice(0, 20),
+    };
+  }
+
+  return { response_type: typeof data };
+}
+
+function reportApiHttpFailure(
+  method: string,
+  endpoint: string,
+  response: Response,
+  data: unknown,
+): void {
+  const status = response.status;
+  const level = status >= 500 ? "error" : "warning";
+  const extras = {
+    endpoint,
+    method: method.toUpperCase(),
+    status,
+    status_text: response.statusText,
+    error_code: getApiErrorCode(data),
+    ...getResponseShape(data),
+  };
+
+  addSentryBreadcrumb("api.response", "non-success HTTP response", extras, level);
+  captureSentryMessage(`LinKU API HTTP ${status}`, level, {
+    feature: "api_http_error",
+    mechanism: "fetch.response",
+    tags: {
+      http_status: String(status),
+      http_method: method.toUpperCase(),
+    },
+    extras,
+  });
+  void flushSentry().catch(() => false);
 }
 
 /**
@@ -272,8 +336,30 @@ async function request<T = unknown>(
     // Apply interceptors
     requestOptions = await applyRequestInterceptors(requestOptions);
 
+    addSentryBreadcrumb("api.request", "request started", {
+      endpoint: safeEndpoint,
+      method: method.toUpperCase(),
+      retry: isRetry,
+      has_body: body !== undefined,
+    });
+
     // Fetch
     const response = await fetch(fullUrl, requestOptions);
+    addSentryBreadcrumb(
+      "api.response",
+      "response received",
+      {
+        endpoint: safeEndpoint,
+        method: method.toUpperCase(),
+        status: response.status,
+        ok: response.ok,
+      },
+      response.ok
+        ? "info"
+        : response.status >= 500
+          ? "error"
+          : "warning",
+    );
 
     // Parse response
     const contentType = response.headers.get("content-type");
@@ -289,6 +375,7 @@ async function request<T = unknown>(
       reportApiException(parseError, "api_response_parse", {
         endpoint: safeEndpoint,
         status: response.status,
+        content_type: contentType,
       });
       errorLog("[API Client] Response parsing error", {
         ...getErrorLogDetails(parseError),
@@ -314,6 +401,24 @@ async function request<T = unknown>(
       "code" in data &&
       (data as Record<string, unknown>).code === TOKEN_EXPIRED_CODE
     ) {
+      const authExtras = {
+        endpoint: safeEndpoint,
+        method: method.toUpperCase(),
+        status: response.status,
+        error_code: String(TOKEN_EXPIRED_CODE),
+      };
+      addSentryBreadcrumb(
+        "api.auth",
+        "expired token response handled",
+        authExtras,
+        "warning",
+      );
+      captureSentryMessage("LinKU API token expired", "warning", {
+        feature: "api_token_expired",
+        mechanism: "api.response.code",
+        extras: authExtras,
+      });
+      void flushSentry().catch(() => false);
       debugLog(
         "[API Client] Detected 5004 token expired error, attempting reauth...",
       );
@@ -343,18 +448,11 @@ async function request<T = unknown>(
 
     // Handle error responses FIRST (preserve original error data before result extraction)
     if (!response.ok) {
-      const errorData = data as Record<string, unknown>;
-      if (response.status >= 500) {
-        reportApiException(
-          new Error(
-            typeof errorData?.message === "string"
-              ? errorData.message
-              : `HTTP Error: ${response.status} ${response.statusText}`,
-          ),
-          "api_server_error",
-          { endpoint: safeEndpoint, status: response.status },
-        );
-      }
+      const errorData =
+        data && typeof data === "object"
+          ? (data as Record<string, unknown>)
+          : undefined;
+      reportApiHttpFailure(method, safeEndpoint, response, data);
       return applyResponseInterceptors({
         success: false,
         error: {
@@ -451,6 +549,8 @@ export async function publicRequest<T = unknown>(
   body?: unknown,
   config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
+  let safeEndpoint = getSafeEndpoint(url);
+
   try {
     const { headers = {}, params } = config || {};
 
@@ -458,6 +558,14 @@ export async function publicRequest<T = unknown>(
     const fullUrl = url.startsWith("http")
       ? urlWithParams
       : `${API_BASE_URL}${urlWithParams}`;
+    safeEndpoint = getSafeEndpoint(fullUrl);
+
+    addSentryBreadcrumb("api.request", "public request started", {
+      endpoint: safeEndpoint,
+      method: method.toUpperCase(),
+      has_body: body !== undefined,
+      public: true,
+    });
 
     const response = await fetch(fullUrl, {
       method,
@@ -465,22 +573,59 @@ export async function publicRequest<T = unknown>(
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    let data: unknown;
+    try {
+      const contentType = response.headers.get("content-type");
+      data = contentType?.includes("application/json")
+        ? await response.json()
+        : await response.text();
+    } catch (parseError) {
+      reportApiException(parseError, "public_api_response_parse", {
+        endpoint: safeEndpoint,
+        method: method.toUpperCase(),
+        status: response.status,
+      });
+      warnLog(
+        "[API Client] Public response parsing error",
+        getErrorLogDetails(parseError),
+      );
       return {
         success: false,
         status: response.status,
-        error: { code: "ERROR", message: data.message },
+        error: {
+          code: "PARSE_ERROR",
+          message: "공개 API 응답을 읽지 못했습니다.",
+        },
+      };
+    }
+
+    if (!response.ok) {
+      reportApiHttpFailure(method, safeEndpoint, response, data);
+      return {
+        success: false,
+        status: response.status,
+        error: {
+          code: getApiErrorCode(data) ?? "ERROR",
+          message:
+            data && typeof data === "object" && "message" in data
+              ? String((data as Record<string, unknown>).message)
+              : `HTTP Error: ${response.status} ${response.statusText}`,
+        },
       };
     }
 
     // Extract 'result' field if present (backend response format)
     const resultData =
-      data && typeof data === "object" && "result" in data ? data.result : data;
+      data && typeof data === "object" && "result" in data
+        ? (data as Record<string, unknown>).result
+        : data;
 
     return { success: true, status: response.status, data: resultData as T };
   } catch (error) {
+    reportApiException(error, "public_api_network_error", {
+      endpoint: safeEndpoint,
+      method: method.toUpperCase(),
+    });
     warnLog("[API Client] Public request error", getErrorLogDetails(error));
     return {
       success: false,
