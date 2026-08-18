@@ -23,6 +23,11 @@
  *
  * 이를 통해 build:local 환경에서 debug 로그가 정상 출력된다.
  */
+import {
+  captureSentryException,
+  flushSentry,
+} from "@/monitoring/sentry";
+
 const IS_DEV = import.meta.env.MODE === 'development';
 
 const MAX_STRING_LENGTH = 400;
@@ -38,8 +43,10 @@ const UNINSPECTABLE_OBJECT = "[Uninspectable Object]";
 const EMAIL_PATTERN =
   /\b([A-Z0-9._%+-])([A-Z0-9._%+-]*)(@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
 const BEARER_PATTERN = /Bearer\s+[-A-Z0-9._~+/=]+/gi;
+const SENSITIVE_VALUE_PATTERN =
+  /((?:["']?)(?:access[_-]?token|refresh[_-]?token|guest[_-]?token|id[_-]?token|authorization|cookie|password|secret|api[_-]?key|token|code|state|user[_-]?id|student[_-]?id)(?:["']?\s*[:=]\s*))(["']?)[^"'&,\s}\]]+/gi;
 const TOKEN_QUERY_PATTERN =
-  /([?&#])(code|access_token|refresh_token|id_token|token)=([^&#\s]+)/gi;
+  /([?&#])(code|access_token|refresh_token|guest_token|id_token|token|email|user_id|student_id)=([^&#\s]+)/gi;
 const SENSITIVE_KEY_PATTERN =
   /accessToken|refreshToken|guestToken|idToken|secret|authorization|cookie|password|apiKey/i;
 
@@ -76,15 +83,15 @@ function getObjectTypeName(value: object): string | null {
 }
 
 function sanitizeString(value: string): string {
-  const maskedEmail = value.replace(
-    EMAIL_PATTERN,
-    (_, firstChar: string, _middle: string, domain: string) =>
-      `${firstChar}***${domain}`,
-  );
+  const maskedEmail = value.replace(EMAIL_PATTERN, "[REDACTED_EMAIL]");
 
   const maskedBearer = maskedEmail.replace(BEARER_PATTERN, "Bearer [REDACTED]");
+  const maskedSensitiveValues = maskedBearer.replace(
+    SENSITIVE_VALUE_PATTERN,
+    "$1$2[REDACTED]",
+  );
 
-  const maskedQuery = maskedBearer.replace(
+  const maskedQuery = maskedSensitiveValues.replace(
     TOKEN_QUERY_PATTERN,
     (_match, separator: string, key: string) => `${separator}${key}=${REDACTED}`,
   );
@@ -264,6 +271,25 @@ export function warnLog(message: string, ...args: unknown[]): void {
 
 export function errorLog(message: string, ...args: unknown[]): void {
   emitLog("error", message, args);
+
+  const sanitizedMessage = sanitizeString(message);
+  const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
+  const originalError = args.find((arg): arg is Error => arg instanceof Error);
+
+  captureSentryException(
+    originalError ?? new Error(sanitizedMessage),
+    {
+      feature: "handled_error",
+      mechanism: "logger.error",
+      handled: true,
+      tags: { linku_log_level: "error" },
+      extras: {
+        log_message: sanitizedMessage,
+        log_args: sanitizedArgs,
+      },
+    },
+  );
+  void flushSentry().catch(() => false);
 }
 
 export function getErrorLogDetails(error: unknown): Record<string, unknown> {

@@ -8,7 +8,11 @@ import { Outlet } from "react-router";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
-import { captureSentryException } from "./monitoring/sentry";
+import {
+  addSentryBreadcrumb,
+  captureSentryException,
+  flushSentry,
+} from "./monitoring/sentry";
 import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
 import { debugLog } from "@/utils/logger";
 import "./App.css";
@@ -21,6 +25,9 @@ function App() {
       "font-family: Nanum Gothic; color: darkgreen; padding: 6px; border-radius: 4px; font-size:14px",
     );
     debugLog("https://github.com/Turtle-Hwan/LinKU");
+    addSentryBreadcrumb("popup.lifecycle", "popup mounted", {
+      route: window.location.hash || "#/",
+    });
     sendExtensionOpen("popup_home", "popup");
     sendPageView("LinKU Extension - Popup");
   }, []);
@@ -33,6 +40,7 @@ function App() {
           feature: "react_error_boundary",
           extras: { componentStack: info.componentStack },
         });
+        void flushSentry().catch(() => false);
         sendError("react_error_boundary", msg, "popup_home");
       }}
       fallback={
