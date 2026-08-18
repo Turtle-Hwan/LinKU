@@ -8,10 +8,35 @@ LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝�
 - API/Chrome bridge: 모든 non-2xx 응답, 네트워크·응답 파싱·토큰 정리, storage/tab/script injection 실패
 - handled application errors: 공통 `errorLog`와 주요 UI fallback 경로
 
+## 모듈 경계
+
+애플리케이션 코드는 `src/monitoring/index.ts`의 provider-neutral API만 사용합니다.
+Sentry SDK를 직접 import하는 파일은 collector adapter인 `src/monitoring/sentry.ts` 하나로
+제한합니다.
+
+- `reporter.ts`: unknown 오류 정규화, feature/category/mechanism 문맥, 오류 breadcrumb,
+  short-lived MV3 runtime용 flush, 전역 `error`/`unhandledrejection` 정책
+- `runtimeMessage.ts`: background/content 공통 message type 판별, one-shot 응답,
+  중복 응답과 닫힌 channel 수집
+- `redaction.ts`: console logger와 Sentry collector가 함께 쓰는 token·credential·개인정보
+  제거 규칙
+- `sentry.ts`: SDK 초기화, scope 연결, 최종 event/breadcrumb scrub, transport flush
+- `src/errors/userFacingError.ts`: 내부 상세 오류와 사용자에게 노출해도 되는 문구의 경계
+
+API, Chrome bridge, background, content처럼 기본 category와 mechanism이 반복되는 영역은
+`createErrorReporter`로 영역별 reporter를 만들고, 실제 오류 지점에서는 feature와 안전한
+추가 문맥만 전달합니다. 그래서 breadcrumb → capture → flush 순서와 handled 기본값이
+호출부마다 달라지지 않습니다.
+
+예상 가능한 도메인 실패만 `UserFacingError`로 표시합니다. runtime 경계에서는 이 타입의
+문구만 사용자 응답에 사용하고, 그 밖의 예외는 기능별 고정 fallback을 반환합니다. 원본
+오류는 `reportError`로 계속 수집하므로 디버깅 정보와 사용자 안전 문구가 서로 섞이지
+않습니다.
+
 ## 런타임 정책
 
-`src/monitoring/sentry.ts`가 모든 번들의 공통 진입점입니다. DSN이 없는 개발 빌드는
-Sentry를 초기화하지 않으므로 로컬 기본 빌드가 외부로 이벤트를 보내지 않습니다.
+DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 기본 빌드가 외부로 이벤트를
+보내지 않습니다.
 
 - `sendDefaultPii: false`
 - SDK 기본 global handler는 끄고 popup/background/content에 동일한 전역 `error`와
