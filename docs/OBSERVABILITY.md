@@ -75,7 +75,7 @@ Actions repository variable로 관리합니다. 조직 토큰은 절대 `VITE_` 
 | 종류 | 이름 | 용도 |
 | --- | --- | --- |
 | Secret | `SENTRY_AUTH_TOKEN` | production release와 source map 업로드 (`org:ci`, `org:read`) |
-| Variable | `SENTRY_ORG` | `turtlehwan-yr` |
+| Variable | `SENTRY_ORG` | `turtlehwan` |
 | Variable | `SENTRY_PROJECT` | `linku` |
 | Variable | `VITE_SENTRY_DSN` | `linku` Client Key DSN |
 
