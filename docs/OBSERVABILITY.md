@@ -63,6 +63,11 @@ IIFE로 빌드합니다. `pnpm run build:local`과 release workflow는 일반 �
 
 ## GitHub Actions 설정
 
+Sentry Project Settings의 Inbound Filters에서는 `browser extensions`, `hydration errors`,
+`ChunkLoadError` 필터를 끕니다. LinKU 자체가 Chrome Extension이므로 첫 번째 필터를 켜면
+정상적인 LinKU 오류까지 제3자 확장 프로그램 노이즈로 오인해 버릴 수 있습니다. 서버 측
+Data Scrubber와 Default Scrubbers는 켠 상태를 유지합니다.
+
 Sentry `linku` 프로젝트의 Client Key DSN은 클라이언트 번들에 들어가는 값이므로 GitHub
 Actions repository variable로 관리합니다. 조직 토큰은 절대 `VITE_` 변수로 만들지
 않습니다.
