@@ -5,8 +5,8 @@ import type {
   MonitoringLevel,
   MonitoringRuntime,
 } from "./types";
-
-const DEFAULT_FLUSH_TIMEOUT_MS = 2_000;
+import { MONITORING_FLUSH_TIMEOUT_MS } from "./constants.ts";
+import { normalizeError } from "./normalizeError.ts";
 
 type RuntimeGlobal = {
   addEventListener?: (
@@ -71,53 +71,24 @@ function mergeReportOptions(
   };
 }
 
-function normalizeError(
-  value: unknown,
-  fallbackMessage: string,
-): { error: Error; originalValue?: unknown } {
-  if (value instanceof Error) {
-    return { error: value };
-  }
-
-  if (typeof value === "string" && value.trim()) {
-    return { error: new Error(value) };
-  }
-
-  if (
-    value &&
-    typeof value === "object" &&
-    "message" in value &&
-    typeof value.message === "string" &&
-    value.message.trim()
-  ) {
-    return {
-      error: new Error(value.message),
-      originalValue: value,
-    };
-  }
-
-  return {
-    error: new Error(fallbackMessage),
-    originalValue: value,
-  };
-}
-
 export function createMonitoringReporter(
   collector: MonitoringCollector,
   options: MonitoringReporterOptions = {},
 ): MonitoringReporter {
   let globalHandlersInstalled = false;
 
-  const flush = (timeout = DEFAULT_FLUSH_TIMEOUT_MS): Promise<boolean> => {
+  const flush = async (
+    timeout = MONITORING_FLUSH_TIMEOUT_MS,
+  ): Promise<boolean> => {
     try {
-      return collector.flush(timeout);
+      return await collector.flush(timeout);
     } catch {
-      return Promise.resolve(false);
+      return false;
     }
   };
 
   const scheduleFlush = (): void => {
-    void flush().catch(() => false);
+    void flush();
   };
 
   const recordBreadcrumb = (
@@ -137,25 +108,25 @@ export function createMonitoringReporter(
     errorValue: unknown,
     reportOptions: ReportOptions,
   ): void => {
-    const level = reportOptions.level ?? "error";
-    const category = reportOptions.category ?? "extension.error";
-    const breadcrumbMessage =
-      reportOptions.breadcrumbMessage ?? `${reportOptions.feature} failed`;
-    const normalized = normalizeError(errorValue, breadcrumbMessage);
-    const extras = normalized.originalValue === undefined
-      ? reportOptions.extras
-      : {
-          ...reportOptions.extras,
-          original_error: normalized.originalValue,
-        };
-
-    recordBreadcrumb(
-      category,
-      breadcrumbMessage,
-      reportOptions.extras,
-      level,
-    );
     try {
+      const level = reportOptions.level ?? "error";
+      const category = reportOptions.category ?? "extension.error";
+      const breadcrumbMessage =
+        reportOptions.breadcrumbMessage ?? `${reportOptions.feature} failed`;
+      const normalized = normalizeError(errorValue, breadcrumbMessage);
+      const extras = normalized.originalValue === undefined
+        ? reportOptions.extras
+        : {
+            ...reportOptions.extras,
+            original_error: normalized.originalValue,
+          };
+
+      recordBreadcrumb(
+        category,
+        breadcrumbMessage,
+        reportOptions.extras,
+        level,
+      );
       collector.captureException(normalized.error, {
         feature: reportOptions.feature,
         tags: reportOptions.tags,
@@ -165,12 +136,12 @@ export function createMonitoringReporter(
         mechanism: reportOptions.mechanism,
         level,
       });
-    } catch {
-      // Reporting one error must never create another product error.
-    }
 
-    if (reportOptions.flush !== false) {
-      scheduleFlush();
+      if (reportOptions.flush !== false) {
+        scheduleFlush();
+      }
+    } catch {
+      // Invalid monitoring context must never create another product error.
     }
   };
 
@@ -178,16 +149,16 @@ export function createMonitoringReporter(
     message: string,
     reportOptions: ReportOptions,
   ): void => {
-    const level = reportOptions.level ?? "error";
-    const category = reportOptions.category ?? "extension.error";
-
-    recordBreadcrumb(
-      category,
-      reportOptions.breadcrumbMessage ?? message,
-      reportOptions.extras,
-      level,
-    );
     try {
+      const level = reportOptions.level ?? "error";
+      const category = reportOptions.category ?? "extension.error";
+
+      recordBreadcrumb(
+        category,
+        reportOptions.breadcrumbMessage ?? message,
+        reportOptions.extras,
+        level,
+      );
       collector.captureMessage(message, level, {
         feature: reportOptions.feature,
         tags: reportOptions.tags,
@@ -197,12 +168,12 @@ export function createMonitoringReporter(
         mechanism: reportOptions.mechanism,
         level,
       });
-    } catch {
-      // Reporting one error must never create another product error.
-    }
 
-    if (reportOptions.flush !== false) {
-      scheduleFlush();
+      if (reportOptions.flush !== false) {
+        scheduleFlush();
+      }
+    } catch {
+      // Invalid monitoring context must never create another product error.
     }
   };
 
@@ -212,7 +183,11 @@ export function createMonitoringReporter(
     error: unknown,
     reportOptions: ReportOptions,
   ) => {
-    reportError(error, mergeReportOptions(defaults, reportOptions));
+    try {
+      reportError(error, mergeReportOptions(defaults, reportOptions));
+    } catch {
+      // Merging caller-provided context is also part of the no-throw boundary.
+    }
   };
 
   const installGlobalErrorHandlers = (): void => {

@@ -3,6 +3,7 @@ import {
   createRuntimeMessageResponder as createResponder,
   getRuntimeMessageType,
 } from "./runtimeMessage";
+import type { RuntimeMessageResponderOptions } from "./runtimeMessage";
 import { sentryCollector } from "./sentry";
 
 const monitoring = createMonitoringReporter(sentryCollector, {
@@ -19,7 +20,7 @@ export const createErrorReporter = monitoring.createErrorReporter;
 export { getRuntimeMessageType };
 
 export function createRuntimeMessageResponder<Response>(
-  options: import("./runtimeMessage").RuntimeMessageResponderOptions<Response>,
+  options: RuntimeMessageResponderOptions<Response>,
 ): (response: Response) => void {
   return createResponder(monitoring, options);
 }

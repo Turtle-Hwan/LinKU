@@ -260,7 +260,7 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.runtime.onSuspend.addListener(() => {
   recordBreadcrumb("background.lifecycle", "service worker suspending");
-  void flushMonitoring(2_000).catch(() => false);
+  void flushMonitoring();
 });
 
 chrome.runtime.onSuspendCanceled.addListener(() => {
