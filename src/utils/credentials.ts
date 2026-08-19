@@ -5,7 +5,7 @@
 
 import { getStorage, setStorage, removeStorage } from "./chrome";
 import { encryptPassword, decryptPassword } from "./crypto";
-import { errorLog } from '@/utils/logger';
+import { errorLog, getErrorLogDetails, warnLog } from '@/utils/logger';
 
 export interface Credentials {
   id: string;
@@ -58,8 +58,14 @@ export async function loadCredentials(
     let decryptedPassword: string;
     try {
       decryptedPassword = await decryptPassword(credentials.password);
-    } catch {
-      // 복호화 실패 시 평문으로 시도 (이전 데이터 호환성)
+    } catch (error) {
+      // 복호화 실패 시 평문으로 시도 (이전 데이터 호환성).
+      // 과거 데이터에서는 정상 경로지만, 현재 데이터에서 계속 실패한다면
+      // 로그인이 조용히 깨지는 것이므로 흔적을 남긴다.
+      warnLog(
+        "[Credentials] Password decryption failed; falling back to stored value",
+        getErrorLogDetails(error),
+      );
       decryptedPassword = credentials.password;
     }
 
