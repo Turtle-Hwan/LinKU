@@ -55,7 +55,9 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 - 기존 GA4 `sendError`와 React fallback UI는 유지
 
 처리된 오류도 누락하지 않도록 `errorLog`는 console 출력과 함께 handled Sentry exception을
-기록합니다. 응답 원문·request body·토큰·쿠키는 수집하지 않고, API 오류는 endpoint path,
+기록하고, `warnLog`도 같은 경로로 `warning` level exception을 기록합니다. 경고는 실패했지만
+흡수된 경로를 뜻하므로, 사용자에게 toast나 축소된 결과가 보이는데 수집에는 아무 흔적이 남지
+않던 구간이 바로 여기였습니다. `debugLog`와 `infoLog`는 계속 console 전용입니다. 응답 원문·request body·토큰·쿠키는 수집하지 않고, API 오류는 endpoint path,
 HTTP method/status, error code, response shape와 직전 breadcrumbs로 재현에 필요한 맥락을
 남깁니다. background/content의 `runtime.sendResponse`는 one-shot responder로 감싸 중복
 응답과 채널 종료 오류도 별도 기록합니다.
