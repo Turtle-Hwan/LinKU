@@ -25,6 +25,16 @@ export interface StoredAsset {
 }
 
 /**
+ * Where a stored template record lives. The draft slot has a single fixed key,
+ * so the store determines the key rather than the caller supplying one.
+ */
+export type RecordLocation =
+  | { store: "templates"; key: number }
+  | { store: "drafts" };
+
+export const DRAFT_SLOT_KEY = "current";
+
+/**
  * A record that failed read-time normalization.
  *
  * Local storage is the only copy of a user's templates, so an unreadable
@@ -34,8 +44,7 @@ export interface StoredAsset {
  */
 export interface QuarantinedRecord {
   id: string;
-  origin: "templates" | "drafts";
-  key: number | string;
+  at: RecordLocation;
   reason: string;
   quarantinedAt: number;
   raw: unknown;
@@ -63,7 +72,6 @@ export interface LinkuDatabase extends DBSchema {
   quarantine: {
     key: string;
     value: QuarantinedRecord;
-    indexes: { "by-quarantined-at": number };
   };
 }
 
@@ -102,10 +110,7 @@ export function getLinkuDb(): Promise<LinkuDb> {
 
           database.createObjectStore("migrations");
 
-          const quarantine = database.createObjectStore("quarantine", {
-            keyPath: "id",
-          });
-          quarantine.createIndex("by-quarantined-at", "quarantinedAt");
+          database.createObjectStore("quarantine", { keyPath: "id" });
         }
       },
       blocked() {

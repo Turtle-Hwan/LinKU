@@ -22,10 +22,8 @@ import {
   GRID_COLUMNS,
   GRID_ROWS,
   MAX_TEMPLATE_ITEMS,
-} from "../constants/grid.ts";
-
-export const MAX_TEMPLATE_NAME_LENGTH = 80;
-export { MAX_TEMPLATE_ITEMS };
+  MAX_TEMPLATE_NAME_LENGTH,
+} from "../constants/template.ts";
 
 export interface NormalizeResult {
   /** Normalized record, or null when the record must be quarantined. */

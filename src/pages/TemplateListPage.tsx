@@ -44,23 +44,14 @@ import {
   resolveLatestBulletin,
   subscribeLatestBulletin,
 } from '@/apis/external/bulletin';
+import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
+import { downloadJson } from '@/utils/download';
 import { errorLog } from '@/utils/logger';
 import {
   sendTemplateApply,
   sendTemplateCreateStart,
   sendTemplateDelete,
 } from '@/utils/analytics';
-
-function downloadJsonFile(value: unknown, fileName: string): void {
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }),
-  );
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
 
 function toSummary(template: Template): TemplateSummary {
   return {
@@ -161,21 +152,21 @@ export const TemplateListPage = () => {
   };
 
   const handleApplyTemplate = async (template: TemplateSummary) => {
-    const targetId = template.templateId === 0 ? null : template.templateId;
+    const targetId = template.templateId === UNSAVED_TEMPLATE_ID ? null : template.templateId;
     await selectTemplate(targetId);
     sendTemplateApply(
       template.templateId,
-      template.templateId === 0
+      template.templateId === UNSAVED_TEMPLATE_ID
         ? 'default'
         : template.cloned
           ? 'cloned'
           : 'owned',
-      template.templateId === 0,
+      template.templateId === UNSAVED_TEMPLATE_ID,
     );
     toast({
       title: '템플릿 적용 완료',
       description:
-        template.templateId === 0
+        template.templateId === UNSAVED_TEMPLATE_ID
           ? '기본 템플릿이 적용되었습니다.'
           : `“${template.name}” 템플릿이 적용되었습니다.`,
     });
@@ -212,7 +203,7 @@ export const TemplateListPage = () => {
     setActionLoading(templateId);
     try {
       const stored =
-        templateId === 0
+        templateId === UNSAVED_TEMPLATE_ID
           ? { template: defaultTemplate }
           : await loadTemplateFromLocalStorage(templateId);
       if (!stored) throw new Error('이 기기에서 템플릿을 찾을 수 없습니다.');
@@ -274,7 +265,7 @@ export const TemplateListPage = () => {
   const handleDownloadBackup = async () => {
     try {
       const backup = await createTemplateBackup();
-      downloadJsonFile(
+      downloadJson(
         backup,
         `linku-backup-${backup.exportedAt.slice(0, 10)}.json`,
       );
@@ -322,7 +313,7 @@ export const TemplateListPage = () => {
   const handleDownloadQuarantined = async () => {
     try {
       const records = await listQuarantinedRecords();
-      downloadJsonFile(records, 'linku-damaged-templates.json');
+      downloadJson(records, 'linku-damaged-templates.json');
       toast({
         title: '복구용 파일을 저장했습니다',
         description: '원본 데이터를 그대로 담았습니다.',
@@ -359,13 +350,13 @@ export const TemplateListPage = () => {
             key={template.templateId}
             template={template}
             onClick={
-              template.templateId === 0
+              template.templateId === UNSAVED_TEMPLATE_ID
                 ? undefined
                 : () => navigate(`/editor/${template.templateId}`)
             }
             isSelected={
               selectedTemplateId === null
-                ? template.templateId === 0
+                ? template.templateId === UNSAVED_TEMPLATE_ID
                 : selectedTemplateId === template.templateId
             }
             onApply={(event) => {
@@ -380,7 +371,7 @@ export const TemplateListPage = () => {
               event.stopPropagation();
               void handleShareTemplate(template.templateId);
             }}
-            showDelete={template.templateId !== 0}
+            showDelete={template.templateId !== UNSAVED_TEMPLATE_ID}
             isActionLoading={actionLoading === template.templateId}
           />
         ))}

@@ -18,6 +18,7 @@ import {
 import type { BulletinInfo } from "@/constants/bulletin";
 import { loadTemplateFromLocalStorage } from "@/utils/templateStorage";
 import { debugLog, errorLog } from '@/utils/logger';
+import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
 const STORAGE_KEY = "selectedTemplateId";
 
@@ -180,7 +181,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         type: typeof templateId,
       });
 
-      if (templateId === 0) {
+      if (templateId === UNSAVED_TEMPLATE_ID) {
         // templateId가 0이면 기본 템플릿 → null로 변환
         debugLog(
           "[useSelectedTemplate] Converting 0 to null (default template)",

@@ -2,6 +2,7 @@ import type { TemplateSummary } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { TemplatePreviewCanvas } from './TemplatePreviewCanvas';
 import { Check, HardDrive, Loader2, Share2, Trash2 } from 'lucide-react';
+import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
 interface TemplateCardProps {
   template: TemplateSummary;
@@ -69,7 +70,7 @@ export const TemplateCard = ({
           <Share2 className="h-4 w-4" />
         </button>
       )}
-      {template.templateId !== 0 && (
+      {template.templateId !== UNSAVED_TEMPLATE_ID && (
         <div
           className="rounded-md bg-background/95 p-2 text-muted-foreground shadow-sm"
           title="이 기기에 저장됨"
@@ -92,7 +93,7 @@ export const TemplateCard = ({
             <Check className="h-4 w-4" />
           </button>
         ))}
-      {showDelete && template.templateId !== 0 && onDelete && (
+      {showDelete && template.templateId !== UNSAVED_TEMPLATE_ID && onDelete && (
         <button
           type="button"
           onClick={onDelete}

@@ -14,6 +14,7 @@ import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils
 import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
 import { debugLog, errorLog } from '@/utils/logger';
 import { EditorContext } from './EditorContextObject';
+import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
 /**
  * Editor state interface
@@ -222,7 +223,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isSaving: false,
         isDirty: false,
         // Keep mode as 'create' if templateId is still 0 (draft)
-        mode: action.payload.templateId === 0 ? 'create' : 'edit',
+        mode: action.payload.templateId === UNSAVED_TEMPLATE_ID ? 'create' : 'edit',
       };
 
     case 'SAVE_FAILED':
@@ -514,7 +515,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       if (startFrom === 'empty') {
         // Empty template - no items, just icons for picker
         const emptyTemplate: Template = {
-          templateId: 0,
+          templateId: UNSAVED_TEMPLATE_ID,
           name: '새 템플릿',
           height: 6,
           cloned: false,
@@ -537,7 +538,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         const templateHeight = calculateTemplateHeight();
 
         const newTemplate: Template = {
-          templateId: 0,
+          templateId: UNSAVED_TEMPLATE_ID,
           name: '새 템플릿',
           height: templateHeight,
           cloned: false,
@@ -553,7 +554,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       errorLog('[EditorContext] Failed to initialize template:', error);
       // Fallback: create empty template (still saveable locally)
       const emptyTemplate: Template = {
-        templateId: 0,
+        templateId: UNSAVED_TEMPLATE_ID,
         name: '새 템플릿',
         height: 6,
         cloned: false,

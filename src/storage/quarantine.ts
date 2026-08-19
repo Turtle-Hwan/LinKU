@@ -6,45 +6,32 @@
  * preserved, counted for the UI, and left for the user to export or discard.
  */
 
-import { getLinkuDb, type QuarantinedRecord } from "@/storage/linkuDb";
+import {
+  getLinkuDb,
+  type QuarantinedRecord,
+  type RecordLocation,
+} from "@/storage/linkuDb";
 import { errorLog } from "@/utils/logger";
 
-/**
- * Upper bound on retained quarantine records. Damaged records still consume
- * the same storage budget as healthy ones, so the oldest entries give way
- * once the bound is reached.
- */
-const MAX_QUARANTINE_RECORDS = 50;
-
 export interface QuarantineInput {
-  origin: QuarantinedRecord["origin"];
-  key: number | string;
+  at: RecordLocation;
   reason: string;
   raw: unknown;
 }
 
+/**
+ * The store is not capped. A quarantined record is moved out of `templates`
+ * rather than copied, so the total never grows beyond what the user already
+ * had, and evicting the oldest entries would destroy exactly what this store
+ * exists to hold.
+ */
 export async function quarantineRecord(input: QuarantineInput): Promise<void> {
   const database = await getLinkuDb();
-  const transaction = database.transaction("quarantine", "readwrite");
-  const store = transaction.objectStore("quarantine");
-
-  await store.put({
+  await database.put("quarantine", {
+    ...input,
     id: crypto.randomUUID(),
-    origin: input.origin,
-    key: input.key,
-    reason: input.reason,
     quarantinedAt: Date.now(),
-    raw: input.raw,
   });
-
-  let cursor = await store.index("by-quarantined-at").openCursor();
-  const overflow = (await store.count()) - MAX_QUARANTINE_RECORDS;
-  for (let removed = 0; cursor && removed < overflow; removed += 1) {
-    await cursor.delete();
-    cursor = await cursor.continue();
-  }
-
-  await transaction.done;
 }
 
 export async function listQuarantinedRecords(): Promise<QuarantinedRecord[]> {

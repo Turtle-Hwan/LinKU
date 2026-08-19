@@ -5,14 +5,16 @@ import type {
 import {
   GRID_COLUMNS,
   GRID_ROWS,
+  MAX_SITE_URL_LENGTH,
   MAX_TEMPLATE_ITEMS,
-} from "../constants/grid.ts";
+  MAX_TEMPLATE_NAME_LENGTH,
+  PORTABLE_ICON_PATTERN,
+} from "../constants/template.ts";
 
 export const SHARE_FRAGMENT_PREFIX = "v1.";
 export const MAX_SHARE_FILE_BYTES = 256 * 1024;
 
 const MAX_FRAGMENT_CHARACTERS = 4_096;
-const DATA_ICON_PATTERN = /^data:image\/(?:png|jpeg|webp);base64,/u;
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -72,7 +74,9 @@ async function decompress(value: Uint8Array): Promise<string> {
 }
 
 function assertHttpUrl(value: string): void {
-  if (value.length > 2_048) throw new Error("공유 링크 주소가 너무 깁니다.");
+  if (value.length > MAX_SITE_URL_LENGTH) {
+    throw new Error("공유 링크 주소가 너무 깁니다.");
+  }
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new Error("공유 템플릿에는 HTTP 또는 HTTPS 링크만 사용할 수 있습니다.");
@@ -91,7 +95,7 @@ function validatePortableItem(
   if (
     typeof item.name !== "string" ||
     item.name.trim().length === 0 ||
-    item.name.length > 80 ||
+    item.name.length > MAX_TEMPLATE_NAME_LENGTH ||
     typeof item.siteUrl !== "string"
   ) {
     throw new Error(`${index + 1}번째 항목의 이름이나 주소가 올바르지 않습니다.`);
@@ -126,7 +130,7 @@ function validatePortableItem(
   }
   if (
     icon.kind === "builtin" &&
-    (typeof icon.key !== "string" || icon.key.length === 0 || icon.key.length > 80)
+    (typeof icon.key !== "string" || icon.key.length === 0 || icon.key.length > MAX_TEMPLATE_NAME_LENGTH)
   ) {
     throw new Error(`${index + 1}번째 기본 아이콘이 올바르지 않습니다.`);
   }
@@ -134,10 +138,10 @@ function validatePortableItem(
     if (
       typeof icon.name !== "string" ||
       icon.name.length === 0 ||
-      icon.name.length > 80 ||
+      icon.name.length > MAX_TEMPLATE_NAME_LENGTH ||
       typeof icon.dataUrl !== "string" ||
       icon.dataUrl.length > MAX_SHARE_FILE_BYTES ||
-      !DATA_ICON_PATTERN.test(icon.dataUrl)
+      !PORTABLE_ICON_PATTERN.test(icon.dataUrl)
     ) {
       throw new Error(`${index + 1}번째 이미지 아이콘이 올바르지 않습니다.`);
     }
@@ -155,7 +159,7 @@ export function validateTemplateSharePayload(
     !template ||
     typeof template.name !== "string" ||
     template.name.trim().length === 0 ||
-    template.name.length > 80 ||
+    template.name.length > MAX_TEMPLATE_NAME_LENGTH ||
     !Number.isInteger(template.height) ||
     Number(template.height) < 1 ||
     Number(template.height) > GRID_ROWS ||

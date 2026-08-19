@@ -11,7 +11,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { LucideIcon } from 'lucide-react';
 import { warnLog, errorLog } from '@/utils/logger';
-import { GRID_COLUMNS, GRID_ROWS } from '@/constants/grid';
+import { GRID_COLUMNS, GRID_ROWS } from '@/constants/template';
 
 /**
  * Grid configuration (6 columns × 6 rows)

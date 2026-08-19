@@ -1,5 +1,13 @@
-import { getBundledTemplateIcons } from "@/constants/templateIcons";
+import {
+  GENERIC_LINK_ICON_NAME,
+  getBundledTemplateIcons,
+} from "@/constants/templateIcons";
+import {
+  MAX_TEMPLATE_NAME_LENGTH,
+  PORTABLE_ICON_PATTERN,
+} from "@/constants/template";
 import type { Template, TemplateIcon, TemplateItem } from "@/types/api";
+import { downloadBlob } from "@/utils/download";
 import type {
   PortableIcon,
   TemplateSharePayloadV1,
@@ -19,53 +27,45 @@ export {
 
 export const SHARE_URL_LIMIT = 1_800;
 export const SHARE_PAGE_URL = "https://turtle-hwan.github.io/LinKU/share/";
-const GENERIC_LINK_ICON_KEY = "linku:generic-link";
-const PORTABLE_DATA_ICON_PATTERN = /^data:image\/(?:png|jpeg|webp);base64,/u;
-const GENERIC_LINK_ICON_URL = `data:image/svg+xml,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/></svg>',
-)}`;
+/** Unregistered icon. The storage layer registers the image on the way in. */
+const UNREGISTERED_ICON_ID = 0;
 
-function genericLinkIcon(name = "링크"): TemplateIcon {
+function findBundledIcon(name: string) {
+  return getBundledTemplateIcons().find(
+    (candidate) => candidate.name.toLowerCase() === name.toLowerCase(),
+  );
+}
+
+function toBundledTemplateIcon(name: string): TemplateIcon {
+  const bundled = findBundledIcon(name) ?? findBundledIcon(GENERIC_LINK_ICON_NAME)!;
   return {
-    iconId: -1,
-    iconName: name,
-    iconUrl: GENERIC_LINK_ICON_URL,
+    iconId: bundled.id,
+    iconName: bundled.name,
+    iconUrl: bundled.imageUrl,
   };
 }
 
 function toPortableIcon(icon: TemplateIcon): PortableIcon {
-  const builtin = getBundledTemplateIcons().find(
-    (candidate) =>
-      candidate.name.toLowerCase() === icon.iconName.toLowerCase(),
-  );
-  if (builtin) return { kind: "builtin", key: builtin.name };
+  const bundled = findBundledIcon(icon.iconName);
+  if (bundled) return { kind: "builtin", key: bundled.name };
 
-  if (PORTABLE_DATA_ICON_PATTERN.test(icon.iconUrl)) {
+  if (PORTABLE_ICON_PATTERN.test(icon.iconUrl)) {
     return { kind: "data", name: icon.iconName, dataUrl: icon.iconUrl };
   }
 
-  return { kind: "builtin", key: GENERIC_LINK_ICON_KEY };
+  // A remote icon URL is not carried over: rendering a shared template must
+  // not send a request to a third-party server.
+  return { kind: "builtin", key: GENERIC_LINK_ICON_NAME };
 }
 
 function fromPortableIcon(icon: PortableIcon): TemplateIcon {
-  if (icon.kind === "builtin") {
-    if (icon.key === GENERIC_LINK_ICON_KEY) return genericLinkIcon();
-    const bundled = getBundledTemplateIcons().find(
-      (candidate) => candidate.name.toLowerCase() === icon.key.toLowerCase(),
-    );
-    if (!bundled) return genericLinkIcon(icon.key);
-    return {
-      iconId: bundled.id,
-      iconName: bundled.name,
-      iconUrl: bundled.imageUrl,
-    };
-  }
-
-  return {
-    iconId: -Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
-    iconName: icon.name,
-    iconUrl: icon.dataUrl,
-  };
+  return icon.kind === "builtin"
+    ? toBundledTemplateIcon(icon.key)
+    : {
+        iconId: UNREGISTERED_ICON_ID,
+        iconName: icon.name,
+        iconUrl: icon.dataUrl,
+      };
 }
 
 export function createTemplateSharePayload(
@@ -74,7 +74,7 @@ export function createTemplateSharePayload(
   return {
     version: 1,
     template: {
-      name: template.name.slice(0, 80),
+      name: template.name.slice(0, MAX_TEMPLATE_NAME_LENGTH),
       height: template.height,
       items: template.items.map((item) => ({
         name: item.name,
@@ -136,12 +136,5 @@ export function downloadTemplatePayload(
   if (new TextEncoder().encode(json).byteLength > MAX_SHARE_FILE_BYTES) {
     throw new Error("공유 데이터가 허용된 크기를 초과합니다.");
   }
-  const url = URL.createObjectURL(
-    new Blob([json], { type: "application/json" }),
-  );
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  downloadBlob(new Blob([json], { type: "application/json" }), fileName);
 }

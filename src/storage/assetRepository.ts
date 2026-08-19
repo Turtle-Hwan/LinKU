@@ -1,7 +1,9 @@
 import { getLinkuDb, type StoredAsset } from "@/storage/linkuDb";
+import { allocateMonotonicId } from "@/storage/monotonicId";
 
 const MAX_ICON_BYTES = 5 * 1024 * 1024;
 const MAX_ICON_DIMENSION = 256;
+const ICON_WEBP_QUALITY = 0.9;
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -24,14 +26,16 @@ async function canvasToWebp(canvas: HTMLCanvasElement): Promise<Blob> {
         else reject(new Error("아이콘 이미지를 변환하지 못했습니다."));
       },
       "image/webp",
-      0.9,
+      ICON_WEBP_QUALITY,
     );
   });
 }
 
 export async function normalizeIconBlob(source: Blob): Promise<Blob> {
   if (source.size > MAX_ICON_BYTES) {
-    throw new Error("아이콘 원본은 5MB 이하여야 합니다.");
+    throw new Error(
+      `아이콘 원본은 ${MAX_ICON_BYTES / 1024 / 1024}MB 이하여야 합니다.`,
+    );
   }
 
   const objectUrl = URL.createObjectURL(source);
@@ -71,14 +75,7 @@ export async function saveAsset(name: string, source: Blob): Promise<StoredAsset
     return existing;
   }
 
-  // Ids are allocated above the highest one in use rather than from the clock
-  // alone. A system clock that moves backwards would otherwise hand out an id
-  // that already belongs to another asset.
-  let numericId = Date.now();
-  const newest = await store.index("by-numeric-id").openCursor(null, "prev");
-  if (newest && Number(newest.key) >= numericId) {
-    numericId = Number(newest.key) + 1;
-  }
+  const numericId = await allocateMonotonicId(store.index("by-numeric-id"));
 
   const asset: StoredAsset = {
     id,

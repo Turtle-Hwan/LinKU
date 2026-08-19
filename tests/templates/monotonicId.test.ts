@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import "fake-indexeddb/auto";
 import { openDB, type IDBPDatabase } from "idb";
-import { allocateTemplateId } from "../../src/storage/templateIds.ts";
+import { allocateMonotonicId } from "../../src/storage/monotonicId.ts";
 
-// The production schema is re-declared here rather than imported so the test
-// exercises the allocator against a plain store, without pulling the popup's
-// module graph into a Node test run.
+// The schema is re-declared here rather than imported so the test exercises
+// the allocator against a plain store, without pulling the popup's module
+// graph into a Node test run.
 async function createDatabase(name: string): Promise<IDBPDatabase> {
   return openDB(name, 1, {
     upgrade(database) {
@@ -18,8 +18,8 @@ async function createDatabase(name: string): Promise<IDBPDatabase> {
 async function allocate(database: IDBPDatabase): Promise<number> {
   const transaction = database.transaction("templates", "readwrite");
   const store = transaction.objectStore("templates");
-  const id = await allocateTemplateId(
-    store as unknown as Parameters<typeof allocateTemplateId>[0],
+  const id = await allocateMonotonicId(
+    store as unknown as Parameters<typeof allocateMonotonicId>[0],
   );
   await store.put({ marker: id }, id);
   await transaction.done;

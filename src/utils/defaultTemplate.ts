@@ -1,4 +1,5 @@
 import { createDefaultLinkList } from "@/constants/LinkList";
+import { UNSAVED_TEMPLATE_ID } from "@/constants/template";
 import type { BulletinInfo } from "@/constants/bulletin";
 import { getBundledTemplateIcons } from "@/constants/templateIcons";
 import type { Template } from "@/types/api";
@@ -14,7 +15,7 @@ export function createBundledDefaultTemplate(
   const timestamp = "2026-01-01T00:00:00.000Z";
   return {
     id: "builtin:linku-default@1",
-    templateId: 0,
+    templateId: UNSAVED_TEMPLATE_ID,
     name: "LinKU 기본 템플릿",
     height: calculateTemplateHeight(),
     cloned: false,

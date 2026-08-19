@@ -19,9 +19,18 @@ import {
   getAssetByNumericId,
   saveAssetFromDataUrl,
 } from "@/storage/assetRepository";
-import { getLinkuDb, type StoredTemplate } from "@/storage/linkuDb";
+import {
+  DRAFT_SLOT_KEY,
+  getLinkuDb,
+  type RecordLocation,
+  type StoredTemplate,
+} from "@/storage/linkuDb";
+import {
+  PORTABLE_ICON_PATTERN,
+  UNSAVED_TEMPLATE_ID,
+} from "@/constants/template";
 import { quarantineSafely } from "@/storage/quarantine";
-import { allocateTemplateId } from "@/storage/templateIds";
+import { allocateMonotonicId } from "@/storage/monotonicId";
 import { normalizeStoredTemplate } from "@/storage/templateRecord";
 import type { Template, TemplateItem } from "@/types/api";
 import { debugLog, errorLog } from "@/utils/logger";
@@ -41,7 +50,6 @@ const STORAGE_PREFIX = "linku_template_";
 const INDEX_KEY = "linku_templates_index";
 const DRAFT_KEY = "linku_template_draft";
 const MIGRATION_KEY = "local-storage-templates-v1";
-const DATA_URL_PATTERN = /^data:image\/(?:png|jpeg|webp);base64,/u;
 
 let migrationPromise: Promise<void> | undefined;
 
@@ -105,7 +113,7 @@ async function migrateLegacyLocalStorage(): Promise<void> {
           debugLog(`Repaired legacy template ${key}`, result.repairs);
         }
         const stored = result.value;
-        if (stored && stored.template.templateId !== 0) {
+        if (stored && stored.template.templateId !== UNSAVED_TEMPLATE_ID) {
           await transaction
             .objectStore("templates")
             .put(stored, stored.template.templateId);
@@ -173,7 +181,7 @@ async function repairUnregisteredIcons(
       const { iconId, iconUrl, iconName } = item.icon;
       // Bundled icons carry an SVG data URI and never need registering, so the
       // cheap pattern test runs before any database lookup.
-      if (!DATA_URL_PATTERN.test(iconUrl)) {
+      if (!PORTABLE_ICON_PATTERN.test(iconUrl)) {
         repaired.push(item);
         continue;
       }
@@ -211,23 +219,29 @@ async function repairUnregisteredIcons(
     : { stored, changed };
 }
 
-async function removeRecord(
-  origin: "templates" | "drafts",
-  key: number | "current",
-): Promise<void> {
+async function removeRecord(at: RecordLocation): Promise<void> {
   const database = await getLinkuDb();
-  if (origin === "drafts") await database.delete("drafts", "current");
-  else await database.delete("templates", key as number);
+  if (at.store === "drafts") await database.delete("drafts", DRAFT_SLOT_KEY);
+  else await database.delete("templates", at.key);
 }
 
 async function writeRecord(
-  origin: "templates" | "drafts",
-  key: number | "current",
+  at: RecordLocation,
   value: StoredTemplate,
 ): Promise<void> {
   const database = await getLinkuDb();
-  if (origin === "drafts") await database.put("drafts", value, "current");
-  else await database.put("templates", value, key as number);
+  if (at.store === "drafts") {
+    await database.put("drafts", value, DRAFT_SLOT_KEY);
+  } else {
+    await database.put("templates", value, at.key);
+  }
+}
+
+async function readStoredRecord(at: RecordLocation): Promise<unknown> {
+  const database = await getLinkuDb();
+  return at.store === "drafts"
+    ? database.get("drafts", DRAFT_SLOT_KEY)
+    : database.get("templates", at.key);
 }
 
 /**
@@ -235,11 +249,8 @@ async function writeRecord(
  * anything else is moved to quarantine with its original bytes so the user
  * can still recover it, and reported as missing rather than shown broken.
  */
-async function readRecord(
-  origin: "templates" | "drafts",
-  key: number | "current",
-  raw: unknown,
-): Promise<StoredTemplate | null> {
+async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
+  const raw = await readStoredRecord(at);
   if (raw === undefined) return null;
 
   const result = normalizeStoredTemplate(raw);
@@ -248,22 +259,20 @@ async function readRecord(
     // The original is removed only once the copy is safely stored. If the
     // quarantine write failed, the damaged record stays where it is and this
     // read simply reports nothing — the next read tries again.
-    if (await quarantineSafely({ origin, key, reason, raw })) {
-      await removeRecord(origin, key);
-    }
-    errorLog(`Quarantined an unreadable ${origin} record`, { key, reason });
+    if (await quarantineSafely({ at, reason, raw })) await removeRecord(at);
+    errorLog(`Quarantined an unreadable ${at.store} record`, { at, reason });
     return null;
   }
 
   const { stored, changed } = await repairUnregisteredIcons(result.value);
   if (result.repairs.length > 0 || changed) {
-    debugLog(`Repaired a stored ${origin} record`, {
-      key,
+    debugLog(`Repaired a stored ${at.store} record`, {
+      at,
       repairs: result.repairs,
       registeredIcons: changed,
     });
     try {
-      await writeRecord(origin, key, stored);
+      await writeRecord(at, stored);
     } catch (error) {
       // A failed rewrite only costs us the repair on the next read.
       errorLog("Failed to persist a repaired template record", error);
@@ -284,8 +293,8 @@ export async function saveTemplateToLocalStorage(
 
   try {
     const templateId =
-      template.templateId === 0
-        ? await allocateTemplateId(store)
+      template.templateId === UNSAVED_TEMPLATE_ID
+        ? await allocateMonotonicId(store)
         : template.templateId;
 
     const stored: StoredTemplate = {
@@ -315,10 +324,9 @@ export async function loadTemplateFromLocalStorage(
   templateId: number,
 ): Promise<StoredTemplate | null> {
   await ensureMigration();
-  const database = await getLinkuDb();
-  return templateId === 0
+  return templateId === UNSAVED_TEMPLATE_ID
     ? loadTemplateDraft()
-    : readRecord("templates", templateId, await database.get("templates", templateId));
+    : readRecord({ store: "templates", key: templateId });
 }
 
 export async function getTemplatesIndex(): Promise<TemplateIndexEntry[]> {
@@ -328,11 +336,7 @@ export async function getTemplatesIndex(): Promise<TemplateIndexEntry[]> {
   const entries: TemplateIndexEntry[] = [];
 
   for (const key of keys) {
-    const stored = await readRecord(
-      "templates",
-      key,
-      await database.get("templates", key),
-    );
+    const stored = await readRecord({ store: "templates", key });
     if (!stored) continue;
     entries.push({
       templateId: stored.template.templateId,
@@ -386,7 +390,11 @@ export async function saveTemplateDraft(
     await database.put(
       "drafts",
       {
-        template: { ...template, templateId: 0, syncStatus: "local" },
+        template: {
+          ...template,
+          templateId: UNSAVED_TEMPLATE_ID,
+          syncStatus: "local",
+        },
         stagingItems,
         metadata: { lastSaved: Date.now(), savedLocally: true },
       },
@@ -400,13 +408,12 @@ export async function saveTemplateDraft(
 
 export async function loadTemplateDraft(): Promise<StoredTemplate | null> {
   await ensureMigration();
-  const database = await getLinkuDb();
-  return readRecord("drafts", "current", await database.get("drafts", "current"));
+  return readRecord({ store: "drafts" });
 }
 
 export async function clearTemplateDraft(): Promise<void> {
   const database = await getLinkuDb();
-  await database.delete("drafts", "current");
+  await database.delete("drafts", DRAFT_SLOT_KEY);
 }
 
 export function checkTemplateStorageAvailability(): {
@@ -456,7 +463,7 @@ export async function importTemplateCopy(
   const store = transaction.objectStore("templates");
 
   try {
-    const templateId = await allocateTemplateId(store);
+    const templateId = await allocateMonotonicId(store);
     const now = new Date().toISOString();
     const stored: StoredTemplate = {
       template: {
@@ -515,11 +522,13 @@ export async function createTemplateBackup(): Promise<TemplateBackupV1> {
     kind: "linku-backup",
     version: 1,
     exportedAt: new Date().toISOString(),
-    templates: await Promise.all(
-      (await database.getAllKeys("templates")).map(async (key) =>
-        readRecord("templates", key, await database.get("templates", key)),
-      ),
-    ).then((records) => records.filter((record): record is StoredTemplate => !!record)),
+    templates: (
+      await Promise.all(
+        (await database.getAllKeys("templates")).map((key) =>
+          readRecord({ store: "templates", key }),
+        ),
+      )
+    ).filter((record): record is StoredTemplate => record !== null),
     assets: assets.map((asset) => ({ name: asset.name, dataUrl: asset.dataUrl })),
   };
 }
@@ -561,7 +570,7 @@ export async function restoreTemplateBackup(
     }
     try {
       await saveTemplateToLocalStorage(
-        { ...normalized.value.template, templateId: 0 },
+        { ...normalized.value.template, templateId: UNSAVED_TEMPLATE_ID },
         normalized.value.stagingItems,
       );
       imported += 1;
