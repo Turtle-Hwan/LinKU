@@ -3,14 +3,15 @@
  * WebCrypto API를 사용한 AES-GCM 암호화
  */
 
-import { getOrCreateClientId } from "./clientId";
+import { getOrCreateClientId, isEphemeralClientId } from "./clientId";
+import { IV_LENGTH, SALT_LENGTH } from "./credentialFormat";
 import { errorLog } from '@/utils/logger';
+
+export { looksEncrypted } from "./credentialFormat";
 
 // 암호화 설정
 const ALGORITHM = "AES-GCM";
 const KEY_LENGTH = 256;
-const IV_LENGTH = 12; // AES-GCM 권장 IV 길이
-const SALT_LENGTH = 16;
 const PBKDF2_ITERATIONS = 100000; // OWASP 권장 최소값
 
 /**
@@ -93,6 +94,25 @@ function base64ToBuffer(base64: string): Uint8Array {
 }
 
 /**
+ * 키 파생에 쓸 clientId를 가져온다.
+ *
+ * storage 실패로 만들어진 임시 ID는 호출마다 값이 달라진다. 그 값으로 암호화하면
+ * 저장된 비밀번호를 영구히 복호화할 수 없고, 그 값으로 복호화하면 멀쩡한 데이터가
+ * 실패한다. 어느 쪽이든 조용히 진행하는 것보다 실패하는 편이 낫다.
+ */
+async function getKeyMaterial(): Promise<string> {
+  const clientId = await getOrCreateClientId();
+
+  if (isEphemeralClientId(clientId)) {
+    throw new Error(
+      "clientId is unavailable; refusing to derive a credential key"
+    );
+  }
+
+  return clientId;
+}
+
+/**
  * 비밀번호 암호화
  * @param password - 암호화할 평문 비밀번호
  * @returns Promise<string> - "salt:iv:암호문" 형식의 문자열 (모두 hex 또는 base64)
@@ -100,7 +120,7 @@ function base64ToBuffer(base64: string): Uint8Array {
 export async function encryptPassword(password: string): Promise<string> {
   try {
     // ClientID 가져오기
-    const clientId = await getOrCreateClientId();
+    const clientId = await getKeyMaterial();
 
     // Salt와 IV 생성 (랜덤)
     const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
@@ -158,7 +178,7 @@ export async function decryptPassword(encryptedData: string): Promise<string> {
     const encryptedBytes = base64ToBuffer(encryptedBase64);
 
     // ClientID 가져오기
-    const clientId = await getOrCreateClientId();
+    const clientId = await getKeyMaterial();
 
     // 암호화 키 파생
     const key = await deriveKey(clientId, salt);

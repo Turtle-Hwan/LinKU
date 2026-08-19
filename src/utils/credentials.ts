@@ -4,7 +4,7 @@
  */
 
 import { getStorage, setStorage, removeStorage } from "./chrome";
-import { encryptPassword, decryptPassword } from "./crypto";
+import { encryptPassword, decryptPassword, looksEncrypted } from "./crypto";
 import { errorLog, getErrorLogDetails, warnLog } from '@/utils/logger';
 
 export interface Credentials {
@@ -54,19 +54,25 @@ export async function loadCredentials(
       return null;
     }
 
-    // 비밀번호 복호화
+    const stored = credentials.password;
+
+    // 암호문 형식이 아니면 암호화 도입 이전에 저장된 평문으로 본다.
+    if (!looksEncrypted(stored)) {
+      return { id: credentials.id, password: stored };
+    }
+
     let decryptedPassword: string;
     try {
-      decryptedPassword = await decryptPassword(credentials.password);
+      decryptedPassword = await decryptPassword(stored);
     } catch (error) {
-      // 복호화 실패 시 평문으로 시도 (이전 데이터 호환성).
-      // 과거 데이터에서는 정상 경로지만, 현재 데이터에서 계속 실패한다면
-      // 로그인이 조용히 깨지는 것이므로 흔적을 남긴다.
+      // 암호문을 그대로 돌려주면 eCampus 로그인 요청에 암호문이 비밀번호로
+      // 실려 나가고, 실패한 자동 로그인이 저장된 자격증명을 지운다.
+      // 복호화에 실패하면 자격증명이 없는 것으로 취급한다.
       warnLog(
-        "[Credentials] Password decryption failed; falling back to stored value",
+        "[Credentials] Password decryption failed; discarding stored credentials",
         getErrorLogDetails(error),
       );
-      decryptedPassword = credentials.password;
+      return null;
     }
 
     return {
