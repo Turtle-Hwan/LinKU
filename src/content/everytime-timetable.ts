@@ -52,6 +52,7 @@ const SEMESTER_FETCH_CONCURRENCY = 4;
 const EVERYTIME_TIME_UNIT_PX = 25 / 6;
 const EVERYTIME_WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const TIMETABLE_RENDER_TIMEOUT_MS = 5_000;
+const SEMESTER_LIST_RENDER_TIMEOUT_MS = 5_000;
 const EVERYTIME_API_TIMEOUT_MS = 10_000;
 const SEMESTER_METADATA_CACHE_TTL_MS = 5 * 60 * 1_000;
 
@@ -296,6 +297,42 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
       subjects,
     };
   };
+
+  // Everytime renders the semester <select> client-side, so a tab that just
+  // reported `status: "complete"` usually has an empty list. Reading it in the
+  // same tick reports "no semesters" for a page that is merely still rendering.
+  const waitForSemesterOptions = (): Promise<string[]> =>
+    new Promise((resolve) => {
+      const resolveSemesterOptions = (): boolean => {
+        const semesters = readSemesterOptions();
+        if (semesters.length > 0) {
+          cleanup();
+          resolve(semesters);
+          return true;
+        }
+
+        return false;
+      };
+
+      const observer = new MutationObserver(resolveSemesterOptions);
+      const timeoutId = window.setTimeout(() => {
+        cleanup();
+        resolve(readSemesterOptions());
+      }, SEMESTER_LIST_RENDER_TIMEOUT_MS);
+      const cleanup = (): void => {
+        observer.disconnect();
+        window.clearTimeout(timeoutId);
+      };
+
+      if (resolveSemesterOptions()) {
+        return;
+      }
+
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    });
 
   const waitForRenderedTimetable = (
     semester: string,
@@ -711,12 +748,22 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
         }
 
         if (message.type === "LINKU_EVERYTIME_LIST_SEMESTERS") {
-          respond({
-            success: true,
-            semesters: readSemesterOptions(),
-            currentSemester: readSemester(),
-          });
-          return false;
+          waitForSemesterOptions()
+            .then((semesters) =>
+              respond({
+                success: true,
+                semesters,
+                currentSemester: readSemester(),
+              }),
+            )
+            .catch((error: unknown) => {
+              reportContentException(error, "everytime_list_semesters");
+              respond({
+                success: false,
+                error: "에브리타임 학기 목록을 읽지 못했습니다.",
+              });
+            });
+          return true;
         }
 
         if (message.type === "LINKU_EVERYTIME_CAPTURE_CURRENT") {
