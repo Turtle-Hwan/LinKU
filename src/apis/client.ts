@@ -7,12 +7,105 @@ import type { ApiResponse, RequestConfig } from "../types/api";
 import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
 import { getChromeApi, getStorage, removeStorage } from "../utils/chrome";
-import { debugLog, errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
+import { debugLog, getErrorLogDetails, warnLog } from "@/utils/logger";
+import {
+  createErrorReporter,
+  recordBreadcrumb,
+  reportMessage,
+} from "@/monitoring";
 
 /**
  * Token expired error code from backend
  */
 const TOKEN_EXPIRED_CODE = 5004;
+
+function getSafeEndpoint(url: string): string {
+  try {
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "chrome-extension://linku.invalid";
+    return new URL(url, baseUrl).pathname;
+  } catch {
+    return url.split("?")[0] || "[unknown]";
+  }
+}
+
+const captureApiException = createErrorReporter({
+  category: "api.error",
+  mechanism: "fetch",
+});
+
+function reportApiException(
+  error: unknown,
+  feature: string,
+  extras?: Record<string, unknown>,
+): void {
+  captureApiException(error, {
+    feature,
+    breadcrumbMessage: `${feature} captured`,
+    extras,
+  });
+}
+
+function getApiErrorCode(data: unknown): string | undefined {
+  if (!data || typeof data !== "object" || !("code" in data)) {
+    return undefined;
+  }
+
+  const code = (data as Record<string, unknown>).code;
+  return typeof code === "string" || typeof code === "number"
+    ? String(code).slice(0, 64)
+    : undefined;
+}
+
+function getResponseShape(data: unknown): Record<string, unknown> {
+  if (Array.isArray(data)) {
+    return { response_type: "array", response_length: data.length };
+  }
+
+  if (data && typeof data === "object") {
+    const keys = Object.keys(data);
+    return {
+      response_type: "object",
+      response_key_count: keys.length,
+      response_keys: keys.slice(0, 20),
+    };
+  }
+
+  return { response_type: typeof data };
+}
+
+function reportApiHttpFailure(
+  method: string,
+  endpoint: string,
+  response: Response,
+  data: unknown,
+): void {
+  const status = response.status;
+  const level = status >= 500 ? "error" : "warning";
+  const extras = {
+    endpoint,
+    method: method.toUpperCase(),
+    status,
+    status_text: response.statusText,
+    error_code: getApiErrorCode(data),
+    ...getResponseShape(data),
+  };
+
+  reportMessage(`LinKU API HTTP ${status}`, {
+    feature: "api_http_error",
+    category: "api.response",
+    breadcrumbMessage: "non-success HTTP response",
+    level,
+    mechanism: "fetch.response",
+    tags: {
+      http_status: String(status),
+      http_method: method.toUpperCase(),
+    },
+    extras,
+  });
+}
 
 /**
  * Reauth state to prevent multiple simultaneous OAuth popups
@@ -132,6 +225,7 @@ async function handleTokenExpired(): Promise<boolean> {
         return false;
       }
     } catch (error) {
+      reportApiException(error, "silent_reauth_request");
       warnLog("[API Client] Silent reauth error", getErrorLogDetails(error));
       return false;
     } finally {
@@ -169,7 +263,9 @@ function applyResponseInterceptors<T>(
   response: ApiResponse<T>,
 ): ApiResponse<T> {
   if (response.status === 401) {
-    clearAccessToken();
+    void clearAccessToken().catch((error: unknown) => {
+      reportApiException(error, "clear_expired_access_token");
+    });
     window.dispatchEvent(new CustomEvent("auth:unauthorized"));
   }
   return response;
@@ -204,6 +300,8 @@ async function request<T = unknown>(
   config?: RequestConfig,
   isRetry: boolean = false,
 ): Promise<ApiResponse<T>> {
+  let safeEndpoint = getSafeEndpoint(url);
+
   try {
     const { headers = {}, params, ...restConfig } = config || {};
 
@@ -213,6 +311,7 @@ async function request<T = unknown>(
       url.startsWith("http://") || url.startsWith("https://")
         ? urlWithParams
         : `${API_BASE_URL}${urlWithParams}`;
+    safeEndpoint = getSafeEndpoint(fullUrl);
 
     // Build request options
     let requestOptions: RequestInit = {
@@ -244,8 +343,30 @@ async function request<T = unknown>(
     // Apply interceptors
     requestOptions = await applyRequestInterceptors(requestOptions);
 
+    recordBreadcrumb("api.request", "request started", {
+      endpoint: safeEndpoint,
+      method: method.toUpperCase(),
+      retry: isRetry,
+      has_body: body !== undefined,
+    });
+
     // Fetch
     const response = await fetch(fullUrl, requestOptions);
+    recordBreadcrumb(
+      "api.response",
+      "response received",
+      {
+        endpoint: safeEndpoint,
+        method: method.toUpperCase(),
+        status: response.status,
+        ok: response.ok,
+      },
+      response.ok
+        ? "info"
+        : response.status >= 500
+          ? "error"
+          : "warning",
+    );
 
     // Parse response
     const contentType = response.headers.get("content-type");
@@ -258,17 +379,22 @@ async function request<T = unknown>(
         data = (await response.text()) as T;
       }
     } catch (parseError) {
-      errorLog("[API Client] Response parsing error", {
+      reportApiException(parseError, "api_response_parse", {
+        endpoint: safeEndpoint,
+        status: response.status,
+        content_type: contentType,
+      });
+      warnLog("[API Client] Response parsing error", {
         ...getErrorLogDetails(parseError),
         status: response.status,
-        url: fullUrl,
+        endpoint: safeEndpoint,
       });
       // If parsing fails, return error response
       return {
         success: false,
         error: {
           code: "PARSE_ERROR",
-          message: `응답 파싱 실패: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+          message: "서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해주세요.",
         },
         status: response.status,
       };
@@ -282,6 +408,20 @@ async function request<T = unknown>(
       "code" in data &&
       (data as Record<string, unknown>).code === TOKEN_EXPIRED_CODE
     ) {
+      const authExtras = {
+        endpoint: safeEndpoint,
+        method: method.toUpperCase(),
+        status: response.status,
+        error_code: String(TOKEN_EXPIRED_CODE),
+      };
+      reportMessage("LinKU API token expired", {
+        feature: "api_token_expired",
+        category: "api.auth",
+        breadcrumbMessage: "expired token response handled",
+        level: "warning",
+        mechanism: "api.response.code",
+        extras: authExtras,
+      });
       debugLog(
         "[API Client] Detected 5004 token expired error, attempting reauth...",
       );
@@ -311,7 +451,11 @@ async function request<T = unknown>(
 
     // Handle error responses FIRST (preserve original error data before result extraction)
     if (!response.ok) {
-      const errorData = data as Record<string, unknown>;
+      const errorData =
+        data && typeof data === "object"
+          ? (data as Record<string, unknown>)
+          : undefined;
+      reportApiHttpFailure(method, safeEndpoint, response, data);
       return applyResponseInterceptors({
         success: false,
         error: {
@@ -342,12 +486,16 @@ async function request<T = unknown>(
       status: response.status,
     });
   } catch (error) {
+    reportApiException(error, "api_network_error", {
+      endpoint: safeEndpoint,
+      method,
+    });
     warnLog("[API Client] Request error", getErrorLogDetails(error));
     return {
       success: false,
       error: {
         code: "NETWORK_ERROR",
-        message: error instanceof Error ? error.message : String(error),
+        message: "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
       },
     };
   }
@@ -404,6 +552,8 @@ export async function publicRequest<T = unknown>(
   body?: unknown,
   config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
+  let safeEndpoint = getSafeEndpoint(url);
+
   try {
     const { headers = {}, params } = config || {};
 
@@ -411,6 +561,14 @@ export async function publicRequest<T = unknown>(
     const fullUrl = url.startsWith("http")
       ? urlWithParams
       : `${API_BASE_URL}${urlWithParams}`;
+    safeEndpoint = getSafeEndpoint(fullUrl);
+
+    recordBreadcrumb("api.request", "public request started", {
+      endpoint: safeEndpoint,
+      method: method.toUpperCase(),
+      has_body: body !== undefined,
+      public: true,
+    });
 
     const response = await fetch(fullUrl, {
       method,
@@ -418,26 +576,66 @@ export async function publicRequest<T = unknown>(
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    let data: unknown;
+    try {
+      const contentType = response.headers.get("content-type");
+      data = contentType?.includes("application/json")
+        ? await response.json()
+        : await response.text();
+    } catch (parseError) {
+      reportApiException(parseError, "public_api_response_parse", {
+        endpoint: safeEndpoint,
+        method: method.toUpperCase(),
+        status: response.status,
+      });
+      warnLog(
+        "[API Client] Public response parsing error",
+        getErrorLogDetails(parseError),
+      );
       return {
         success: false,
         status: response.status,
-        error: { code: "ERROR", message: data.message },
+        error: {
+          code: "PARSE_ERROR",
+          message: "공개 API 응답을 읽지 못했습니다.",
+        },
+      };
+    }
+
+    if (!response.ok) {
+      reportApiHttpFailure(method, safeEndpoint, response, data);
+      return {
+        success: false,
+        status: response.status,
+        error: {
+          code: getApiErrorCode(data) ?? "ERROR",
+          message:
+            data && typeof data === "object" && "message" in data
+              ? String((data as Record<string, unknown>).message)
+              : `HTTP Error: ${response.status} ${response.statusText}`,
+        },
       };
     }
 
     // Extract 'result' field if present (backend response format)
     const resultData =
-      data && typeof data === "object" && "result" in data ? data.result : data;
+      data && typeof data === "object" && "result" in data
+        ? (data as Record<string, unknown>).result
+        : data;
 
     return { success: true, status: response.status, data: resultData as T };
   } catch (error) {
+    reportApiException(error, "public_api_network_error", {
+      endpoint: safeEndpoint,
+      method: method.toUpperCase(),
+    });
     warnLog("[API Client] Public request error", getErrorLogDetails(error));
     return {
       success: false,
-      error: { code: "NETWORK_ERROR", message: String(error) },
+      error: {
+        code: "NETWORK_ERROR",
+        message: "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
+      },
     };
   }
 }

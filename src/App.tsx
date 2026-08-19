@@ -8,6 +8,10 @@ import { Outlet } from "react-router";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
+import {
+  recordBreadcrumb,
+  reportError,
+} from "./monitoring";
 import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
 import { debugLog, errorLog } from "@/utils/logger";
 import { consumePendingTemplateImports } from "@/utils/pendingTemplateImports";
@@ -23,6 +27,9 @@ function App() {
       "font-family: Nanum Gothic; color: darkgreen; padding: 6px; border-radius: 4px; font-size:14px",
     );
     debugLog("https://github.com/Turtle-Hwan/LinKU");
+    recordBreadcrumb("popup.lifecycle", "popup mounted", {
+      route: window.location.hash || "#/",
+    });
     sendExtensionOpen("popup_home", "popup");
     sendPageView("LinKU Extension - Popup");
   }, []);
@@ -43,8 +50,15 @@ function App() {
 
   return (
     <ErrorBoundary
-      onError={(error: unknown) => {
+      onError={(error: unknown, info) => {
         const msg = error instanceof Error ? error.message : String(error);
+        reportError(error, {
+          feature: "react_error_boundary",
+          category: "popup.error",
+          breadcrumbMessage: "React error boundary captured an error",
+          mechanism: "react.error_boundary",
+          extras: { componentStack: info.componentStack },
+        });
         sendError("react_error_boundary", msg, "popup_home");
       }}
       fallback={

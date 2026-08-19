@@ -32,11 +32,39 @@ import {
   handlePendingImportTabUpdated,
   handleTimetableImport,
 } from "./handlers/timetable";
+import {
+  createErrorReporter,
+  createRuntimeMessageResponder,
+  flushMonitoring,
+  getRuntimeMessageType,
+  initMonitoring,
+  recordBreadcrumb,
+} from "@/monitoring";
+import { getUserFacingErrorMessage } from "@/errors/userFacingError";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
 import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 
+initMonitoring("background");
 debugLog("[Background] Service worker initialized");
+recordBreadcrumb("background.lifecycle", "service worker initialized");
+
+const captureBackgroundException = createErrorReporter({
+  category: "background.error",
+  mechanism: "background.handler",
+});
+
+function reportBackgroundException(
+  error: unknown,
+  feature: string,
+  extras: Record<string, unknown> = {},
+): void {
+  captureBackgroundException(error, {
+    feature,
+    breadcrumbMessage: `${feature} captured`,
+    extras,
+  });
+}
 
 async function restrictLocalStorageAccess(): Promise<void> {
   try {
@@ -44,6 +72,7 @@ async function restrictLocalStorageAccess(): Promise<void> {
       accessLevel: "TRUSTED_CONTEXTS",
     });
   } catch (error) {
+    reportBackgroundException(error, "storage_access_level");
     warnLog(
       "[Background] Failed to restrict local storage access",
       getErrorLogDetails(error),
@@ -62,116 +91,151 @@ chrome.runtime.onMessage.addListener(
     _sender: chrome.runtime.MessageSender,
     sendResponse: (response: unknown) => void,
   ) => {
-    // Type guard: ensure message has a type property
-    if (!message || typeof message !== "object" || !("type" in message)) {
-      sendResponse({
+    const messageType = getRuntimeMessageType(message);
+    const respond = createRuntimeMessageResponder({
+      runtime: "background",
+      messageType,
+      sendResponse,
+    });
+
+    try {
+      recordBreadcrumb("background.message", "message received", {
+        message_type: messageType,
+      });
+
+      // Type guard: ensure message has a type property
+      if (!message || typeof message !== "object" || !("type" in message)) {
+        // Every LinKU sender posts a typed message, so an untyped one means a
+        // caller regressed or a third party is talking to the worker.
+        warnLog("[Background] Rejected message without a type");
+        respond({
+          success: false,
+          error: "Invalid message format",
+        });
+        return false;
+      }
+
+      // At this point, message is an object with a type property
+      // Cast to BackgroundMessage for type-safe handling
+      const typedMessage = message as BackgroundMessage;
+      debugLog("[Background] Message received:", typedMessage.type);
+
+      // Handle Google Login
+      if (isGoogleLoginMessage(typedMessage)) {
+        debugLog("[Background] Handling Google login request");
+
+        // Handle async OAuth flow
+        handleGoogleLogin()
+          .then((response: GoogleLoginResponse) => {
+            debugLog("[Background] Sending OAuth response to popup");
+            respond(response);
+          })
+          .catch((error: unknown) => {
+            reportBackgroundException(error, "oauth", {
+              message_type: messageType,
+            });
+            warnLog(
+              "[Background] OAuth handler error",
+              getErrorLogDetails(error),
+            );
+            respond({
+              success: false,
+              error: getUserFacingErrorMessage(
+                error,
+                "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.",
+              ),
+            });
+          });
+
+        // Return true to indicate async response
+        return true;
+      }
+
+      // Handle Silent Reauth (when token expires - 5004 error)
+      if (isSilentReauthMessage(typedMessage)) {
+        debugLog(
+          "[Background] Handling silent reauth request (token expired)",
+        );
+
+        // Reuse Google OAuth flow for silent reauth
+        handleGoogleLogin()
+          .then((response: GoogleLoginResponse) => {
+            debugLog(
+              "[Background] Silent reauth completed:",
+              response.success,
+            );
+            const reauthResponse: SilentReauthResponse = {
+              success: response.success,
+              error: response.success
+                ? undefined
+                : (response as { error?: string }).error,
+            };
+            respond(reauthResponse);
+          })
+          .catch((error: unknown) => {
+            reportBackgroundException(error, "silent_reauth", {
+              message_type: messageType,
+            });
+            warnLog(
+              "[Background] Silent reauth error",
+              getErrorLogDetails(error),
+            );
+            respond({
+              success: false,
+              error: getUserFacingErrorMessage(
+                error,
+                "재인증에 실패했습니다. 다시 로그인해주세요.",
+              ),
+            } as SilentReauthResponse);
+          });
+
+        return true;
+      }
+
+      if (isTimetableImportMessage(typedMessage)) {
+        handleTimetableImport(typedMessage.data?.mode)
+          .then((response: TimetableImportResponse) => {
+            respond(response);
+          })
+          .catch((error: unknown) => {
+            reportBackgroundException(error, "timetable_import", {
+              message_type: messageType,
+            });
+            warnLog(
+              "[Background] Timetable import handler error",
+              getErrorLogDetails(error),
+            );
+            respond({
+              success: false,
+              code: "UNKNOWN",
+              error: getUserFacingErrorMessage(
+                error,
+                "시간표를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
+              ),
+            } satisfies TimetableImportResponse);
+          });
+
+        return true;
+      }
+
+      // Unknown message type
+      warnLog("[Background] Unknown message type", { type: messageType });
+      respond({
         success: false,
-        error: "Invalid message format",
+        error: `Unknown message type: ${messageType}`,
+      });
+
+      return false;
+    } catch (error) {
+      reportBackgroundException(error, "message_handler", {
+        message_type: messageType,
+      });
+      respond({
+        success: false,
+        error: "요청을 처리하지 못했습니다.",
       });
       return false;
     }
-
-    // At this point, message is an object with a type property
-    // Cast to BackgroundMessage for type-safe handling
-    const typedMessage = message as BackgroundMessage;
-    debugLog("[Background] Message received:", typedMessage.type);
-
-    // Handle Google Login
-    if (isGoogleLoginMessage(typedMessage)) {
-      debugLog("[Background] Handling Google login request");
-
-      // Handle async OAuth flow
-      handleGoogleLogin()
-        .then((response: GoogleLoginResponse) => {
-          debugLog("[Background] Sending OAuth response to popup");
-          sendResponse(response);
-        })
-        .catch((error: unknown) => {
-          warnLog(
-            "[Background] OAuth handler error",
-            getErrorLogDetails(error),
-          );
-          sendResponse({
-            success: false,
-            error:
-              error instanceof Error
-                ? error.message
-                : "알 수 없는 오류가 발생했습니다.",
-          });
-        });
-
-      // Return true to indicate async response
-      return true;
-    }
-
-    // Handle Silent Reauth (when token expires - 5004 error)
-    if (isSilentReauthMessage(typedMessage)) {
-      debugLog(
-        "[Background] Handling silent reauth request (token expired)",
-      );
-
-      // Reuse Google OAuth flow for silent reauth
-      handleGoogleLogin()
-        .then((response: GoogleLoginResponse) => {
-          debugLog(
-            "[Background] Silent reauth completed:",
-            response.success,
-          );
-          const reauthResponse: SilentReauthResponse = {
-            success: response.success,
-            error: response.success
-              ? undefined
-              : (response as { error?: string }).error,
-          };
-          sendResponse(reauthResponse);
-        })
-        .catch((error: unknown) => {
-          warnLog(
-            "[Background] Silent reauth error",
-            getErrorLogDetails(error),
-          );
-          sendResponse({
-            success: false,
-            error:
-              error instanceof Error ? error.message : "재인증에 실패했습니다.",
-          } as SilentReauthResponse);
-        });
-
-      return true;
-    }
-
-    if (isTimetableImportMessage(typedMessage)) {
-      handleTimetableImport(typedMessage.data?.mode)
-        .then((response: TimetableImportResponse) => {
-          sendResponse(response);
-        })
-        .catch((error: unknown) => {
-          warnLog(
-            "[Background] Timetable import handler error",
-            getErrorLogDetails(error),
-          );
-          sendResponse({
-            success: false,
-            code: "UNKNOWN",
-            error:
-              error instanceof Error
-                ? error.message
-                : "시간표를 가져오지 못했습니다.",
-          } satisfies TimetableImportResponse);
-        });
-
-      return true;
-    }
-
-    // Unknown message type
-    const unknownType = (message as { type: string }).type;
-    warnLog("[Background] Unknown message type", { type: unknownType });
-    sendResponse({
-      success: false,
-      error: `Unknown message type: ${unknownType}`,
-    });
-
-    return false;
   },
 );
 
@@ -208,15 +272,13 @@ chrome.runtime.onMessageExternal.addListener(
 
     void enqueuePendingTemplateImport(payload)
       .then(() => sendResponse({ success: true }))
-      .catch((error: unknown) =>
+      .catch((error: unknown) => {
+        reportBackgroundException(error, "shared_template_import");
         sendResponse({
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "템플릿을 가져오지 못했습니다.",
-        }),
-      );
+          error: getUserFacingErrorMessage(error, "템플릿을 가져오지 못했습니다."),
+        });
+      });
     return true;
   },
 );
@@ -226,6 +288,9 @@ chrome.runtime.onMessageExternal.addListener(
  */
 chrome.runtime.onInstalled.addListener((details) => {
   debugLog("[Background] Extension installed/updated:", details.reason);
+  recordBreadcrumb("background.lifecycle", "extension installed event", {
+    reason: details.reason,
+  });
 
   if (details.reason === "install") {
     debugLog("[Background] First install - welcome!");
@@ -239,12 +304,23 @@ chrome.runtime.onInstalled.addListener((details) => {
  */
 chrome.runtime.onStartup.addListener(() => {
   debugLog("[Background] Browser started, service worker activated");
+  recordBreadcrumb("background.lifecycle", "browser startup event");
   void restrictLocalStorageAccess();
+});
+
+chrome.runtime.onSuspend.addListener(() => {
+  recordBreadcrumb("background.lifecycle", "service worker suspending");
+  void flushMonitoring();
+});
+
+chrome.runtime.onSuspendCanceled.addListener(() => {
+  recordBreadcrumb("background.lifecycle", "service worker suspend canceled");
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   handlePendingImportTabUpdated(tabId, changeInfo, tab).catch(
     (error: unknown) => {
+      reportBackgroundException(error, "pending_import_resume");
       warnLog(
         "[Background] Pending timetable import resume failed",
         getErrorLogDetails(error),
@@ -255,6 +331,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   handlePendingImportTabRemoved(tabId).catch((error: unknown) => {
+    reportBackgroundException(error, "pending_import_cleanup");
     warnLog(
       "[Background] Pending timetable import cleanup failed",
       getErrorLogDetails(error),
@@ -266,24 +343,48 @@ chrome.tabs.onRemoved.addListener((tabId) => {
  * Badge update for todo count
  */
 function updateBadge(count: number) {
-  const badgeText = formatTodoBadgeCount(count);
+  try {
+    const badgeText = formatTodoBadgeCount(count);
+    const operations = [
+      chrome.action.setBadgeText({ text: badgeText || "" }),
+    ];
 
-  if (badgeText) {
-    chrome.action.setBadgeText({ text: badgeText });
-    chrome.action.setBadgeBackgroundColor({
-      color: TODO_BADGE_BACKGROUND_COLOR,
+    if (badgeText) {
+      operations.push(
+        chrome.action.setBadgeBackgroundColor({
+          color: TODO_BADGE_BACKGROUND_COLOR,
+        }),
+        chrome.action.setBadgeTextColor({ color: TODO_BADGE_TEXT_COLOR }),
+      );
+    }
+
+    void Promise.all(operations).catch((error: unknown) => {
+      reportBackgroundException(error, "badge_update", {
+        has_badge_text: Boolean(badgeText),
+      });
     });
-    chrome.action.setBadgeTextColor({ color: TODO_BADGE_TEXT_COLOR });
-  } else {
-    chrome.action.setBadgeText({ text: "" });
+  } catch (error) {
+    reportBackgroundException(error, "badge_update", {
+      count_type: typeof count,
+    });
   }
 }
 
 // Initialize badge on service worker start
-chrome.storage.local.get("todoCount", (data) => {
-  const count = typeof data.todoCount === "number" ? data.todoCount : 0;
-  updateBadge(count);
-});
+try {
+  chrome.storage.local.get("todoCount", (data) => {
+    const lastError = chrome.runtime.lastError;
+    if (lastError) {
+      reportBackgroundException(lastError, "badge_storage_get");
+      return;
+    }
+
+    const count = typeof data.todoCount === "number" ? data.todoCount : 0;
+    updateBadge(count);
+  });
+} catch (error) {
+  reportBackgroundException(error, "badge_storage_get");
+}
 
 // Listen for todoCount changes
 chrome.storage.onChanged.addListener((changes, namespace) => {

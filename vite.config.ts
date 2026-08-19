@@ -4,32 +4,68 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import svgr from "vite-plugin-svgr";
 import fs from "fs";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 export default defineConfig(({ mode }) => {
+  const isContentScriptBuild = mode.endsWith("-content") || mode === "content";
+  const isProductionBuild = mode === "production" || mode === "production-content";
   // Chrome Extension build configuration
   const isChromeExtension = mode !== "gh-pages";
-  const rollupInput: Record<string, string> = isChromeExtension
+  const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN?.trim();
+  const sentryOrg = process.env.SENTRY_ORG?.trim();
+  const sentryProject = process.env.SENTRY_PROJECT?.trim();
+  const sentryRelease = process.env.SENTRY_RELEASE?.trim();
+  const canUploadSentry =
+    isChromeExtension &&
+    isProductionBuild &&
+    Boolean(sentryAuthToken && sentryOrg && sentryProject);
+  const rollupInput: Record<string, string> | undefined = isContentScriptBuild
     ? {
-        main: path.resolve(__dirname, "index.html"),
-        "background/index": path.resolve(
-          __dirname,
-          "src/background/index.ts",
-        ),
         "content/everytime-timetable": path.resolve(
           __dirname,
           "src/content/everytime-timetable.ts",
         ),
       }
-    : {
-        main: path.resolve(__dirname, "web/index.html"),
-        "share/index": path.resolve(__dirname, "web/share/index.html"),
-      };
+    : isChromeExtension
+      ? {
+          // Popup entry point
+          main: path.resolve(__dirname, "index.html"),
+          // Background service worker entry point
+          "background/index": path.resolve(
+            __dirname,
+            "src/background/index.ts",
+          ),
+        }
+      : {
+          main: path.resolve(__dirname, "web/index.html"),
+          "share/index": path.resolve(__dirname, "web/share/index.html"),
+        };
 
   return {
     plugins: [
       react(),
       tailwindcss(),
       svgr(),
+      canUploadSentry &&
+        sentryVitePlugin({
+          org: sentryOrg,
+          project: sentryProject,
+          authToken: sentryAuthToken,
+          release: sentryRelease
+            ? { name: sentryRelease, finalize: isContentScriptBuild }
+            : undefined,
+          sourcemaps: {
+            filesToDeleteAfterUpload: ["dist/**/*.map"],
+          },
+          // A failed upload must fail the release build. The plugin resolves
+          // successfully after an upload error, and `silent` hides the reason,
+          // so a broken or under-scoped token would ship a release with no
+          // usable source maps while leaving the workflow green.
+          silent: false,
+          errorHandler: (error) => {
+            throw error;
+          },
+        }),
       mode === "gh-pages" && copyBannersForGhPages(),
       mode === "gh-pages" && moveGhPagesWebFilesToRoot(),
     ],
@@ -41,16 +77,19 @@ export default defineConfig(({ mode }) => {
     publicDir: mode === "gh-pages" ? "web/public" : "public",
     base: mode === "gh-pages" ? "/LinKU/" : "",
     build: {
+      sourcemap: canUploadSentry ? "hidden" : false,
       // 빌드 결과물이 dist/ 폴더에 생성되도록 설정
       outDir: mode === "gh-pages" ? "gh-pages" : "dist",
-      emptyOutDir: true,
+      emptyOutDir: !isContentScriptBuild,
       // assets 폴더를 dist에 직접 생성
       assetsDir: "dist/assets",
       // public 폴더의 파일들을 dist로 복사
-      copyPublicDir: true,
+      copyPublicDir: !isContentScriptBuild,
       rollupOptions: {
         input: rollupInput,
         output: {
+          format: isContentScriptBuild ? "iife" : "es",
+          codeSplitting: isContentScriptBuild ? false : undefined,
           assetFileNames: "[name][extname]",
           chunkFileNames: "[name].js",
           entryFileNames: "[name].js",

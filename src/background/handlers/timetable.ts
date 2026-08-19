@@ -13,12 +13,17 @@ import {
   saveEverytimeTimetable,
   setActiveTimetable,
 } from "@/utils/timetableStorage";
-import { getErrorLogDetails, warnLog } from "@/utils/logger";
+import { errorLog, getErrorLogDetails } from "@/utils/logger";
 import {
   getLatestEverytimeSemesterAnchor,
   parseEverytimeSemester,
   type EverytimeSemesterPeriod,
 } from "@/utils/everytimeSemester";
+import {
+  getUserFacingErrorMessage,
+  UserFacingError,
+} from "@/errors/userFacingError";
+import { recordBreadcrumb, reportMessage } from "@/monitoring";
 
 const EVERYTIME_TIMETABLE_URL = "https://everytime.kr/timetable";
 const EVERYTIME_TIMETABLE_PATTERN = "https://everytime.kr/timetable*";
@@ -125,6 +130,16 @@ async function clearPendingImport(): Promise<void> {
   await chrome.storage.session.remove(TIMETABLE_STORAGE_KEYS.pendingImport);
 }
 
+// A tab that Chrome has created but not yet navigated can report
+// `status: "complete"` while its URL is still empty or `about:blank`. Settling
+// on that snapshot makes the caller judge the tab by a URL the user never
+// asked for, which is why an import LinKU opened itself could fail while the
+// same import against an already-open Everytime tab succeeded.
+function hasCommittedDocument(tab: chrome.tabs.Tab): boolean {
+  const url = tab.url ?? "";
+  return url.startsWith("https://") || url.startsWith("http://");
+}
+
 async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -152,7 +167,9 @@ async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
 
     const timeoutId = setTimeout(() => {
       rejectOnce(
-        new Error("에브리타임 페이지를 불러오는 데 시간이 걸리고 있습니다."),
+        new UserFacingError(
+          "에브리타임 페이지를 불러오는 데 시간이 걸리고 있습니다.",
+        ),
       );
     }, TAB_LOAD_TIMEOUT_MS);
 
@@ -161,7 +178,11 @@ async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
       changeInfo: chrome.tabs.OnUpdatedInfo,
       updatedTab: chrome.tabs.Tab,
     ): void {
-      if (updatedTabId !== tabId || changeInfo.status !== "complete") {
+      if (
+        updatedTabId !== tabId ||
+        changeInfo.status !== "complete" ||
+        !hasCommittedDocument(updatedTab)
+      ) {
         return;
       }
 
@@ -172,7 +193,10 @@ async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
     chrome.tabs
       .get(tabId)
       .then((currentTab) => {
-        if (currentTab.status === "complete") {
+        if (
+          currentTab.status === "complete" &&
+          hasCommittedDocument(currentTab)
+        ) {
           resolveOnce(currentTab);
         }
       })
@@ -242,8 +266,19 @@ async function listSemesters(tabId: number): Promise<SemesterListResponse> {
     type: "LINKU_EVERYTIME_LIST_SEMESTERS",
   })) as EverytimeResponse | undefined;
 
-  if (!isSemesterListResponse(response) || response.semesters.length === 0) {
-    throw new Error("에브리타임의 학기 목록을 확인하지 못했습니다.");
+  // The two failures need different remedies, so they must not collapse into
+  // one message: a missing response means the content script never answered,
+  // while an empty list means the account simply has no timetable semester.
+  if (!isSemesterListResponse(response)) {
+    throw new UserFacingError(
+      "에브리타임의 학기 목록을 확인하지 못했습니다.",
+    );
+  }
+
+  if (response.semesters.length === 0) {
+    throw new UserFacingError(
+      "에브리타임에 등록된 시간표 학기가 없습니다.",
+    );
   }
 
   return response;
@@ -260,7 +295,7 @@ async function captureRenderedTimetable(
   })) as EverytimeResponse | undefined;
 
   if (!isCurrentTimetableResponse(response)) {
-    throw new Error(
+    throw new UserFacingError(
       getEverytimeResponseError(
         response,
         "에브리타임 시간표를 불러오지 못했습니다.",
@@ -282,7 +317,7 @@ async function fetchSemestersFromApi(
   })) as EverytimeResponse | undefined;
 
   if (!isSemesterFetchResponse(response)) {
-    throw new Error(
+    throw new UserFacingError(
       getEverytimeResponseError(
         response,
         "에브리타임 시간표 API를 불러오지 못했습니다.",
@@ -312,13 +347,13 @@ async function captureSemesterInTemporaryTab(
 
   const tab = await chrome.tabs.create({ url, active: false });
   if (tab.id == null) {
-    throw new Error("에브리타임 시간표 탭을 열지 못했습니다.");
+    throw new UserFacingError("에브리타임 시간표 탭을 열지 못했습니다.");
   }
 
   try {
     const loadedTab = await waitForTabToSettle(tab.id);
     if (isEverytimeLoginUrl(loadedTab.url)) {
-      throw new Error("에브리타임 로그인이 필요합니다.");
+      throw new UserFacingError("에브리타임 로그인이 필요합니다.");
     }
 
     if (!isEverytimeTimetableUrl(loadedTab.url)) {
@@ -405,7 +440,7 @@ async function findFirstPopulatedSemesterBatch(
     try {
       response = await fetchSemestersFromApi(tabId, semesters);
     } catch (error) {
-      warnLog(
+      errorLog(
         "[Timetable] Everytime API unavailable; using rendered DOM fallback",
         getErrorLogDetails(error),
       );
@@ -539,7 +574,7 @@ async function importSemesterBatchFromTab(
         skippedCount: response.skippedSemesters.length,
       };
     } catch (error) {
-      warnLog(
+      errorLog(
         "[Timetable] Everytime import failed",
         getErrorLogDetails(error),
       );
@@ -547,10 +582,10 @@ async function importSemesterBatchFromTab(
       return {
         success: false,
         code: "CAPTURE_FAILED",
-        error:
-          error instanceof Error
-            ? error.message
-            : "에브리타임 시간표를 가져오지 못했습니다.",
+        error: getUserFacingErrorMessage(
+          error,
+          "에브리타임 시간표를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
+        ),
       };
     } finally {
       if (createdByLinku && !keepOwnedTabOpen) {
@@ -583,8 +618,38 @@ async function findExistingTimetableTab(): Promise<chrome.tabs.Tab | null> {
   );
 }
 
+// Import failures resolve as `{ success: false, code }` rather than throwing, so
+// only the CAPTURE_FAILED catch block ever reached the collector. Every other
+// outcome vanished, which is why repeated user-visible failures left a single
+// Sentry event behind. Every code is reported now: the volume is low enough
+// that knowing the distribution is worth more than keeping the feed quiet.
 export async function handleTimetableImport(
   mode: TimetableImportMode = "latest",
+): Promise<TimetableImportResponse> {
+  const response = await resolveTimetableImport(mode);
+
+  recordBreadcrumb(
+    "timetable.import",
+    response.success ? "import succeeded" : "import failed",
+    response.success ? { mode } : { mode, code: response.code },
+    response.success ? "info" : "warning",
+  );
+
+  if (!response.success) {
+    reportMessage(`[Timetable] Everytime import failed: ${response.code}`, {
+      feature: "everytime_import_outcome",
+      category: "timetable.import",
+      level: "warning",
+      mechanism: "timetable.import",
+      tags: { import_mode: mode, import_failure_code: response.code },
+    });
+  }
+
+  return response;
+}
+
+async function resolveTimetableImport(
+  mode: TimetableImportMode,
 ): Promise<TimetableImportResponse> {
   const existingTab = await findExistingTimetableTab();
   if (existingTab?.id != null) {

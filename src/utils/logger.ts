@@ -23,25 +23,24 @@
  *
  * 이를 통해 build:local 환경에서 debug 로그가 정상 출력된다.
  */
+import { reportError } from "@/monitoring";
+import type { MonitoringLevel } from "@/monitoring";
+import {
+  isSensitiveKey,
+  redactSensitiveString,
+  REDACTED,
+} from "@/monitoring/redaction";
+
 const IS_DEV = import.meta.env.MODE === 'development';
 
 const MAX_STRING_LENGTH = 400;
 const MAX_ARRAY_LENGTH = 20;
 const MAX_OBJECT_KEYS = 20;
 const MAX_DEPTH = 4;
-const REDACTED = "[REDACTED]";
 const TRUNCATED_ARRAY_META_KEY = "__truncated_items__";
 const TRUNCATED_OBJECT_META_KEY = "__truncated_keys__";
 const ERROR_ACCESSING_PROPERTY = "[Error accessing property]";
 const UNINSPECTABLE_OBJECT = "[Uninspectable Object]";
-
-const EMAIL_PATTERN =
-  /\b([A-Z0-9._%+-])([A-Z0-9._%+-]*)(@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
-const BEARER_PATTERN = /Bearer\s+[-A-Z0-9._~+/=]+/gi;
-const TOKEN_QUERY_PATTERN =
-  /([?&#])(code|access_token|refresh_token|id_token|token)=([^&#\s]+)/gi;
-const SENSITIVE_KEY_PATTERN =
-  /accessToken|refreshToken|guestToken|idToken|secret|authorization|cookie|password|apiKey/i;
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -76,22 +75,7 @@ function getObjectTypeName(value: object): string | null {
 }
 
 function sanitizeString(value: string): string {
-  const maskedEmail = value.replace(
-    EMAIL_PATTERN,
-    (_, firstChar: string, _middle: string, domain: string) =>
-      `${firstChar}***${domain}`,
-  );
-
-  const maskedBearer = maskedEmail.replace(BEARER_PATTERN, "Bearer [REDACTED]");
-
-  const maskedQuery = maskedBearer.replace(
-    TOKEN_QUERY_PATTERN,
-    (_match, separator: string, key: string) => `${separator}${key}=${REDACTED}`,
-  );
-
-  return maskedQuery.length > MAX_STRING_LENGTH
-    ? `${maskedQuery.slice(0, MAX_STRING_LENGTH)}...`
-    : maskedQuery;
+  return redactSensitiveString(value, MAX_STRING_LENGTH);
 }
 
 function sanitizeValue(
@@ -177,7 +161,7 @@ function sanitizeValue(
 
     const keys = allKeys.slice(0, MAX_OBJECT_KEYS);
     const sanitizedObject = keys.reduce<Record<string, unknown>>((acc, key) => {
-      if (SENSITIVE_KEY_PATTERN.test(key)) {
+      if (isSensitiveKey(key)) {
         acc[key] = REDACTED;
         return acc;
       }
@@ -260,10 +244,44 @@ export function infoLog(message: string, ...args: unknown[]): void {
 
 export function warnLog(message: string, ...args: unknown[]): void {
   emitLog("warn", message, args);
+
+  // Warnings mark a path that failed and was absorbed, which is exactly the
+  // class of failure that used to leave no trace: the user saw a toast or a
+  // degraded result while the collector recorded nothing. They are reported at
+  // `warning` level so they stay separable from errors in Sentry.
+  reportHandledLog(message, args, "warning", "handled_warning", "logger.warn");
+}
+
+function reportHandledLog(
+  message: string,
+  args: unknown[],
+  level: MonitoringLevel,
+  feature: string,
+  mechanism: string,
+): void {
+  const sanitizedMessage = sanitizeString(message);
+  const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
+  const originalError = args.find((arg): arg is Error => arg instanceof Error);
+
+  reportError(originalError ?? new Error(sanitizedMessage), {
+    feature,
+    category: `logger.${level === "warning" ? "warn" : "error"}`,
+    breadcrumbMessage: sanitizedMessage,
+    mechanism,
+    handled: true,
+    level,
+    tags: { linku_log_level: level === "warning" ? "warn" : "error" },
+    extras: {
+      log_message: sanitizedMessage,
+      log_args: sanitizedArgs,
+    },
+  });
 }
 
 export function errorLog(message: string, ...args: unknown[]): void {
   emitLog("error", message, args);
+
+  reportHandledLog(message, args, "error", "handled_error", "logger.error");
 }
 
 export function getErrorLogDetails(error: unknown): Record<string, unknown> {

@@ -21,9 +21,9 @@ const TodoItem = ({ todo, timerEnabled = false, onToggle, onDelete, onClick }: T
         className="p-3 border border-main rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
         onClick={onClick}
       >
-        <div className="text-sm font-semibold mb-1 flex items-center justify-between">
-          <p>{todo.title}</p>
-          <div className="flex flex-col items-end gap-1">
+        <div className="mb-1 flex min-w-0 items-start justify-between gap-2 text-sm font-semibold">
+          <p className="line-clamp-2 min-w-0 flex-1 break-words">{todo.title}</p>
+          <div className="flex shrink-0 flex-col items-end gap-1">
             <TodoDeadlineBadge
               dDay={todo.dDay}
               dueDate={parsed?.date}
@@ -48,8 +48,12 @@ const TodoItem = ({ todo, timerEnabled = false, onToggle, onDelete, onClick }: T
           className={`cursor-pointer ${todo.completed ? 'opacity-70' : ''
             }`}
         >
-          <div className="text-sm font-semibold mb-1 flex items-center justify-between">
-            <p className={todo.completed ? 'line-through text-gray-500' : ''}>
+          <div className="mb-1 flex min-w-0 items-start justify-between gap-2 text-sm font-semibold">
+            <p
+              className={`line-clamp-2 min-w-0 flex-1 break-words ${
+                todo.completed ? 'line-through text-gray-500' : ''
+              }`}
+            >
               {todo.title}
             </p>
             <div className="flex flex-col items-end gap-1 shrink-0">
