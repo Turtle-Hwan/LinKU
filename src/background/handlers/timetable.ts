@@ -23,6 +23,7 @@ import {
   getUserFacingErrorMessage,
   UserFacingError,
 } from "@/errors/userFacingError";
+import { recordBreadcrumb, reportMessage } from "@/monitoring";
 
 const EVERYTIME_TIMETABLE_URL = "https://everytime.kr/timetable";
 const EVERYTIME_TIMETABLE_PATTERN = "https://everytime.kr/timetable*";
@@ -617,8 +618,38 @@ async function findExistingTimetableTab(): Promise<chrome.tabs.Tab | null> {
   );
 }
 
+// Import failures resolve as `{ success: false, code }` rather than throwing, so
+// only the CAPTURE_FAILED catch block ever reached the collector. Every other
+// outcome vanished, which is why repeated user-visible failures left a single
+// Sentry event behind. Every code is reported now: the volume is low enough
+// that knowing the distribution is worth more than keeping the feed quiet.
 export async function handleTimetableImport(
   mode: TimetableImportMode = "latest",
+): Promise<TimetableImportResponse> {
+  const response = await resolveTimetableImport(mode);
+
+  recordBreadcrumb(
+    "timetable.import",
+    response.success ? "import succeeded" : "import failed",
+    response.success ? { mode } : { mode, code: response.code },
+    response.success ? "info" : "warning",
+  );
+
+  if (!response.success) {
+    reportMessage(`[Timetable] Everytime import failed: ${response.code}`, {
+      feature: "everytime_import_outcome",
+      category: "timetable.import",
+      level: "warning",
+      mechanism: "timetable.import",
+      tags: { import_mode: mode, import_failure_code: response.code },
+    });
+  }
+
+  return response;
+}
+
+async function resolveTimetableImport(
+  mode: TimetableImportMode,
 ): Promise<TimetableImportResponse> {
   const existingTab = await findExistingTimetableTab();
   if (existingTab?.id != null) {
