@@ -129,6 +129,16 @@ async function clearPendingImport(): Promise<void> {
   await chrome.storage.session.remove(TIMETABLE_STORAGE_KEYS.pendingImport);
 }
 
+// A tab that Chrome has created but not yet navigated can report
+// `status: "complete"` while its URL is still empty or `about:blank`. Settling
+// on that snapshot makes the caller judge the tab by a URL the user never
+// asked for, which is why an import LinKU opened itself could fail while the
+// same import against an already-open Everytime tab succeeded.
+function hasCommittedDocument(tab: chrome.tabs.Tab): boolean {
+  const url = tab.url ?? "";
+  return url.startsWith("https://") || url.startsWith("http://");
+}
+
 async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -167,7 +177,11 @@ async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
       changeInfo: chrome.tabs.OnUpdatedInfo,
       updatedTab: chrome.tabs.Tab,
     ): void {
-      if (updatedTabId !== tabId || changeInfo.status !== "complete") {
+      if (
+        updatedTabId !== tabId ||
+        changeInfo.status !== "complete" ||
+        !hasCommittedDocument(updatedTab)
+      ) {
         return;
       }
 
@@ -178,7 +192,10 @@ async function waitForTabToSettle(tabId: number): Promise<chrome.tabs.Tab> {
     chrome.tabs
       .get(tabId)
       .then((currentTab) => {
-        if (currentTab.status === "complete") {
+        if (
+          currentTab.status === "complete" &&
+          hasCommittedDocument(currentTab)
+        ) {
           resolveOnce(currentTab);
         }
       })
