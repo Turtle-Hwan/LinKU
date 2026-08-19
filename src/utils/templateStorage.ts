@@ -211,6 +211,25 @@ async function repairUnregisteredIcons(
     : { stored, changed };
 }
 
+async function removeRecord(
+  origin: "templates" | "drafts",
+  key: number | "current",
+): Promise<void> {
+  const database = await getLinkuDb();
+  if (origin === "drafts") await database.delete("drafts", "current");
+  else await database.delete("templates", key as number);
+}
+
+async function writeRecord(
+  origin: "templates" | "drafts",
+  key: number | "current",
+  value: StoredTemplate,
+): Promise<void> {
+  const database = await getLinkuDb();
+  if (origin === "drafts") await database.put("drafts", value, "current");
+  else await database.put("templates", value, key as number);
+}
+
 /**
  * Normalizes a record on read. Repairable damage is corrected in place;
  * anything else is moved to quarantine with its original bytes so the user
@@ -225,18 +244,14 @@ async function readRecord(
 
   const result = normalizeStoredTemplate(raw);
   if (!result.value) {
-    const database = await getLinkuDb();
-    await quarantineSafely({
-      origin,
-      key,
-      reason: result.reason ?? "알 수 없는 오류",
-      raw,
-    });
-    await database.delete(origin, key as never);
-    errorLog(`Quarantined an unreadable ${origin} record`, {
-      key,
-      reason: result.reason,
-    });
+    const reason = result.reason ?? "알 수 없는 오류";
+    // The original is removed only once the copy is safely stored. If the
+    // quarantine write failed, the damaged record stays where it is and this
+    // read simply reports nothing — the next read tries again.
+    if (await quarantineSafely({ origin, key, reason, raw })) {
+      await removeRecord(origin, key);
+    }
+    errorLog(`Quarantined an unreadable ${origin} record`, { key, reason });
     return null;
   }
 
@@ -248,8 +263,7 @@ async function readRecord(
       registeredIcons: changed,
     });
     try {
-      const database = await getLinkuDb();
-      await database.put(origin, stored, key as never);
+      await writeRecord(origin, key, stored);
     } catch (error) {
       // A failed rewrite only costs us the repair on the next read.
       errorLog("Failed to persist a repaired template record", error);

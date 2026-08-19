@@ -64,14 +64,22 @@ export async function deleteQuarantinedRecord(id: string): Promise<void> {
 }
 
 /**
- * Moves a record aside without letting the failure surface as a product
- * error. The caller has already decided the record is unusable; a quarantine
- * write that also fails must not hide the templates that are still healthy.
+ * Moves a record aside without letting the failure surface as a product error.
+ * The caller has already decided the record is unusable, and one damaged
+ * record must not hide the templates that are still healthy.
+ *
+ * Returns whether the record was safely stored. A caller may only remove the
+ * original after a `true`: dropping it when the quarantine write failed would
+ * destroy the very data this store exists to preserve.
  */
-export async function quarantineSafely(input: QuarantineInput): Promise<void> {
+export async function quarantineSafely(
+  input: QuarantineInput,
+): Promise<boolean> {
   try {
     await quarantineRecord(input);
+    return true;
   } catch (error) {
     errorLog("Failed to quarantine damaged template record", error);
+    return false;
   }
 }

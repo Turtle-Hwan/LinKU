@@ -145,3 +145,41 @@ test("등록되지 않은 아이콘 식별자를 임의로 지어내지 않는�
   // 지어내면 존재하지 않는 아이콘을 가리키는 레코드가 만들어진다.
   assert.equal(result.value.template.items[0].icon.iconId, -845_113);
 });
+
+test("마지막 저장 시각이 없으면 보정으로 기록해 한 번만 다시 쓰이게 한다", () => {
+  const result = normalizeStoredTemplate({
+    template: { templateId: 13, name: "시각 없음", height: 6, items: [] },
+  });
+
+  assert.ok(result.value);
+  assert.ok(Number.isFinite(result.value.metadata.lastSaved));
+  // 보정으로 남지 않으면 저장소가 다시 쓰지 않아 읽을 때마다 시각이 바뀌고
+  // 목록 정렬이 매번 흔들린다.
+  assert.ok(result.repairs.some((note) => note.includes("저장 시각")));
+});
+
+test("보정은 두 번째 적용에서 더 이상 바뀌지 않는다", () => {
+  const first = normalizeStoredTemplate({
+    template: {
+      templateId: 14,
+      name: "",
+      height: 99,
+      items: [
+        {
+          name: "도서관",
+          siteUrl: "https://library.konkuk.ac.kr/",
+          position: { x: 9, y: 9 },
+          size: { width: 9, height: 9 },
+          icon: { iconId: 2, iconName: "책", iconUrl: "data:image/svg+xml,<svg/>" },
+        },
+      ],
+    },
+  });
+  assert.ok(first.value);
+  assert.ok(first.repairs.length > 0);
+
+  const second = normalizeStoredTemplate(first.value);
+  assert.ok(second.value);
+  assert.equal(second.repairs.length, 0, "보정이 수렴하지 않으면 매 읽기마다 다시 쓴다");
+  assert.deepEqual(second.value.template.items, first.value.template.items);
+});

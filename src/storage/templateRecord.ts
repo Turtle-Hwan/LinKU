@@ -194,10 +194,15 @@ export function normalizeStoredTemplate(raw: unknown): NormalizeResult {
   };
 
   const metadata = isRecord(raw.metadata) ? raw.metadata : {};
-  const lastSaved =
-    typeof metadata.lastSaved === "number" && Number.isFinite(metadata.lastSaved)
-      ? metadata.lastSaved
-      : Date.now();
+  let lastSaved = Date.now();
+  if (typeof metadata.lastSaved === "number" && Number.isFinite(metadata.lastSaved)) {
+    lastSaved = metadata.lastSaved;
+  } else {
+    // Recorded as a repair so the substitute is written back once. Left
+    // silent, the timestamp would be re-invented on every read and the
+    // template list would reorder itself each time it opens.
+    repairs.push("마지막 저장 시각이 없어 현재 시각으로 채웠습니다.");
+  }
 
   return {
     value: {
