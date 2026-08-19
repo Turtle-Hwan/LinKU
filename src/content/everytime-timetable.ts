@@ -476,6 +476,23 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
     return value;
   };
 
+  // The rendered <select> is the source of truth because it reflects what
+  // Everytime offers on the timetable page. When it never appears — a slow
+  // render past the wait, or a markup change on their side — the semester API
+  // still answers, and a superset ordered newest-first costs nothing because
+  // the caller stops at the first batch that has timetables.
+  const listSemesterLabels = async (): Promise<string[]> => {
+    const rendered = await waitForSemesterOptions();
+    if (rendered.length > 0) {
+      return rendered;
+    }
+
+    const metadata = await getSemesterMetadataByLabel();
+    return Array.from(metadata.keys()).filter((label) =>
+      EVERYTIME_SEMESTER_PATTERN.test(label),
+    );
+  };
+
   const parseTableMetadata = (
     table: Element,
     fallback: EverytimeTableMetadata = {},
@@ -748,7 +765,7 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
         }
 
         if (message.type === "LINKU_EVERYTIME_LIST_SEMESTERS") {
-          waitForSemesterOptions()
+          listSemesterLabels()
             .then((semesters) =>
               respond({
                 success: true,
