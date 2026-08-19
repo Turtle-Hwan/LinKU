@@ -4,13 +4,14 @@
  */
 
 import { getOrCreateClientId } from "./clientId";
+import { IV_LENGTH, SALT_LENGTH } from "./credentialFormat";
 import { errorLog } from '@/utils/logger';
+
+export { looksEncrypted } from "./credentialFormat";
 
 // 암호화 설정
 const ALGORITHM = "AES-GCM";
 const KEY_LENGTH = 256;
-const IV_LENGTH = 12; // AES-GCM 권장 IV 길이
-const SALT_LENGTH = 16;
 const PBKDF2_ITERATIONS = 100000; // OWASP 권장 최소값
 
 /**
