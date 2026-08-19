@@ -49,6 +49,9 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 - URL의 민감한 query value와 exception/message/breadcrumb/extra를 포함한 모든 중첩 문맥의
   token·email·credential 값 비식별화
 - tracing과 session replay를 기본 활성화하지 않음
+- `MONITORING_IGNORED_ERROR_MESSAGES`의 생명주기 잡음은 수집하지 않음. 브라우저 종료
+  시점의 `The browser is shutting down.`은 LinKU의 실패가 아니라 MV3 service worker가
+  내려가는 정황이므로 console 경고만 남기고 collector는 버림
 - 기존 GA4 `sendError`와 React fallback UI는 유지
 
 처리된 오류도 누락하지 않도록 `errorLog`는 console 출력과 함께 handled Sentry exception을
@@ -71,6 +74,12 @@ Data Scrubber와 Default Scrubbers는 켠 상태를 유지합니다.
 Sentry `linku` 프로젝트의 Client Key DSN은 클라이언트 번들에 들어가는 값이므로 GitHub
 Actions repository variable로 관리합니다. 조직 토큰은 절대 `VITE_` 변수로 만들지
 않습니다.
+
+source map 업로드가 실패하면 release build를 실패시킵니다. `@sentry/vite-plugin`은 업로드
+오류 뒤에도 정상 종료하고 `silent`가 원인을 감추므로, 이 설정이 없으면 권한이 부족한 토큰
+하나로 source map 없는 release가 그대로 배포되면서 workflow는 초록색으로 남습니다.
+`filesToDeleteAfterUpload`는 업로드 성공 여부와 무관하게 `.map`을 지우기 때문에, "Verify
+source maps are not packaged" 단계는 업로드 실패를 잡아내지 못합니다.
 
 | 종류 | 이름 | 용도 |
 | --- | --- | --- |

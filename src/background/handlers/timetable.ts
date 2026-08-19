@@ -248,9 +248,18 @@ async function listSemesters(tabId: number): Promise<SemesterListResponse> {
     type: "LINKU_EVERYTIME_LIST_SEMESTERS",
   })) as EverytimeResponse | undefined;
 
-  if (!isSemesterListResponse(response) || response.semesters.length === 0) {
+  // The two failures need different remedies, so they must not collapse into
+  // one message: a missing response means the content script never answered,
+  // while an empty list means the account simply has no timetable semester.
+  if (!isSemesterListResponse(response)) {
     throw new UserFacingError(
       "에브리타임의 학기 목록을 확인하지 못했습니다.",
+    );
+  }
+
+  if (response.semesters.length === 0) {
+    throw new UserFacingError(
+      "에브리타임에 등록된 시간표 학기가 없습니다.",
     );
   }
 
