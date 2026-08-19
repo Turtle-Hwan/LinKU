@@ -10,6 +10,7 @@ import {
   renameAsset,
   saveAsset,
 } from "@/storage/assetRepository";
+import { countTemplateItemsUsingIcon } from "@/utils/templateStorage";
 import type {
   ApiResponse,
   CreateIconResponse,
@@ -104,6 +105,21 @@ export async function deleteIcon(
       error: { code: "ICON_NOT_FOUND", message: "아이콘을 찾을 수 없습니다." },
     };
   }
+  // Templates keep the icon image inline, so a deleted asset still renders —
+  // but the editor resolves icons by id, and an item pointing at a missing one
+  // can no longer be saved. Deleting a referenced icon is refused instead of
+  // leaving those items uneditable.
+  const usageCount = await countTemplateItemsUsingIcon(iconId);
+  if (usageCount > 0) {
+    return {
+      success: false,
+      error: {
+        code: "ICON_IN_USE",
+        message: `이 아이콘을 사용하는 항목이 ${usageCount}개 있어 삭제할 수 없습니다.`,
+      },
+    };
+  }
+
   await deleteAsset(asset.id);
   return { success: true, data: { message: "아이콘을 삭제했습니다." } };
 }

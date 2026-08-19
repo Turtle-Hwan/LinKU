@@ -71,9 +71,13 @@ export async function saveAsset(name: string, source: Blob): Promise<StoredAsset
     return existing;
   }
 
+  // Ids are allocated above the highest one in use rather than from the clock
+  // alone. A system clock that moves backwards would otherwise hand out an id
+  // that already belongs to another asset.
   let numericId = Date.now();
-  while (await store.index("by-numeric-id").get(numericId)) {
-    numericId += 1;
+  const newest = await store.index("by-numeric-id").openCursor(null, "prev");
+  if (newest && Number(newest.key) >= numericId) {
+    numericId = Number(newest.key) + 1;
   }
 
   const asset: StoredAsset = {
@@ -87,6 +91,39 @@ export async function saveAsset(name: string, source: Blob): Promise<StoredAsset
   await store.put(asset);
   await transaction.done;
   return asset;
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const separator = dataUrl.indexOf(",");
+  const header = separator >= 0 ? dataUrl.slice(0, separator) : "";
+  if (!header.startsWith("data:") || !header.endsWith(";base64")) {
+    throw new Error("지원하지 않는 아이콘 이미지 형식입니다.");
+  }
+  const mimeType = header.slice("data:".length, header.length - ";base64".length);
+  const binary = atob(dataUrl.slice(separator + 1));
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return new Blob([bytes], { type: mimeType });
+}
+
+/**
+ * Registers an inline icon image so it becomes a first-class asset.
+ *
+ * Shared templates carry their icons as data URLs. Persisting them here is
+ * what keeps an imported item editable: the editor resolves icons by numeric
+ * id, and an id that no asset backs cannot be selected or saved again.
+ */
+export async function saveAssetFromDataUrl(
+  name: string,
+  dataUrl: string,
+): Promise<StoredAsset> {
+  return saveAsset(name, dataUrlToBlob(dataUrl));
+}
+
+export async function getAssetByNumericId(
+  numericId: number,
+): Promise<StoredAsset | undefined> {
+  const database = await getLinkuDb();
+  return database.getFromIndex("assets", "by-numeric-id", numericId);
 }
 
 export async function listAssets(): Promise<StoredAsset[]> {

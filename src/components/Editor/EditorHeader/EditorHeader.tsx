@@ -30,21 +30,18 @@ export const EditorHeader = () => {
       const storageCheck = checkTemplateStorageAvailability();
       if (!storageCheck.available) throw new Error(storageCheck.error);
 
-      const now = new Date().toISOString();
-      const savedTemplate = {
-        ...state.template,
-        templateId:
-          state.template.templateId === 0
-            ? Date.now()
-            : state.template.templateId,
-        syncStatus: 'local' as const,
-        updatedAt: now,
-      };
-
-      await saveTemplateToLocalStorage(
-        savedTemplate,
+      // The storage layer allocates the id for a new template. Minting one
+      // from the clock here could collide with an existing template and
+      // overwrite it without a trace.
+      const stored = await saveTemplateToLocalStorage(
+        {
+          ...state.template,
+          syncStatus: 'local' as const,
+          updatedAt: new Date().toISOString(),
+        },
         state.stagingItems,
       );
+      const savedTemplate = stored.template;
       dispatch({ type: 'SAVE_SUCCESS', payload: savedTemplate });
 
       const origin = savedTemplate.cloned ? 'cloned' : 'owned';

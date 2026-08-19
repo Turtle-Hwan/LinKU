@@ -5,7 +5,7 @@ import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { createBundledDefaultTemplate } from '@/utils/defaultTemplate';
-import { importSharedTemplate } from '@/utils/templateStorage';
+import { importTemplateCopy } from '@/utils/templateStorage';
 import {
   resolveLatestBulletin,
   subscribeLatestBulletin,
@@ -30,7 +30,7 @@ export const GalleryPage = () => {
   const handleImport = async () => {
     setImporting(true);
     try {
-      const stored = await importSharedTemplate(template);
+      const stored = await importTemplateCopy(template);
       toast({
         title: '템플릿 추가 완료',
         description: '서버 없이 이 기기의 IndexedDB에 저장했습니다.',

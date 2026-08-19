@@ -2,6 +2,11 @@ import type {
   PortableTemplateItem,
   TemplateSharePayloadV1,
 } from "../types/templateShare.ts";
+import {
+  GRID_COLUMNS,
+  GRID_ROWS,
+  MAX_TEMPLATE_ITEMS,
+} from "../constants/grid.ts";
 
 export const SHARE_FRAGMENT_PREFIX = "v1.";
 export const MAX_SHARE_FILE_BYTES = 256 * 1024;
@@ -77,6 +82,7 @@ function assertHttpUrl(value: string): void {
 function validatePortableItem(
   value: unknown,
   index: number,
+  templateHeight: number,
 ): asserts value is PortableTemplateItem {
   if (!value || typeof value !== "object") {
     throw new Error(`${index + 1}번째 항목이 올바르지 않습니다.`);
@@ -105,8 +111,11 @@ function validatePortableItem(
     Number(position.y) < 0 ||
     Number(size.width) < 1 ||
     Number(size.height) < 1 ||
-    Number(position.x) + Number(size.width) > 6 ||
-    Number(position.y) + Number(size.height) > 6
+    Number(position.x) + Number(size.width) > GRID_COLUMNS ||
+    // Bounds follow the declared height, not the maximum grid. An item that
+    // sits below a shorter template would be clipped out of the preview and
+    // silently disappear from the imported layout.
+    Number(position.y) + Number(size.height) > templateHeight
   ) {
     throw new Error(`${index + 1}번째 항목이 템플릿 영역을 벗어납니다.`);
   }
@@ -149,13 +158,16 @@ export function validateTemplateSharePayload(
     template.name.length > 80 ||
     !Number.isInteger(template.height) ||
     Number(template.height) < 1 ||
-    Number(template.height) > 6 ||
+    Number(template.height) > GRID_ROWS ||
     !Array.isArray(template.items) ||
-    template.items.length > 36
+    template.items.length > MAX_TEMPLATE_ITEMS
   ) {
     throw new Error("지원하지 않는 템플릿 공유 형식입니다.");
   }
-  template.items.forEach(validatePortableItem);
+  const templateHeight = Number(template.height);
+  template.items.forEach((item, index) =>
+    validatePortableItem(item, index, templateHeight),
+  );
 }
 
 export async function encodeTemplateSharePayload(

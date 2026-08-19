@@ -15,7 +15,6 @@ import {
 import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
 import { debugLog, errorLog } from "@/utils/logger";
 import { consumePendingTemplateImports } from "@/utils/pendingTemplateImports";
-import { portablePayloadToTemplate } from "@/utils/templateShare";
 import { importSharedTemplate } from "@/utils/templateStorage";
 import "./App.css";
 
@@ -36,7 +35,7 @@ function App() {
 
   useEffect(() => {
     void consumePendingTemplateImports(async (payload) => {
-      await importSharedTemplate(portablePayloadToTemplate(payload));
+      await importSharedTemplate(payload);
     })
       .then((importedCount) => {
         if (importedCount > 0) {

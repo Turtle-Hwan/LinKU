@@ -1,4 +1,9 @@
-import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import {
+  openDB,
+  type DBSchema,
+  type IDBPDatabase,
+  type IDBPObjectStore,
+} from "idb";
 import type { Template, TemplateItem } from "@/types/api";
 
 export interface StoredTemplate {
@@ -19,7 +24,24 @@ export interface StoredAsset {
   createdAt: number;
 }
 
-interface LinkuDatabase extends DBSchema {
+/**
+ * A record that failed read-time normalization.
+ *
+ * Local storage is the only copy of a user's templates, so an unreadable
+ * record is never deleted on our own initiative. It is moved here with its
+ * original bytes intact and reported to the user, who decides what happens
+ * next.
+ */
+export interface QuarantinedRecord {
+  id: string;
+  origin: "templates" | "drafts";
+  key: number | string;
+  reason: string;
+  quarantinedAt: number;
+  raw: unknown;
+}
+
+export interface LinkuDatabase extends DBSchema {
   templates: {
     key: number;
     value: StoredTemplate;
@@ -38,25 +60,53 @@ interface LinkuDatabase extends DBSchema {
     key: string;
     value: { completedAt: number };
   };
+  quarantine: {
+    key: string;
+    value: QuarantinedRecord;
+    indexes: { "by-quarantined-at": number };
+  };
 }
+
+export type LinkuDb = IDBPDatabase<LinkuDatabase>;
+
+/** Writable `templates` store handle, as seen from inside a transaction. */
+export type WritableTemplateStore = IDBPObjectStore<
+  LinkuDatabase,
+  ArrayLike<"templates">,
+  "templates",
+  "readwrite"
+>;
 
 const DATABASE_NAME = "linku";
 const DATABASE_VERSION = 1;
 
-let databasePromise: Promise<IDBPDatabase<LinkuDatabase>> | undefined;
+let databasePromise: Promise<LinkuDb> | undefined;
 
-export function getLinkuDb(): Promise<IDBPDatabase<LinkuDatabase>> {
+export function getLinkuDb(): Promise<LinkuDb> {
   if (!databasePromise) {
     databasePromise = openDB<LinkuDatabase>(DATABASE_NAME, DATABASE_VERSION, {
-      upgrade(database) {
-        const templates = database.createObjectStore("templates");
-        templates.createIndex("by-last-saved", "metadata.lastSaved");
-        database.createObjectStore("drafts");
+      // Every version step stays additive and guarded by `oldVersion`. An
+      // unguarded `createObjectStore` throws once a user's profile already
+      // holds an earlier version, and that failure is unrecoverable from our
+      // side, so the guard exists from the first version onward.
+      upgrade(database, oldVersion) {
+        if (oldVersion < 1) {
+          const templates = database.createObjectStore("templates");
+          templates.createIndex("by-last-saved", "metadata.lastSaved");
+          database.createObjectStore("drafts");
 
-        const assets = database.createObjectStore("assets", { keyPath: "id" });
-        assets.createIndex("by-numeric-id", "numericId", { unique: true });
+          const assets = database.createObjectStore("assets", {
+            keyPath: "id",
+          });
+          assets.createIndex("by-numeric-id", "numericId", { unique: true });
 
-        database.createObjectStore("migrations");
+          database.createObjectStore("migrations");
+
+          const quarantine = database.createObjectStore("quarantine", {
+            keyPath: "id",
+          });
+          quarantine.createIndex("by-quarantined-at", "quarantinedAt");
+        }
       },
       blocked() {
         databasePromise = undefined;

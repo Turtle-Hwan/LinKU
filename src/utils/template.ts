@@ -11,6 +11,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { LucideIcon } from 'lucide-react';
 import { warnLog, errorLog } from '@/utils/logger';
+import { GRID_COLUMNS, GRID_ROWS } from '@/constants/grid';
 
 /**
  * Grid configuration (6 columns × 6 rows)
@@ -18,8 +19,8 @@ import { warnLog, errorLog } from '@/utils/logger';
  */
 export const GRID_CONFIG = {
   // Grid dimensions
-  COLS: 6,
-  ROWS: 6,
+  COLS: GRID_COLUMNS,
+  ROWS: GRID_ROWS,
 
   // Rendering constants (pixels)
   CANVAS_WIDTH_PX: 500,

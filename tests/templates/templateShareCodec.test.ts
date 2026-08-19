@@ -69,3 +69,47 @@ test("손상된 압축 fragment를 사용자용 오류로 변환한다", async (
     /손상되었거나 지원되지 않습니다/u,
   );
 });
+
+test("선언된 높이보다 아래에 놓인 항목을 거부한다", () => {
+  // 상수 6이 아니라 template.height로 검사해야 한다. height 1짜리 템플릿에
+  // y:5 항목이 통과하면 미리보기에서 잘려 사라진 채로 저장된다.
+  assert.throws(() =>
+    validateTemplateSharePayload({
+      version: 1,
+      template: {
+        name: "짧은 템플릿",
+        height: 1,
+        items: [
+          {
+            name: "도서관",
+            siteUrl: "https://library.konkuk.ac.kr/",
+            position: { x: 0, y: 5 },
+            size: { width: 1, height: 1 },
+            icon: { kind: "builtin", key: "Library" },
+          },
+        ],
+      },
+    }),
+  );
+});
+
+test("선언된 높이 안에 들어가는 항목은 허용한다", () => {
+  assert.doesNotThrow(() =>
+    validateTemplateSharePayload({
+      version: 1,
+      template: {
+        name: "짧은 템플릿",
+        height: 2,
+        items: [
+          {
+            name: "도서관",
+            siteUrl: "https://library.konkuk.ac.kr/",
+            position: { x: 0, y: 1 },
+            size: { width: 1, height: 1 },
+            icon: { kind: "builtin", key: "Library" },
+          },
+        ],
+      },
+    }),
+  );
+});

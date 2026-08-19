@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { FileText, FileUp, LayoutTemplate, Plus, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle,
+  DatabaseBackup,
+  FileText,
+  FileUp,
+  LayoutTemplate,
+  Plus,
+  Sparkles,
+} from 'lucide-react';
 import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,16 +22,21 @@ import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import type { Template, TemplateSummary } from '@/types/api';
 import {
+  createTemplateBackup,
   deleteTemplateFromLocalStorage,
   getTemplatesIndex,
   importSharedTemplate,
   loadTemplateFromLocalStorage,
+  restoreTemplateBackup,
 } from '@/utils/templateStorage';
+import {
+  countQuarantinedRecords,
+  listQuarantinedRecords,
+} from '@/storage/quarantine';
 import {
   createTemplateShareUrl,
   downloadTemplatePayload,
   MAX_SHARE_FILE_BYTES,
-  portablePayloadToTemplate,
   validateTemplateSharePayload,
 } from '@/utils/templateShare';
 import { createBundledDefaultTemplate } from '@/utils/defaultTemplate';
@@ -37,6 +50,17 @@ import {
   sendTemplateCreateStart,
   sendTemplateDelete,
 } from '@/utils/analytics';
+
+function downloadJsonFile(value: unknown, fileName: string): void {
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }),
+  );
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
 function toSummary(template: Template): TemplateSummary {
   return {
@@ -64,6 +88,8 @@ export const TemplateListPage = () => {
   const [activeTab, setActiveTab] = useState<'owned' | 'cloned'>('owned');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
+  const [quarantinedCount, setQuarantinedCount] = useState(0);
 
   useEffect(() => {
     const applyBulletin = (bulletin: Parameters<typeof createBundledDefaultTemplate>[0]) => {
@@ -86,6 +112,9 @@ export const TemplateListPage = () => {
           .filter((stored) => stored !== null)
           .map((stored) => toSummary(stored.template)),
       );
+      // Reading is what moves an unreadable record into quarantine, so the
+      // count is refreshed here rather than on mount.
+      setQuarantinedCount(await countQuarantinedRecords());
     } catch (error) {
       errorLog('Failed to load IndexedDB templates', error);
       setTemplates([]);
@@ -223,9 +252,7 @@ export const TemplateListPage = () => {
       }
       const value: unknown = JSON.parse(await file.text());
       validateTemplateSharePayload(value);
-      const imported = await importSharedTemplate(
-        portablePayloadToTemplate(value),
-      );
+      const imported = await importSharedTemplate(value);
       await loadTemplates();
       setActiveTab('cloned');
       toast({
@@ -241,6 +268,72 @@ export const TemplateListPage = () => {
       });
     } finally {
       if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
+
+  const handleDownloadBackup = async () => {
+    try {
+      const backup = await createTemplateBackup();
+      downloadJsonFile(
+        backup,
+        `linku-backup-${backup.exportedAt.slice(0, 10)}.json`,
+      );
+      toast({
+        title: '백업 파일을 저장했습니다',
+        description: `템플릿 ${backup.templates.length}개와 아이콘 ${backup.assets.length}개를 담았습니다.`,
+      });
+    } catch (error) {
+      errorLog('Failed to export a template backup', error);
+      toast({
+        title: '백업 실패',
+        description: '백업 파일을 만들지 못했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRestoreBackup = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const result = await restoreTemplateBackup(
+        JSON.parse(await file.text()) as unknown,
+      );
+      await loadTemplates();
+      toast({
+        title: '복원 완료',
+        description:
+          result.skipped > 0
+            ? `템플릿 ${result.imported}개를 복원하고 ${result.skipped}개를 건너뛰었습니다.`
+            : `템플릿 ${result.imported}개를 복원했습니다.`,
+      });
+    } catch (error) {
+      errorLog('Failed to restore a template backup', error);
+      toast({
+        title: '복원 실패',
+        description:
+          error instanceof Error ? error.message : '백업을 복원하지 못했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      if (restoreInputRef.current) restoreInputRef.current.value = '';
+    }
+  };
+
+  const handleDownloadQuarantined = async () => {
+    try {
+      const records = await listQuarantinedRecords();
+      downloadJsonFile(records, 'linku-damaged-templates.json');
+      toast({
+        title: '복구용 파일을 저장했습니다',
+        description: '원본 데이터를 그대로 담았습니다.',
+      });
+    } catch (error) {
+      errorLog('Failed to export quarantined records', error);
+      toast({
+        title: '내보내기 실패',
+        description: '손상된 데이터를 내보내지 못했습니다.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -322,6 +415,12 @@ export const TemplateListPage = () => {
               <DropdownMenuItem onClick={() => importInputRef.current?.click()}>
                 <FileUp className="mr-2 h-4 w-4" />파일에서 가져오기
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleDownloadBackup()}>
+                <DatabaseBackup className="mr-2 h-4 w-4" />전체 백업 내려받기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => restoreInputRef.current?.click()}>
+                <DatabaseBackup className="mr-2 h-4 w-4" />백업에서 복원
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <input
@@ -331,8 +430,37 @@ export const TemplateListPage = () => {
             accept=".json,.linku.json,application/json"
             onChange={(event) => void handleImportFile(event.target.files?.[0])}
           />
+          <input
+            ref={restoreInputRef}
+            className="hidden"
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => void handleRestoreBackup(event.target.files?.[0])}
+          />
         </div>
       </div>
+
+      {quarantinedCount > 0 && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold">
+              읽을 수 없는 템플릿 {quarantinedCount}개를 따로 보관했습니다.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              데이터를 지우지 않고 그대로 두었습니다. 파일로 내려받아 두면 나중에
+              복구를 시도할 수 있습니다.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleDownloadQuarantined()}
+          >
+            내려받기
+          </Button>
+        </div>
+      )}
 
       <Tabs
         value={activeTab}
