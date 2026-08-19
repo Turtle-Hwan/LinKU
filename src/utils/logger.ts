@@ -24,6 +24,7 @@
  * 이를 통해 build:local 환경에서 debug 로그가 정상 출력된다.
  */
 import { reportError } from "@/monitoring";
+import type { MonitoringLevel } from "@/monitoring";
 import {
   isSensitiveKey,
   redactSensitiveString,
@@ -243,30 +244,44 @@ export function infoLog(message: string, ...args: unknown[]): void {
 
 export function warnLog(message: string, ...args: unknown[]): void {
   emitLog("warn", message, args);
+
+  // Warnings mark a path that failed and was absorbed, which is exactly the
+  // class of failure that used to leave no trace: the user saw a toast or a
+  // degraded result while the collector recorded nothing. They are reported at
+  // `warning` level so they stay separable from errors in Sentry.
+  reportHandledLog(message, args, "warning", "handled_warning", "logger.warn");
+}
+
+function reportHandledLog(
+  message: string,
+  args: unknown[],
+  level: MonitoringLevel,
+  feature: string,
+  mechanism: string,
+): void {
+  const sanitizedMessage = sanitizeString(message);
+  const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
+  const originalError = args.find((arg): arg is Error => arg instanceof Error);
+
+  reportError(originalError ?? new Error(sanitizedMessage), {
+    feature,
+    category: `logger.${level === "warning" ? "warn" : "error"}`,
+    breadcrumbMessage: sanitizedMessage,
+    mechanism,
+    handled: true,
+    level,
+    tags: { linku_log_level: level === "warning" ? "warn" : "error" },
+    extras: {
+      log_message: sanitizedMessage,
+      log_args: sanitizedArgs,
+    },
+  });
 }
 
 export function errorLog(message: string, ...args: unknown[]): void {
   emitLog("error", message, args);
 
-  const sanitizedMessage = sanitizeString(message);
-  const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
-  const originalError = args.find((arg): arg is Error => arg instanceof Error);
-
-  reportError(
-    originalError ?? new Error(sanitizedMessage),
-    {
-      feature: "handled_error",
-      category: "logger.error",
-      breadcrumbMessage: sanitizedMessage,
-      mechanism: "logger.error",
-      handled: true,
-      tags: { linku_log_level: "error" },
-      extras: {
-        log_message: sanitizedMessage,
-        log_args: sanitizedArgs,
-      },
-    },
-  );
+  reportHandledLog(message, args, "error", "handled_error", "logger.error");
 }
 
 export function getErrorLogDetails(error: unknown): Record<string, unknown> {

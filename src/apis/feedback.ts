@@ -6,11 +6,16 @@ import {
   type FeedbackInput,
   type FeedbackSubmission,
 } from "@/types/feedback";
-import { errorLog } from "@/utils/logger";
+import { errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
 import {
   readFeedbackOutbox,
+  setFeedbackOutboxWarningReporter,
   writeFeedbackOutbox,
 } from "@/apis/feedbackOutbox";
+
+setFeedbackOutboxWarningReporter((message, error) => {
+  warnLog(message, getErrorLogDetails(error));
+});
 
 const MAX_OUTBOX_SIZE = 50;
 const REQUEST_TIMEOUT_MS = 12_000;

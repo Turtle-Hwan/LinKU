@@ -14,6 +14,19 @@ function parseFeedbackOutbox(value: unknown): FeedbackSubmission[] {
   });
 }
 
+type OutboxWarningReporter = (message: string, error: unknown) => void;
+
+// This module is imported directly by node tests, so it must not pull in the
+// alias-resolved logger. The app installs a real reporter at startup; tests
+// keep the no-op and stay dependency-free.
+let reportOutboxWarning: OutboxWarningReporter = () => {};
+
+export function setFeedbackOutboxWarningReporter(
+  reporter: OutboxWarningReporter,
+): void {
+  reportOutboxWarning = reporter;
+}
+
 function getExtensionStorage(): chrome.storage.StorageArea | null {
   return globalThis.chrome?.storage?.local ?? null;
 }
@@ -41,7 +54,11 @@ export async function readFeedbackOutbox(): Promise<FeedbackSubmission[]> {
 
   try {
     return parseFeedbackOutbox(JSON.parse(stored));
-  } catch {
+  } catch (error) {
+    // Unparseable storage means feedback the user already wrote is dropped.
+    // Returning an empty outbox keeps the app working, but the loss must not
+    // be invisible.
+    reportOutboxWarning("[Feedback] Discarded an unreadable outbox", error);
     return [];
   }
 }

@@ -22,6 +22,7 @@ import {
   errorLog,
   getErrorLogDetails,
   getHttpErrorLogDetails,
+  warnLog,
 } from "@/utils/logger";
 
 // Backend URL from environment
@@ -73,6 +74,10 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     const redirectUri = `https://${extensionId}.chromiumapp.org/`;
 
     if (!BACKEND_URL) {
+      // A build shipped without a backend URL cannot log anyone in, and the
+      // user only sees a generic retry message. Record it so the broken
+      // configuration is visible instead of looking like a transient outage.
+      warnLog("[Background] OAuth unavailable: backend URL is not configured");
       return {
         success: false,
         error: "로그인 기능을 사용할 수 없습니다. 잠시 후 다시 시도해주세요.",
@@ -90,6 +95,10 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     });
 
     if (!responseUrl) {
+      // launchWebAuthFlow resolves without a URL both when the user closes the
+      // window and when the flow ends without a redirect, so this is not
+      // necessarily a cancellation and must not disappear silently.
+      warnLog("[Background] OAuth flow returned no redirect URL");
       return { success: false, error: "인증이 취소되었습니다." };
     }
 
