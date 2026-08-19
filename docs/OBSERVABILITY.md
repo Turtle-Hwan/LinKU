@@ -49,6 +49,9 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 - URL의 민감한 query value와 exception/message/breadcrumb/extra를 포함한 모든 중첩 문맥의
   token·email·credential 값 비식별화
 - tracing과 session replay를 기본 활성화하지 않음
+- `MONITORING_IGNORED_ERROR_MESSAGES`의 생명주기 잡음은 수집하지 않음. 브라우저 종료
+  시점의 `The browser is shutting down.`은 LinKU의 실패가 아니라 MV3 service worker가
+  내려가는 정황이므로 console 경고만 남기고 collector는 버림
 - 기존 GA4 `sendError`와 React fallback UI는 유지
 
 처리된 오류도 누락하지 않도록 `errorLog`는 console 출력과 함께 handled Sentry exception을

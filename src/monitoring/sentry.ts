@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/browser";
 import type { Breadcrumb } from "@sentry/browser";
 import {
   MONITORING_FLUSH_TIMEOUT_MS,
+  MONITORING_IGNORED_ERROR_MESSAGES,
   MONITORING_MAX_BREADCRUMBS,
   MONITORING_MAX_VALUE_LENGTH,
   MONITORING_NORMALIZE_DEPTH,
@@ -105,6 +106,7 @@ function initSentry(runtime: MonitoringRuntime): MonitoringInitResult {
       maxValueLength: MONITORING_MAX_VALUE_LENGTH,
       normalizeDepth: MONITORING_NORMALIZE_DEPTH,
       normalizeMaxBreadth: MONITORING_NORMALIZE_MAX_BREADTH,
+      ignoreErrors: [...MONITORING_IGNORED_ERROR_MESSAGES],
       integrations(defaultIntegrations) {
         // The SDK's global handler integration is disabled so the common
         // reporter can install the same handlers in every MV3 runtime.
