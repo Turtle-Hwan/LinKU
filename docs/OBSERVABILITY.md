@@ -72,6 +72,12 @@ Sentry `linku` 프로젝트의 Client Key DSN은 클라이언트 번들에 들�
 Actions repository variable로 관리합니다. 조직 토큰은 절대 `VITE_` 변수로 만들지
 않습니다.
 
+source map 업로드가 실패하면 release build를 실패시킵니다. `@sentry/vite-plugin`은 업로드
+오류 뒤에도 정상 종료하고 `silent`가 원인을 감추므로, 이 설정이 없으면 권한이 부족한 토큰
+하나로 source map 없는 release가 그대로 배포되면서 workflow는 초록색으로 남습니다.
+`filesToDeleteAfterUpload`는 업로드 성공 여부와 무관하게 `.map`을 지우기 때문에, "Verify
+source maps are not packaged" 단계는 업로드 실패를 잡아내지 못합니다.
+
 | 종류 | 이름 | 용도 |
 | --- | --- | --- |
 | Secret | `SENTRY_AUTH_TOKEN` | production release와 source map 업로드 (`org:ci`, `org:read`) |

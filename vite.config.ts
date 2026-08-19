@@ -54,7 +54,14 @@ export default defineConfig(({ mode }) => {
           sourcemaps: {
             filesToDeleteAfterUpload: ["dist/**/*.map"],
           },
-          silent: true,
+          // A failed upload must fail the release build. The plugin resolves
+          // successfully after an upload error, and `silent` hides the reason,
+          // so a broken or under-scoped token would ship a release with no
+          // usable source maps while leaving the workflow green.
+          silent: false,
+          errorHandler: (error) => {
+            throw error;
+          },
         }),
       mode === "gh-pages" && copyBannersForGhPages(),
     ],
