@@ -102,6 +102,9 @@ chrome.runtime.onMessage.addListener(
 
       // Type guard: ensure message has a type property
       if (!message || typeof message !== "object" || !("type" in message)) {
+        // Every LinKU sender posts a typed message, so an untyped one means a
+        // caller regressed or a third party is talking to the worker.
+        warnLog("[Background] Rejected message without a type");
         respond({
           success: false,
           error: "Invalid message format",
