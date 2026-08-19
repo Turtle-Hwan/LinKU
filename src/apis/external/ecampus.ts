@@ -7,6 +7,7 @@ import { ECampusTodoItem } from '@/types/todo';
 import { errorLog } from '@/utils/logger';
 import { isExtensionEnvironment } from '@/utils/chrome';
 import { calculateDDay } from '@/utils/todo/dateFormat';
+import { buildECampusLoginBody } from './ecampusLoginBody';
 
 export interface ECampusLoginResponse {
   success: boolean;
@@ -162,7 +163,7 @@ export async function eCampusLoginAPI(
         headers: {
           'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         },
-        body: `usr_id=${userId}&usr_pwd=${userPw}&campus_div=1&encoding=utf-8`,
+        body: buildECampusLoginBody(userId, userPw),
         credentials: 'include',
       }
     );

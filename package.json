@@ -18,6 +18,7 @@
     "lint": "eslint .",
     "test:timetable": "node --experimental-strip-types --test tests/timetable/*.test.ts",
     "test:feedback": "node --experimental-strip-types --test tests/feedback/*.test.ts",
+    "test:ecampus": "node --experimental-strip-types --test tests/ecampus/*.test.ts",
     "test:forms": "node --experimental-strip-types --test tests/forms/*.test.ts",
     "test:monitoring": "node --experimental-strip-types --test tests/monitoring/*.test.ts",
     "test:todo": "node --experimental-strip-types --test tests/todo/*.test.ts",
