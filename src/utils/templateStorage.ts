@@ -29,9 +29,19 @@ import {
   PORTABLE_ICON_PATTERN,
   UNSAVED_TEMPLATE_ID,
 } from "@/constants/template";
+import {
+  GENERIC_LINK_ICON_NAME,
+  getBundledTemplateIcons,
+} from "@/constants/templateIcons";
 import { quarantineSafely } from "@/storage/quarantine";
 import { allocateMonotonicId } from "@/storage/monotonicId";
 import { normalizeStoredTemplate } from "@/storage/templateRecord";
+import {
+  parseTemplateBackup,
+  prepareRestoredTemplate,
+  type RestoredAssetReference,
+  type TemplateBackupV1,
+} from "@/storage/templateBackup";
 import type { Template, TemplateItem } from "@/types/api";
 import { debugLog, errorLog } from "@/utils/logger";
 import { portablePayloadToTemplate } from "@/utils/templateShare";
@@ -39,6 +49,8 @@ import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 
 export type { StoredTemplate } from "@/storage/linkuDb";
+export { MAX_TEMPLATE_BACKUP_BYTES } from "@/storage/templateBackup";
+export type { TemplateBackupV1 } from "@/storage/templateBackup";
 
 export interface TemplateIndexEntry {
   templateId: number;
@@ -174,20 +186,64 @@ async function repairUnregisteredIcons(
   stored: StoredTemplate,
 ): Promise<{ stored: StoredTemplate; changed: boolean }> {
   let changed = false;
+  const bundledIcons = getBundledTemplateIcons();
+  const fallbackIcon = bundledIcons.find(
+    (icon) => icon.name === GENERIC_LINK_ICON_NAME,
+  );
+  if (!fallbackIcon) {
+    throw new Error("기본 링크 아이콘을 찾을 수 없습니다.");
+  }
 
   const repairItems = async (items: TemplateItem[]): Promise<TemplateItem[]> => {
     const repaired: TemplateItem[] = [];
     for (const item of items) {
       const { iconId, iconUrl, iconName } = item.icon;
-      // Bundled icons carry an SVG data URI and never need registering, so the
-      // cheap pattern test runs before any database lookup.
-      if (!PORTABLE_ICON_PATTERN.test(iconUrl)) {
-        repaired.push(item);
+      const bundledIcon = bundledIcons.find(
+        (icon) =>
+          icon.imageUrl === iconUrl &&
+          (icon.id === iconId || icon.name === iconName),
+      );
+      if (bundledIcon) {
+        if (bundledIcon.id === iconId && bundledIcon.name === iconName) {
+          repaired.push(item);
+          continue;
+        }
+        changed = true;
+        repaired.push({
+          ...item,
+          icon: {
+            iconId: bundledIcon.id,
+            iconName: bundledIcon.name,
+            iconUrl: bundledIcon.imageUrl,
+          },
+        });
         continue;
       }
-      if (iconId > 0 && (await getAssetByNumericId(iconId))) {
-        repaired.push(item);
+
+      // A non-portable image that is not bundled cannot become a selectable
+      // editor icon. Keep the item and replace only its unusable image.
+      if (!PORTABLE_ICON_PATTERN.test(iconUrl)) {
+        changed = true;
+        repaired.push({
+          ...item,
+          icon: {
+            iconId: fallbackIcon.id,
+            iconName: fallbackIcon.name,
+            iconUrl: fallbackIcon.imageUrl,
+          },
+        });
         continue;
+      }
+
+      if (iconId > 0) {
+        const existing = await getAssetByNumericId(iconId);
+        // A numeric id alone is not proof that the item points at the right
+        // image. Backup restores and damaged records may carry an id that is
+        // already assigned to another asset in this profile.
+        if (existing?.dataUrl === iconUrl) {
+          repaired.push(item);
+          continue;
+        }
       }
       try {
         const asset = await saveAssetFromDataUrl(iconName || item.name, iconUrl);
@@ -202,7 +258,18 @@ async function repairUnregisteredIcons(
         });
       } catch (error) {
         errorLog("Failed to register an inline template icon", error);
-        repaired.push(item);
+        // A broken image must not leave the whole item impossible to edit.
+        // The original remains available in a user-created backup, while the
+        // live record gets a safe bundled fallback.
+        changed = true;
+        repaired.push({
+          ...item,
+          icon: {
+            iconId: fallbackIcon.id,
+            iconName: fallbackIcon.name,
+            iconUrl: fallbackIcon.imageUrl,
+          },
+        });
       }
     }
     return repaired;
@@ -428,14 +495,26 @@ export function checkTemplateStorageAvailability(): {
 export async function countTemplateItemsUsingIcon(
   iconNumericId: number,
 ): Promise<number> {
+  await ensureMigration();
   const database = await getLinkuDb();
-  const records = await database.getAll("templates");
-  return records.reduce((total, record) => {
-    const items = [...record.template.items, ...record.stagingItems];
-    return (
-      total + items.filter((item) => item.icon.iconId === iconNumericId).length
-    );
-  }, 0);
+  let total = 0;
+
+  for (const key of await database.getAllKeys("templates")) {
+    const record = await readRecord({ store: "templates", key });
+    if (!record) continue;
+    total += [...record.template.items, ...record.stagingItems].filter(
+      (item) => item.icon.iconId === iconNumericId,
+    ).length;
+  }
+
+  const draft = await readRecord({ store: "drafts" });
+  if (draft) {
+    total += [...draft.template.items, ...draft.stagingItems].filter(
+      (item) => item.icon.iconId === iconNumericId,
+    ).length;
+  }
+
+  return total;
 }
 
 /**
@@ -499,21 +578,15 @@ export async function importSharedTemplate(
   return importTemplateCopy(portablePayloadToTemplate(payload), stagingItems);
 }
 
-export interface TemplateBackupV1 {
-  kind: "linku-backup";
-  version: 1;
-  exportedAt: string;
-  templates: StoredTemplate[];
-  assets: Array<{ name: string; dataUrl: string }>;
-}
-
 /**
  * Exports every local template and icon.
  *
  * Sharing covers one template at a time; without a whole-store export a lost
  * Chrome profile takes every template with it, and no server holds a copy.
  */
-export async function createTemplateBackup(): Promise<TemplateBackupV1> {
+export async function createTemplateBackup(): Promise<
+  TemplateBackupV1<StoredTemplate>
+> {
   await ensureMigration();
   const database = await getLinkuDb();
   const assets = await database.getAll("assets");
@@ -536,22 +609,18 @@ export async function createTemplateBackup(): Promise<TemplateBackupV1> {
 export async function restoreTemplateBackup(
   value: unknown,
 ): Promise<{ imported: number; skipped: number }> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    (value as TemplateBackupV1).kind !== "linku-backup" ||
-    (value as TemplateBackupV1).version !== 1 ||
-    !Array.isArray((value as TemplateBackupV1).templates)
-  ) {
-    throw new Error("LinKU 백업 파일이 아닙니다.");
-  }
-
-  const backup = value as TemplateBackupV1;
+  const backup = parseTemplateBackup(value);
   await ensureMigration();
 
+  const restoredAssets = new Map<string, RestoredAssetReference>();
   for (const asset of backup.assets ?? []) {
     try {
-      await saveAssetFromDataUrl(asset.name, asset.dataUrl);
+      const restored = await saveAssetFromDataUrl(asset.name, asset.dataUrl);
+      restoredAssets.set(asset.dataUrl, {
+        numericId: restored.numericId,
+        name: restored.name,
+        dataUrl: restored.dataUrl,
+      });
     } catch (error) {
       errorLog("Failed to restore a backed up icon", error);
     }
@@ -560,18 +629,22 @@ export async function restoreTemplateBackup(
   let imported = 0;
   let skipped = 0;
 
-  // Restored templates always receive fresh ids. Reusing the stored id would
-  // let a backup overwrite a template the user created after the export.
+  // Restored templates receive a fresh local id and stable UUID. The UUID is
+  // also the optional account-sync key, so reusing it would let a repeated or
+  // second-device restore overwrite an existing remote template.
   for (const record of backup.templates) {
-    const normalized = normalizeStoredTemplate(record);
-    if (!normalized.value) {
+    const prepared = prepareRestoredTemplate(record, restoredAssets);
+    if (!prepared) {
       skipped += 1;
       continue;
     }
     try {
+      // A backup may omit an asset that is still embedded in a template. The
+      // normal repair path registers it before the record becomes visible.
+      const { stored } = await repairUnregisteredIcons(prepared);
       await saveTemplateToLocalStorage(
-        { ...normalized.value.template, templateId: UNSAVED_TEMPLATE_ID },
-        normalized.value.stagingItems,
+        stored.template,
+        stored.stagingItems,
       );
       imported += 1;
     } catch (error) {

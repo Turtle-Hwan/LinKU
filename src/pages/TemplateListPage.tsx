@@ -27,6 +27,7 @@ import {
   getTemplatesIndex,
   importSharedTemplate,
   loadTemplateFromLocalStorage,
+  MAX_TEMPLATE_BACKUP_BYTES,
   restoreTemplateBackup,
 } from '@/utils/templateStorage';
 import {
@@ -286,6 +287,9 @@ export const TemplateListPage = () => {
   const handleRestoreBackup = async (file: File | undefined) => {
     if (!file) return;
     try {
+      if (file.size > MAX_TEMPLATE_BACKUP_BYTES) {
+        throw new Error('백업 파일은 10MB 이하여야 합니다.');
+      }
       const result = await restoreTemplateBackup(
         JSON.parse(await file.text()) as unknown,
       );
