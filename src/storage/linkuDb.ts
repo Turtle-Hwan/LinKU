@@ -86,6 +86,9 @@ export type WritableTemplateStore = IDBPObjectStore<
 >;
 
 const DATABASE_NAME = "linku";
+// This PR is the first release that creates `linku`, so every stateless store
+// belongs to the initial v1 schema. The stacked account-sync PR must bump the
+// version when it adds its own stores after this baseline ships.
 const DATABASE_VERSION = 1;
 
 let databasePromise: Promise<LinkuDb> | undefined;
