@@ -175,18 +175,42 @@ export function normalizeStoredTemplate(raw: unknown): NormalizeResult {
   }
 
   const now = new Date().toISOString();
+  const sourceId =
+    typeof source.id === "string" && source.id.trim().length > 0
+      ? source.id.trim()
+      : null;
+  if (!sourceId) {
+    repairs.push("템플릿 고유 식별자가 없어 새로 부여했습니다.");
+  } else if (sourceId !== source.id) {
+    repairs.push("템플릿 고유 식별자의 공백을 정리했습니다.");
+  }
+
+  const sourceCreatedAt =
+    typeof source.createdAt === "string" && source.createdAt.length > 0
+      ? source.createdAt
+      : null;
+  const sourceUpdatedAt =
+    typeof source.updatedAt === "string" && source.updatedAt.length > 0
+      ? source.updatedAt
+      : null;
+  const createdAt = sourceCreatedAt ?? sourceUpdatedAt ?? now;
+  const updatedAt = sourceUpdatedAt ?? createdAt;
+  if (!sourceCreatedAt) {
+    repairs.push("템플릿 생성 시각이 없어 복구했습니다.");
+  }
+  if (!sourceUpdatedAt) {
+    repairs.push("템플릿 수정 시각이 없어 복구했습니다.");
+  }
+
   const template: Template = {
     ...(source as unknown as Template),
     templateId: Number(templateId),
     name,
     height,
     cloned: Boolean(source.cloned),
-    id:
-      typeof source.id === "string" && source.id.length > 0
-        ? source.id
-        : crypto.randomUUID(),
-    createdAt: typeof source.createdAt === "string" ? source.createdAt : now,
-    updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : now,
+    id: sourceId ?? crypto.randomUUID(),
+    createdAt,
+    updatedAt,
     syncStatus: "local",
     items: normalizeItems(source.items, height, repairs, "템플릿"),
   };

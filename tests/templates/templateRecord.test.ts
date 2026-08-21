@@ -107,7 +107,10 @@ test("이름이나 주소가 없는 항목만 제외하고 나머지는 지킨�
 
   assert.ok(result.value);
   assert.equal(result.value.template.items.length, 1);
-  assert.equal(result.repairs.length, 2);
+  assert.equal(
+    result.repairs.filter((note) => note.includes("항목")).length,
+    2,
+  );
 });
 
 test("이름과 높이가 비어 있거나 범위를 벗어나면 보정한다", () => {
@@ -118,7 +121,8 @@ test("이름과 높이가 비어 있거나 범위를 벗어나면 보정한다",
   assert.ok(result.value);
   assert.equal(result.value.template.name, "이름 없는 템플릿");
   assert.equal(result.value.template.height, 6);
-  assert.equal(result.repairs.length, 2);
+  assert.ok(result.repairs.some((note) => note.includes("기본 이름")));
+  assert.ok(result.repairs.some((note) => note.includes("높이")));
 });
 
 test("등록되지 않은 아이콘 식별자를 임의로 지어내지 않는다", () => {
@@ -156,6 +160,27 @@ test("마지막 저장 시각이 없으면 보정으로 기록해 한 번만 다
   // 보정으로 남지 않으면 저장소가 다시 쓰지 않아 읽을 때마다 시각이 바뀌고
   // 목록 정렬이 매번 흔들린다.
   assert.ok(result.repairs.some((note) => note.includes("저장 시각")));
+});
+
+test("고유 식별자와 생성·수정 시각을 한 번 복구해 영속화 대상으로 표시한다", () => {
+  const first = normalizeStoredTemplate(
+    record({ templateId: 15, name: "동기화 준비", height: 6, items: [] }),
+  );
+
+  assert.ok(first.value);
+  assert.ok(first.value.template.id);
+  assert.ok(first.value.template.createdAt);
+  assert.ok(first.value.template.updatedAt);
+  assert.ok(first.repairs.some((note) => note.includes("고유 식별자")));
+  assert.ok(first.repairs.some((note) => note.includes("생성 시각")));
+  assert.ok(first.repairs.some((note) => note.includes("수정 시각")));
+
+  const second = normalizeStoredTemplate(first.value);
+  assert.ok(second.value);
+  assert.equal(second.repairs.length, 0);
+  assert.equal(second.value.template.id, first.value.template.id);
+  assert.equal(second.value.template.createdAt, first.value.template.createdAt);
+  assert.equal(second.value.template.updatedAt, first.value.template.updatedAt);
 });
 
 test("보정은 두 번째 적용에서 더 이상 바뀌지 않는다", () => {
