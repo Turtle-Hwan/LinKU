@@ -137,7 +137,6 @@ export interface TemplateSummary {
   updatedAt: string;
   itemCount?: number;
   syncStatus?: 'local' | 'synced'; // Local-only or synced with server
-  previewUrl?: string;
   items?: TemplateItem[]; // For preview rendering
 }
 
