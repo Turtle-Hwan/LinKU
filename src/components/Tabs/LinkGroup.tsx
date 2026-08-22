@@ -2,6 +2,7 @@ import { LinkList, LinkListElement } from "@/constants/LinkList";
 import { getCurrentTab } from "@/utils/chrome";
 import { sendLinkClick } from "@/utils/analytics";
 import React, { use } from "react";
+import { TemplateIconImage } from "@/components/TemplateIconImage";
 
 interface LinkGroupProps {
   items?: LinkListElement[];
@@ -48,7 +49,7 @@ const GridItem = ({ item, colNum }) => {
     >
       <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
         {item.type === "png" || item.type === "svg" ? (
-          <img
+          <TemplateIconImage
             src={item.icon}
             alt={`${item.label} 이미지`}
             className={`Icon__Animation w-5 h-5 ${item.iconColor || 'text-main'}`}

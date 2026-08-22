@@ -10,6 +10,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { TemplateItem } from '@/types/api';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { cn } from '@/lib/utils';
+import { TemplateIconImage } from '@/components/TemplateIconImage';
 import { gridToPixelPosition, gridToPixelSize, pixelToGridSize, clampToGridBounds, GRID_CONFIG } from '@/utils/template';
 import { Maximize2, Trash2 } from 'lucide-react';
 
@@ -141,7 +142,7 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
       <div className="flex flex-row items-center justify-start px-4 py-2 h-full gap-3 overflow-hidden">
         {/* Icon with circular background */}
         <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
-          <img
+          <TemplateIconImage
             src={item.icon.iconUrl}
             alt={item.icon.iconName}
             className="w-5 h-5 object-contain"

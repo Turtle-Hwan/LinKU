@@ -15,7 +15,7 @@ let bundledIcons: Icon[] | undefined;
  */
 export const GENERIC_LINK_ICON_NAME = "링크";
 
-const GENERIC_LINK_ICON_URL = `data:image/svg+xml,${encodeURIComponent(
+export const GENERIC_LINK_ICON_URL = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/></svg>',
 )}`;
 
