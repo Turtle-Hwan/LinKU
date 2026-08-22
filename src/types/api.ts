@@ -27,36 +27,6 @@ export interface ApiError {
 }
 
 /**
- * Pagination parameters for list endpoints
- */
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
-  sort?: string;
-  order?: "asc" | "desc";
-}
-
-/**
- * Pagination metadata in responses
- */
-export interface PaginationMeta {
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
-  itemsPerPage: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-}
-
-/**
- * Paginated response wrapper
- */
-export interface PaginatedResponse<T> {
-  items: T[];
-  meta: PaginationMeta;
-}
-
-/**
  * Common timestamp fields
  */
 export interface Timestamps {
@@ -70,11 +40,6 @@ export interface Timestamps {
 export interface BaseEntity extends Timestamps {
   id: string;
 }
-
-/**
- * HTTP methods
- */
-export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 /**
  * Request configuration
@@ -98,15 +63,6 @@ export interface Icon {
   imageUrl: string;
   isDefault?: boolean;
   createdAt?: string;
-}
-
-/**
- * Response after uploading an icon
- */
-export interface CreateIconResponse {
-  id: number;
-  name: string;
-  imageUrl: string;
 }
 
 // ============================================================================
@@ -157,17 +113,6 @@ export interface TemplateItem {
 }
 
 /**
- * Template item for request (without ID and icon details)
- */
-export interface TemplateItemRequest {
-  name: string;
-  siteUrl: string;
-  iconId: number;
-  position: Position;
-  size: Size;
-}
-
-/**
  * Template entity
  */
 export interface Template extends BaseEntity {
@@ -177,33 +122,6 @@ export interface Template extends BaseEntity {
   cloned: boolean;
   items: TemplateItem[];
   syncStatus?: 'local' | 'synced'; // Local-only or synced with server
-}
-
-/**
- * Request to create a template
- */
-export interface CreateTemplateRequest {
-  templateId: number;
-  name: string;
-  height: number;
-  items: TemplateItemRequest[];
-}
-
-/**
- * Request to update a template
- */
-export interface UpdateTemplateRequest {
-  name?: string;
-  height?: number;
-  items?: TemplateItemRequest[];
-}
-
-/**
- * Template list query parameters
- */
-export interface TemplateListParams {
-  sort?: string;
-  query?: string;
 }
 
 /**
@@ -223,12 +141,12 @@ export interface TemplateSummary {
 }
 
 // ============================================================================
-// Posted Templates
+// Template Preview
 // ============================================================================
 
 /**
  * Common item interface for preview rendering
- * Supports both TemplateItem and PostedTemplateItem
+ * Keeps preview rendering independent from storage-only item identifiers.
  */
 export interface PreviewableItem {
   name: string;
@@ -239,80 +157,6 @@ export interface PreviewableItem {
     iconUrl: string;
     iconName: string;
   };
-}
-
-/**
- * Posted template item (from detail API response)
- */
-export interface PostedTemplateItem {
-  postedTemplateItemId: number;
-  name: string;
-  siteUrl: string;
-  position: { x: number; y: number };
-  size: { width: number; height: number };
-  icon: {
-    iconName: string;
-    iconUrl: string;
-  };
-}
-
-/**
- * Posted (shared) template detail
- * Matches actual API response from /posted-templates/{id}
- */
-export interface PostedTemplate {
-  postedTemplateId: number;
-  name: string;
-  ownerId: number;
-  ownerName: string;
-  height: number;
-  likesCount: number;
-  usageCount: number;
-  items: PostedTemplateItem[];
-}
-
-/**
- * Posted template summary (for list views)
- * Matches actual API response from /posted-templates/public
- */
-export interface PostedTemplateSummary {
-  postedTemplateId: number;
-  name: string;
-  ownerId: number;
-  ownerName: string;
-  height: number;
-  likesCount: number;
-  usageCount: number;
-  items: number;
-  previewUrl?: string;
-  isLiked?: boolean;
-  detailItems?: PostedTemplateItem[]; // 미리보기용 상세 items (클라이언트에서 추가)
-}
-
-/**
- * Query parameters for posted templates list
- */
-export interface PostedTemplateListParams {
-  sort?: "most-liked" | "most-used" | "newest" | "oldest";
-  query?: string;
-  page?: number;
-  limit?: number;
-}
-
-/**
- * Response after cloning a template
- */
-export interface CloneTemplateResponse {
-  templateId: number;
-  message: string;
-}
-
-/**
- * Response after liking a template
- */
-export interface LikeTemplateResponse {
-  isLiked: boolean;
-  likeCount: number;
 }
 
 // ============================================================================
@@ -502,25 +346,6 @@ export interface Subscription {
  */
 export interface AlertFilterParams {
   category?: AlertCategory;
-}
-
-// ============================================================================
-// Common Response Types
-// ============================================================================
-
-/**
- * Delete response (generic)
- */
-export interface DeleteResponse {
-  message: string;
-}
-
-/**
- * Post template response
- */
-export interface PostTemplateResponse {
-  postedTemplateId: number;
-  message: string;
 }
 
 // ============================================================================
