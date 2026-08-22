@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   decodeTemplateSharePayload,
   encodeTemplateSharePayload,
+  MAX_SHARE_FILE_BYTES,
   validateTemplateSharePayload,
 } from "../../src/utils/templateShareCodec.ts";
 import type { TemplateSharePayloadV1 } from "../../src/types/templateShare.ts";
@@ -61,6 +62,17 @@ test("외부 추적이 가능한 remote icon 형식을 거부한다", () => {
     url: "https://tracker.example/icon.png",
   };
   assert.throws(() => validateTemplateSharePayload(remoteIcon), /아이콘/u);
+});
+
+test("검사 대상 필드 밖에 숨긴 대용량 데이터도 거부한다", () => {
+  const oversized = {
+    ...structuredClone(payload),
+    ignored: "x".repeat(MAX_SHARE_FILE_BYTES),
+  };
+  assert.throws(
+    () => validateTemplateSharePayload(oversized),
+    /크기/u,
+  );
 });
 
 test("손상된 압축 fragment를 사용자용 오류로 변환한다", async () => {

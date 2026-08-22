@@ -152,6 +152,18 @@ export function validateTemplateSharePayload(
   value: unknown,
 ): asserts value is TemplateSharePayloadV1 {
   if (!value || typeof value !== "object") throw new Error("공유 데이터가 없습니다.");
+  let serialized: string | undefined;
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    throw new Error("공유 데이터를 읽을 수 없습니다.");
+  }
+  if (
+    typeof serialized !== "string" ||
+    new TextEncoder().encode(serialized).byteLength > MAX_SHARE_FILE_BYTES
+  ) {
+    throw new Error("공유 데이터가 허용된 크기를 초과합니다.");
+  }
   const payload = value as Record<string, unknown>;
   const template = payload.template as Record<string, unknown> | undefined;
   if (
