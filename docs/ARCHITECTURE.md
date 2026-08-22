@@ -31,13 +31,38 @@ extension build는 다음 entry를 `dist/`에 생성합니다.
 - `src/components/ui/`: 공통 UI primitive.
 - `src/components/Editor/`: template editor.
 - `src/contexts/`, `src/hooks/`: React state와 reusable hook.
-- `src/apis/`: LinKU backend client.
+- `src/storage/`: IndexedDB schema, record normalization과 repository primitive.
+- `src/apis/`: 현재 연결된 LinKU backend client. 템플릿·아이콘 로컬 저장은 포함하지 않음.
 - `src/apis/external/`: 학교·외부 서비스 연동.
 - `src/background/`: MV3 service worker와 message handler.
 - `src/content/`: 허용된 외부 페이지 content script.
 - `src/types/`, `src/utils/`: 공유 contract와 cross-cutting utility.
 
 ## 주요 데이터 흐름
+
+### 개인 템플릿과 공유
+
+개인 템플릿 CRUD는 LinKU backend와 분리되어 있습니다. popup과 editor는
+`src/utils/templateStorage.ts`의 저장소 경계만 사용하고, 실제 템플릿은 `linku`
+IndexedDB에 저장합니다. `src/storage/legacyTemplateStorage.ts`가 이전 저장소 이관을,
+`src/storage/templateIconRepair.ts`가 읽기 시 아이콘 복구를 각각 맡습니다. 사용자가
+올린 아이콘도 256px 이하 WebP로 정규화한 뒤 같은 DB의 별도 store에 저장하며 화면은
+`src/utils/localIcons.ts`의 명시적인 로컬 작업만 호출합니다. `drafts` store는 이전
+버전의 draft를 잃지 않도록 보관하지만 현재 편집 흐름에는 연결하지 않습니다.
+
+기존 `localStorage` 템플릿과 draft는 popup이 처음 저장소를 열 때 한 번
+IndexedDB로 복사합니다. 이전 값은 한 릴리즈 동안 rollback 원본으로 남기므로
+마이그레이션 실패가 기존 데이터 삭제로 이어지지 않습니다.
+
+작은 템플릿 공유 링크는 압축한 payload를 GitHub Pages URL의 fragment(`#`)에
+담습니다. fragment는 HTTP 요청에 포함되지 않으며 Pages의 `/share/` 화면에서만
+검증·해제됩니다. URL 제한을 넘는 템플릿은 서버에 자동 업로드하지 않고
+`.linku.json` 파일로 내보냅니다. Pages에서 확장 프로그램으로 가져오는 외부
+메시지는 manifest와 background 양쪽에서 LinKU share 경로로 제한합니다.
+
+계정 로그인, 여러 기기 동기화, 충돌 처리와 cloud share는 이 로컬 저장소 위에
+별도 계층으로 추가하며, 로컬 저장 성공 여부와 분리해야 합니다. 상세 경계는
+`docs/LOCAL_FIRST.md`를 참고합니다.
 
 ### Backend와 인증
 
@@ -80,7 +105,9 @@ popup이 닫힌 동안 background polling은 실행하지 않습니다.
 
 - `chrome.storage.local`: auth, 설정, todo, badge, 공지 캐시, 시간표 metadata와
   snapshot/override.
-- `localStorage`: template draft와 local template.
+- IndexedDB `linku`: 개인 template, legacy draft, 사용자 icon blob, 손상 record 격리.
+- `localStorage`: non-extension 시간표 fallback과 이전 template/draft의 1회
+  마이그레이션 원본. 새 template 데이터는 쓰지 않습니다.
 - IndexedDB: 사용자가 직접 올린 시간표 이미지 blob.
 
 시간표 metadata의 read-modify-write는 Web Locks로 popup과 background 사이에서

@@ -129,34 +129,6 @@ export const ENDPOINTS = {
     VERIFY_CODE: "/auth/verify-code",
   },
 
-  // Templates
-  TEMPLATES: {
-    BASE: "/templates",
-    DETAIL: (id: number) => `/templates/${id}`,
-    OWNED: "/templates/owned",
-    CLONED: "/templates/cloned",
-    POST: (id: number) => `/templates/${id}/post`,
-  },
-
-  // Posted Templates
-  POSTED_TEMPLATES: {
-    PUBLIC: "/posted-templates/public",
-    MY: "/posted-templates/my",
-    DETAIL: (id: number) => `/posted-templates/${id}`,
-    CLONE: (id: number) => `/posted-templates/${id}/clone`,
-    LIKE: (id: number) => `/posted-templates/${id}/like`,
-    DELETE: (id: number) => `/posted-templates/${id}`,
-  },
-
-  // Icons
-  ICONS: {
-    BASE: "/icons",
-    DEFAULT: "/icons/default",
-    MY: "/icons/my",
-    RENAME: (id: number) => `/icons/${id}/rename`,
-    DELETE: (id: number) => `/icons/${id}`,
-  },
-
   // Alerts
   ALERTS: {
     MY: "/alerts/my",
@@ -519,123 +491,9 @@ export async function post<T = unknown>(
   return request<T>(url, "POST", data, config);
 }
 
-export async function put<T = unknown>(
-  url: string,
-  data?: unknown,
-  config?: RequestConfig,
-): Promise<ApiResponse<T>> {
-  return request<T>(url, "PUT", data, config);
-}
-
 export async function del<T = unknown>(
   url: string,
   config?: RequestConfig,
 ): Promise<ApiResponse<T>> {
   return request<T>(url, "DELETE", undefined, config);
-}
-
-export async function patch<T = unknown>(
-  url: string,
-  data?: unknown,
-  config?: RequestConfig,
-): Promise<ApiResponse<T>> {
-  return request<T>(url, "PATCH", data, config);
-}
-
-/**
- * Public request function (no auth interceptor)
- * For public endpoints that don't require authentication
- */
-export async function publicRequest<T = unknown>(
-  url: string,
-  method: string,
-  body?: unknown,
-  config?: RequestConfig,
-): Promise<ApiResponse<T>> {
-  let safeEndpoint = getSafeEndpoint(url);
-
-  try {
-    const { headers = {}, params } = config || {};
-
-    const urlWithParams = buildUrl(url, params);
-    const fullUrl = url.startsWith("http")
-      ? urlWithParams
-      : `${API_BASE_URL}${urlWithParams}`;
-    safeEndpoint = getSafeEndpoint(fullUrl);
-
-    recordBreadcrumb("api.request", "public request started", {
-      endpoint: safeEndpoint,
-      method: method.toUpperCase(),
-      has_body: body !== undefined,
-      public: true,
-    });
-
-    const response = await fetch(fullUrl, {
-      method,
-      headers: { "Content-Type": "application/json", ...headers },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    let data: unknown;
-    try {
-      const contentType = response.headers.get("content-type");
-      data = contentType?.includes("application/json")
-        ? await response.json()
-        : await response.text();
-    } catch (parseError) {
-      reportApiException(parseError, "public_api_response_parse", {
-        endpoint: safeEndpoint,
-        method: method.toUpperCase(),
-        status: response.status,
-      });
-      warnLog(
-        "[API Client] Public response parsing error",
-        getErrorLogDetails(parseError),
-      );
-      return {
-        success: false,
-        status: response.status,
-        error: {
-          code: "PARSE_ERROR",
-          message: "공개 API 응답을 읽지 못했습니다.",
-        },
-      };
-    }
-
-    if (!response.ok) {
-      reportApiHttpFailure(method, safeEndpoint, response, data);
-      return {
-        success: false,
-        status: response.status,
-        error: {
-          code: getApiErrorCode(data) ?? "ERROR",
-          message:
-            data && typeof data === "object" && "message" in data
-              ? String((data as Record<string, unknown>).message)
-              : `HTTP Error: ${response.status} ${response.statusText}`,
-        },
-      };
-    }
-
-    // Extract 'result' field if present (backend response format)
-    const resultData =
-      data && typeof data === "object" && "result" in data
-        ? (data as Record<string, unknown>).result
-        : data;
-
-    return { success: true, status: response.status, data: resultData as T };
-  } catch (error) {
-    reportApiException(error, "public_api_network_error", {
-      endpoint: safeEndpoint,
-      method: method.toUpperCase(),
-    });
-    warnLog("[API Client] Public request error", getErrorLogDetails(error));
-    return {
-      success: false,
-      error: {
-        code: "NETWORK_ERROR",
-        message: "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
-      },
-    };
-  }
 }

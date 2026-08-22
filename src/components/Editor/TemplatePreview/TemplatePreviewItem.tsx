@@ -4,8 +4,9 @@
  */
 
 import type { PreviewableItem } from '@/types/api';
-import { gridToPixelPosition, gridToPixelSize } from '@/utils/template';
+import { gridToPixelPosition, gridToPixelSize } from '@/utils/templateGrid';
 import { cn } from '@/lib/utils';
+import { TemplateIconImage } from '@/components/TemplateIconImage';
 
 interface TemplatePreviewItemProps {
   item: PreviewableItem;
@@ -51,7 +52,7 @@ export const TemplatePreviewItem = ({ item, scale = 1.0 }: TemplatePreviewItemPr
             height: 9 * scale * 4,
           }}
         >
-          <img
+          <TemplateIconImage
             src={item.icon.iconUrl}
             alt={item.icon.iconName}
             className="object-contain"

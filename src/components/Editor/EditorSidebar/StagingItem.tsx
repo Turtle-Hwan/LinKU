@@ -6,6 +6,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { TemplateItem } from '@/types/api';
+import { TemplateIconImage } from '@/components/TemplateIconImage';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { cn } from '@/lib/utils';
 import { Trash2 } from 'lucide-react';
@@ -63,7 +64,7 @@ export const StagingItem = ({ item, onDelete }: StagingItemProps) => {
       <div className="flex flex-row items-center justify-start px-3 py-2 gap-2">
         {/* Icon with circular background */}
         <div className="w-8 h-8 rounded-full bg-main/10 flex items-center justify-center shrink-0">
-          <img
+          <TemplateIconImage
             src={item.icon.iconUrl}
             alt={item.icon.iconName}
             className="w-4 h-4 object-contain"

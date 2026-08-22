@@ -21,10 +21,7 @@
  * - System     : sendError
  * - Template   : sendTemplateEditorView, sendTemplateCreateStart,
  *                sendTemplateItemAdd, sendTemplateItemUpdate, sendTemplateItemDelete,
- *                sendTemplateSaveSuccess/Fail, sendTemplateSyncSuccess/Fail,
- *                sendTemplatePublishSuccess/Fail, sendTemplateApply, sendTemplateDelete
- * - Gallery    : sendTemplateGalleryView, sendTemplateGallerySearch,
- *                sendTemplateCloneSuccess/Fail, sendTemplateLikeToggle
+ *                sendTemplateSaveSuccess/Fail, sendTemplateApply, sendTemplateDelete
  * - Banner     : sendBannerOpen
  * - Alerts     : sendAlertsView, sendAlertsItemOpen, sendAlertsSubscriptionChange
  * - Todo       : sendTodoView, sendTodoItemCreate, sendTodoItemComplete, sendTodoItemDelete
@@ -636,72 +633,6 @@ export async function sendTemplateSaveFail(
 }
 
 /**
- * 템플릿 서버 동기화 성공 이벤트 전송
- * @param templateId 템플릿 식별자
- * @param itemCount 동기화된 아이템 수
- */
-export async function sendTemplateSyncSuccess(
-  templateId: number,
-  itemCount: number
-): Promise<void> {
-  await sendGAEvent("MP_templateSync_success", {
-    template_id: templateId,
-    item_count: itemCount,
-  });
-}
-
-/**
- * 템플릿 서버 동기화 실패 이벤트 전송
- * @param templateId 템플릿 식별자
- * @param errorCode 에러 식별 코드
- * @param errorMessage 사람이 읽는 에러 설명
- */
-export async function sendTemplateSyncFail(
-  templateId: number,
-  errorCode: string,
-  errorMessage: string
-): Promise<void> {
-  await sendGAEvent("MP_templateSync_fail", {
-    template_id: templateId,
-    error_code: errorCode,
-    error_message: errorMessage,
-  });
-}
-
-/**
- * 템플릿 갤러리 게시 성공 이벤트 전송
- * @param templateId 템플릿 식별자
- * @param itemCount 게시된 아이템 수
- */
-export async function sendTemplatePublishSuccess(
-  templateId: number,
-  itemCount: number
-): Promise<void> {
-  await sendGAEvent("MP_templatePublish_success", {
-    template_id: templateId,
-    item_count: itemCount,
-  });
-}
-
-/**
- * 템플릿 갤러리 게시 실패 이벤트 전송
- * @param templateId 템플릿 식별자
- * @param errorCode 에러 식별 코드
- * @param errorMessage 사람이 읽는 에러 설명
- */
-export async function sendTemplatePublishFail(
-  templateId: number,
-  errorCode: string,
-  errorMessage: string
-): Promise<void> {
-  await sendGAEvent("MP_templatePublish_fail", {
-    template_id: templateId,
-    error_code: errorCode,
-    error_message: errorMessage,
-  });
-}
-
-/**
  * 템플릿 메인 화면 적용 이벤트 전송 — 핵심 가치 행동
  * @param templateId 템플릿 식별자
  * @param templateOrigin 템플릿 출처
@@ -734,79 +665,6 @@ export async function sendTemplateDelete(
     template_id: templateId,
     template_origin: templateOrigin,
     sync_status: syncStatus,
-  });
-}
-
-// ─── Template Gallery ──────────────────────────────────────────────────────
-
-/**
- * 템플릿 갤러리 진입 이벤트 전송
- * @param entryPoint 진입 경로 (예: "settings_dialog", "popup")
- */
-export async function sendTemplateGalleryView(entryPoint: string): Promise<void> {
-  await sendGAEvent("MP_templateGallery_view", { entry_point: entryPoint });
-}
-
-/**
- * 갤러리 검색 이벤트 전송
- * @param queryLength 검색어 길이
- * @param sortOption 현재 정렬 옵션
- */
-export async function sendTemplateGallerySearch(
-  queryLength: number,
-  sortOption: string
-): Promise<void> {
-  await sendGAEvent("MP_templateGallery_search", {
-    query_length: queryLength,
-    sort_option: sortOption,
-  });
-}
-
-/**
- * 갤러리 템플릿 복제 성공 이벤트 전송
- * @param postedTemplateId 게시된 템플릿 식별자
- * @param isAuthorIdPresent 작성자 ID 포함 여부
- */
-export async function sendTemplateCloneSuccess(
-  postedTemplateId: number,
-  isAuthorIdPresent: boolean
-): Promise<void> {
-  await sendGAEvent("MP_templateClone_success", {
-    posted_template_id: postedTemplateId,
-    is_author_id_present: isAuthorIdPresent,
-  });
-}
-
-/**
- * 갤러리 템플릿 복제 실패 이벤트 전송
- * @param postedTemplateId 게시된 템플릿 식별자
- * @param errorCode 에러 식별 코드
- * @param errorMessage 사람이 읽는 에러 설명 (선택)
- */
-export async function sendTemplateCloneFail(
-  postedTemplateId: number,
-  errorCode: string,
-  errorMessage?: string
-): Promise<void> {
-  await sendGAEvent("MP_templateClone_fail", {
-    posted_template_id: postedTemplateId,
-    error_code: errorCode,
-    ...(errorMessage && { error_message: errorMessage }),
-  });
-}
-
-/**
- * 좋아요 토글 이벤트 전송
- * @param postedTemplateId 게시된 템플릿 식별자
- * @param isLiked 좋아요 여부 (true: 좋아요, false: 취소)
- */
-export async function sendTemplateLikeToggle(
-  postedTemplateId: number,
-  isLiked: boolean
-): Promise<void> {
-  await sendGAEvent("MP_template_likeToggle", {
-    posted_template_id: postedTemplateId,
-    is_liked: isLiked,
   });
 }
 

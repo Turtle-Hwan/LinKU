@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { useEditorContext } from '@/hooks/useEditorContext';
-import { GRID_CONFIG } from '@/utils/template';
+import { GRID_CONFIG } from '@/utils/templateGrid';
 import { Button } from '@/components/ui/button';
 import { Zap, Upload } from 'lucide-react';
 import { IconUploadDialog } from './IconUploadDialog';

@@ -13,7 +13,7 @@
 | Retention 파악 | 사용자가 설치/첫 사용 후 다시 돌아오는가 | first-open cohort retention, weekly returning users |
 | 핵심 가치 행동 파악 | 어떤 행동이 LinKU의 핵심 가치를 보여주는가 | link click rate, template apply rate, alert/todo usage |
 | 기능 채택 파악 | 사용자가 어떤 기능을 실제로 쓰는가 | feature adoption by domain |
-| 템플릿 기능 성과 파악 | 템플릿 생성/저장/동기화/게시 흐름이 잘 작동하는가 | editor conversion funnel |
+| 템플릿 기능 성과 파악 | 템플릿 생성/저장/적용 흐름이 잘 작동하는가 | local editor conversion funnel |
 | 계정 연동 파악 | 로그인/이메일 인증이 사용성에 어떤 영향을 주는가 | login start -> success, guest -> verified |
 
 ## Principles
@@ -43,7 +43,7 @@
 | `extension_` | 확장 프로그램 lifecycle | `extension_first_open` |
 | `navigation_` | 화면/탭/진입 | `navigation_tab_select` |
 | `link_` | 핵심 링크 사용 | `link_open` |
-| `template_` | 템플릿 생성/편집/배포 | `template_publish_success` |
+| `template_` | 템플릿 생성/편집/적용 | `template_save_success` |
 | `auth_` | 로그인/인증 | `auth_login_success` |
 | `alerts_` | 공지 기능 | `alerts_item_open` |
 | `todo_` | Todo 기능 | `todo_item_create` |
@@ -123,18 +123,21 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `template_item_delete` | 구현됨 | 아이템 삭제 행위 | `delete_source`, `template_id` | P2 |
 | `template_save_success` | 구현됨 | 로컬 저장 완료 | `template_id`, `template_origin`, `item_count` | P0 |
 | `template_save_fail` | 구현됨 | 저장 실패 원인 파악 | `template_id`, `error_code`, `error_message` | P1 |
-| `template_sync_success` | 구현됨 | 서버 동기화 성공 | `template_id`, `item_count` | P0 |
-| `template_sync_fail` | 구현됨 | 동기화 실패 | `template_id`, `error_code`, `error_message` | P1 |
-| `template_publish_success` | 구현됨 | 갤러리 게시 성공 | `template_id`, `item_count` | P0 |
-| `template_publish_fail` | 구현됨 | 게시 실패 | `template_id`, `error_code`, `error_message` | P1 |
+| `template_sync_success` | 미구현 | 서버 동기화 성공 | `template_id`, `item_count` | P0 |
+| `template_sync_fail` | 미구현 | 동기화 실패 | `template_id`, `error_code`, `error_message` | P1 |
+| `template_publish_success` | 미구현 | 갤러리 게시 성공 | `template_id`, `item_count` | P0 |
+| `template_publish_fail` | 미구현 | 게시 실패 | `template_id`, `error_code`, `error_message` | P1 |
 | `template_apply` | 구현됨 | 실제 메인 화면 적용 행동 | `template_id`, `template_origin`, `is_default` | P0 |
 | `template_delete` | 구현됨 | 템플릿 삭제 | `template_id`, `template_origin`, `sync_status` | P2 |
-| `template_gallery_open` | 구현됨 | 갤러리 진입 | `entry_point` | P1 |
-| `template_gallery_search` | 구현됨 | 갤러리 검색 및 정렬 사용 | `query_length`, `sort_option` | P2 |
-| `template_gallery_sort_change` | 통합됨 | 정렬 변경 | `template_gallery_search`의 `sort_option`으로 통합 | P3 |
-| `template_clone_success` | 구현됨 | 공개 템플릿 복제 성공 | `posted_template_id`, `is_author_id_present` | P1 |
-| `template_clone_fail` | 구현됨 | 복제 실패 | `posted_template_id`, `error_code`, `error_message?` | P2 |
-| `template_like_toggle` | 구현됨 | 좋아요 사용 | `posted_template_id`, `is_liked` | P2 |
+| `template_gallery_open` | 미구현 | 갤러리 진입 | `entry_point` | P1 |
+| `template_gallery_search` | 미구현 | 갤러리 검색 및 정렬 사용 | `query_length`, `sort_option` | P2 |
+| `template_gallery_sort_change` | 미구현 | 정렬 변경 | `template_gallery_search`의 `sort_option`으로 통합 예정 | P3 |
+| `template_clone_success` | 미구현 | 공개 템플릿 복제 성공 | `posted_template_id`, `is_author_id_present` | P1 |
+| `template_clone_fail` | 미구현 | 복제 실패 | `posted_template_id`, `error_code`, `error_message?` | P2 |
+| `template_like_toggle` | 미구현 | 좋아요 사용 | `posted_template_id`, `is_liked` | P2 |
+
+동기화·게시·커뮤니티 helper와 call site는 후속 stateful PR에서 실제 기능과 함께
+추가합니다. stateless PR에서는 전송되지 않는 이벤트를 구현된 것으로 표시하지 않습니다.
 
 ## Alerts / Todo / Labs Events
 
@@ -189,7 +192,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `template_editor_open` | `MP_templateEditor_view` | prefix + _view 진입 컨벤션 |
 | `template_create_start` | `MP_template_createStart` | prefix + camelCase action |
 | `template_item_add/update/delete` | `MP_templateItem_add/update/delete` | prefix + camelCase object |
-| `template_save/sync/publish_success/fail` | `MP_templateSave/Sync/Publish_success/fail` | prefix + camelCase trio |
+| `template_save_success/fail` | `MP_templateSave_success/fail` | prefix + camelCase trio |
 | `template_apply` | `MP_template_apply` | prefix 적용 |
 | `template_delete` | `MP_template_delete` | prefix 적용 |
 | `template_gallery_open` | `MP_templateGallery_view` | prefix + _view 진입 컨벤션 |
@@ -218,8 +221,6 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | P0 | `extension_open` | 구현됨 |
 | P0 | `link_open` | 구현됨 |
 | P0 | `template_save_success` | 구현됨 |
-| P0 | `template_sync_success` | 구현됨 |
-| P0 | `template_publish_success` | 구현됨 |
 | P0 | `template_apply` | 구현됨 |
 | P1 | `auth_login_start` | 구현됨 |
 | P1 | `auth_login_success` | 구현됨 |
@@ -235,7 +236,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | First-open retention cohort | `extension_first_open` → `extension_open` |
 | Session-based return cohort | `extension_session_start` |
 | Core action retention | `extension_first_open` cohort + `link_open` return condition |
-| Template funnel | `template_editor_open` → `template_item_add` → `template_save_success` → `template_sync_success` → `template_publish_success` |
+| Local template funnel | `template_editor_open` → `template_item_add` → `template_save_success` → `template_apply` |
 | Auth funnel | `auth_login_start` → `auth_login_success` → `auth_email_verification_success` |
 
 ## Non-Goals
@@ -274,7 +275,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `navigation_tab_view` | 다이얼로그 탭 노출 | 실제로 표시된 실험실·설정 탭 측정 | `feature_area`, `tab_name`, `ui_location`, `view_source` | `usePersistentDialogTab.ts` | 기본값·복원·사용자 선택을 구분 |
 | `MP_alerts_view` | 공지 탭 진입 | 공지 탭 사용 여부 | `view_mode`, `category` | `Alerts.tsx · initialize()` | - |
 | `MP_alertsItem_open` | 공지 클릭 | 공지 클릭률 측정 | `alert_id`, `category`, `source` | `AlertItem.tsx · handleClick` | - |
-| `MP_alertsSubscription_update` | 구독 변경 | 학과 구독 변경 파악 | `category`, `subscription_result`(`subscribe`\|`unsubscribe`) | `SubscriptionManager.tsx · handleSubscribe`, `handleUnsubscribe` | - |
+| `MP_alertsSubscription_update` | 구독 변경 | 학과 구독 변경 파악 | `category`, `subscription_result`(`subscribe`\|`unsubscribe`) | `MyAlertsView.tsx · handleSubscribe`, `handleUnsubscribe` | - |
 | `MP_authEmailVerification_start` | 이메일 인증 시작 | 게스트→회원 전환 시작점 | `ui_location` | `EmailVerificationDialog.tsx · useEffect([open])` | 다이얼로그 재진입마다 전송 → funnel 시작 수 과집계 가능 |
 | `MP_authEmailVerification_success` | 이메일 인증 완료 | 회원 전환 완료 | `domain_type` | `EmailVerificationDialog.tsx · handleVerifyCode` | - |
 | `MP_authLogin_fail` | 로그인 실패 | 로그인 장애 파악 | `provider`, `error_code`, `error_message` | `SettingsDialog.tsx · handleGoogleLogin` (결과·예외 분기) | - |
@@ -291,21 +292,12 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `MP_template_apply` | 템플릿 적용 | 메인 화면 적용 — 핵심 가치 행동 | `template_id`, `template_origin`, `is_default` | `TemplateListPage.tsx · handleApplyTemplate` | - |
 | `MP_template_createStart` | 템플릿 생성 시작 | 새 템플릿 생성 진입 | `template_origin`(`default`\|`empty`) | `TemplateListPage.tsx · handleCreateFromDefault`, `handleCreateEmpty` | - |
 | `MP_template_delete` | 템플릿 삭제 | 템플릿 삭제 파악 | `template_id`, `template_origin`, `sync_status` | `TemplateListPage.tsx · handleDeleteTemplate` | - |
-| `MP_template_likeToggle` | 좋아요 토글 | 좋아요 사용 파악 | `posted_template_id`, `is_liked` | `GalleryPage.tsx · handleLike` | - |
-| `MP_templateClone_fail` | 복제 실패 | 복제 실패 파악 | `posted_template_id`, `error_code`, `error_message?` | `GalleryPage.tsx · handleClone catch` | - |
-| `MP_templateClone_success` | 복제 성공 | 공개 템플릿 복제 성공 | `posted_template_id`, `is_author_id_present` | `GalleryPage.tsx · handleClone` | - |
 | `MP_templateEditor_view` | 에디터 진입 | 에디터 진입률 측정 | `template_origin`, `template_id?` | `EditorPage.tsx · EditorContent useEffect` | 기존 템플릿은 로드된 `template.cloned` 값으로 `owned`/`cloned` 구분 |
-| `MP_templateGallery_search` | 갤러리 검색/정렬 | 갤러리 검색 및 정렬 사용률 | `query_length`, `sort_option` | `GalleryPage.tsx · debounce useEffect([searchQuery, sort])` | 검색어가 없어도 정렬 변경 시 `query_length=0`으로 전송 |
-| `MP_templateGallery_view` | 갤러리 진입 | 갤러리 진입 파악 | `entry_point` | `GalleryPage.tsx · useEffect([])` | - |
 | `MP_templateItem_add` | 아이템 추가 | 에디터 핵심 편집 행위 | `add_method`(`drag`\|`button`), `template_id?` | `EditorPage.tsx · handleDragEnd`, `ItemPropertiesPanel.tsx · handleMoveToCanvas` | - |
 | `MP_templateItem_delete` | 아이템 삭제 | 아이템 삭제 행위 | `delete_source`(`canvas`\|`staging`), `template_id?` | `ItemPropertiesPanel.tsx · handleDelete` | `canvas`: 임시저장 이동, `staging`: 영구삭제 |
 | `MP_templateItem_update` | 아이템 속성 수정 | 아이템 속성 수정 측정 | `update_type`, `template_id?` | `ItemPropertiesPanel.tsx · handleSave` | `update_type` 항상 `"properties"` — 향후 세분화 시 개선 가능 |
-| `MP_templatePublish_fail` | 게시 실패 | 게시 실패 파악 | `template_id`, `error_code`, `error_message` | `EditorHeader.tsx · handlePublish` | - |
-| `MP_templatePublish_success` | 게시 성공 | 갤러리 게시 성공 | `template_id`, `item_count` | `EditorHeader.tsx · handlePublish` | - |
 | `MP_templateSave_fail` | 저장 실패 | 저장 실패 파악 | `template_id`, `error_code`, `error_message` | `EditorHeader.tsx · handleSave` | draft 저장 실패 시 `template_id=0` 전송 (ID 생성 전) |
 | `MP_templateSave_success` | 저장 성공 | 로컬 저장 완료 | `template_id`, `template_origin`, `item_count` | `EditorHeader.tsx · handleSave` | - |
-| `MP_templateSync_fail` | 동기화 실패 | 동기화 실패 파악 | `template_id`, `error_code`, `error_message` | `EditorHeader.tsx · handleSyncToServer` | - |
-| `MP_templateSync_success` | 동기화 성공 | 서버 동기화 성공 | `template_id`, `item_count` | `EditorHeader.tsx · handleSyncToServer` | - |
 | `MP_todoItem_complete` | Todo 완료 체크 | Todo 완료율 측정 | `item_type` | `TodoList.tsx · handleToggleTodo` | `custom` 타입만 전송 (eCampus todo는 완료 토글 UI 없음) |
 | `MP_todoItem_create` | Todo 추가 | Todo 입력 파악 | `source`, `has_due_date` | `TodoAddDialog.tsx · handleSubmit` | - |
 | `MP_todoItem_delete` | Todo 삭제 | Todo 삭제 파악 | `item_type` | `TodoList.tsx · handleDeleteTodo` | `custom` 타입만 전송 (eCampus todo는 삭제 UI 없음) |

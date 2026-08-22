@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trash2, Save, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { GRID_CONFIG } from '@/utils/template';
+import { GRID_CONFIG } from '@/utils/templateGrid';
 import {
   getFirstValidationMessage,
   LINK_NAME_MAX_LENGTH,
@@ -114,7 +114,20 @@ const ItemPropertiesPanelForm = ({
 
     // Find selected icon
     const allIcons = [...defaultIcons, ...userIcons];
-    const icon = allIcons.find((i) => i.id === iconId);
+    const currentIconIsOrphaned =
+      selectedItem.icon.iconId === iconId &&
+      !allIcons.some(
+        (candidate) =>
+          candidate.id === iconId &&
+          candidate.imageUrl === selectedItem.icon.iconUrl,
+      );
+    const icon = currentIconIsOrphaned
+      ? {
+          id: selectedItem.icon.iconId,
+          name: selectedItem.icon.iconName,
+          imageUrl: selectedItem.icon.iconUrl,
+        }
+      : allIcons.find((candidate) => candidate.id === iconId);
     if (!icon) {
       toast.error('선택한 아이콘을 찾을 수 없습니다.');
       return;

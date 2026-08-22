@@ -40,7 +40,13 @@ import {
   initMonitoring,
   recordBreadcrumb,
 } from "@/monitoring";
-import { getUserFacingErrorMessage } from "@/errors/userFacingError";
+import {
+  getUserFacingErrorMessage,
+  UserFacingError,
+} from "@/errors/userFacingError";
+import type { TemplateSharePayloadV1 } from "@/types/templateShare";
+import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
+import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 
 initMonitoring("background");
 debugLog("[Background] Service worker initialized");
@@ -233,6 +239,52 @@ chrome.runtime.onMessage.addListener(
       });
       return false;
     }
+  },
+);
+
+chrome.runtime.onMessageExternal.addListener(
+  (
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: { success: boolean; error?: string }) => void,
+  ) => {
+    if (
+      sender.origin !== "https://turtle-hwan.github.io" ||
+      !sender.url?.startsWith("https://turtle-hwan.github.io/LinKU/share/") ||
+      !message ||
+      typeof message !== "object" ||
+      (message as { type?: unknown }).type !== "IMPORT_SHARED_TEMPLATE"
+    ) {
+      sendResponse({ success: false, error: "허용되지 않은 가져오기 요청입니다." });
+      return false;
+    }
+
+    const payload = (
+      message as { data?: { payload?: TemplateSharePayloadV1 } }
+    ).data?.payload;
+
+    try {
+      validateTemplateSharePayload(payload);
+    } catch (error) {
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : "공유 데이터가 올바르지 않습니다.",
+      });
+      return false;
+    }
+
+    void enqueuePendingTemplateImport(payload)
+      .then(() => sendResponse({ success: true }))
+      .catch((error: unknown) => {
+        if (!(error instanceof UserFacingError)) {
+          reportBackgroundException(error, "shared_template_import");
+        }
+        sendResponse({
+          success: false,
+          error: getUserFacingErrorMessage(error, "템플릿을 가져오지 못했습니다."),
+        });
+      });
+    return true;
   },
 );
 

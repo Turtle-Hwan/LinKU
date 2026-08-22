@@ -1,23 +1,19 @@
-/**
- * Template Card - Preview card for template in lists
- */
-
 import type { TemplateSummary } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { TemplatePreviewCanvas } from './TemplatePreviewCanvas';
-import { Check, CloudUpload, Cloud, Trash2, Share2 } from 'lucide-react';
+import { Check, HardDrive, Loader2, Share2, Trash2 } from 'lucide-react';
+import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
 interface TemplateCardProps {
   template: TemplateSummary;
   onClick?: () => void;
   className?: string;
   isSelected?: boolean;
-  onApply?: (e: React.MouseEvent) => void;
-  onDelete?: (e: React.MouseEvent) => void;
-  onSync?: (e: React.MouseEvent) => void;
-  onPublish?: (e: React.MouseEvent) => void;
+  onApply?: (event: React.MouseEvent) => void;
+  onDelete?: (event: React.MouseEvent) => void;
+  onShare?: (event: React.MouseEvent) => void;
   showDelete?: boolean;
-  needsSync?: boolean;  // 로컬과 서버 데이터가 다를 때 true
+  isActionLoading?: boolean;
 }
 
 export const TemplateCard = ({
@@ -27,107 +23,86 @@ export const TemplateCard = ({
   isSelected,
   onApply,
   onDelete,
-  onSync,
-  onPublish,
+  onShare,
   showDelete = false,
-  needsSync = false,
-}: TemplateCardProps) => {
-  const canPublish = template.syncStatus === 'synced' && !needsSync;
+  isActionLoading = false,
+}: TemplateCardProps) => (
+  <div
+    className={cn(
+      'relative group border rounded-lg transition-all w-[500px] overflow-hidden',
+      onClick && 'cursor-pointer hover:border-primary hover:shadow-sm',
+      !onClick && 'cursor-default',
+      isSelected && 'ring-2 ring-primary',
+      className,
+    )}
+    onClick={onClick}
+  >
+    {template.items && template.items.length > 0 && (
+      <TemplatePreviewCanvas items={template.items} height={template.height} />
+    )}
 
-  return (
-    <div
-      className={cn(
-        'relative group border rounded-lg transition-all w-[500px] overflow-hidden',
-        onClick && 'cursor-pointer hover:border-primary hover:shadow-sm',
-        !onClick && 'cursor-default',
-        isSelected && 'ring-2 ring-primary',
-        className
-      )}
-      onClick={onClick}
-    >
-      {/* Preview Canvas - no padding */}
-      {template.items && template.items.length > 0 && (
-        <TemplatePreviewCanvas
-          items={template.items}
-          height={template.height}
-        />
-      )}
-
-      {/* Template Info - with padding */}
-      <div className="px-3 py-2 space-y-1">
-        <h4 className="font-medium text-sm truncate">{template.name}</h4>
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{template.itemCount || 0} items</span>
-          <span>{template.height}행</span>
-        </div>
-      </div>
-
-      {/* Action buttons */}
-      <div className={cn(
-        "absolute top-2 right-2 flex gap-2 transition-opacity",
-        isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-      )}>
-        {/* Publish button - always show, disabled when not synced */}
-        {template.templateId !== 0 && onPublish && (
-          <button
-            onClick={canPublish ? onPublish : undefined}
-            className={cn(
-              "p-2 rounded-md shadow-sm",
-              canPublish
-                ? "bg-publish text-publish-foreground hover:bg-publish/90 cursor-pointer"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            )}
-            title={canPublish ? "갤러리에 게시" : "동기화 후 게시 가능"}
-            disabled={!canPublish}
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
-        )}
-        {/* Sync button - show for local-only OR needsSync (local changes pending) */}
-        {template.templateId !== 0 && (template.syncStatus === 'local' || needsSync) && onSync && (
-          <button
-            onClick={onSync}
-            className="p-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
-            title={template.syncStatus === 'local' ? '서버에 동기화' : '변경사항 업로드'}
-          >
-            <CloudUpload className="h-4 w-4" />
-          </button>
-        )}
-        {/* Synced badge - only show when fully synced (no pending changes) */}
-        {template.templateId !== 0 && template.syncStatus === 'synced' && !needsSync && (
-          <div className="p-2 bg-green-600 text-white rounded-md shadow-sm" title="동기화됨">
-            <Cloud className="h-4 w-4" />
-          </div>
-        )}
-
-        {/* Apply button */}
-        {onApply && (
-          !isSelected ? (
-            <button
-              onClick={onApply}
-              className="p-2 bg-primary text-primary-foreground rounded-md shadow-sm hover:bg-primary/90"
-              title="메인 화면에 적용"
-            >
-              <Check className="h-4 w-4" />
-            </button>
-          ) : (
-            <div className="p-2 bg-primary text-primary-foreground rounded-md shadow-sm">
-              <Check className="h-4 w-4" />
-            </div>
-          )
-        )}
-
-        {/* Delete button (owned only) - hide for default template */}
-        {showDelete && template.templateId !== 0 && onDelete && (
-          <button
-            onClick={onDelete}
-            className="p-2 bg-destructive text-destructive-foreground rounded-md shadow-sm hover:bg-destructive/90"
-            title="삭제"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
+    <div className="px-3 py-2 space-y-1">
+      <h4 className="font-medium text-sm truncate">{template.name}</h4>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>{template.itemCount || 0} items</span>
+        <span>{template.height}행</span>
       </div>
     </div>
-  );
-};
+
+    <div
+      className={cn(
+        'absolute top-2 right-2 flex gap-2 transition-opacity',
+        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+      )}
+    >
+      {isActionLoading && (
+        <div className="rounded-md bg-background p-2 shadow-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      )}
+      {onShare && !isActionLoading && (
+        <button
+          type="button"
+          onClick={onShare}
+          className="cursor-pointer rounded-md bg-publish p-2 text-publish-foreground shadow-sm hover:bg-publish/90"
+          title="템플릿 공유"
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
+      )}
+      {template.templateId !== UNSAVED_TEMPLATE_ID && (
+        <div
+          className="rounded-md bg-background/95 p-2 text-muted-foreground shadow-sm"
+          title="이 기기에 저장됨"
+        >
+          <HardDrive className="h-4 w-4" />
+        </div>
+      )}
+      {onApply &&
+        (isSelected ? (
+          <div className="p-2 bg-primary text-primary-foreground rounded-md shadow-sm">
+            <Check className="h-4 w-4" />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onApply}
+            className="p-2 bg-primary text-primary-foreground rounded-md shadow-sm hover:bg-primary/90"
+            title="메인 화면에 적용"
+          >
+            <Check className="h-4 w-4" />
+          </button>
+        ))}
+      {showDelete && template.templateId !== UNSAVED_TEMPLATE_ID && onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="p-2 bg-destructive text-destructive-foreground rounded-md shadow-sm hover:bg-destructive/90"
+          title="삭제"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  </div>
+);
