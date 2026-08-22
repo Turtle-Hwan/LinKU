@@ -32,6 +32,15 @@ export type RecordLocation =
   | { store: "templates"; key: number }
   | { store: "drafts" };
 
+/**
+ * Quarantine also receives records copied from the legacy localStorage
+ * migration. They have no IndexedDB key to remove, so their original storage
+ * key is recorded separately from a live IndexedDB location.
+ */
+export type QuarantineLocation =
+  | RecordLocation
+  | { store: "legacy-local-storage"; key: string };
+
 export const DRAFT_SLOT_KEY = "current";
 
 /**
@@ -44,7 +53,7 @@ export const DRAFT_SLOT_KEY = "current";
  */
 export interface QuarantinedRecord {
   id: string;
-  at: RecordLocation;
+  at: QuarantineLocation;
   reason: string;
   quarantinedAt: number;
   raw: unknown;

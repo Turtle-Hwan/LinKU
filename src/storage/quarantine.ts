@@ -9,31 +9,20 @@
 import {
   getLinkuDb,
   type QuarantinedRecord,
-  type RecordLocation,
+  type QuarantineLocation,
 } from "@/storage/linkuDb";
 import { errorLog } from "@/utils/logger";
 
 export interface QuarantineInput {
-  at: RecordLocation;
+  at: QuarantineLocation;
   reason: string;
   raw: unknown;
 }
 
 /**
- * The store is not capped. A quarantined record is moved out of `templates`
- * rather than copied, so the total never grows beyond what the user already
- * had, and evicting the oldest entries would destroy exactly what this store
- * exists to hold.
+ * The store is not capped. Evicting the oldest entries would destroy exactly
+ * what this store exists to hold.
  */
-export async function quarantineRecord(input: QuarantineInput): Promise<void> {
-  const database = await getLinkuDb();
-  await database.put("quarantine", {
-    ...input,
-    id: crypto.randomUUID(),
-    quarantinedAt: Date.now(),
-  });
-}
-
 export async function listQuarantinedRecords(): Promise<QuarantinedRecord[]> {
   const database = await getLinkuDb();
   const records = await database.getAll("quarantine");
@@ -45,25 +34,44 @@ export async function countQuarantinedRecords(): Promise<number> {
   return database.count("quarantine");
 }
 
-export async function deleteQuarantinedRecord(id: string): Promise<void> {
-  const database = await getLinkuDb();
-  await database.delete("quarantine", id);
-}
-
 /**
- * Moves a record aside without letting the failure surface as a product error.
- * The caller has already decided the record is unusable, and one damaged
- * record must not hide the templates that are still healthy.
+ * Atomically moves a live IndexedDB record aside without letting the failure
+ * surface as a product error. A legacy localStorage record is copied by the
+ * migration transaction instead because it has no IndexedDB source to delete.
  *
- * Returns whether the record was safely stored. A caller may only remove the
- * original after a `true`: dropping it when the quarantine write failed would
- * destroy the very data this store exists to preserve.
+ * Returns whether the record was safely moved. The source and quarantine write
+ * share one transaction, so a crash cannot leave duplicates or drop the only
+ * recoverable copy.
  */
-export async function quarantineSafely(
-  input: QuarantineInput,
+export async function moveRecordToQuarantineSafely(
+  input: QuarantineInput & { at: Exclude<QuarantineLocation, { store: "legacy-local-storage" }> },
 ): Promise<boolean> {
   try {
-    await quarantineRecord(input);
+    const database = await getLinkuDb();
+    const record: QuarantinedRecord = {
+      ...input,
+      id: crypto.randomUUID(),
+      quarantinedAt: Date.now(),
+    };
+
+    if (input.at.store === "templates") {
+      const transaction = database.transaction(
+        ["templates", "quarantine"],
+        "readwrite",
+      );
+      await transaction.objectStore("quarantine").put(record);
+      await transaction.objectStore("templates").delete(input.at.key);
+      await transaction.done;
+    } else {
+      const transaction = database.transaction(
+        ["drafts", "quarantine"],
+        "readwrite",
+      );
+      await transaction.objectStore("quarantine").put(record);
+      await transaction.objectStore("drafts").delete("current");
+      await transaction.done;
+    }
+
     return true;
   } catch (error) {
     errorLog("Failed to quarantine damaged template record", error);

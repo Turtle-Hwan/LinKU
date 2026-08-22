@@ -33,8 +33,9 @@ import {
   GENERIC_LINK_ICON_NAME,
   getBundledTemplateIcons,
 } from "@/constants/templateIcons";
-import { quarantineSafely } from "@/storage/quarantine";
+import { moveRecordToQuarantineSafely } from "@/storage/quarantine";
 import { allocateMonotonicId } from "@/storage/monotonicId";
+import { parseLegacyTemplateRecord } from "@/storage/legacyTemplateRecord";
 import { normalizeStoredTemplate } from "@/storage/templateRecord";
 import {
   assertTemplateBackupSize,
@@ -44,7 +45,7 @@ import {
   type TemplateBackupV1,
 } from "@/storage/templateBackup";
 import type { Template, TemplateItem } from "@/types/api";
-import { debugLog, errorLog } from "@/utils/logger";
+import { debugLog, errorLog, warnLog } from "@/utils/logger";
 import { portablePayloadToTemplate } from "@/utils/templateShare";
 import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
@@ -92,15 +93,37 @@ async function migrateLegacyLocalStorage(): Promise<void> {
   if (typeof localStorage === "undefined") return;
 
   const transaction = database.transaction(
-    ["templates", "drafts", "migrations"],
+    ["templates", "drafts", "migrations", "quarantine"],
     "readwrite",
   );
 
   try {
+    // Another extension context may have completed the migration while this
+    // transaction was waiting for its write lock. Re-check inside the lock so
+    // the second context does not quarantine or overwrite the first result.
+    if (await transaction.objectStore("migrations").get(MIGRATION_KEY)) {
+      await transaction.done;
+      return;
+    }
+
+    const quarantineLegacyRecord = async (
+      key: string,
+      raw: string,
+      reason: string,
+    ): Promise<void> => {
+      await transaction.objectStore("quarantine").put({
+        id: crypto.randomUUID(),
+        at: { store: "legacy-local-storage", key },
+        reason,
+        quarantinedAt: Date.now(),
+        raw,
+      });
+    };
+
     const keys = new Set<string>();
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      if (key?.startsWith(STORAGE_PREFIX)) keys.add(key);
+      if (key?.startsWith(STORAGE_PREFIX) && key !== DRAFT_KEY) keys.add(key);
     }
 
     const legacyIndex = localStorage.getItem(INDEX_KEY);
@@ -120,31 +143,53 @@ async function migrateLegacyLocalStorage(): Promise<void> {
     for (const key of keys) {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
-      try {
-        const result = normalizeStoredTemplate(JSON.parse(raw) as unknown);
-        if (result.repairs.length > 0) {
-          debugLog(`Repaired legacy template ${key}`, result.repairs);
-        }
-        const stored = result.value;
-        if (stored && stored.template.templateId !== UNSAVED_TEMPLATE_ID) {
-          await transaction
-            .objectStore("templates")
-            .put(stored, stored.template.templateId);
-        }
-      } catch (error) {
-        errorLog(`Failed to migrate legacy template ${key}`, error);
+
+      const result = parseLegacyTemplateRecord(raw);
+      if (!result.ok) {
+        await quarantineLegacyRecord(key, raw, result.reason);
+        warnLog("Quarantined unreadable legacy template", {
+          key,
+          reason: result.reason,
+        });
+        continue;
       }
+
+      if (result.repairs.length > 0) {
+        debugLog(`Repaired legacy template ${key}`, result.repairs);
+      }
+
+      const { stored } = result;
+      const templateStore = transaction.objectStore("templates");
+      if (await templateStore.get(stored.template.templateId)) {
+        await quarantineLegacyRecord(
+          key,
+          raw,
+          "같은 식별자의 템플릿이 이미 있어 원본을 별도로 보관했습니다.",
+        );
+        warnLog("Quarantined duplicate legacy template id", {
+          key,
+          templateId: stored.template.templateId,
+        });
+        continue;
+      }
+
+      await templateStore.put(stored, stored.template.templateId);
     }
 
     const draft = localStorage.getItem(DRAFT_KEY);
     if (draft) {
-      try {
-        const result = normalizeStoredTemplate(JSON.parse(draft) as unknown);
-        if (result.value) {
-          await transaction.objectStore("drafts").put(result.value, "current");
-        }
-      } catch (error) {
-        errorLog("Failed to migrate legacy template draft", error);
+      const result = parseLegacyTemplateRecord(draft, {
+        allowUnsavedTemplateId: true,
+      });
+      if (result.ok) {
+        await transaction
+          .objectStore("drafts")
+          .put(result.stored, DRAFT_SLOT_KEY);
+      } else {
+        await quarantineLegacyRecord(DRAFT_KEY, draft, result.reason);
+        warnLog("Quarantined unreadable legacy template draft", {
+          reason: result.reason,
+        });
       }
     }
 
@@ -158,7 +203,6 @@ async function migrateLegacyLocalStorage(): Promise<void> {
     } catch {
       // The transaction may already be aborted by IndexedDB.
     }
-    errorLog("Failed to migrate template localStorage to IndexedDB", error);
     throw error;
   }
 }
@@ -166,6 +210,8 @@ async function migrateLegacyLocalStorage(): Promise<void> {
 async function ensureMigration(): Promise<void> {
   if (!migrationPromise) {
     migrationPromise = migrateLegacyLocalStorage().catch((error) => {
+      // Let the next operation retry a transient quota/transaction failure.
+      migrationPromise = undefined;
       errorLog(
         "Legacy template migration failed; continuing with IndexedDB",
         error,
@@ -201,8 +247,9 @@ async function repairUnregisteredIcons(
       const { iconId, iconUrl, iconName } = item.icon;
       const bundledIcon = bundledIcons.find(
         (icon) =>
-          icon.imageUrl === iconUrl &&
-          (icon.id === iconId || icon.name === iconName),
+          (icon.imageUrl === iconUrl &&
+            (icon.id === iconId || icon.name === iconName)) ||
+          (icon.id === iconId && icon.name === iconName),
       );
       if (bundledIcon) {
         if (bundledIcon.id === iconId && bundledIcon.name === iconName) {
@@ -221,9 +268,25 @@ async function repairUnregisteredIcons(
         continue;
       }
 
-      // A non-portable image that is not bundled cannot become a selectable
-      // editor icon. Keep the item and replace only its unusable image.
+      // Older LinKU versions stored backend-uploaded icons as CloudFront URLs.
+      // The bytes cannot be recreated while the backend/CDN is unavailable, so
+      // never overwrite that only reference. The renderer supplies a visual
+      // fallback and the editor preserves the current icon when other fields
+      // are changed. New shared/imported icons remain self-contained data URLs.
       if (!PORTABLE_ICON_PATTERN.test(iconUrl)) {
+        let isRemoteIcon = false;
+        try {
+          const protocol = new URL(iconUrl).protocol;
+          isRemoteIcon = protocol === "https:" || protocol === "http:";
+        } catch {
+          // Invalid and non-portable values use the safe bundled fallback.
+        }
+
+        if (isRemoteIcon && iconId > 0) {
+          repaired.push(item);
+          continue;
+        }
+
         changed = true;
         repaired.push({
           ...item,
@@ -287,12 +350,6 @@ async function repairUnregisteredIcons(
     : { stored, changed };
 }
 
-async function removeRecord(at: RecordLocation): Promise<void> {
-  const database = await getLinkuDb();
-  if (at.store === "drafts") await database.delete("drafts", DRAFT_SLOT_KEY);
-  else await database.delete("templates", at.key);
-}
-
 async function writeRecord(
   at: RecordLocation,
   value: StoredTemplate,
@@ -324,11 +381,9 @@ async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
   const result = normalizeStoredTemplate(raw);
   if (!result.value) {
     const reason = result.reason ?? "알 수 없는 오류";
-    // The original is removed only once the copy is safely stored. If the
-    // quarantine write failed, the damaged record stays where it is and this
-    // read simply reports nothing — the next read tries again.
-    if (await quarantineSafely({ at, reason, raw })) await removeRecord(at);
-    errorLog(`Quarantined an unreadable ${at.store} record`, { at, reason });
+    if (await moveRecordToQuarantineSafely({ at, reason, raw })) {
+      warnLog(`Quarantined an unreadable ${at.store} record`, { at, reason });
+    }
     return null;
   }
 
@@ -420,12 +475,19 @@ export async function deleteTemplateFromLocalStorage(
   templateId: number,
 ): Promise<void> {
   await ensureMigration();
-  const database = await getLinkuDb();
-  await database.delete("templates", templateId);
 
   if (typeof localStorage !== "undefined") {
     try {
+      // Remove the rollback source before IndexedDB. If this write is blocked,
+      // keep the active record rather than reporting a deletion that can later
+      // reappear during a fresh migration.
       localStorage.removeItem(`${STORAGE_PREFIX}${templateId}`);
+    } catch (error) {
+      errorLog("Failed to remove deleted template from legacy storage", error);
+      throw toStorageError(error, "템플릿의 이전 저장 사본을 삭제하지 못했습니다.");
+    }
+
+    try {
       const legacyIndex = localStorage.getItem(INDEX_KEY);
       if (legacyIndex) {
         const entries = JSON.parse(legacyIndex) as Array<{ templateId?: number }>;
@@ -437,9 +499,13 @@ export async function deleteTemplateFromLocalStorage(
         );
       }
     } catch (error) {
-      errorLog("Failed to remove deleted template from legacy storage", error);
+      // A stale index entry is harmless once the corresponding record is gone.
+      warnLog("Failed to clean deleted template from legacy index", error);
     }
   }
+
+  const database = await getLinkuDb();
+  await database.delete("templates", templateId);
 }
 
 /**
