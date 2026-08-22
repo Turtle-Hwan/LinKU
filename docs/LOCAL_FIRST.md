@@ -24,9 +24,10 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 않습니다. 다른 화면에서 `templateId === 0`은 번들 기본 템플릿을 뜻하므로 draft를
 그 값으로 지칭하지 않습니다.
 
-화면은 `saveLocalTemplate`, `getLocalTemplate`, `listLocalTemplates`,
-`deleteLocalTemplate`만 사용하며 모든 읽기와 쓰기는 비동기 IndexedDB 작업입니다.
-과거 `localStorage` 값은
+기본 CRUD 화면은 `saveLocalTemplate`, `getLocalTemplate`,
+`listLocalTemplates`, `deleteLocalTemplate`을 사용하고, 가져오기·공유·백업 화면도
+같은 `templateStorage` 경계를 거칩니다. 모든 읽기와 쓰기는 비동기 IndexedDB
+작업입니다. 과거 `localStorage` 값은
 `local-storage-templates-v1` migration이 완료되기 전에 복사하며, migration 완료
 기록과 데이터 저장을 같은 transaction에서 처리합니다. rollback을 위해 원본 값은
 남겨 두되, 사용자가 IndexedDB에서 템플릿을 삭제하면 같은 legacy 항목도 함께
