@@ -33,7 +33,7 @@ export const GalleryPage = () => {
       const stored = await importTemplateCopy(template);
       toast({
         title: '템플릿 추가 완료',
-        description: '서버 없이 이 기기의 IndexedDB에 저장했습니다.',
+        description: '서버 연결 없이 이 기기에 저장했습니다.',
       });
       navigate(`/editor/${stored.template.templateId}`);
     } catch (error) {

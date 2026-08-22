@@ -501,15 +501,6 @@ async function loadTemplateDraft(): Promise<StoredTemplate | null> {
   return readRecord({ store: "drafts" });
 }
 
-export function checkTemplateStorageAvailability(): {
-  available: boolean;
-  error?: string;
-} {
-  return typeof indexedDB !== "undefined"
-    ? { available: true }
-    : { available: false, error: "IndexedDB를 사용할 수 없습니다." };
-}
-
 /**
  * Stores a copy of an existing template under a freshly allocated id.
  *

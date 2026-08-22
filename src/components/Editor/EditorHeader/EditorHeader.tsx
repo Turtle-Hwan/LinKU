@@ -4,10 +4,7 @@ import { Input } from '@/components/ui/input';
 import { BackButton } from './BackButton';
 import { SaveButton } from './SaveButton';
 import { useEditorContext } from '@/hooks/useEditorContext';
-import {
-  checkTemplateStorageAvailability,
-  saveLocalTemplate,
-} from '@/utils/templateStorage';
+import { saveLocalTemplate } from '@/utils/templateStorage';
 import { toast } from 'sonner';
 import { errorLog } from '@/utils/logger';
 import {
@@ -27,9 +24,6 @@ export const EditorHeader = () => {
 
     dispatch({ type: 'START_SAVING' });
     try {
-      const storageCheck = checkTemplateStorageAvailability();
-      if (!storageCheck.available) throw new Error(storageCheck.error);
-
       // The storage layer allocates the id for a new template. Minting one
       // from the clock here could collide with an existing template and
       // overwrite it without a trace.
@@ -51,7 +45,7 @@ export const EditorHeader = () => {
         savedTemplate.items.length,
       );
       toast.success('저장 완료', {
-        description: '이 기기의 IndexedDB에 저장했습니다.',
+        description: '이 기기에 저장했습니다.',
       });
     } catch (error) {
       errorLog('[EditorHeader] Save failed:', error);
