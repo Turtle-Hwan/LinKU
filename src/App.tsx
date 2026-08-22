@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { Outlet } from "react-router";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
+import { toast } from "sonner";
 import { PostedTemplatesProvider } from "./contexts/PostedTemplatesContext";
 import {
   recordBreadcrumb,
@@ -37,9 +38,14 @@ function App() {
     void consumePendingTemplateImports(async (payload) => {
       await importSharedTemplate(payload);
     })
-      .then((importedCount) => {
+      .then(({ importedCount, failedCount }) => {
         if (importedCount > 0) {
           window.dispatchEvent(new Event("linku:templates-changed"));
+        }
+        if (failedCount > 0) {
+          toast.error("일부 템플릿을 가져오지 못했습니다", {
+            description: `실패한 ${failedCount}개는 다음 실행 때 다시 시도합니다.`,
+          });
         }
       })
       .catch((error: unknown) => {

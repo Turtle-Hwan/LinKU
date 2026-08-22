@@ -1,9 +1,15 @@
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 import { errorLog } from "@/utils/logger";
+import { UserFacingError } from "@/errors/userFacingError";
 
 const STORAGE_KEY = "pendingTemplateImports";
 const MAX_PENDING_IMPORTS = 5;
+
+export interface PendingTemplateImportResult {
+  importedCount: number;
+  failedCount: number;
+}
 
 let mutationQueue: Promise<void> = Promise.resolve();
 
@@ -44,22 +50,27 @@ export function enqueuePendingTemplateImport(
     const storage = getStorage();
     const stored = await storage.get(STORAGE_KEY);
     const queue = readValidQueue(stored[STORAGE_KEY]);
+    if (queue.length >= MAX_PENDING_IMPORTS) {
+      throw new UserFacingError(
+        "대기 중인 템플릿이 5개입니다. LinKU를 열어 가져오기를 마친 뒤 다시 시도해 주세요.",
+      );
+    }
     await storage.set({
-      [STORAGE_KEY]: [...queue, payload].slice(-MAX_PENDING_IMPORTS),
+      [STORAGE_KEY]: [...queue, payload],
     });
   });
 }
 
 export function consumePendingTemplateImports(
   importer: (payload: TemplateSharePayloadV1) => Promise<void>,
-): Promise<number> {
+): Promise<PendingTemplateImportResult> {
   return withMutationQueue(async () => {
     const storage = getStorage();
     const stored = await storage.get(STORAGE_KEY);
     const queue = readValidQueue(stored[STORAGE_KEY]);
     if (queue.length === 0) {
       await storage.remove(STORAGE_KEY);
-      return 0;
+      return { importedCount: 0, failedCount: 0 };
     }
 
     const failed: TemplateSharePayloadV1[] = [];
@@ -79,6 +90,6 @@ export function consumePendingTemplateImports(
     } else {
       await storage.remove(STORAGE_KEY);
     }
-    return importedCount;
+    return { importedCount, failedCount: failed.length };
   });
 }

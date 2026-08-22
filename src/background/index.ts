@@ -40,7 +40,10 @@ import {
   initMonitoring,
   recordBreadcrumb,
 } from "@/monitoring";
-import { getUserFacingErrorMessage } from "@/errors/userFacingError";
+import {
+  getUserFacingErrorMessage,
+  UserFacingError,
+} from "@/errors/userFacingError";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
 import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
@@ -273,7 +276,9 @@ chrome.runtime.onMessageExternal.addListener(
     void enqueuePendingTemplateImport(payload)
       .then(() => sendResponse({ success: true }))
       .catch((error: unknown) => {
-        reportBackgroundException(error, "shared_template_import");
+        if (!(error instanceof UserFacingError)) {
+          reportBackgroundException(error, "shared_template_import");
+        }
         sendResponse({
           success: false,
           error: getUserFacingErrorMessage(error, "템플릿을 가져오지 못했습니다."),
