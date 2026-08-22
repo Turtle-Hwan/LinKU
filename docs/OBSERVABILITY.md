@@ -12,8 +12,8 @@ GitHub Pages의 share viewer는 이 범위에서 의도적으로 제외합니다
 `connect-src 'none'` CSP로 template fragment가 어떤 원격 collector에도 전송되지
 않게 하며, 잘못된 공유 링크는 페이지 안의 사용자 안내로만 처리합니다. 정적 link
 catalog와 grid renderer도 monitoring 의존성이 없는 leaf module만 사용하고,
-`pnpm run check:gh-pages-privacy`가 Pages 산출물에 공통 reporter 코드가 섞이면
-PR 검증을 실패시킵니다.
+`pnpm run build:gh-pages`가 Rollup module graph를 검사해 `src/monitoring`이나
+Sentry SDK가 Pages 산출물에 섞이면 PR과 실제 배포 빌드를 모두 실패시킵니다.
 
 ## 모듈 경계
 

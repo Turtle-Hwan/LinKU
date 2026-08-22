@@ -1,4 +1,4 @@
-import { HelloLmsPng } from "@/assets";
+import HelloLmsPng from "@/assets/hello_lms.png";
 import EverytimeSymbolUrl from "@/assets/everytime_symbol.svg";
 import {
   BULLETIN_FALLBACK,

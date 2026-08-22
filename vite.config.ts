@@ -1,9 +1,9 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
-import path from "path";
+import path from "node:path";
 import svgr from "vite-plugin-svgr";
-import fs from "fs";
+import fs from "node:fs";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 export default defineConfig(({ mode }) => {
@@ -38,7 +38,10 @@ export default defineConfig(({ mode }) => {
         }
       : {
           main: path.resolve(import.meta.dirname, "web/index.html"),
-          "share/index": path.resolve(import.meta.dirname, "web/share/index.html"),
+          "share/index": path.resolve(
+            import.meta.dirname,
+            "web/share/index.html",
+          ),
         };
 
   return {
@@ -66,6 +69,7 @@ export default defineConfig(({ mode }) => {
             throw error;
           },
         }),
+      mode === "gh-pages" && rejectMonitoringInGhPages(),
       mode === "gh-pages" && copyBannersForGhPages(),
       mode === "gh-pages" && moveGhPagesWebFilesToRoot(),
     ],
@@ -98,6 +102,39 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
+
+function rejectMonitoringInGhPages(): Plugin {
+  return {
+    name: "reject-monitoring-in-gh-pages",
+    generateBundle(_options, bundle) {
+      const bundledModules = new Set(
+        Object.values(bundle).flatMap((output) =>
+          output.type === "chunk" ? Object.keys(output.modules) : [],
+        ),
+      );
+      const forbiddenModules = [...bundledModules].filter((moduleId) => {
+        const normalizedId = moduleId.replaceAll("\\", "/");
+        return (
+          normalizedId.includes("/src/monitoring/") ||
+          normalizedId.includes("/node_modules/@sentry/") ||
+          normalizedId.includes("/node_modules/.pnpm/@sentry+")
+        );
+      });
+
+      if (forbiddenModules.length > 0) {
+        this.error(
+          `The no-network Pages build includes monitoring modules:\n${forbiddenModules
+            .map((moduleId) => path.relative(import.meta.dirname, moduleId))
+            .join("\n")}`,
+        );
+      }
+
+      console.log(
+        `Verified ${bundledModules.size} GitHub Pages modules without monitoring dependencies.`,
+      );
+    },
+  };
+}
 
 function copyBannersForGhPages() {
   return {
