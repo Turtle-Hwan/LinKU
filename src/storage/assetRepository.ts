@@ -5,6 +5,11 @@ import { MAX_TEMPLATE_NAME_LENGTH } from "@/constants/template";
 const MAX_ICON_BYTES = 5 * 1024 * 1024;
 const MAX_ICON_DIMENSION = 256;
 const ICON_WEBP_QUALITY = 0.9;
+const RESTORABLE_ICON_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -32,19 +37,44 @@ async function canvasToWebp(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-async function normalizeIconBlob(source: Blob): Promise<Blob> {
+function normalizeAssetName(name: string): string {
+  const normalizedName = name.trim();
+  if (normalizedName.length === 0) {
+    throw new Error("아이콘 이름을 입력해 주세요.");
+  }
+  if (normalizedName.length > MAX_TEMPLATE_NAME_LENGTH) {
+    throw new Error(`아이콘 이름은 ${MAX_TEMPLATE_NAME_LENGTH}자 이하여야 합니다.`);
+  }
+  return normalizedName;
+}
+
+function assertIconByteSize(source: Blob): void {
   if (source.size > MAX_ICON_BYTES) {
     throw new Error(
       `아이콘 원본은 ${MAX_ICON_BYTES / 1024 / 1024}MB 이하여야 합니다.`,
     );
   }
+}
 
+async function withDecodedImage<T>(
+  source: Blob,
+  handleImage: (image: HTMLImageElement) => T | Promise<T>,
+): Promise<T> {
   const objectUrl = URL.createObjectURL(source);
   try {
     const image = new Image();
     image.src = objectUrl;
     await image.decode();
+    return await handleImage(image);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 
+async function normalizeIconBlob(source: Blob): Promise<Blob> {
+  assertIconByteSize(source);
+
+  return withDecodedImage(source, async (image) => {
     const scale = Math.min(
       1,
       MAX_ICON_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight),
@@ -56,24 +86,33 @@ async function normalizeIconBlob(source: Blob): Promise<Blob> {
     if (!context) throw new Error("이미지 변환 기능을 사용할 수 없습니다.");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     return await canvasToWebp(canvas);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
+  });
 }
 
-export async function saveAsset(name: string, source: Blob): Promise<StoredAsset> {
-  const normalizedName = name.trim();
-  if (normalizedName.length === 0) {
-    throw new Error("아이콘 이름을 입력해 주세요.");
-  }
-  if (normalizedName.length > MAX_TEMPLATE_NAME_LENGTH) {
-    throw new Error(`아이콘 이름은 ${MAX_TEMPLATE_NAME_LENGTH}자 이하여야 합니다.`);
+async function assertRestorableIconBlob(source: Blob): Promise<void> {
+  assertIconByteSize(source);
+  if (!RESTORABLE_ICON_TYPES.has(source.type)) {
+    throw new Error("지원하지 않는 백업 아이콘 형식입니다.");
   }
 
-  const blob = await normalizeIconBlob(source);
+  await withDecodedImage(source, (image) => {
+    if (
+      image.naturalWidth > MAX_ICON_DIMENSION ||
+      image.naturalHeight > MAX_ICON_DIMENSION
+    ) {
+      throw new Error(`백업 아이콘은 ${MAX_ICON_DIMENSION}px 이하여야 합니다.`);
+    }
+  });
+}
+
+async function persistAsset(
+  normalizedName: string,
+  blob: Blob,
+  dataUrl?: string,
+): Promise<StoredAsset> {
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   const id = bytesToHex(new Uint8Array(digest));
-  const dataUrl = await blobToDataUrl(blob);
+  const storedDataUrl = dataUrl ?? (await blobToDataUrl(blob));
   const createdAt = Date.now();
   const database = await getLinkuDb();
   const transaction = database.transaction("assets", "readwrite");
@@ -91,12 +130,17 @@ export async function saveAsset(name: string, source: Blob): Promise<StoredAsset
     numericId,
     name: normalizedName,
     blob,
-    dataUrl,
+    dataUrl: storedDataUrl,
     createdAt,
   };
   await store.put(asset);
   await transaction.done;
   return asset;
+}
+
+export async function saveAsset(name: string, source: Blob): Promise<StoredAsset> {
+  const normalizedName = normalizeAssetName(name);
+  return persistAsset(normalizedName, await normalizeIconBlob(source));
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -123,6 +167,23 @@ export async function saveAssetFromDataUrl(
   dataUrl: string,
 ): Promise<StoredAsset> {
   return saveAsset(name, dataUrlToBlob(dataUrl));
+}
+
+/**
+ * Restores bytes that were already normalized before backup.
+ *
+ * Re-encoding a backed-up WebP changes its digest and creates a duplicate
+ * asset on every restore. Validate the stored constraints again, then keep
+ * the original bytes so the content-addressed id remains stable.
+ */
+export async function restoreAssetFromDataUrl(
+  name: string,
+  dataUrl: string,
+): Promise<StoredAsset> {
+  const normalizedName = normalizeAssetName(name);
+  const blob = dataUrlToBlob(dataUrl);
+  await assertRestorableIconBlob(blob);
+  return persistAsset(normalizedName, blob, dataUrl);
 }
 
 export async function getAssetByNumericId(

@@ -15,7 +15,7 @@
  * 3. inline icons are registered as assets so imported items stay editable.
  */
 
-import { saveAssetFromDataUrl } from "@/storage/assetRepository";
+import { restoreAssetFromDataUrl } from "@/storage/assetRepository";
 import {
   getLinkuDb,
   type RecordLocation,
@@ -316,7 +316,7 @@ export async function restoreTemplateBackup(
   let firstAssetError: unknown;
   for (const asset of backup.assets ?? []) {
     try {
-      const restored = await saveAssetFromDataUrl(asset.name, asset.dataUrl);
+      const restored = await restoreAssetFromDataUrl(asset.name, asset.dataUrl);
       restoredAssets.set(asset.dataUrl, {
         numericId: restored.numericId,
         name: restored.name,
