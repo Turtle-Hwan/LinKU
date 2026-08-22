@@ -23,16 +23,34 @@ MV3 service worker와 popup을 자동 smoke test하려면 Playwright Chromium을
 
 ```bash
 pnpm exec playwright install --no-shell chromium
+
+# MV3 service worker와 action popup 로딩만 빠르게 확인
+pnpm run test:extension:smoke
+
+# 로딩 smoke와 tests/extension/features 아래의 기능 테스트를 모두 실행
 pnpm run test:extension
 
-# 브라우저 창을 보면서 같은 smoke test 실행
+# 브라우저 창을 보면서 전체 extension 테스트 실행
 pnpm run test:extension:headed
 ```
 
-현재 smoke test는 실제 MV3 background worker와 action popup target을 확인하고,
-오프라인에서도 마지막 배너 snapshot이 즉시 표시되며 실패한 갱신이 기존 캐시를
-지우지 않는지 검증합니다. Chrome Web Store 설치본이나 실제 OAuth 계정처럼 사용자
-Chrome 상태에 의존하는 흐름은 별도 수동 검증 대상으로 유지합니다.
+`tests/extension/extension.fixture.ts`는 임시 Chromium에 확장을 로드하고 MV3
+background worker를 찾은 뒤 context를 정리하는 일만 담당합니다.
+`tests/extension/smoke.spec.ts`는 action popup이 열리고 React root가 렌더링되는지만
+확인합니다. 기능별 runtime 검증은 `tests/extension/features/*.spec.ts`에 추가합니다.
+예를 들어 배너 기능 테스트는 오프라인에서도 마지막 snapshot이 즉시 표시되며 실패한
+갱신이 기존 캐시를 지우지 않는지 독립적으로 검증합니다.
+
+특정 기능만 반복 실행할 때는 최신 `dist/`를 만든 뒤 spec 경로를 지정합니다. 새
+기능마다 package script를 추가할 필요는 없습니다.
+
+```bash
+pnpm run build:local
+pnpm exec playwright test tests/extension/features/banner-cache.spec.ts
+```
+
+Chrome Web Store 설치본이나 실제 OAuth 계정처럼 사용자 Chrome 상태에 의존하는
+흐름은 별도 수동 검증 대상으로 유지합니다.
 
 backend 기능에는 유효한 `VITE_API_BASE_URL`이 필요합니다. 실제 secret은 commit하지
 마세요.
