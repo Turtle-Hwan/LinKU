@@ -34,6 +34,13 @@ export interface NormalizeResult {
   repairs: string[];
 }
 
+export interface NormalizeOptions {
+  /** Only the preserved legacy draft may use the unsaved template id. */
+  allowUnsavedTemplateId?: boolean;
+  /** Active IndexedDB records must agree with the key that addressed them. */
+  expectedTemplateId?: number;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -137,7 +144,10 @@ function normalizeItems(
   return items;
 }
 
-export function normalizeStoredTemplate(raw: unknown): NormalizeResult {
+export function normalizeStoredTemplate(
+  raw: unknown,
+  options: NormalizeOptions = {},
+): NormalizeResult {
   const repairs: string[] = [];
 
   if (!isRecord(raw) || !isRecord(raw.template)) {
@@ -146,7 +156,13 @@ export function normalizeStoredTemplate(raw: unknown): NormalizeResult {
 
   const source = raw.template;
   const templateId = source.templateId;
-  if (!Number.isSafeInteger(templateId) || Number(templateId) < 0) {
+  if (
+    !Number.isSafeInteger(templateId) ||
+    Number(templateId) < 0 ||
+    (Number(templateId) === 0 && !options.allowUnsavedTemplateId) ||
+    (options.expectedTemplateId !== undefined &&
+      Number(templateId) !== options.expectedTemplateId)
+  ) {
     return {
       value: null,
       reason: "템플릿 식별자가 올바르지 않습니다.",

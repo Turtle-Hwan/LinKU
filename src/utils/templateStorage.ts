@@ -102,7 +102,9 @@ async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
   const raw = await readStoredRecord(at);
   if (raw === undefined) return null;
 
-  const result = normalizeStoredTemplate(raw);
+  const result = normalizeStoredTemplate(raw, {
+    expectedTemplateId: at.key,
+  });
   if (!result.value) {
     const reason = result.reason ?? "알 수 없는 오류";
     if (await moveRecordToQuarantineSafely({ at, reason, raw })) {

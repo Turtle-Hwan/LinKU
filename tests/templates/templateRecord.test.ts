@@ -68,14 +68,31 @@ test("템플릿 객체나 항목 목록이 없으면 격리 대상으로 판정�
   }
 });
 
-test("식별자가 음수이거나 정수가 아니면 격리 대상으로 판정한다", () => {
-  for (const templateId of [-1, 1.5, "3", Number.NaN]) {
+test("저장 식별자가 0 이하이거나 정수가 아니면 격리 대상으로 판정한다", () => {
+  for (const templateId of [-1, 0, 1.5, "3", Number.NaN]) {
     const result = normalizeStoredTemplate(
       record({ templateId, name: "x", height: 6, items: [] }),
     );
     assert.equal(result.value, null);
     assert.match(result.reason ?? "", /식별자/u);
   }
+});
+
+test("레거시 draft만 0 식별자를 명시적으로 허용한다", () => {
+  const result = normalizeStoredTemplate(
+    record({ templateId: 0, name: "이관 draft", height: 6, items: [] }),
+    { allowUnsavedTemplateId: true },
+  );
+  assert.ok(result.value);
+});
+
+test("IndexedDB key와 내부 식별자가 다르면 격리 대상으로 판정한다", () => {
+  const result = normalizeStoredTemplate(
+    record({ templateId: 7, name: "엇갈린 템플릿", height: 6, items: [] }),
+    { expectedTemplateId: 8 },
+  );
+  assert.equal(result.value, null);
+  assert.match(result.reason ?? "", /식별자/u);
 });
 
 test("영역을 벗어난 항목은 버리지 않고 선언된 높이 안으로 보정한다", () => {

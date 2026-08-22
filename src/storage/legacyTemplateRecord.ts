@@ -1,4 +1,3 @@
-import { UNSAVED_TEMPLATE_ID } from "../constants/template.ts";
 import type { StoredTemplate } from "./linkuDb.ts";
 import { normalizeStoredTemplate } from "./templateRecord.ts";
 
@@ -22,21 +21,11 @@ export function parseLegacyTemplateRecord(
     return { ok: false, reason: "레거시 템플릿 JSON을 읽을 수 없습니다." };
   }
 
-  const normalized = normalizeStoredTemplate(parsed);
+  const normalized = normalizeStoredTemplate(parsed, options);
   if (!normalized.value) {
     return {
       ok: false,
       reason: normalized.reason ?? "레거시 템플릿을 읽을 수 없습니다.",
-    };
-  }
-
-  if (
-    !options.allowUnsavedTemplateId &&
-    normalized.value.template.templateId === UNSAVED_TEMPLATE_ID
-  ) {
-    return {
-      ok: false,
-      reason: "저장된 템플릿 식별자가 올바르지 않습니다.",
     };
   }
 
