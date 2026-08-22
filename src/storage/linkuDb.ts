@@ -2,7 +2,6 @@ import {
   openDB,
   type DBSchema,
   type IDBPDatabase,
-  type IDBPObjectStore,
 } from "idb";
 import type { Template, TemplateItem } from "@/types/api";
 
@@ -79,14 +78,6 @@ export interface LinkuDatabase extends DBSchema {
 }
 
 export type LinkuDb = IDBPDatabase<LinkuDatabase>;
-
-/** Writable `templates` store handle, as seen from inside a transaction. */
-export type WritableTemplateStore = IDBPObjectStore<
-  LinkuDatabase,
-  ArrayLike<"templates">,
-  "templates",
-  "readwrite"
->;
 
 const DATABASE_NAME = "linku";
 // This PR is the first release that creates `linku`, so every stateless store
