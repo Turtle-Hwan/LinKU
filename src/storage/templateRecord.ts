@@ -41,6 +41,18 @@ export interface NormalizeOptions {
   expectedTemplateId?: number;
 }
 
+const IMPORTED_TEMPLATE_SUFFIX = " (가져옴)";
+
+export function formatImportedTemplateName(name: string): string {
+  const baseName = name.endsWith(IMPORTED_TEMPLATE_SUFFIX)
+    ? name.slice(0, -IMPORTED_TEMPLATE_SUFFIX.length)
+    : name;
+  return `${baseName.slice(
+    0,
+    MAX_TEMPLATE_NAME_LENGTH - IMPORTED_TEMPLATE_SUFFIX.length,
+  )}${IMPORTED_TEMPLATE_SUFFIX}`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }

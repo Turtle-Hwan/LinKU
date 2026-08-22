@@ -29,7 +29,10 @@ import {
   removeLegacyTemplateSource,
 } from "@/storage/legacyTemplateStorage";
 import { repairTemplateIcons } from "@/storage/templateIconRepair";
-import { normalizeStoredTemplate } from "@/storage/templateRecord";
+import {
+  formatImportedTemplateName,
+  normalizeStoredTemplate,
+} from "@/storage/templateRecord";
 import {
   assertTemplateBackupSize,
   parseTemplateBackup,
@@ -243,9 +246,7 @@ export async function importTemplateCopy(
         ...withIcons.template,
         id: crypto.randomUUID(),
         templateId,
-        name: withIcons.template.name.endsWith("(가져옴)")
-          ? withIcons.template.name
-          : `${withIcons.template.name} (가져옴)`,
+        name: formatImportedTemplateName(withIcons.template.name),
         cloned: true,
         syncStatus: "local",
         createdAt: now,

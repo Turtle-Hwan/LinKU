@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeStoredTemplate } from "../../src/storage/templateRecord.ts";
+import {
+  formatImportedTemplateName,
+  normalizeStoredTemplate,
+} from "../../src/storage/templateRecord.ts";
 
 function record(template: unknown, extra: Record<string, unknown> = {}) {
   return { template, metadata: { lastSaved: 1_700_000_000_000 }, ...extra };
@@ -14,6 +17,13 @@ const healthyItem = {
   size: { width: 2, height: 1 },
   icon: { iconId: 3, iconName: "공지", iconUrl: "data:image/svg+xml,<svg/>" },
 };
+
+test("가져온 템플릿 이름은 접미사를 유지하며 최대 길이를 넘지 않는다", () => {
+  const formatted = formatImportedTemplateName("가".repeat(80));
+  assert.ok(formatted.endsWith(" (가져옴)"));
+  assert.ok(formatted.length <= 80);
+  assert.equal(formatImportedTemplateName(formatted), formatted);
+});
 
 test("정상 레코드는 보정 없이 그대로 통과한다", () => {
   const result = normalizeStoredTemplate(
