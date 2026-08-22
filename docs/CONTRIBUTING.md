@@ -17,6 +17,23 @@ pnpm run dev
 pnpm run build:local
 ```
 
+MV3 service worker와 popup을 자동 smoke test하려면 Playwright Chromium을 한 번
+설치한 뒤 전용 명령을 실행합니다. 이 테스트는 임시 브라우저 프로필에 최신
+`dist/`를 직접 로드하므로 사용자의 Chrome 프로필과 설치된 확장을 변경하지 않습니다.
+
+```bash
+pnpm exec playwright install --no-shell chromium
+pnpm run test:extension
+
+# 브라우저 창을 보면서 같은 smoke test 실행
+pnpm run test:extension:headed
+```
+
+현재 smoke test는 실제 MV3 background worker와 action popup target을 확인하고,
+오프라인에서도 마지막 배너 snapshot이 즉시 표시되며 실패한 갱신이 기존 캐시를
+지우지 않는지 검증합니다. Chrome Web Store 설치본이나 실제 OAuth 계정처럼 사용자
+Chrome 상태에 의존하는 흐름은 별도 수동 검증 대상으로 유지합니다.
+
 backend 기능에는 유효한 `VITE_API_BASE_URL`이 필요합니다. 실제 secret은 commit하지
 마세요.
 
