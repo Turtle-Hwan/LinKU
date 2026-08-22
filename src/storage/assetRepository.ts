@@ -108,11 +108,10 @@ async function assertRestorableIconBlob(source: Blob): Promise<void> {
 async function persistAsset(
   normalizedName: string,
   blob: Blob,
-  dataUrl?: string,
 ): Promise<StoredAsset> {
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   const id = bytesToHex(new Uint8Array(digest));
-  const storedDataUrl = dataUrl ?? (await blobToDataUrl(blob));
+  const dataUrl = await blobToDataUrl(blob);
   const createdAt = Date.now();
   const database = await getLinkuDb();
   const transaction = database.transaction("assets", "readwrite");
@@ -130,7 +129,7 @@ async function persistAsset(
     numericId,
     name: normalizedName,
     blob,
-    dataUrl: storedDataUrl,
+    dataUrl,
     createdAt,
   };
   await store.put(asset);
@@ -183,7 +182,7 @@ export async function restoreAssetFromDataUrl(
   const normalizedName = normalizeAssetName(name);
   const blob = dataUrlToBlob(dataUrl);
   await assertRestorableIconBlob(blob);
-  return persistAsset(normalizedName, blob, dataUrl);
+  return persistAsset(normalizedName, blob);
 }
 
 export async function getAssetByNumericId(
