@@ -12,21 +12,21 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 | --- | --- | --- |
 | 개인 템플릿 | Chrome IndexedDB `linku/templates` | 생성·조회·수정·삭제 가능 |
 | 편집 draft | Chrome IndexedDB `linku/drafts` | 레거시 draft 1회 이관 보관 |
-| 사용자 아이콘 | Chrome IndexedDB `linku/assets` | 업로드·이름 변경·삭제 가능 |
+| 사용자 아이콘 | Chrome IndexedDB `linku/assets` | 업로드·목록·템플릿 적용 가능 |
 | 손상 레코드 | Chrome IndexedDB `linku/quarantine` | 원본 보존, 파일로 내보내기 |
 | 전체 백업 | `linku-backup-*.json` 파일 | 내보내기·복원 가능 |
 | 적용 중인 템플릿 ID | `chrome.storage.local` | popup 재실행 후 유지 |
 | 작은 템플릿 공유 | GitHub Pages URL fragment | 서버 저장 없이 미리보기·가져오기 가능 |
 | 큰 템플릿 공유 | `.linku.json` 파일 | 파일 전달로 내보내기·가져오기 가능 |
 
-`drafts` store는 레거시 `localStorage` draft를 이관해 보관하는 자리이며
-`saveTemplateDraft`/`loadTemplateDraft`로만 접근합니다. 에디터의 자동 draft
-저장은 아직 연결되어 있지 않습니다. 다른 화면에서 `templateId === 0`은 번들
-기본 템플릿을 뜻하므로 draft를 그 값으로 지칭하지 않습니다.
+`drafts` store는 레거시 `localStorage` draft를 잃지 않도록 이관해 보관하는
+호환 슬롯입니다. 에디터의 자동 draft 저장과 관리 UI는 아직 연결되어 있지
+않습니다. 다른 화면에서 `templateId === 0`은 번들 기본 템플릿을 뜻하므로 draft를
+그 값으로 지칭하지 않습니다.
 
-`templateStorage.ts`의 저장 함수 이름은 기존 호출부와 migration 의미를 드러내기
-위해 유지하지만 모든 읽기와 쓰기는 비동기 IndexedDB 작업입니다. 과거
-`localStorage` 값은
+화면은 `saveLocalTemplate`, `getLocalTemplate`, `listLocalTemplates`,
+`deleteLocalTemplate`만 사용하며 모든 읽기와 쓰기는 비동기 IndexedDB 작업입니다.
+과거 `localStorage` 값은
 `local-storage-templates-v1` migration이 완료되기 전에 복사하며, migration 완료
 기록과 데이터 저장을 같은 transaction에서 처리합니다. rollback을 위해 원본 값은
 남겨 두되, 사용자가 IndexedDB에서 템플릿을 삭제하면 같은 legacy 항목도 함께
@@ -43,7 +43,10 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 - Pages의 외부 extension message는
   `https://turtle-hwan.github.io/LinKU/share/`에서만 받습니다.
 - Pages에서 보낸 가져오기 요청은 service worker가 `chrome.storage.local` queue에
-  보관하고, popup이 열릴 때 검증 후 IndexedDB에 저장합니다.
+  최대 5개까지 보관하고, popup이 열릴 때 검증 후 IndexedDB에 저장합니다. queue가
+  가득 차면 기존 요청을 버리지 않고 새 요청을 명시적으로 거부합니다.
+- Pages viewer는 `connect-src 'none'` CSP를 사용하므로 템플릿 fragment와 오류를
+  Sentry를 포함한 외부 서버로 보내지 않습니다.
 
 ## 로컬 데이터 무결성
 
@@ -55,15 +58,12 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 - **읽기 정규화**: 모든 레코드는 읽는 시점에 `normalizeStoredTemplate`을 거칩니다.
   격자를 벗어난 좌표, 중복된 항목 식별자, 빠진 시각은 보정하고 그 사실을 기록합니다.
 - **격리**: 보정으로 살릴 수 없는 레코드는 삭제하지 않고 `quarantine` store로
-  원본 그대로 옮긴 뒤 개수를 사용자에게 알립니다. 사용자는 파일로 내려받을 수
-  있고, 삭제 여부는 사용자가 정합니다.
+  원본 그대로 옮긴 뒤 개수를 사용자에게 알립니다. 현재 UI에서는 복구용 파일로
+  내려받을 수 있으며 자동 삭제하지 않습니다.
 - **아이콘 재등록**: 인라인 이미지를 가진 항목의 `iconId`가 asset에 없거나 같은
   숫자가 다른 이미지를 가리키면 실제 이미지로 다시 등록해 올바른 양수 id를
   부여합니다. 등록되지 않은 아이콘을 가진 항목은 `linkFormSchema`가 거부해
   이름·주소·위치까지 저장할 수 없게 되기 때문입니다.
-- **사용 중 아이콘 보호**: 저장한 템플릿과 편집 draft가 참조하는 아이콘은 삭제를
-  거부합니다. 검사 중에도 레코드를 정규화해 하나의 손상 데이터가 삭제 UI 전체를
-  막지 않게 합니다.
 - **저장 공간**: 확장 저장소는 best-effort 모드로 둡니다. 사용자의 "인터넷 사용
   기록 삭제"는 확장 저장소를 지우지 않지만, 디스크 압박 시 브라우저가 이 출처의
   데이터를 통째로 축출할 수는 있습니다. 드문 경우이고 계정 동기화가 붙으면
@@ -80,7 +80,9 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 이 PR은 `linku` IndexedDB를 처음 배포하므로 stateless store 전체가 초기 v1 schema에
 들어갑니다. 이 PR이 배포된 뒤 DB schema를 바꿀 때부터 version을 올리고 `upgrade`에서
 반드시 `oldVersion`을 분기합니다. 가드 없는 `createObjectStore`는 이미 이전 버전이
-깔린 사용자 기기에서만 실패하며, 그 실패는 우리 쪽에서 복구할 수 없습니다.
+깔린 사용자 기기에서만 실패하며, 그 실패는 우리 쪽에서 복구할 수 없습니다. 기존
+popup이나 service worker가 연결을 잡고 있으면 `blocking` callback이 연결을 닫아 다음
+버전의 upgrade가 멈추지 않게 합니다.
 
 ## 후속 stateful 계층의 계약
 
@@ -90,7 +92,7 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 2. 동기화는 durable outbox로 별도 수행하며 네트워크 실패가 로컬 저장을 rollback하지
    않습니다.
 3. DB schema를 확장할 때 version을 올리고 기존 `templates`, `drafts`, `assets`,
-   `migrations` store를 그대로 보존합니다.
+   `migrations`, `quarantine` store를 그대로 보존합니다.
 4. Google 로그인은 동기화와 여러 기기 사용을 위한 선택 기능입니다. 개인 템플릿
    편집 자체의 선행 조건이 아닙니다.
 5. Worker는 인증, 사용자별 object namespace, optimistic concurrency와 공유 수명만

@@ -31,7 +31,8 @@ extension build는 다음 entry를 `dist/`에 생성합니다.
 - `src/components/ui/`: 공통 UI primitive.
 - `src/components/Editor/`: template editor.
 - `src/contexts/`, `src/hooks/`: React state와 reusable hook.
-- `src/apis/`: LinKU backend client.
+- `src/storage/`: IndexedDB schema, record normalization과 repository primitive.
+- `src/apis/`: 현재 연결된 LinKU backend client. 템플릿·아이콘 로컬 저장은 포함하지 않음.
 - `src/apis/external/`: 학교·외부 서비스 연동.
 - `src/background/`: MV3 service worker와 message handler.
 - `src/content/`: 허용된 외부 페이지 content script.
@@ -44,7 +45,8 @@ extension build는 다음 entry를 `dist/`에 생성합니다.
 개인 템플릿 CRUD는 LinKU backend와 분리되어 있습니다. popup과 editor는
 `src/utils/templateStorage.ts`의 저장소 경계만 사용하고, 실제 템플릿·draft는
 `linku` IndexedDB에 저장합니다. 사용자가 올린 아이콘도 256px 이하 WebP로
-정규화한 뒤 같은 DB의 별도 store에 저장합니다.
+정규화한 뒤 같은 DB의 별도 store에 저장하며 화면은 `src/utils/localIcons.ts`의
+명시적인 로컬 작업만 호출합니다.
 
 기존 `localStorage` 템플릿과 draft는 popup이 처음 저장소를 열 때 한 번
 IndexedDB로 복사합니다. 이전 값은 한 릴리즈 동안 rollback 원본으로 남기므로
@@ -101,7 +103,7 @@ popup이 닫힌 동안 background polling은 실행하지 않습니다.
 
 - `chrome.storage.local`: auth, 설정, todo, badge, 공지 캐시, 시간표 metadata와
   snapshot/override.
-- IndexedDB `linku`: 개인 template, draft, 사용자 icon blob.
+- IndexedDB `linku`: 개인 template, legacy draft, 사용자 icon blob, 손상 record 격리.
 - `localStorage`: non-extension 시간표 fallback과 이전 template/draft의 1회
   마이그레이션 원본. 새 template 데이터는 쓰지 않습니다.
 - IndexedDB: 사용자가 직접 올린 시간표 이미지 blob.

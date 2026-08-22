@@ -8,6 +8,10 @@ LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝�
 - API/Chrome bridge: 모든 non-2xx 응답, 네트워크·응답 파싱·토큰 정리, storage/tab/script injection 실패
 - handled application errors: 공통 `errorLog`와 주요 UI fallback 경로
 
+GitHub Pages의 share viewer는 이 범위에서 의도적으로 제외합니다. 해당 페이지는
+`connect-src 'none'` CSP로 template fragment가 어떤 원격 collector에도 전송되지
+않게 하며, 잘못된 공유 링크는 페이지 안의 사용자 안내로만 처리합니다.
+
 ## 모듈 경계
 
 애플리케이션 코드는 `src/monitoring/index.ts`의 provider-neutral API만 사용합니다.
