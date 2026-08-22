@@ -63,7 +63,6 @@ export interface LinkuDatabase extends DBSchema {
   templates: {
     key: number;
     value: StoredTemplate;
-    indexes: { "by-last-saved": number };
   };
   drafts: {
     key: "current";
@@ -104,15 +103,14 @@ let databasePromise: Promise<LinkuDb> | undefined;
 
 export function getLinkuDb(): Promise<LinkuDb> {
   if (!databasePromise) {
-    databasePromise = openDB<LinkuDatabase>(DATABASE_NAME, DATABASE_VERSION, {
+    const openingPromise = openDB<LinkuDatabase>(DATABASE_NAME, DATABASE_VERSION, {
       // Every version step stays additive and guarded by `oldVersion`. An
       // unguarded `createObjectStore` throws once a user's profile already
       // holds an earlier version, and that failure is unrecoverable from our
       // side, so the guard exists from the first version onward.
       upgrade(database, oldVersion) {
         if (oldVersion < 1) {
-          const templates = database.createObjectStore("templates");
-          templates.createIndex("by-last-saved", "metadata.lastSaved");
+          database.createObjectStore("templates");
           database.createObjectStore("drafts");
 
           const assets = database.createObjectStore("assets", {
@@ -125,15 +123,27 @@ export function getLinkuDb(): Promise<LinkuDb> {
           database.createObjectStore("quarantine", { keyPath: "id" });
         }
       },
-      blocked() {
-        databasePromise = undefined;
+      blocking() {
+        // Popup, background and extension pages can each hold a connection.
+        // Closing this version lets the next release upgrade the shared DB.
+        void openingPromise.then((database) => {
+          database.close();
+          if (databasePromise === openingPromise) {
+            databasePromise = undefined;
+          }
+        });
       },
       terminated() {
-        databasePromise = undefined;
+        if (databasePromise === openingPromise) {
+          databasePromise = undefined;
+        }
       },
     });
-    void databasePromise.catch(() => {
-      databasePromise = undefined;
+    databasePromise = openingPromise;
+    void openingPromise.catch(() => {
+      if (databasePromise === openingPromise) {
+        databasePromise = undefined;
+      }
     });
   }
 
