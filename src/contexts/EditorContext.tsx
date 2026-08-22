@@ -31,9 +31,6 @@ export interface EditorState {
   stagingItems: TemplateItem[];
   defaultIcons: Icon[];
   userIcons: Icon[];
-  // Sync state
-  isSyncing: boolean;
-  syncStatus: 'local' | 'synced';
   // Transition control
   noTransitionItemId: number | null;
 }
@@ -46,18 +43,13 @@ export type EditorAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'UPDATE_TEMPLATE_NAME'; payload: string }
-  | { type: 'UPDATE_TEMPLATE_HEIGHT'; payload: number }
-  | { type: 'ADD_ITEM'; payload: TemplateItem }
   | { type: 'UPDATE_ITEM'; payload: { id: number; changes: Partial<TemplateItem> } }
-  | { type: 'DELETE_ITEM'; payload: number }
   | { type: 'MOVE_ITEM'; payload: { id: number; position: { x: number; y: number } } }
   | { type: 'RESIZE_ITEM'; payload: { id: number; size: { width: number; height: number } } }
   | { type: 'SELECT_ITEM'; payload: number | null }
   | { type: 'START_SAVING' }
   | { type: 'SAVE_SUCCESS'; payload: Template }
   | { type: 'SAVE_FAILED'; payload: string }
-  | { type: 'MARK_DIRTY' }
-  | { type: 'MARK_CLEAN' }
   // New actions for staging area and icons
   | { type: 'ADD_TO_STAGING'; payload: TemplateItem }
   | { type: 'REMOVE_FROM_STAGING'; payload: number }
@@ -67,10 +59,6 @@ export type EditorAction =
   | { type: 'LOAD_DEFAULT_ICONS'; payload: Icon[] }
   | { type: 'LOAD_USER_ICONS'; payload: Icon[] }
   | { type: 'ADD_USER_ICON'; payload: Icon }
-  // Sync actions
-  | { type: 'START_SYNCING' }
-  | { type: 'SYNC_SUCCESS'; payload: Template }
-  | { type: 'SYNC_FAILED'; payload: string }
   // Transition control actions
   | { type: 'SET_NO_TRANSITION_ITEM'; payload: number }
   | { type: 'CLEAR_NO_TRANSITION_ITEM' };
@@ -89,8 +77,6 @@ const initialState: EditorState = {
   stagingItems: [],
   defaultIcons: [],
   userIcons: [],
-  isSyncing: false,
-  syncStatus: 'local',
   noTransitionItemId: null,
 };
 
@@ -100,7 +86,8 @@ const initialState: EditorState = {
 const editorReducer = (state: EditorState, action: EditorAction): EditorState => {
   switch (action.type) {
     case 'LOAD_TEMPLATE': {
-      // templateItemId 유효성 검증 (SYNC_SUCCESS와 동일한 처리)
+      // Older records may not have item identifiers. Keep them editable by
+      // assigning client-only temporary ids during initialization.
       const loadedTemplate = {
         ...action.payload,
         items: action.payload.items.map((item, index) => ({
@@ -131,25 +118,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isDirty: true,
       };
 
-    case 'UPDATE_TEMPLATE_HEIGHT':
-      if (!state.template) return state;
-      return {
-        ...state,
-        template: { ...state.template, height: action.payload },
-        isDirty: true,
-      };
-
-    case 'ADD_ITEM':
-      if (!state.template) return state;
-      return {
-        ...state,
-        template: {
-          ...state.template,
-          items: [...state.template.items, action.payload],
-        },
-        isDirty: true,
-      };
-
     case 'UPDATE_ITEM':
       if (!state.template) return state;
       return {
@@ -162,21 +130,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
               : item
           ),
         },
-        isDirty: true,
-      };
-
-    case 'DELETE_ITEM':
-      if (!state.template) return state;
-      return {
-        ...state,
-        template: {
-          ...state.template,
-          items: state.template.items.filter(
-            (item) => item.templateItemId !== action.payload
-          ),
-        },
-        selectedItemId:
-          state.selectedItemId === action.payload ? null : state.selectedItemId,
         isDirty: true,
       };
 
@@ -228,12 +181,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
 
     case 'SAVE_FAILED':
       return { ...state, isSaving: false, error: action.payload };
-
-    case 'MARK_DIRTY':
-      return { ...state, isDirty: true };
-
-    case 'MARK_CLEAN':
-      return { ...state, isDirty: false };
 
     // Staging area actions
     case 'ADD_TO_STAGING':
@@ -343,38 +290,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       return {
         ...state,
         userIcons: [...state.userIcons, action.payload],
-      };
-
-    case 'START_SYNCING':
-      return {
-        ...state,
-        isSyncing: true,
-      };
-
-    case 'SYNC_SUCCESS': {
-      // 서버 응답의 아이템에 templateItemId가 없을 경우 임시 ID 생성
-      const processedTemplate = {
-        ...action.payload,
-        items: action.payload.items.map((item, index) => ({
-          ...item,
-          templateItemId: item.templateItemId ?? -(index + 1),  // null/undefined면 음수 임시 ID
-        })),
-      };
-      return {
-        ...state,
-        template: processedTemplate,
-        isSyncing: false,
-        syncStatus: 'synced',
-        isDirty: false,
-        selectedItemId: null,  // 동기화 후 선택 상태 초기화
-      };
-    }
-
-    case 'SYNC_FAILED':
-      return {
-        ...state,
-        isSyncing: false,
-        error: action.payload,
       };
 
     case 'SET_NO_TRANSITION_ITEM':
