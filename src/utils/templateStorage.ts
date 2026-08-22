@@ -427,7 +427,6 @@ export async function saveLocalTemplate(
     await transaction.done;
     return stored;
   } catch (error) {
-    errorLog("Failed to save template to IndexedDB", error);
     throw toStorageError(error, "브라우저 저장소에 저장하지 못했습니다.");
   }
 }
@@ -465,7 +464,6 @@ export async function deleteLocalTemplate(
       // reappear during a fresh migration.
       localStorage.removeItem(`${STORAGE_PREFIX}${templateId}`);
     } catch (error) {
-      errorLog("Failed to remove deleted template from legacy storage", error);
       throw toStorageError(error, "템플릿의 이전 저장 사본을 삭제하지 못했습니다.");
     }
 
@@ -549,7 +547,6 @@ export async function importTemplateCopy(
     await transaction.done;
     return stored;
   } catch (error) {
-    errorLog("Failed to store an imported template", error);
     throw toStorageError(error, "템플릿을 가져오지 못했습니다.");
   }
 }
@@ -597,11 +594,12 @@ export async function createTemplateBackup(): Promise<
 
 export async function restoreTemplateBackup(
   value: unknown,
-): Promise<{ imported: number; skipped: number }> {
+): Promise<{ imported: number; skipped: number; failedAssets: number }> {
   const backup = parseTemplateBackup(value);
   await ensureMigration();
 
   const restoredAssets = new Map<string, RestoredAssetReference>();
+  let failedAssets = 0;
   for (const asset of backup.assets ?? []) {
     try {
       const restored = await saveAssetFromDataUrl(asset.name, asset.dataUrl);
@@ -611,6 +609,7 @@ export async function restoreTemplateBackup(
         dataUrl: restored.dataUrl,
       });
     } catch (error) {
+      failedAssets += 1;
       errorLog("Failed to restore a backed up icon", error);
     }
   }
@@ -642,5 +641,5 @@ export async function restoreTemplateBackup(
     }
   }
 
-  return { imported, skipped };
+  return { imported, skipped, failedAssets };
 }

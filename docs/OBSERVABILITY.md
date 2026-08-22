@@ -63,6 +63,10 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 흡수된 경로를 뜻하므로, 사용자에게 toast나 축소된 결과가 보이는데 수집에는 아무 흔적이 남지
 않던 구간이 바로 여기였습니다. `debugLog`와 `infoLog`는 계속 console 전용입니다.
 
+하위 저장소 함수가 오류를 다시 throw할 때는 그 자리에서 중복 수집하지 않습니다. toast나
+fallback으로 실패를 최종 처리하는 UI·runtime 경계가 원본 오류를 한 번 기록하고, 내부에서
+실패를 흡수해 계속 진행하는 repair·migration 경로만 저장소 안에서 직접 기록합니다.
+
 실패를 예외가 아니라 `{ success: false, code }`로 돌려주는 경로도 수집합니다. 시간표 import는
 결과 코드를 tag로 붙여 warning으로 기록하므로, LOGIN_REQUIRED·TAB_UNAVAILABLE·
 TIMETABLE_NOT_FOUND·NO_PREVIOUS_SEMESTERS의 분포를 실제 데이터로 볼 수 있습니다. 응답 원문·request body·토큰·쿠키는 수집하지 않고, API 오류는 endpoint path,

@@ -254,25 +254,40 @@ export const TemplateListPage = () => {
   const handleImportFile = async (file: File | undefined) => {
     if (!file) return;
     try {
-      if (file.size > MAX_SHARE_FILE_BYTES) {
-        throw new Error('템플릿 가져오기 파일은 256KB 이하여야 합니다.');
+      let value: unknown;
+      try {
+        if (file.size > MAX_SHARE_FILE_BYTES) {
+          throw new Error('템플릿 가져오기 파일은 256KB 이하여야 합니다.');
+        }
+        value = JSON.parse(await file.text()) as unknown;
+        validateTemplateSharePayload(value);
+      } catch (error) {
+        toast({
+          title: '가져오기 실패',
+          description:
+            error instanceof Error ? error.message : '템플릿 파일을 읽지 못했습니다.',
+          variant: 'destructive',
+        });
+        return;
       }
-      const value: unknown = JSON.parse(await file.text());
-      validateTemplateSharePayload(value);
-      const imported = await importSharedTemplate(value);
-      await loadTemplates();
-      setActiveTab('cloned');
-      toast({
-        title: '템플릿 가져오기 완료',
-        description: `“${imported.template.name}”을 이 기기에 저장했습니다.`,
-      });
-    } catch (error) {
-      toast({
-        title: '가져오기 실패',
-        description:
-          error instanceof Error ? error.message : '템플릿 파일을 읽지 못했습니다.',
-        variant: 'destructive',
-      });
+
+      try {
+        const imported = await importSharedTemplate(value);
+        await loadTemplates();
+        setActiveTab('cloned');
+        toast({
+          title: '템플릿 가져오기 완료',
+          description: `“${imported.template.name}”을 이 기기에 저장했습니다.`,
+        });
+      } catch (error) {
+        errorLog('Failed to store an imported template', error);
+        toast({
+          title: '가져오기 실패',
+          description:
+            error instanceof Error ? error.message : '템플릿을 저장하지 못했습니다.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       if (importInputRef.current) importInputRef.current.value = '';
     }
@@ -310,12 +325,18 @@ export const TemplateListPage = () => {
         JSON.parse(await file.text()) as unknown,
       );
       await loadTemplates();
+      const hasRestoreWarnings =
+        result.skipped > 0 || result.failedAssets > 0;
       toast({
-        title: '복원 완료',
-        description:
-          result.skipped > 0
-            ? `템플릿 ${result.imported}개를 복원하고 ${result.skipped}개를 건너뛰었습니다.`
-            : `템플릿 ${result.imported}개를 복원했습니다.`,
+        title: hasRestoreWarnings ? '일부 복원 완료' : '복원 완료',
+        description: [
+          `템플릿 ${result.imported}개를 복원했습니다.`,
+          result.skipped > 0 ? `${result.skipped}개를 건너뛰었습니다.` : '',
+          result.failedAssets > 0
+            ? `아이콘 ${result.failedAssets}개는 복원하지 못했습니다.`
+            : '',
+        ].filter(Boolean).join(' '),
+        variant: hasRestoreWarnings ? 'destructive' : 'default',
       });
     } catch (error) {
       errorLog('Failed to restore a template backup', error);
