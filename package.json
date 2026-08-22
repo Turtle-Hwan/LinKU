@@ -14,6 +14,7 @@
     "watch": "node scripts/updateVersion.js && tsc -b && vite build --watch --mode production",
     "watch:local": "tsc -b && vite build --watch --mode development",
     "build:gh-pages": "tsc -b && vite build --mode gh-pages",
+    "check:gh-pages-privacy": "node scripts/checkGhPagesPrivacy.js",
     "check:content-scripts": "node scripts/checkContentScripts.js",
     "lint": "eslint .",
     "test:timetable": "node --experimental-strip-types --test tests/timetable/*.test.ts",

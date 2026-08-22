@@ -37,5 +37,8 @@ jobs:
       - name: Build GitHub Pages share viewer
         run: pnpm run build:gh-pages
 
+      - name: Verify share viewer privacy boundary
+        run: pnpm run check:gh-pages-privacy
+
       - name: Build success
         run: echo "✅ Build completed successfully!"
