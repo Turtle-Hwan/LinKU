@@ -5,6 +5,7 @@ import {
 import {
   MAX_TEMPLATE_NAME_LENGTH,
   PORTABLE_ICON_PATTERN,
+  UNSAVED_TEMPLATE_ID,
 } from "@/constants/template";
 import type { Template, TemplateIcon, TemplateItem } from "@/types/api";
 import { downloadBlob } from "@/utils/download";
@@ -12,6 +13,7 @@ import type {
   PortableIcon,
   TemplateSharePayloadV1,
 } from "@/types/templateShare";
+import { resolveBundledIconReference } from "@/storage/iconReference";
 import {
   encodeTemplateSharePayload,
   MAX_SHARE_FILE_BYTES,
@@ -46,7 +48,10 @@ function toBundledTemplateIcon(name: string): TemplateIcon {
 }
 
 function toPortableIcon(icon: TemplateIcon): PortableIcon {
-  const bundled = findBundledIcon(icon.iconName);
+  const bundled = resolveBundledIconReference(
+    icon,
+    getBundledTemplateIcons(),
+  );
   if (bundled) return { kind: "builtin", key: bundled.name };
 
   if (PORTABLE_ICON_PATTERN.test(icon.iconUrl)) {
@@ -102,7 +107,7 @@ export function portablePayloadToTemplate(
   }));
   return {
     id: crypto.randomUUID(),
-    templateId: Date.now(),
+    templateId: UNSAVED_TEMPLATE_ID,
     name: payload.template.name,
     height: payload.template.height,
     cloned: true,
