@@ -40,6 +40,9 @@ function App() {
       .then(({ importedCount, failedCount }) => {
         if (importedCount > 0) {
           window.dispatchEvent(new Event("linku:templates-changed"));
+          toast.success("템플릿 가져오기 완료", {
+            description: `${importedCount}개를 이 기기에 저장했습니다.`,
+          });
         }
         if (failedCount > 0) {
           toast.error("일부 템플릿을 가져오지 못했습니다", {
