@@ -10,6 +10,7 @@ import {
   getLinkuDb,
   type QuarantinedRecord,
   type QuarantineLocation,
+  type RecordLocation,
 } from "@/storage/linkuDb";
 import { errorLog } from "@/utils/logger";
 
@@ -44,7 +45,7 @@ export async function countQuarantinedRecords(): Promise<number> {
  * recoverable copy.
  */
 export async function moveRecordToQuarantineSafely(
-  input: QuarantineInput & { at: Exclude<QuarantineLocation, { store: "legacy-local-storage" }> },
+  input: QuarantineInput & { at: RecordLocation },
 ): Promise<boolean> {
   try {
     const database = await getLinkuDb();
@@ -54,23 +55,13 @@ export async function moveRecordToQuarantineSafely(
       quarantinedAt: Date.now(),
     };
 
-    if (input.at.store === "templates") {
-      const transaction = database.transaction(
-        ["templates", "quarantine"],
-        "readwrite",
-      );
-      await transaction.objectStore("quarantine").put(record);
-      await transaction.objectStore("templates").delete(input.at.key);
-      await transaction.done;
-    } else {
-      const transaction = database.transaction(
-        ["drafts", "quarantine"],
-        "readwrite",
-      );
-      await transaction.objectStore("quarantine").put(record);
-      await transaction.objectStore("drafts").delete("current");
-      await transaction.done;
-    }
+    const transaction = database.transaction(
+      ["templates", "quarantine"],
+      "readwrite",
+    );
+    await transaction.objectStore("quarantine").put(record);
+    await transaction.objectStore("templates").delete(input.at.key);
+    await transaction.done;
 
     return true;
   } catch (error) {

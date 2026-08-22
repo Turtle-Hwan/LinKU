@@ -15,31 +15,20 @@
  * 3. inline icons are registered as assets so imported items stay editable.
  */
 
+import { saveAssetFromDataUrl } from "@/storage/assetRepository";
 import {
-  getAssetByNumericId,
-  saveAssetFromDataUrl,
-} from "@/storage/assetRepository";
-import {
-  DRAFT_SLOT_KEY,
   getLinkuDb,
   type RecordLocation,
   type StoredTemplate,
 } from "@/storage/linkuDb";
-import {
-  PORTABLE_ICON_PATTERN,
-  UNSAVED_TEMPLATE_ID,
-} from "@/constants/template";
-import {
-  GENERIC_LINK_ICON_NAME,
-  getBundledTemplateIcons,
-} from "@/constants/templateIcons";
+import { UNSAVED_TEMPLATE_ID } from "@/constants/template";
 import { moveRecordToQuarantineSafely } from "@/storage/quarantine";
-import {
-  isRemoteHttpIconUrl,
-  resolveBundledIconReference,
-} from "@/storage/iconReference";
 import { allocateMonotonicId } from "@/storage/monotonicId";
-import { parseLegacyTemplateRecord } from "@/storage/legacyTemplateRecord";
+import {
+  migrateLegacyTemplates,
+  removeLegacyTemplateSource,
+} from "@/storage/legacyTemplateStorage";
+import { repairTemplateIcons } from "@/storage/templateIconRepair";
 import { normalizeStoredTemplate } from "@/storage/templateRecord";
 import {
   assertTemplateBackupSize,
@@ -54,14 +43,7 @@ import { portablePayloadToTemplate } from "@/utils/templateShare";
 import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 
-export type { StoredTemplate } from "@/storage/linkuDb";
 export { MAX_TEMPLATE_BACKUP_BYTES } from "@/storage/templateBackup";
-export type { TemplateBackupV1 } from "@/storage/templateBackup";
-
-const STORAGE_PREFIX = "linku_template_";
-const INDEX_KEY = "linku_templates_index";
-const DRAFT_KEY = "linku_template_draft";
-const MIGRATION_KEY = "local-storage-templates-v1";
 
 let migrationPromise: Promise<void> | undefined;
 
@@ -84,130 +66,9 @@ function toStorageError(error: unknown, fallbackMessage: string): Error {
   return Object.assign(new Error(message), { cause: error });
 }
 
-async function migrateLegacyLocalStorage(): Promise<void> {
-  const database = await getLinkuDb();
-  if (await database.get("migrations", MIGRATION_KEY)) return;
-
-  if (typeof localStorage === "undefined") return;
-
-  const transaction = database.transaction(
-    ["templates", "drafts", "migrations", "quarantine"],
-    "readwrite",
-  );
-
-  try {
-    // Another extension context may have completed the migration while this
-    // transaction was waiting for its write lock. Re-check inside the lock so
-    // the second context does not quarantine or overwrite the first result.
-    if (await transaction.objectStore("migrations").get(MIGRATION_KEY)) {
-      await transaction.done;
-      return;
-    }
-
-    const quarantineLegacyRecord = async (
-      key: string,
-      raw: string,
-      reason: string,
-    ): Promise<void> => {
-      await transaction.objectStore("quarantine").put({
-        id: crypto.randomUUID(),
-        at: { store: "legacy-local-storage", key },
-        reason,
-        quarantinedAt: Date.now(),
-        raw,
-      });
-    };
-
-    const keys = new Set<string>();
-    for (let index = 0; index < localStorage.length; index += 1) {
-      const key = localStorage.key(index);
-      if (key?.startsWith(STORAGE_PREFIX) && key !== DRAFT_KEY) keys.add(key);
-    }
-
-    const legacyIndex = localStorage.getItem(INDEX_KEY);
-    if (legacyIndex) {
-      try {
-        const entries = JSON.parse(legacyIndex) as Array<{ templateId?: number }>;
-        for (const entry of entries) {
-          if (typeof entry.templateId === "number" && entry.templateId !== 0) {
-            keys.add(`${STORAGE_PREFIX}${entry.templateId}`);
-          }
-        }
-      } catch (error) {
-        errorLog("Failed to read legacy template index", error);
-      }
-    }
-
-    for (const key of keys) {
-      const raw = localStorage.getItem(key);
-      if (!raw) continue;
-
-      const result = parseLegacyTemplateRecord(raw);
-      if (!result.ok) {
-        await quarantineLegacyRecord(key, raw, result.reason);
-        warnLog("Quarantined unreadable legacy template", {
-          key,
-          reason: result.reason,
-        });
-        continue;
-      }
-
-      if (result.repairs.length > 0) {
-        debugLog(`Repaired legacy template ${key}`, result.repairs);
-      }
-
-      const { stored } = result;
-      const templateStore = transaction.objectStore("templates");
-      if (await templateStore.get(stored.template.templateId)) {
-        await quarantineLegacyRecord(
-          key,
-          raw,
-          "같은 식별자의 템플릿이 이미 있어 원본을 별도로 보관했습니다.",
-        );
-        warnLog("Quarantined duplicate legacy template id", {
-          key,
-          templateId: stored.template.templateId,
-        });
-        continue;
-      }
-
-      await templateStore.put(stored, stored.template.templateId);
-    }
-
-    const draft = localStorage.getItem(DRAFT_KEY);
-    if (draft) {
-      const result = parseLegacyTemplateRecord(draft, {
-        allowUnsavedTemplateId: true,
-      });
-      if (result.ok) {
-        await transaction
-          .objectStore("drafts")
-          .put(result.stored, DRAFT_SLOT_KEY);
-      } else {
-        await quarantineLegacyRecord(DRAFT_KEY, draft, result.reason);
-        warnLog("Quarantined unreadable legacy template draft", {
-          reason: result.reason,
-        });
-      }
-    }
-
-    await transaction
-      .objectStore("migrations")
-      .put({ completedAt: Date.now() }, MIGRATION_KEY);
-    await transaction.done;
-  } catch (error) {
-    try {
-      transaction.abort();
-    } catch {
-      // The transaction may already be aborted by IndexedDB.
-    }
-    throw error;
-  }
-}
-
 async function ensureMigration(): Promise<void> {
   if (!migrationPromise) {
-    migrationPromise = migrateLegacyLocalStorage().catch((error) => {
+    migrationPromise = migrateLegacyTemplates().catch((error) => {
       // Let the next operation retry a transient quota/transaction failure.
       migrationPromise = undefined;
       errorLog(
@@ -219,143 +80,17 @@ async function ensureMigration(): Promise<void> {
   await migrationPromise;
 }
 
-/**
- * Re-registers inline icons that no asset backs.
- *
- * The editor resolves an icon by numeric id, and `linkFormSchema` rejects a
- * non-positive one, so an item whose icon was never registered cannot be
- * edited or saved again — a dead end the user cannot escape without losing
- * the icon. When the record still carries the image we restore it instead.
- */
-async function repairUnregisteredIcons(
-  stored: StoredTemplate,
-): Promise<{ stored: StoredTemplate; changed: boolean }> {
-  let changed = false;
-  const bundledIcons = getBundledTemplateIcons();
-  const fallbackIcon = bundledIcons.find(
-    (icon) => icon.name === GENERIC_LINK_ICON_NAME,
-  );
-  if (!fallbackIcon) {
-    throw new Error("기본 링크 아이콘을 찾을 수 없습니다.");
-  }
-
-  const repairItems = async (items: TemplateItem[]): Promise<TemplateItem[]> => {
-    const repaired: TemplateItem[] = [];
-    for (const item of items) {
-      const { iconId, iconUrl, iconName } = item.icon;
-      const bundledIcon = resolveBundledIconReference(item.icon, bundledIcons);
-      if (bundledIcon) {
-        if (
-          bundledIcon.id === iconId &&
-          bundledIcon.name === iconName &&
-          bundledIcon.imageUrl === iconUrl
-        ) {
-          repaired.push(item);
-          continue;
-        }
-        changed = true;
-        repaired.push({
-          ...item,
-          icon: {
-            iconId: bundledIcon.id,
-            iconName: bundledIcon.name,
-            iconUrl: bundledIcon.imageUrl,
-          },
-        });
-        continue;
-      }
-
-      // Older LinKU versions stored backend-uploaded icons as CloudFront URLs.
-      // The bytes cannot be recreated while the backend/CDN is unavailable, so
-      // never overwrite that only reference. The renderer supplies a visual
-      // fallback and the editor preserves the current icon when other fields
-      // are changed. New shared/imported icons remain self-contained data URLs.
-      if (!PORTABLE_ICON_PATTERN.test(iconUrl)) {
-        if (isRemoteHttpIconUrl(iconUrl) && iconId > 0) {
-          repaired.push(item);
-          continue;
-        }
-
-        changed = true;
-        repaired.push({
-          ...item,
-          icon: {
-            iconId: fallbackIcon.id,
-            iconName: fallbackIcon.name,
-            iconUrl: fallbackIcon.imageUrl,
-          },
-        });
-        continue;
-      }
-
-      if (iconId > 0) {
-        const existing = await getAssetByNumericId(iconId);
-        // A numeric id alone is not proof that the item points at the right
-        // image. Backup restores and damaged records may carry an id that is
-        // already assigned to another asset in this profile.
-        if (existing?.dataUrl === iconUrl) {
-          repaired.push(item);
-          continue;
-        }
-      }
-      try {
-        const asset = await saveAssetFromDataUrl(iconName || item.name, iconUrl);
-        changed = true;
-        repaired.push({
-          ...item,
-          icon: {
-            iconId: asset.numericId,
-            iconName: asset.name,
-            iconUrl: asset.dataUrl,
-          },
-        });
-      } catch (error) {
-        errorLog("Failed to register an inline template icon", error);
-        // A broken image must not leave the whole item impossible to edit.
-        // The original remains available in a user-created backup, while the
-        // live record gets a safe bundled fallback.
-        changed = true;
-        repaired.push({
-          ...item,
-          icon: {
-            iconId: fallbackIcon.id,
-            iconName: fallbackIcon.name,
-            iconUrl: fallbackIcon.imageUrl,
-          },
-        });
-      }
-    }
-    return repaired;
-  };
-
-  const template = {
-    ...stored.template,
-    items: await repairItems(stored.template.items),
-  };
-  const stagingItems = await repairItems(stored.stagingItems);
-
-  return changed
-    ? { stored: { ...stored, template, stagingItems }, changed }
-    : { stored, changed };
-}
-
 async function writeRecord(
   at: RecordLocation,
   value: StoredTemplate,
 ): Promise<void> {
   const database = await getLinkuDb();
-  if (at.store === "drafts") {
-    await database.put("drafts", value, DRAFT_SLOT_KEY);
-  } else {
-    await database.put("templates", value, at.key);
-  }
+  await database.put("templates", value, at.key);
 }
 
 async function readStoredRecord(at: RecordLocation): Promise<unknown> {
   const database = await getLinkuDb();
-  return at.store === "drafts"
-    ? database.get("drafts", DRAFT_SLOT_KEY)
-    : database.get("templates", at.key);
+  return database.get("templates", at.key);
 }
 
 /**
@@ -376,7 +111,7 @@ async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
     return null;
   }
 
-  const { stored, changed } = await repairUnregisteredIcons(result.value);
+  const { stored, changed } = await repairTemplateIcons(result.value);
   if (result.repairs.length > 0 || changed) {
     debugLog(`Repaired a stored ${at.store} record`, {
       at,
@@ -435,9 +170,8 @@ export async function getLocalTemplate(
   templateId: number,
 ): Promise<StoredTemplate | null> {
   await ensureMigration();
-  return templateId === UNSAVED_TEMPLATE_ID
-    ? loadTemplateDraft()
-    : readRecord({ store: "templates", key: templateId });
+  if (templateId === UNSAVED_TEMPLATE_ID) return null;
+  return readRecord({ store: "templates", key: templateId });
 }
 
 export async function listLocalTemplates(): Promise<StoredTemplate[]> {
@@ -456,47 +190,13 @@ export async function deleteLocalTemplate(
   templateId: number,
 ): Promise<void> {
   await ensureMigration();
-
-  if (typeof localStorage !== "undefined") {
-    try {
-      // Remove the rollback source before IndexedDB. If this write is blocked,
-      // keep the active record rather than reporting a deletion that can later
-      // reappear during a fresh migration.
-      localStorage.removeItem(`${STORAGE_PREFIX}${templateId}`);
-    } catch (error) {
-      throw toStorageError(error, "템플릿의 이전 저장 사본을 삭제하지 못했습니다.");
-    }
-
-    try {
-      const legacyIndex = localStorage.getItem(INDEX_KEY);
-      if (legacyIndex) {
-        const entries = JSON.parse(legacyIndex) as Array<{ templateId?: number }>;
-        localStorage.setItem(
-          INDEX_KEY,
-          JSON.stringify(
-            entries.filter((entry) => entry.templateId !== templateId),
-          ),
-        );
-      }
-    } catch (error) {
-      // A stale index entry is harmless once the corresponding record is gone.
-      warnLog("Failed to clean deleted template from legacy index", error);
-    }
-  }
+  // Remove the rollback source before IndexedDB. If this write is blocked,
+  // keep the active record rather than reporting a deletion that can later
+  // reappear during a fresh migration.
+  removeLegacyTemplateSource(templateId);
 
   const database = await getLinkuDb();
   await database.delete("templates", templateId);
-}
-
-/**
- * The draft slot holds one in-progress edit, keyed separately from saved
- * templates. It is addressed through its own functions rather than through
- * `templateId === 0`, which elsewhere in the product means the bundled
- * default template.
- */
-async function loadTemplateDraft(): Promise<StoredTemplate | null> {
-  await ensureMigration();
-  return readRecord({ store: "drafts" });
 }
 
 /**
@@ -513,7 +213,7 @@ export async function importTemplateCopy(
 
   // Icons are registered before the template is written so imported items are
   // editable the first time the user opens them.
-  const { stored: withIcons } = await repairUnregisteredIcons({
+  const { stored: withIcons } = await repairTemplateIcons({
     template,
     stagingItems,
     metadata: { lastSaved: Date.now(), savedLocally: true },
@@ -629,7 +329,7 @@ export async function restoreTemplateBackup(
     try {
       // A backup may omit an asset that is still embedded in a template. The
       // normal repair path registers it before the record becomes visible.
-      const { stored } = await repairUnregisteredIcons(prepared);
+      const { stored } = await repairTemplateIcons(prepared);
       await saveLocalTemplate(
         stored.template,
         stored.stagingItems,

@@ -24,13 +24,8 @@ export interface StoredAsset {
   createdAt: number;
 }
 
-/**
- * Where a stored template record lives. The draft slot has a single fixed key,
- * so the store determines the key rather than the caller supplying one.
- */
-export type RecordLocation =
-  | { store: "templates"; key: number }
-  | { store: "drafts" };
+/** Where an active template record lives. */
+export type RecordLocation = { store: "templates"; key: number };
 
 /**
  * Quarantine also receives records copied from the legacy localStorage
