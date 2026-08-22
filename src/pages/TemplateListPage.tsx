@@ -81,6 +81,7 @@ export const TemplateListPage = () => {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
+  const loadRequestIdRef = useRef(0);
   const [quarantinedCount, setQuarantinedCount] = useState(0);
 
   useEffect(() => {
@@ -93,16 +94,21 @@ export const TemplateListPage = () => {
   }, []);
 
   const loadTemplates = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     setLoading(true);
     try {
       const storedTemplates = await listLocalTemplates();
+      const nextQuarantinedCount = await countQuarantinedRecords();
+      if (requestId !== loadRequestIdRef.current) return;
+
       setTemplates(
         storedTemplates.map((stored) => toSummary(stored.template)),
       );
       // Reading is what moves an unreadable record into quarantine, so the
       // count is refreshed here rather than on mount.
-      setQuarantinedCount(await countQuarantinedRecords());
+      setQuarantinedCount(nextQuarantinedCount);
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
       errorLog('Failed to load IndexedDB templates', error);
       setTemplates([]);
       toast({
@@ -111,7 +117,9 @@ export const TemplateListPage = () => {
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [toast]);
 
@@ -149,7 +157,14 @@ export const TemplateListPage = () => {
 
   const handleApplyTemplate = async (template: TemplateSummary) => {
     const targetId = template.templateId === UNSAVED_TEMPLATE_ID ? null : template.templateId;
-    await selectTemplate(targetId);
+    if (!(await selectTemplate(targetId))) {
+      toast({
+        title: '적용 실패',
+        description: '템플릿 선택을 이 기기에 저장하지 못했습니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
     sendTemplateApply(
       template.templateId,
       template.templateId === UNSAVED_TEMPLATE_ID
@@ -171,11 +186,16 @@ export const TemplateListPage = () => {
   const handleDeleteTemplate = async (template: TemplateSummary) => {
     if (!confirm(`“${template.name}” 템플릿을 삭제하시겠습니까?`)) return;
     try {
+      if (
+        selectedTemplateId === template.templateId &&
+        !(await selectTemplate(null))
+      ) {
+        throw new Error('선택 상태를 해제하지 못했습니다.');
+      }
       await deleteLocalTemplate(template.templateId);
       setTemplates((current) =>
         current.filter((item) => item.templateId !== template.templateId),
       );
-      if (selectedTemplateId === template.templateId) await selectTemplate(null);
       sendTemplateDelete(
         template.templateId,
         template.cloned ? 'cloned' : 'owned',

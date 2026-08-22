@@ -46,7 +46,7 @@ interface UseSelectedTemplateResult {
   linkItems: LinkListElement[];
   isLoading: boolean;
   error: string | null;
-  selectTemplate: (templateId: number | null) => Promise<void>;
+  selectTemplate: (templateId: number | null) => Promise<boolean>;
 }
 
 export function useSelectedTemplate(): UseSelectedTemplateResult {
@@ -217,11 +217,11 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     try {
       // Try loading from IndexedDB first (for local-only templates)
       const localData = await getLocalTemplate(templateId);
-      if (localData) {
-        if (isStaleRequest()) {
-          return;
-        }
+      if (isStaleRequest()) {
+        return;
+      }
 
+      if (localData) {
         debugLog(
           "[useSelectedTemplate] Loaded template from IndexedDB:",
           templateId,
@@ -229,6 +229,18 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         setTemplateData(localData.template);
         setLinkItems(convertTemplateToLinkList(localData.template));
         setIsLoading(false);
+        return;
+      }
+
+      const storage = getChromeStorage();
+      if (storage?.local) {
+        try {
+          await storage.local.remove(STORAGE_KEY);
+        } catch (storageError) {
+          errorLog("Failed to clear a missing template selection:", storageError);
+        }
+      }
+      if (isStaleRequest()) {
         return;
       }
 
@@ -253,12 +265,12 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     }
   };
 
-  const selectTemplate = async (templateId: number | null) => {
+  const selectTemplate = async (templateId: number | null): Promise<boolean> => {
     try {
       const storage = getChromeStorage();
       if (!storage?.local) {
         if (templateId !== null && templateId === selectedTemplateIdRef.current) {
-          return;
+          return true;
         }
 
         if (templateId === null) {
@@ -274,7 +286,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
           setTemplateData(null);
           setSelectedTemplateId(templateId);
         }
-        return;
+        return true;
       }
 
       if (templateId === null) {
@@ -288,7 +300,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         setIsLoading(false);
       } else {
         if (templateId === selectedTemplateIdRef.current) {
-          return;
+          return true;
         }
 
         // Save selection
@@ -298,10 +310,12 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         await storage.local.set({ [STORAGE_KEY]: templateId });
         setSelectedTemplateId(templateId);
       }
+      return true;
     } catch (err) {
       errorLog("Failed to save template selection:", err);
       setError("템플릿 선택을 저장하는데 실패했습니다.");
       setIsLoading(false);
+      return false;
     }
   };
 
