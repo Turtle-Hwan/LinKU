@@ -34,6 +34,10 @@ import {
   getBundledTemplateIcons,
 } from "@/constants/templateIcons";
 import { moveRecordToQuarantineSafely } from "@/storage/quarantine";
+import {
+  isRemoteHttpIconUrl,
+  resolveBundledIconReference,
+} from "@/storage/iconReference";
 import { allocateMonotonicId } from "@/storage/monotonicId";
 import { parseLegacyTemplateRecord } from "@/storage/legacyTemplateRecord";
 import { normalizeStoredTemplate } from "@/storage/templateRecord";
@@ -239,14 +243,13 @@ async function repairUnregisteredIcons(
     const repaired: TemplateItem[] = [];
     for (const item of items) {
       const { iconId, iconUrl, iconName } = item.icon;
-      const bundledIcon = bundledIcons.find(
-        (icon) =>
-          (icon.imageUrl === iconUrl &&
-            (icon.id === iconId || icon.name === iconName)) ||
-          (icon.id === iconId && icon.name === iconName),
-      );
+      const bundledIcon = resolveBundledIconReference(item.icon, bundledIcons);
       if (bundledIcon) {
-        if (bundledIcon.id === iconId && bundledIcon.name === iconName) {
+        if (
+          bundledIcon.id === iconId &&
+          bundledIcon.name === iconName &&
+          bundledIcon.imageUrl === iconUrl
+        ) {
           repaired.push(item);
           continue;
         }
@@ -268,15 +271,7 @@ async function repairUnregisteredIcons(
       // fallback and the editor preserves the current icon when other fields
       // are changed. New shared/imported icons remain self-contained data URLs.
       if (!PORTABLE_ICON_PATTERN.test(iconUrl)) {
-        let isRemoteIcon = false;
-        try {
-          const protocol = new URL(iconUrl).protocol;
-          isRemoteIcon = protocol === "https:" || protocol === "http:";
-        } catch {
-          // Invalid and non-portable values use the safe bundled fallback.
-        }
-
-        if (isRemoteIcon && iconId > 0) {
+        if (isRemoteHttpIconUrl(iconUrl) && iconId > 0) {
           repaired.push(item);
           continue;
         }
