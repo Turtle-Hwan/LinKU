@@ -23,9 +23,21 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+export const RUNTIME_LINK_ID = {
+  HOMEPAGE: "homepage",
+  CAREER_PLATFORM: "career-platform",
+  COURSE_REGISTRATION: "course-registration",
+  CAMPUS_MAP: "campus-map",
+  STUDENT_SYSTEM: "student-system",
+} as const;
+
+export type RuntimeLinkId =
+  (typeof RUNTIME_LINK_ID)[keyof typeof RUNTIME_LINK_ID];
+export type LinkCatalogId = RuntimeLinkId | typeof BULLETIN_LINK_ID;
+
 /** Static link data safe to reuse in extension and no-network web runtimes. */
 export interface LinkCatalogElement {
-  id?: string;
+  id?: LinkCatalogId;
   icon: LucideIcon | string;
   label: string;
   link: string;
@@ -36,6 +48,7 @@ export interface LinkCatalogElement {
 
 export const LINK_CATALOG: LinkCatalogElement[] = [
   {
+    id: RUNTIME_LINK_ID.HOMEPAGE,
     icon: University,
     label: "홈페이지",
     link: "https://www.konkuk.ac.kr/konkuk/index.do",
@@ -52,21 +65,25 @@ export const LINK_CATALOG: LinkCatalogElement[] = [
     link: "https://ecampus.konkuk.ac.kr",
   },
   {
+    id: RUNTIME_LINK_ID.CAREER_PLATFORM,
     icon: Trophy,
     label: "위인전",
     link: "https://wein.konkuk.ac.kr",
   },
   {
+    id: RUNTIME_LINK_ID.COURSE_REGISTRATION,
     icon: Clock,
     label: "수강신청",
     link: "https://sugang.konkuk.ac.kr",
   },
   {
+    id: RUNTIME_LINK_ID.CAMPUS_MAP,
     icon: MapPinned,
     label: "캠퍼스맵",
     link: "https://research.konkuk.ac.kr/campusMap/konkuk/view.do#this",
   },
   {
+    id: RUNTIME_LINK_ID.STUDENT_SYSTEM,
     icon: GraduationCap,
     label: "학사정보시스템",
     link: "https://kuis.konkuk.ac.kr/index.do",

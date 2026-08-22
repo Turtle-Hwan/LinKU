@@ -6,7 +6,9 @@ import {
 } from "@/constants/bulletin";
 import {
   LINK_CATALOG,
+  RUNTIME_LINK_ID,
   type LinkCatalogElement,
+  type RuntimeLinkId,
 } from "@/constants/linkCatalog";
 import { executeScript, getCurrentTab, updateTabUrl } from "@/utils/chrome";
 import {
@@ -25,10 +27,11 @@ export interface LinkListElement extends LinkCatalogElement {
   samehost2?: SameHost;
 }
 
-const runtimeLinkExtras: Partial<
-  Record<string, Pick<LinkListElement, "samehost" | "samehost2">>
+const runtimeLinkExtrasById: Record<
+  RuntimeLinkId,
+  Pick<LinkListElement, "samehost" | "samehost2">
 > = {
-  홈페이지: {
+  [RUNTIME_LINK_ID.HOMEPAGE]: {
     samehost: {
       content: "상용 SW 무료 대여",
       onClick: () => {
@@ -36,7 +39,7 @@ const runtimeLinkExtras: Partial<
       },
     },
   },
-  위인전: {
+  [RUNTIME_LINK_ID.CAREER_PLATFORM]: {
     samehost: {
       content: "K-Cube 대여",
       onClick: () => {
@@ -46,7 +49,7 @@ const runtimeLinkExtras: Partial<
       },
     },
   },
-  수강신청: {
+  [RUNTIME_LINK_ID.COURSE_REGISTRATION]: {
     samehost: {
       content: "수강인원 새로고침",
       onClick: () => {
@@ -63,12 +66,12 @@ const runtimeLinkExtras: Partial<
         ),
     },
   },
-  캠퍼스맵: {
+  [RUNTIME_LINK_ID.CAMPUS_MAP]: {
     samehost: {
       content: "종강 == 법학관",
     },
   },
-  학사정보시스템: {
+  [RUNTIME_LINK_ID.STUDENT_SYSTEM]: {
     samehost: {
       content: "취득학점확인원",
       onClick: () => {
@@ -88,9 +91,14 @@ const runtimeLinkExtras: Partial<
   },
 };
 
+function getRuntimeLinkExtras(id: LinkCatalogElement["id"]) {
+  if (!id || id === BULLETIN_LINK_ID) return undefined;
+  return runtimeLinkExtrasById[id];
+}
+
 export const LinkList: LinkListElement[] = LINK_CATALOG.map((item) => ({
   ...item,
-  ...runtimeLinkExtras[item.label],
+  ...getRuntimeLinkExtras(item.id),
 }));
 
 export function createDefaultLinkList(
