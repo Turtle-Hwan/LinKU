@@ -32,6 +32,7 @@ import {
   handlePendingImportTabUpdated,
   handleTimetableImport,
 } from "./handlers/timetable";
+import { registerBannerCache } from "./handlers/bannerCache";
 import {
   createErrorReporter,
   createRuntimeMessageResponder,
@@ -45,6 +46,10 @@ import { getUserFacingErrorMessage } from "@/errors/userFacingError";
 initMonitoring("background");
 debugLog("[Background] Service worker initialized");
 recordBreadcrumb("background.lifecycle", "service worker initialized");
+
+registerBannerCache((error) => {
+  warnLog("[Background] Banner cache refresh failed", getErrorLogDetails(error));
+});
 
 const captureBackgroundException = createErrorReporter({
   category: "background.error",

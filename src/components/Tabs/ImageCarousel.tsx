@@ -2,14 +2,33 @@ import { use, useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { BannerItemType, getBannersAPI } from "@/apis";
-import { IMAGE_URL } from "@/constants/URL";
+import {
+  BannerItemType,
+  getBannerImageURL,
+  getBannersAPI,
+} from "@/apis";
 import { sendBannerOpen } from "@/utils/analytics";
 import { isBannerActive } from "@/utils/banner";
 
-const bannerPromise = getBannersAPI().then(({ banners }) => {
+const preloadBannerImage = (imageURL: string) => {
+  const image = new window.Image();
+  image.src = imageURL;
+  return image.decode().then(
+    () => true,
+    () => false,
+  );
+};
+
+const bannerPromise = getBannersAPI().then(async ({ banners }) => {
   const currentTime = Date.now();
-  return banners.filter((item) => isBannerActive(item, currentTime));
+  const activeBanners = banners.filter((item) =>
+    isBannerActive(item, currentTime),
+  );
+  const imageResults = await Promise.all(
+    activeBanners.map(({ img }) => preloadBannerImage(getBannerImageURL(img))),
+  );
+
+  return activeBanners.filter((_, index) => imageResults[index]);
 });
 
 const ImageCarousel = () => {
@@ -99,7 +118,7 @@ const Image = ({ item, position }: { item: BannerItemType; position: number }) =
   return (
     <div className="embla__slide flex-[0_0_100%] min-w-0">
       <img
-        src={`${IMAGE_URL}/banners/${item.img}`}
+        src={getBannerImageURL(item.img)}
         alt={item.alt}
         onClick={() => {
           sendBannerOpen(item.img, item.alt, position);
