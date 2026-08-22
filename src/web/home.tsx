@@ -1,10 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ExternalLink, HardDrive, Link2, WifiOff } from 'lucide-react';
+import { CHROME_WEB_STORE_URL } from '@/constants/extension';
 import '@/App.css';
-
-const EXTENSION_URL =
-  'https://chromewebstore.google.com/detail/linku/fmfbhmifnohhfiblebbdjlioppfppbgh';
 
 const features = [
   {
@@ -39,7 +37,7 @@ export function HomePage() {
           연결이 없어도 핵심 기능을 그대로 사용할 수 있습니다.
         </p>
         <a
-          href={EXTENSION_URL}
+          href={CHROME_WEB_STORE_URL}
           target="_blank"
           rel="noreferrer"
           className="mt-8 inline-flex items-center rounded-lg bg-main px-5 py-3 font-semibold text-white hover:bg-hover"

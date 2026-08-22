@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TemplatePreviewCanvas } from '@/components/Editor/TemplatePreview/TemplatePreviewCanvas';
+import {
+  CHROME_EXTENSION_ID,
+  CHROME_WEB_STORE_URL,
+} from '@/constants/extension';
 import type { Template } from '@/types/api';
 import type { TemplateSharePayloadV1 } from '@/types/templateShare';
 import {
@@ -11,9 +15,6 @@ import {
   portablePayloadToTemplate,
 } from '@/utils/templateShare';
 import '@/App.css';
-
-const EXTENSION_ID = 'fmfbhmifnohhfiblebbdjlioppfppbgh';
-const EXTENSION_URL = `https://chromewebstore.google.com/detail/linku/${EXTENSION_ID}`;
 
 interface ImportResponse {
   success?: boolean;
@@ -27,7 +28,7 @@ async function importIntoExtension(
   if (!runtime?.sendMessage) {
     throw new Error('LinKU 확장 프로그램을 찾을 수 없습니다.');
   }
-  const response = (await runtime.sendMessage(EXTENSION_ID, {
+  const response = (await runtime.sendMessage(CHROME_EXTENSION_ID, {
     type: 'IMPORT_SHARED_TEMPLATE',
     data: { payload },
   })) as ImportResponse | undefined;
@@ -83,7 +84,7 @@ export function SharedTemplatePage({
           <Download className="mr-2 h-4 w-4" />파일로 저장
         </Button>
         <Button variant="ghost" asChild>
-          <a href={EXTENSION_URL} target="_blank" rel="noreferrer">
+          <a href={CHROME_WEB_STORE_URL} target="_blank" rel="noreferrer">
             확장 프로그램 설치 <ExternalLink className="ml-2 h-4 w-4" />
           </a>
         </Button>
