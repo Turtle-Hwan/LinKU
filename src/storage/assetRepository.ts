@@ -1,5 +1,6 @@
 import { getLinkuDb, type StoredAsset } from "@/storage/linkuDb";
 import { allocateMonotonicId } from "@/storage/monotonicId";
+import { MAX_TEMPLATE_NAME_LENGTH } from "@/constants/template";
 
 const MAX_ICON_BYTES = 5 * 1024 * 1024;
 const MAX_ICON_DIMENSION = 256;
@@ -61,6 +62,14 @@ async function normalizeIconBlob(source: Blob): Promise<Blob> {
 }
 
 export async function saveAsset(name: string, source: Blob): Promise<StoredAsset> {
+  const normalizedName = name.trim();
+  if (normalizedName.length === 0) {
+    throw new Error("아이콘 이름을 입력해 주세요.");
+  }
+  if (normalizedName.length > MAX_TEMPLATE_NAME_LENGTH) {
+    throw new Error(`아이콘 이름은 ${MAX_TEMPLATE_NAME_LENGTH}자 이하여야 합니다.`);
+  }
+
   const blob = await normalizeIconBlob(source);
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   const id = bytesToHex(new Uint8Array(digest));
@@ -80,7 +89,7 @@ export async function saveAsset(name: string, source: Blob): Promise<StoredAsset
   const asset: StoredAsset = {
     id,
     numericId,
-    name,
+    name: normalizedName,
     blob,
     dataUrl,
     createdAt,

@@ -89,6 +89,26 @@ test("잘못된 assets 구조와 실행 가능한 아이콘을 거부한다", ()
       }),
     /아이콘/u,
   );
+  assert.throws(
+    () =>
+      parseTemplateBackup({
+        ...base,
+        assets: [{ name: "   ", dataUrl: originalIconDataUrl }],
+      }),
+    /아이콘/u,
+  );
+});
+
+test("백업 아이콘 이름의 앞뒤 공백을 정리한다", () => {
+  const parsed = parseTemplateBackup({
+    kind: "linku-backup",
+    version: 1,
+    exportedAt: "2026-08-21T00:00:00.000Z",
+    templates: [],
+    assets: [{ name: "  내 아이콘  ", dataUrl: originalIconDataUrl }],
+  });
+
+  assert.equal(parsed.assets[0].name, "내 아이콘");
 });
 
 test("내보내기와 복원은 같은 10MB 크기 제한을 사용한다", () => {

@@ -19,6 +19,7 @@ import { createLocalIcon } from '@/utils/localIcons';
 import { toast } from 'sonner';
 import type { Icon } from '@/types/api';
 import { errorLog } from '@/utils/logger';
+import { MAX_TEMPLATE_NAME_LENGTH } from '@/constants/template';
 
 interface IconUploadDialogProps {
   open: boolean;
@@ -79,7 +80,9 @@ export const IconUploadDialog = ({
     reader.readAsDataURL(selectedFile);
 
     // Set default icon name from filename (without extension)
-    const defaultName = selectedFile.name.replace(/\.[^/.]+$/, '');
+    const defaultName = selectedFile.name
+      .replace(/\.[^/.]+$/, '')
+      .slice(0, MAX_TEMPLATE_NAME_LENGTH);
     setIconName(defaultName);
   };
 
@@ -129,7 +132,7 @@ export const IconUploadDialog = ({
     try {
       const icon = await createLocalIcon(iconName.trim(), file);
       toast.success('업로드 완료', {
-        description: `"${iconName.trim()}" 아이콘이 추가되었습니다.`,
+        description: `"${icon.name}" 아이콘이 추가되었습니다.`,
       });
 
       if (onIconUploaded) {
@@ -224,6 +227,7 @@ export const IconUploadDialog = ({
               placeholder="예: my-icon"
               value={iconName}
               onChange={(e) => setIconName(e.target.value)}
+              maxLength={MAX_TEMPLATE_NAME_LENGTH}
               autoComplete="off"
             />
           </div>

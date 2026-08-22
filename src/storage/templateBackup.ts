@@ -72,16 +72,17 @@ function parseBackupAsset(value: unknown, index: number): TemplateBackupAssetV1 
     throw new Error(`${index + 1}번째 백업 아이콘이 올바르지 않습니다.`);
   }
   const { name, dataUrl } = value;
+  const normalizedName = typeof name === "string" ? name.trim() : "";
   if (
-    typeof name !== "string" ||
-    name.length > MAX_TEMPLATE_NAME_LENGTH ||
+    normalizedName.length === 0 ||
+    normalizedName.length > MAX_TEMPLATE_NAME_LENGTH ||
     typeof dataUrl !== "string" ||
     dataUrl.length > MAX_TEMPLATE_BACKUP_BYTES ||
     !PORTABLE_ICON_PATTERN.test(dataUrl)
   ) {
     throw new Error(`${index + 1}번째 백업 아이콘이 올바르지 않습니다.`);
   }
-  return { name, dataUrl };
+  return { name: normalizedName, dataUrl };
 }
 
 /** Validates the envelope without rejecting recoverable template records. */
