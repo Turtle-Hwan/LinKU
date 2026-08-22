@@ -82,6 +82,7 @@ export default defineConfig(({ mode }) => {
     base: mode === "gh-pages" ? "/LinKU/" : "",
     build: {
       sourcemap: canUploadSentry ? "hidden" : false,
+      modulePreload: isChromeExtension ? false : undefined,
       // 빌드 결과물이 dist/ 폴더에 생성되도록 설정
       outDir: mode === "gh-pages" ? "gh-pages" : "dist",
       emptyOutDir: !isContentScriptBuild,
