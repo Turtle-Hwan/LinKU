@@ -215,11 +215,21 @@ export async function importTemplateCopy(
 
   // Icons are registered before the template is written so imported items are
   // editable the first time the user opens them.
-  const { stored: withIcons } = await repairTemplateIcons({
-    template,
-    stagingItems,
-    metadata: { lastSaved: Date.now(), savedLocally: true },
-  });
+  const repaired = await repairTemplateIcons(
+    {
+      template,
+      stagingItems,
+      metadata: { lastSaved: Date.now(), savedLocally: true },
+    },
+    { reportRegistrationFailures: false },
+  );
+  if (repaired.failedRegistrations > 0) {
+    throw toStorageError(
+      repaired.firstRegistrationError,
+      "템플릿의 사용자 아이콘을 저장하지 못했습니다.",
+    );
+  }
+  const withIcons = repaired.stored;
 
   const database = await getLinkuDb();
   const transaction = database.transaction("templates", "readwrite");
@@ -302,6 +312,7 @@ export async function restoreTemplateBackup(
 
   const restoredAssets = new Map<string, RestoredAssetReference>();
   let failedAssets = 0;
+  let firstAssetError: unknown;
   for (const asset of backup.assets ?? []) {
     try {
       const restored = await saveAssetFromDataUrl(asset.name, asset.dataUrl);
@@ -312,12 +323,13 @@ export async function restoreTemplateBackup(
       });
     } catch (error) {
       failedAssets += 1;
-      errorLog("Failed to restore a backed up icon", error);
+      firstAssetError ??= error;
     }
   }
 
   let imported = 0;
   let skipped = 0;
+  let firstTemplateError: unknown;
 
   // Restored templates receive a fresh local id and stable UUID. The UUID is
   // also the optional account-sync key, so reusing it would let a repeated or
@@ -331,16 +343,31 @@ export async function restoreTemplateBackup(
     try {
       // A backup may omit an asset that is still embedded in a template. The
       // normal repair path registers it before the record becomes visible.
-      const { stored } = await repairTemplateIcons(prepared);
+      const repaired = await repairTemplateIcons(prepared, {
+        reportRegistrationFailures: false,
+      });
+      failedAssets += repaired.failedRegistrations;
+      firstAssetError ??= repaired.firstRegistrationError;
       await saveLocalTemplate(
-        stored.template,
-        stored.stagingItems,
+        repaired.stored.template,
+        repaired.stored.stagingItems,
       );
       imported += 1;
     } catch (error) {
-      errorLog("Failed to restore a backed up template", error);
+      firstTemplateError ??= error;
       skipped += 1;
     }
+  }
+
+  if (failedAssets > 0) {
+    errorLog("Failed to restore backed up icons", firstAssetError, {
+      failed_assets: failedAssets,
+    });
+  }
+  if (firstTemplateError !== undefined) {
+    errorLog("Failed to restore backed up templates", firstTemplateError, {
+      skipped_templates: skipped,
+    });
   }
 
   return { imported, skipped, failedAssets };

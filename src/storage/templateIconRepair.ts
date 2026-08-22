@@ -21,8 +21,16 @@ import { errorLog } from "@/utils/logger";
  */
 export async function repairTemplateIcons(
   stored: StoredTemplate,
-): Promise<{ stored: StoredTemplate; changed: boolean }> {
+  options: { reportRegistrationFailures?: boolean } = {},
+): Promise<{
+  stored: StoredTemplate;
+  changed: boolean;
+  failedRegistrations: number;
+  firstRegistrationError?: unknown;
+}> {
   let changed = false;
+  let failedRegistrations = 0;
+  let firstRegistrationError: unknown;
   const bundledIcons = getBundledTemplateIcons();
   const fallbackIcon = bundledIcons.find(
     (icon) => icon.name === GENERIC_LINK_ICON_NAME,
@@ -98,7 +106,8 @@ export async function repairTemplateIcons(
           },
         });
       } catch (error) {
-        errorLog("Failed to register an inline template icon", error);
+        failedRegistrations += 1;
+        firstRegistrationError ??= error;
         changed = true;
         repaired.push({
           ...item,
@@ -119,7 +128,21 @@ export async function repairTemplateIcons(
   };
   const stagingItems = await repairItems(stored.stagingItems);
 
-  return changed
-    ? { stored: { ...stored, template, stagingItems }, changed }
-    : { stored, changed };
+  if (
+    failedRegistrations > 0 &&
+    options.reportRegistrationFailures !== false
+  ) {
+    errorLog(
+      "Failed to register inline template icons",
+      firstRegistrationError,
+      { failed_registrations: failedRegistrations },
+    );
+  }
+
+  return {
+    stored: changed ? { ...stored, template, stagingItems } : stored,
+    changed,
+    failedRegistrations,
+    firstRegistrationError,
+  };
 }
