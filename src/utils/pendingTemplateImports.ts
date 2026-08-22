@@ -5,6 +5,7 @@ import { UserFacingError } from "@/errors/userFacingError";
 
 const STORAGE_KEY = "pendingTemplateImports";
 const MAX_PENDING_IMPORTS = 5;
+const MUTATION_LOCK = "linku:pending-template-imports";
 
 export interface PendingTemplateImportResult {
   importedCount: number;
@@ -14,6 +15,14 @@ export interface PendingTemplateImportResult {
 let mutationQueue: Promise<void> = Promise.resolve();
 
 function withMutationQueue<T>(operation: () => Promise<T>): Promise<T> {
+  // The popup and background worker run separate module instances, so an
+  // in-memory promise only serializes callers inside one runtime. Web Locks
+  // protects the shared chrome.storage value across both extension contexts.
+  if (globalThis.navigator?.locks) {
+    return globalThis.navigator.locks.request(MUTATION_LOCK, operation);
+  }
+
+  // Keep a fallback for test or older non-browser runtimes.
   const result = mutationQueue.then(operation, operation);
   mutationQueue = result.then(
     () => undefined,
