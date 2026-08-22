@@ -203,12 +203,11 @@ export function normalizeStoredTemplate(raw: unknown): NormalizeResult {
   }
 
   const template: Template = {
-    ...(source as unknown as Template),
     templateId: Number(templateId),
+    id: sourceId ?? crypto.randomUUID(),
     name,
     height,
     cloned: Boolean(source.cloned),
-    id: sourceId ?? crypto.randomUUID(),
     createdAt,
     updatedAt,
     syncStatus: "local",

@@ -36,6 +36,25 @@ test("정상 레코드는 보정 없이 그대로 통과한다", () => {
   assert.equal(result.value.metadata.lastSaved, 1_700_000_000_000);
 });
 
+test("저장 계약에 없는 임의 필드는 읽을 때 되살리지 않는다", () => {
+  const result = normalizeStoredTemplate(
+    record({
+      templateId: 12,
+      name: "내 템플릿",
+      height: 6,
+      cloned: false,
+      items: [],
+      id: "5f0d0b6c-0000-4000-8000-000000000000",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+      accessToken: "보관되면 안 되는 값",
+    }),
+  );
+
+  assert.ok(result.value);
+  assert.equal("accessToken" in result.value.template, false);
+});
+
 test("템플릿 객체나 항목 목록이 없으면 격리 대상으로 판정한다", () => {
   for (const broken of [
     null,
