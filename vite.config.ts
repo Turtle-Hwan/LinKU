@@ -22,23 +22,23 @@ export default defineConfig(({ mode }) => {
   const rollupInput: Record<string, string> | undefined = isContentScriptBuild
     ? {
         "content/everytime-timetable": path.resolve(
-          __dirname,
+          import.meta.dirname,
           "src/content/everytime-timetable.ts",
         ),
       }
     : isChromeExtension
       ? {
           // Popup entry point
-          main: path.resolve(__dirname, "index.html"),
+          main: path.resolve(import.meta.dirname, "index.html"),
           // Background service worker entry point
           "background/index": path.resolve(
-            __dirname,
+            import.meta.dirname,
             "src/background/index.ts",
           ),
         }
       : {
-          main: path.resolve(__dirname, "web/index.html"),
-          "share/index": path.resolve(__dirname, "web/share/index.html"),
+          main: path.resolve(import.meta.dirname, "web/index.html"),
+          "share/index": path.resolve(import.meta.dirname, "web/share/index.html"),
         };
 
   return {
@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        "@": path.resolve(import.meta.dirname, "./src"),
       },
     },
     publicDir: mode === "gh-pages" ? "web/public" : "public",
@@ -103,8 +103,8 @@ function copyBannersForGhPages() {
   return {
     name: "copy-banners-gh-pages", // 플러그인 이름
     writeBundle() {
-      const sourceDir = path.resolve(__dirname, "src/assets/banners"); // 복사할 폴더 경로
-      const targetDir = path.resolve(__dirname, "gh-pages/banners"); // 대상 경로
+      const sourceDir = path.resolve(import.meta.dirname, "src/assets/banners"); // 복사할 폴더 경로
+      const targetDir = path.resolve(import.meta.dirname, "gh-pages/banners"); // 대상 경로
 
       if (fs.existsSync(sourceDir)) {
         fs.mkdirSync(targetDir, { recursive: true }); // 대상 디렉토리 생성
@@ -121,7 +121,7 @@ function moveGhPagesWebFilesToRoot() {
   return {
     name: "move-gh-pages-web-files-to-root",
     closeBundle() {
-      const outputDir = path.resolve(__dirname, "gh-pages");
+      const outputDir = path.resolve(import.meta.dirname, "gh-pages");
       const webDir = path.resolve(outputDir, "web");
       if (!fs.existsSync(webDir)) return;
 
