@@ -104,6 +104,7 @@ export interface Size {
  * Template item in a template
  */
 export interface TemplateItem {
+  // Negative values are valid client-only identifiers for unsaved items.
   templateItemId: number;
   name: string;
   siteUrl: string;

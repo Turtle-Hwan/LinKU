@@ -170,16 +170,9 @@ function getIconIdentifier(linkItem: LinkListElement): string {
 }
 
 /**
- * Map LinkList icon to default icon using multiple matching strategies
- * Returns null if no valid server icon is found
+ * Map a LinkList entry to a bundled icon using several matching strategies.
  */
-function findMatchingIcon(linkItem: LinkListElement, defaultIcons: Icon[]): Icon | null {
-  // Ensure defaultIcons is an array with valid server icons
-  if (!Array.isArray(defaultIcons) || defaultIcons.length === 0) {
-    warnLog('findMatchingIcon: No server icons available');
-    return null;
-  }
-
+function findMatchingIcon(linkItem: LinkListElement, defaultIcons: Icon[]): Icon {
   // Get icon identifier from LinkList item
   const iconIdentifier = getIconIdentifier(linkItem);
   const label = linkItem.label.toLowerCase();
@@ -237,46 +230,31 @@ function findMatchingIcon(linkItem: LinkListElement, defaultIcons: Icon[]): Icon
     }
   }
 
-  // Return match or first server icon as fallback (never return local/fake icon)
   if (match) {
     return match;
   }
 
-  // Use first server icon as fallback if no match found
-  warnLog(`findMatchingIcon: No match for "${linkItem.label}", using first server icon`);
+  warnLog(`findMatchingIcon: No match for "${linkItem.label}", using first bundled icon`);
   return defaultIcons[0];
 }
 
 /**
- * Convert LinkList to TemplateItems with grid coordinates
- * Only includes items with valid server icons
+ * Convert LinkList entries to TemplateItems with bundled icons and grid coordinates.
  */
 export function convertLinkListToTemplateItems(
   defaultIcons: Icon[],
   linkList: LinkListElement[] = LinkList,
 ): TemplateItem[] {
-  // Validate that defaultIcons is an array
-  if (!Array.isArray(defaultIcons)) {
-    errorLog('convertLinkListToTemplateItems: defaultIcons is not an array', defaultIcons);
-    return [];
-  }
-
   if (defaultIcons.length === 0) {
-    warnLog('convertLinkListToTemplateItems: No server icons available');
+    warnLog('convertLinkListToTemplateItems: No bundled icons available');
     return [];
   }
 
   const items: TemplateItem[] = [];
 
   linkList.forEach((linkItem, index) => {
-    // Find matching server icon
+    // Find the stable bundled icon for this link.
     const icon = findMatchingIcon(linkItem, defaultIcons);
-
-    // Skip items without valid server icon
-    if (!icon) {
-      warnLog(`convertLinkListToTemplateItems: Skipping "${linkItem.label}" - no valid server icon`);
-      return;
-    }
 
     const colSpan = linkItem.islong ? 3 : 2;
     const position = calculateGridPosition(index, colSpan, linkList);
