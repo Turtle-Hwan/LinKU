@@ -6,7 +6,7 @@ import { SaveButton } from './SaveButton';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import {
   checkTemplateStorageAvailability,
-  saveTemplateToLocalStorage,
+  saveLocalTemplate,
 } from '@/utils/templateStorage';
 import { toast } from 'sonner';
 import { errorLog } from '@/utils/logger';
@@ -33,7 +33,7 @@ export const EditorHeader = () => {
       // The storage layer allocates the id for a new template. Minting one
       // from the clock here could collide with an existing template and
       // overwrite it without a trace.
-      const stored = await saveTemplateToLocalStorage(
+      const stored = await saveLocalTemplate(
         {
           ...state.template,
           syncStatus: 'local' as const,

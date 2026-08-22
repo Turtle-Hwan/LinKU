@@ -16,7 +16,7 @@ import {
   type LinkListElement,
 } from "@/constants/LinkList";
 import type { BulletinInfo } from "@/constants/bulletin";
-import { loadTemplateFromLocalStorage } from "@/utils/templateStorage";
+import { getLocalTemplate } from "@/utils/templateStorage";
 import { debugLog, errorLog } from '@/utils/logger';
 import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
@@ -216,7 +216,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
 
     try {
       // Try loading from IndexedDB first (for local-only templates)
-      const localData = await loadTemplateFromLocalStorage(templateId);
+      const localData = await getLocalTemplate(templateId);
       if (localData) {
         if (isStaleRequest()) {
           return;

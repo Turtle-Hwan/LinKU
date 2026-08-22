@@ -31,7 +31,7 @@ async function canvasToWebp(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-export async function normalizeIconBlob(source: Blob): Promise<Blob> {
+async function normalizeIconBlob(source: Blob): Promise<Blob> {
   if (source.size > MAX_ICON_BYTES) {
     throw new Error(
       `아이콘 원본은 ${MAX_ICON_BYTES / 1024 / 1024}MB 이하여야 합니다.`,
@@ -127,24 +127,4 @@ export async function listAssets(): Promise<StoredAsset[]> {
   const database = await getLinkuDb();
   const assets = await database.getAll("assets");
   return assets.sort((left, right) => right.createdAt - left.createdAt);
-}
-
-export async function renameAsset(id: string, name: string): Promise<StoredAsset> {
-  const database = await getLinkuDb();
-  const transaction = database.transaction("assets", "readwrite");
-  const store = transaction.objectStore("assets");
-  const asset = await store.get(id);
-  if (!asset) {
-    transaction.abort();
-    throw new Error("아이콘을 찾을 수 없습니다.");
-  }
-  const renamed = { ...asset, name };
-  await store.put(renamed);
-  await transaction.done;
-  return renamed;
-}
-
-export async function deleteAsset(id: string): Promise<void> {
-  const database = await getLinkuDb();
-  await database.delete("assets", id);
 }

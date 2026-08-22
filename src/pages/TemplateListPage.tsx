@@ -23,10 +23,10 @@ import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import type { Template, TemplateSummary } from '@/types/api';
 import {
   createTemplateBackup,
-  deleteTemplateFromLocalStorage,
-  getTemplatesIndex,
+  deleteLocalTemplate,
   importSharedTemplate,
-  loadTemplateFromLocalStorage,
+  getLocalTemplate,
+  listLocalTemplates,
   MAX_TEMPLATE_BACKUP_BYTES,
   restoreTemplateBackup,
 } from '@/utils/templateStorage';
@@ -95,14 +95,9 @@ export const TemplateListPage = () => {
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const index = await getTemplatesIndex();
-      const storedTemplates = await Promise.all(
-        index.map((entry) => loadTemplateFromLocalStorage(entry.templateId)),
-      );
+      const storedTemplates = await listLocalTemplates();
       setTemplates(
-        storedTemplates
-          .filter((stored) => stored !== null)
-          .map((stored) => toSummary(stored.template)),
+        storedTemplates.map((stored) => toSummary(stored.template)),
       );
       // Reading is what moves an unreadable record into quarantine, so the
       // count is refreshed here rather than on mount.
@@ -176,7 +171,7 @@ export const TemplateListPage = () => {
   const handleDeleteTemplate = async (template: TemplateSummary) => {
     if (!confirm(`“${template.name}” 템플릿을 삭제하시겠습니까?`)) return;
     try {
-      await deleteTemplateFromLocalStorage(template.templateId);
+      await deleteLocalTemplate(template.templateId);
       setTemplates((current) =>
         current.filter((item) => item.templateId !== template.templateId),
       );
@@ -206,7 +201,7 @@ export const TemplateListPage = () => {
       const stored =
         templateId === UNSAVED_TEMPLATE_ID
           ? { template: defaultTemplate }
-          : await loadTemplateFromLocalStorage(templateId);
+          : await getLocalTemplate(templateId);
       if (!stored) throw new Error('이 기기에서 템플릿을 찾을 수 없습니다.');
 
       const share = await createTemplateShareUrl(stored.template);

@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Upload, ImageIcon, X } from 'lucide-react';
-import { createIcon } from '@/apis/icons';
+import { createLocalIcon } from '@/utils/localIcons';
 import { toast } from 'sonner';
 import type { Icon } from '@/types/api';
 import { errorLog } from '@/utils/logger';
@@ -127,27 +127,23 @@ export const IconUploadDialog = ({
     setIsUploading(true);
 
     try {
-      const result = await createIcon(iconName.trim(), file);
+      const icon = await createLocalIcon(iconName.trim(), file);
+      toast.success('업로드 완료', {
+        description: `"${iconName.trim()}" 아이콘이 추가되었습니다.`,
+      });
 
-      if (result.success && result.data) {
-        toast.success('업로드 완료', {
-          description: `"${iconName.trim()}" 아이콘이 추가되었습니다.`,
-        });
-
-        if (onIconUploaded) {
-          onIconUploaded(result.data);
-        }
-
-        onOpenChange(false);
-      } else {
-        toast.error('업로드 실패', {
-          description: result.error?.message || '아이콘 업로드에 실패했습니다.',
-        });
+      if (onIconUploaded) {
+        onIconUploaded(icon);
       }
+
+      onOpenChange(false);
     } catch (error) {
       errorLog('Icon upload error:', error);
-      toast.error('오류', {
-        description: '아이콘 업로드 중 오류가 발생했습니다.',
+      toast.error('업로드 실패', {
+        description:
+          error instanceof Error
+            ? error.message
+            : '아이콘 업로드 중 오류가 발생했습니다.',
       });
     } finally {
       setIsUploading(false);

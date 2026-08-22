@@ -5,13 +5,13 @@
 
 import { useReducer, useEffect, ReactNode } from 'react';
 import type { Template, TemplateItem, Icon } from '@/types/api';
-import { getDefaultIcons, getMyIcons } from '@/apis/icons';
+import { listLocalIcons } from '@/utils/localIcons';
 import { resolveLatestBulletin } from '@/apis/external/bulletin';
 import { createDefaultLinkList } from '@/constants/LinkList';
 import { BULLETIN_FALLBACK } from '@/constants/bulletin';
 import { getBundledTemplateIcons } from '@/constants/templateIcons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
-import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
+import { getLocalTemplate } from '@/utils/templateStorage';
 import { debugLog, errorLog } from '@/utils/logger';
 import { EditorContext } from './EditorContextObject';
 import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
@@ -417,27 +417,16 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
 
     try {
       // Load icons first (needed for icon picker)
-      const [iconsResult, userIconsResult] = await Promise.allSettled([
-        getDefaultIcons(),
-        getMyIcons(),
-      ]);
-
-      if (iconsResult.status === 'fulfilled' && iconsResult.value.success && iconsResult.value.data) {
-        const defaultIcons = Array.isArray(iconsResult.value.data)
-          ? iconsResult.value.data
-          : (iconsResult.value.data as { items: Icon[] }).items || [];
-        dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
-      }
-
-      if (userIconsResult.status === 'fulfilled' && userIconsResult.value.success && userIconsResult.value.data) {
-        const userIcons = Array.isArray(userIconsResult.value.data)
-          ? userIconsResult.value.data
-          : (userIconsResult.value.data as { items: Icon[] }).items || [];
-        dispatch({ type: 'LOAD_USER_ICONS', payload: userIcons });
+      const defaultIcons = getBundledTemplateIcons();
+      dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
+      try {
+        dispatch({ type: 'LOAD_USER_ICONS', payload: await listLocalIcons() });
+      } catch (error) {
+        errorLog('[EditorContext] Failed to load local icons:', error);
       }
 
       // Try loading from IndexedDB first
-      const localData = await loadTemplateFromLocalStorage(id);
+      const localData = await getLocalTemplate(id);
       if (localData) {
         dispatch({ type: 'LOAD_TEMPLATE', payload: localData.template });
 
@@ -472,43 +461,24 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
 
     try {
       // Read bundled/user icons and resolve the public bulletin when needed.
-      const [iconsResult, userIconsResult, bulletinResult] = await Promise.allSettled([
-        getDefaultIcons(),
-        getMyIcons(),
+      const [userIconsResult, bulletinResult] = await Promise.allSettled([
+        listLocalIcons(),
         startFrom === 'empty'
           ? Promise.resolve(BULLETIN_FALLBACK)
           : resolveLatestBulletin(),
       ]);
 
-      debugLog('[EditorContext] Icons API full response:', iconsResult);
-
-      // Parse default icons from response
-      let defaultIcons: Icon[] = [];
-
-      if (iconsResult.status === 'fulfilled' && iconsResult.value.success && iconsResult.value.data) {
-        if (Array.isArray(iconsResult.value.data)) {
-          defaultIcons = iconsResult.value.data;
-        } else if (typeof iconsResult.value.data === 'object' && 'items' in iconsResult.value.data) {
-          // Handle paginated response format
-          defaultIcons = (iconsResult.value.data as { items: Icon[] }).items;
-        } else {
-          errorLog('[EditorContext] Unexpected response structure:', iconsResult.value.data);
-        }
-      } else if (iconsResult.status === 'rejected') {
-        errorLog('[EditorContext] Icons API failed:', iconsResult.reason);
-      }
-
+      const defaultIcons = getBundledTemplateIcons();
       debugLog('[EditorContext] Final defaultIcons count:', defaultIcons.length);
 
       // Load bundled icons for the icon picker.
       dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
 
       // Load user icons for icon picker
-      if (userIconsResult.status === 'fulfilled' && userIconsResult.value.success && userIconsResult.value.data) {
-        const userIcons = Array.isArray(userIconsResult.value.data)
-          ? userIconsResult.value.data
-          : (userIconsResult.value.data as { items: Icon[] }).items || [];
-        dispatch({ type: 'LOAD_USER_ICONS', payload: userIcons });
+      if (userIconsResult.status === 'fulfilled') {
+        dispatch({ type: 'LOAD_USER_ICONS', payload: userIconsResult.value });
+      } else {
+        errorLog('[EditorContext] Failed to load local icons:', userIconsResult.reason);
       }
 
       // Create template based on startFrom mode

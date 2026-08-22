@@ -54,12 +54,6 @@ export type { StoredTemplate } from "@/storage/linkuDb";
 export { MAX_TEMPLATE_BACKUP_BYTES } from "@/storage/templateBackup";
 export type { TemplateBackupV1 } from "@/storage/templateBackup";
 
-export interface TemplateIndexEntry {
-  templateId: number;
-  name: string;
-  lastSaved: number;
-}
-
 const STORAGE_PREFIX = "linku_template_";
 const INDEX_KEY = "linku_templates_index";
 const DRAFT_KEY = "linku_template_draft";
@@ -405,7 +399,7 @@ async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
   return stored;
 }
 
-export async function saveTemplateToLocalStorage(
+export async function saveLocalTemplate(
   template: Template,
   stagingItems: TemplateItem[] = [],
 ): Promise<StoredTemplate> {
@@ -443,7 +437,7 @@ export async function saveTemplateToLocalStorage(
   }
 }
 
-export async function loadTemplateFromLocalStorage(
+export async function getLocalTemplate(
   templateId: number,
 ): Promise<StoredTemplate | null> {
   await ensureMigration();
@@ -452,26 +446,19 @@ export async function loadTemplateFromLocalStorage(
     : readRecord({ store: "templates", key: templateId });
 }
 
-export async function getTemplatesIndex(): Promise<TemplateIndexEntry[]> {
+export async function listLocalTemplates(): Promise<StoredTemplate[]> {
   await ensureMigration();
   const database = await getLinkuDb();
   const keys = await database.getAllKeys("templates");
-  const entries: TemplateIndexEntry[] = [];
-
-  for (const key of keys) {
-    const stored = await readRecord({ store: "templates", key });
-    if (!stored) continue;
-    entries.push({
-      templateId: stored.template.templateId,
-      name: stored.template.name,
-      lastSaved: stored.metadata.lastSaved,
-    });
-  }
-
-  return entries.sort((left, right) => right.lastSaved - left.lastSaved);
+  const records = await Promise.all(
+    keys.map((key) => readRecord({ store: "templates", key })),
+  );
+  return records
+    .filter((record): record is StoredTemplate => record !== null)
+    .sort((left, right) => right.metadata.lastSaved - left.metadata.lastSaved);
 }
 
-export async function deleteTemplateFromLocalStorage(
+export async function deleteLocalTemplate(
   templateId: number,
 ): Promise<void> {
   await ensureMigration();
@@ -514,40 +501,9 @@ export async function deleteTemplateFromLocalStorage(
  * `templateId === 0`, which elsewhere in the product means the bundled
  * default template.
  */
-export async function saveTemplateDraft(
-  template: Template,
-  stagingItems: TemplateItem[] = [],
-): Promise<void> {
-  await ensureMigration();
-  const database = await getLinkuDb();
-  try {
-    await database.put(
-      "drafts",
-      {
-        template: {
-          ...template,
-          templateId: UNSAVED_TEMPLATE_ID,
-          syncStatus: "local",
-        },
-        stagingItems,
-        metadata: { lastSaved: Date.now(), savedLocally: true },
-      },
-      "current",
-    );
-  } catch (error) {
-    errorLog("Failed to save template draft", error);
-    throw toStorageError(error, "편집 중인 내용을 저장하지 못했습니다.");
-  }
-}
-
-export async function loadTemplateDraft(): Promise<StoredTemplate | null> {
+async function loadTemplateDraft(): Promise<StoredTemplate | null> {
   await ensureMigration();
   return readRecord({ store: "drafts" });
-}
-
-export async function clearTemplateDraft(): Promise<void> {
-  const database = await getLinkuDb();
-  await database.delete("drafts", DRAFT_SLOT_KEY);
 }
 
 export function checkTemplateStorageAvailability(): {
@@ -557,31 +513,6 @@ export function checkTemplateStorageAvailability(): {
   return typeof indexedDB !== "undefined"
     ? { available: true }
     : { available: false, error: "IndexedDB를 사용할 수 없습니다." };
-}
-
-export async function countTemplateItemsUsingIcon(
-  iconNumericId: number,
-): Promise<number> {
-  await ensureMigration();
-  const database = await getLinkuDb();
-  let total = 0;
-
-  for (const key of await database.getAllKeys("templates")) {
-    const record = await readRecord({ store: "templates", key });
-    if (!record) continue;
-    total += [...record.template.items, ...record.stagingItems].filter(
-      (item) => item.icon.iconId === iconNumericId,
-    ).length;
-  }
-
-  const draft = await readRecord({ store: "drafts" });
-  if (draft) {
-    total += [...draft.template.items, ...draft.stagingItems].filter(
-      (item) => item.icon.iconId === iconNumericId,
-    ).length;
-  }
-
-  return total;
 }
 
 /**
@@ -714,7 +645,7 @@ export async function restoreTemplateBackup(
       // A backup may omit an asset that is still embedded in a template. The
       // normal repair path registers it before the record becomes visible.
       const { stored } = await repairUnregisteredIcons(prepared);
-      await saveTemplateToLocalStorage(
+      await saveLocalTemplate(
         stored.template,
         stored.stagingItems,
       );
