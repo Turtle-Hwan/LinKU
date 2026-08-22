@@ -25,6 +25,8 @@
     "test:template-share": "node --experimental-strip-types --test tests/templates/*.test.ts",
     "test:todo": "node --experimental-strip-types --test tests/todo/*.test.ts",
     "test:banner": "node --experimental-strip-types --test tests/banner/*.test.ts",
+    "test:extension": "pnpm run build:local && playwright test tests/extension",
+    "test:extension:headed": "LINKU_E2E_HEADED=1 pnpm run test:extension",
     "preview": "vite preview",
     "deploy": "git subtree push --prefix gh-pages origin gh-pages"
   },
@@ -56,6 +58,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@sentry/vite-plugin": "^5.4.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
