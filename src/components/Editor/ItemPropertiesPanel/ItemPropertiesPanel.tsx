@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trash2, Save, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { GRID_CONFIG } from '@/utils/template';
+import { GRID_CONFIG } from '@/utils/templateGrid';
 import {
   getFirstValidationMessage,
   LINK_NAME_MAX_LENGTH,

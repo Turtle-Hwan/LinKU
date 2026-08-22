@@ -11,7 +11,13 @@ import type { TemplateItem } from '@/types/api';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { cn } from '@/lib/utils';
 import { TemplateIconImage } from '@/components/TemplateIconImage';
-import { gridToPixelPosition, gridToPixelSize, pixelToGridSize, clampToGridBounds, GRID_CONFIG } from '@/utils/template';
+import {
+  clampToGridBounds,
+  GRID_CONFIG,
+  gridToPixelPosition,
+  gridToPixelSize,
+  pixelToGridSize,
+} from '@/utils/templateGrid';
 import { Maximize2, Trash2 } from 'lucide-react';
 
 interface DraggableItemProps {

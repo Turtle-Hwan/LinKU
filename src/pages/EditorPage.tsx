@@ -14,7 +14,12 @@ import { EditorCanvas } from '@/components/Editor/EditorCanvas/EditorCanvas';
 import { EditorSidebar } from '@/components/Editor/EditorSidebar/EditorSidebar';
 import { ItemPropertiesPanel } from '@/components/Editor/ItemPropertiesPanel/ItemPropertiesPanel';
 import { DragOverlayPreview } from '@/components/Editor/EditorCanvas/DragOverlayPreview';
-import { gridToPixelPosition, pixelToGridPosition, clampToGridBounds, resolveCollisions } from '@/utils/template';
+import { resolveCollisions } from '@/utils/template';
+import {
+  clampToGridBounds,
+  gridToPixelPosition,
+  pixelToGridPosition,
+} from '@/utils/templateGrid';
 import { toast } from 'sonner';
 import type { TemplateItem } from '@/types/api';
 import { sendTemplateEditorView, sendTemplateItemAdd } from '@/utils/analytics';

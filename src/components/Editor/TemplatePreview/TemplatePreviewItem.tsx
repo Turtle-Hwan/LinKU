@@ -4,7 +4,7 @@
  */
 
 import type { PreviewableItem } from '@/types/api';
-import { gridToPixelPosition, gridToPixelSize } from '@/utils/template';
+import { gridToPixelPosition, gridToPixelSize } from '@/utils/templateGrid';
 import { cn } from '@/lib/utils';
 import { TemplateIconImage } from '@/components/TemplateIconImage';
 

@@ -5,7 +5,7 @@
 
 import type { PreviewableItem } from '@/types/api';
 import { TemplatePreviewItem } from './TemplatePreviewItem';
-import { GRID_CONFIG } from '@/utils/template';
+import { GRID_CONFIG } from '@/utils/templateGrid';
 
 interface TemplatePreviewCanvasProps {
   items: PreviewableItem[];
