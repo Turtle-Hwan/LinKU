@@ -7,6 +7,8 @@ import { useEditorContext } from '@/hooks/useEditorContext';
 import { saveLocalTemplate } from '@/utils/templateStorage';
 import { toast } from 'sonner';
 import { errorLog } from '@/utils/logger';
+import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
+import { useNavigate } from 'react-router';
 import {
   sendTemplateSaveFail,
   sendTemplateSaveSuccess,
@@ -14,6 +16,7 @@ import {
 
 export const EditorHeader = () => {
   const { state, dispatch } = useEditorContext();
+  const navigate = useNavigate();
 
   const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     dispatch({ type: 'UPDATE_TEMPLATE_NAME', payload: event.target.value });
@@ -22,6 +25,7 @@ export const EditorHeader = () => {
   const handleSave = async () => {
     if (!state.template) return;
 
+    const isFirstSave = state.template.templateId === UNSAVED_TEMPLATE_ID;
     dispatch({ type: 'START_SAVING' });
     try {
       // The storage layer allocates the id for a new template. Minting one
@@ -47,6 +51,9 @@ export const EditorHeader = () => {
       toast.success('저장 완료', {
         description: '이 기기에 저장했습니다.',
       });
+      if (isFirstSave) {
+        navigate(`/editor/${savedTemplate.templateId}`, { replace: true });
+      }
     } catch (error) {
       errorLog('[EditorHeader] Save failed:', error);
       const message =
