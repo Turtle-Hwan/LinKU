@@ -275,7 +275,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `navigation_tab_view` | 다이얼로그 탭 노출 | 실제로 표시된 실험실·설정 탭 측정 | `feature_area`, `tab_name`, `ui_location`, `view_source` | `usePersistentDialogTab.ts` | 기본값·복원·사용자 선택을 구분 |
 | `MP_alerts_view` | 공지 탭 진입 | 공지 탭 사용 여부 | `view_mode`, `category` | `Alerts.tsx · initialize()` | - |
 | `MP_alertsItem_open` | 공지 클릭 | 공지 클릭률 측정 | `alert_id`, `category`, `source` | `AlertItem.tsx · handleClick` | - |
-| `MP_alertsSubscription_update` | 구독 변경 | 학과 구독 변경 파악 | `category`, `subscription_result`(`subscribe`\|`unsubscribe`) | `SubscriptionManager.tsx · handleSubscribe`, `handleUnsubscribe` | - |
+| `MP_alertsSubscription_update` | 구독 변경 | 학과 구독 변경 파악 | `category`, `subscription_result`(`subscribe`\|`unsubscribe`) | `MyAlertsView.tsx · handleSubscribe`, `handleUnsubscribe` | - |
 | `MP_authEmailVerification_start` | 이메일 인증 시작 | 게스트→회원 전환 시작점 | `ui_location` | `EmailVerificationDialog.tsx · useEffect([open])` | 다이얼로그 재진입마다 전송 → funnel 시작 수 과집계 가능 |
 | `MP_authEmailVerification_success` | 이메일 인증 완료 | 회원 전환 완료 | `domain_type` | `EmailVerificationDialog.tsx · handleVerifyCode` | - |
 | `MP_authLogin_fail` | 로그인 실패 | 로그인 장애 파악 | `provider`, `error_code`, `error_message` | `SettingsDialog.tsx · handleGoogleLogin` (결과·예외 분기) | - |
