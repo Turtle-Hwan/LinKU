@@ -278,7 +278,8 @@ export const TemplateListPage = () => {
       errorLog('Failed to export a template backup', error);
       toast({
         title: '백업 실패',
-        description: '백업 파일을 만들지 못했습니다.',
+        description:
+          error instanceof Error ? error.message : '백업 파일을 만들지 못했습니다.',
         variant: 'destructive',
       });
     }

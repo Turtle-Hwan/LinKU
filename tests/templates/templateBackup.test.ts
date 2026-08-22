@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  assertTemplateBackupSize,
+  MAX_TEMPLATE_BACKUP_BYTES,
   parseTemplateBackup,
   prepareRestoredTemplate,
   type RestoredAssetReference,
@@ -87,6 +89,26 @@ test("잘못된 assets 구조와 실행 가능한 아이콘을 거부한다", ()
       }),
     /아이콘/u,
   );
+});
+
+test("내보내기와 복원은 같은 10MB 크기 제한을 사용한다", () => {
+  const base = {
+    kind: "linku-backup" as const,
+    version: 1 as const,
+    exportedAt: "2026-08-21T00:00:00.000Z",
+    assets: [],
+  };
+
+  assert.doesNotThrow(() =>
+    assertTemplateBackupSize({ ...base, templates: [storedRecord] }),
+  );
+
+  const oversized = {
+    ...base,
+    templates: ["x".repeat(MAX_TEMPLATE_BACKUP_BYTES)],
+  };
+  assert.throws(() => assertTemplateBackupSize(oversized), /10MB/u);
+  assert.throws(() => parseTemplateBackup(oversized), /10MB/u);
 });
 
 test("복원본은 두 식별자를 새로 만들고 아이콘을 실제 복원 id로 remap한다", () => {

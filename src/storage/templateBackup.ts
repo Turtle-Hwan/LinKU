@@ -18,6 +18,28 @@ export const MAX_TEMPLATE_BACKUP_BYTES = 10 * 1024 * 1024;
 
 const MAX_BACKUP_ENTRIES = 10_000;
 
+export function assertTemplateBackupSize(value: unknown): void {
+  let serialized: string | undefined;
+  try {
+    // `downloadJson` uses the same indentation, so this measures the exact
+    // bytes that will be handed back to the user rather than a smaller compact
+    // representation that could cross the limit only after formatting.
+    serialized = JSON.stringify(value, null, 2);
+  } catch {
+    throw new Error("백업 데이터를 파일로 만들 수 없습니다.");
+  }
+
+  if (typeof serialized !== "string") {
+    throw new Error("백업 데이터를 파일로 만들 수 없습니다.");
+  }
+
+  if (new TextEncoder().encode(serialized).byteLength > MAX_TEMPLATE_BACKUP_BYTES) {
+    throw new Error(
+      "전체 백업 데이터가 10MB를 초과합니다. 사용하지 않는 템플릿이나 사용자 아이콘을 정리한 뒤 다시 시도해 주세요.",
+    );
+  }
+}
+
 export interface TemplateBackupAssetV1 {
   name: string;
   dataUrl: string;
@@ -65,6 +87,7 @@ function parseBackupAsset(value: unknown, index: number): TemplateBackupAssetV1 
 /** Validates the envelope without rejecting recoverable template records. */
 export function parseTemplateBackup(value: unknown): TemplateBackupV1 {
   if (!isRecord(value)) throw new Error("LinKU 백업 파일이 아닙니다.");
+  assertTemplateBackupSize(value);
 
   const { kind, version, exportedAt, templates, assets } = value;
   if (

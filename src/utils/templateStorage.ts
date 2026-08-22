@@ -37,6 +37,7 @@ import { quarantineSafely } from "@/storage/quarantine";
 import { allocateMonotonicId } from "@/storage/monotonicId";
 import { normalizeStoredTemplate } from "@/storage/templateRecord";
 import {
+  assertTemplateBackupSize,
   parseTemplateBackup,
   prepareRestoredTemplate,
   type RestoredAssetReference,
@@ -591,7 +592,7 @@ export async function createTemplateBackup(): Promise<
   const database = await getLinkuDb();
   const assets = await database.getAll("assets");
 
-  return {
+  const backup: TemplateBackupV1<StoredTemplate> = {
     kind: "linku-backup",
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -604,6 +605,11 @@ export async function createTemplateBackup(): Promise<
     ).filter((record): record is StoredTemplate => record !== null),
     assets: assets.map((asset) => ({ name: asset.name, dataUrl: asset.dataUrl })),
   };
+
+  // Never offer a successful download that this same release refuses to
+  // restore. The UI surfaces the actionable size error from this boundary.
+  assertTemplateBackupSize(backup);
+  return backup;
 }
 
 export async function restoreTemplateBackup(
