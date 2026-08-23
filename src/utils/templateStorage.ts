@@ -75,17 +75,17 @@ function toStorageError(error: unknown, fallbackMessage: string): Error {
 }
 
 async function ensureMigration(): Promise<void> {
-  if (!migrationPromise) {
-    migrationPromise = migrateLegacyTemplates().catch((error) => {
-      // Let the next operation retry a transient quota/transaction failure.
+  const migration = migrationPromise ?? migrateLegacyTemplates();
+  migrationPromise = migration;
+  try {
+    await migration;
+  } catch (error) {
+    if (migrationPromise === migration) {
       migrationPromise = undefined;
-      errorLog(
-        "Legacy template migration failed; continuing with IndexedDB",
-        error,
-      );
-    });
+      errorLog("Legacy template migration failed", error);
+    }
+    throw error;
   }
-  await migrationPromise;
 }
 
 async function writeRecord(
