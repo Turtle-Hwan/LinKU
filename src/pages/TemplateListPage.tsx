@@ -45,7 +45,9 @@ import {
 } from '@/apis/external/bulletin';
 import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 import { downloadJson } from '@/utils/download';
-import { errorLog } from '@/utils/logger';
+import { errorLog, warnLogOnly } from '@/utils/logger';
+import { UserFacingError } from '@/errors/userFacingError';
+import { recordBreadcrumb } from '@/monitoring';
 import {
   sendTemplateApply,
   sendTemplateCreateStart,
@@ -64,6 +66,21 @@ function toSummary(template: Template): TemplateSummary {
     syncStatus: 'local',
     items: template.items,
   };
+}
+
+function reportTemplateOperationFailure(message: string, error: unknown) {
+  if (error instanceof UserFacingError) {
+    recordBreadcrumb(
+      'template.validation',
+      message,
+      { validation_code: error.code },
+      'warning',
+    );
+    warnLogOnly(message, error);
+    return;
+  }
+
+  errorLog(message, error);
 }
 
 export const TemplateListPage = () => {
@@ -303,7 +320,7 @@ export const TemplateListPage = () => {
         description: `템플릿 ${backup.templates.length}개와 아이콘 ${backup.assets.length}개를 담았습니다.`,
       });
     } catch (error) {
-      errorLog('Failed to export a template backup', error);
+      reportTemplateOperationFailure('Failed to export a template backup', error);
       toast({
         title: '백업 실패',
         description:
@@ -317,10 +334,22 @@ export const TemplateListPage = () => {
     if (!file) return;
     try {
       if (file.size > MAX_TEMPLATE_BACKUP_BYTES) {
-        throw new Error('백업 파일은 10MB 이하여야 합니다.');
+        throw new UserFacingError(
+          '백업 파일은 10MB 이하여야 합니다.',
+          'TEMPLATE_BACKUP_FILE_TOO_LARGE',
+        );
+      }
+      let parsedBackup: unknown;
+      try {
+        parsedBackup = JSON.parse(await file.text()) as unknown;
+      } catch {
+        throw new UserFacingError(
+          '백업 파일의 JSON 형식이 올바르지 않습니다.',
+          'TEMPLATE_BACKUP_INVALID_JSON',
+        );
       }
       const result = await restoreTemplateBackup(
-        JSON.parse(await file.text()) as unknown,
+        parsedBackup,
       );
       await loadTemplates();
       const hasRestoreWarnings =
@@ -337,7 +366,7 @@ export const TemplateListPage = () => {
         variant: hasRestoreWarnings ? 'destructive' : 'default',
       });
     } catch (error) {
-      errorLog('Failed to restore a template backup', error);
+      reportTemplateOperationFailure('Failed to restore a template backup', error);
       toast({
         title: '복원 실패',
         description:

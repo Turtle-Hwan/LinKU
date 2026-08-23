@@ -8,6 +8,7 @@ import {
   selectReferencedBackupAssets,
   type RestoredAssetReference,
 } from "../../src/storage/templateBackup.ts";
+import { UserFacingError } from "../../src/errors/userFacingError.ts";
 
 const originalIconDataUrl = "data:image/png;base64,AAAA";
 
@@ -152,8 +153,18 @@ test("내보내기와 복원은 같은 10MB 크기 제한을 사용한다", () =
     ...base,
     templates: ["x".repeat(MAX_TEMPLATE_BACKUP_BYTES)],
   };
-  assert.throws(() => assertTemplateBackupSize(oversized), /10MB/u);
-  assert.throws(() => parseTemplateBackup(oversized), /10MB/u);
+  assert.throws(
+    () => assertTemplateBackupSize(oversized),
+    (error) =>
+      error instanceof UserFacingError &&
+      error.code === "TEMPLATE_BACKUP_TOO_LARGE",
+  );
+  assert.throws(
+    () => parseTemplateBackup(oversized),
+    (error) =>
+      error instanceof UserFacingError &&
+      error.code === "TEMPLATE_BACKUP_TOO_LARGE",
+  );
 });
 
 test("복원본은 두 식별자를 새로 만들고 아이콘을 실제 복원 id로 remap한다", () => {
