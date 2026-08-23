@@ -29,9 +29,12 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 같은 `templateStorage` 경계를 거칩니다. 모든 읽기와 쓰기는 비동기 IndexedDB
 작업입니다. 과거 `localStorage` 값은
 `local-storage-templates-v1` migration이 완료되기 전에 복사하며, migration 완료
-기록과 데이터 저장을 같은 transaction에서 처리합니다. rollback을 위해 원본 값은
-남겨 두되, 사용자가 IndexedDB에서 템플릿을 삭제하면 같은 legacy 항목도 함께
-삭제하여 다음 migration에서 되살아나지 않게 합니다.
+기록과 데이터 저장을 같은 transaction에서 처리합니다. 완료 기록에는 원본별
+fingerprint와 처리 결과를 남겨, 새 runtime에서 rollback 중 수정되거나 추가된 값만
+다시 이관합니다. 이관 transaction이 실패하면 목록·백업 등 현재 작업도 실패하므로
+불완전한 결과를 성공으로 표시하지 않습니다. rollback을 위해 원본 값은 남겨 두되,
+사용자가 IndexedDB에서 템플릿을 삭제하면 같은 legacy 항목도 함께 삭제하여 다음
+migration에서 되살아나지 않게 합니다.
 
 ## 공유 보안 경계
 
