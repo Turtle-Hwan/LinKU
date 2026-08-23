@@ -25,7 +25,6 @@ export interface EditorState {
   isDirty: boolean;
   isSaving: boolean;
   isLoading: boolean;
-  mode: 'create' | 'edit';
   error: string | null;
   // New states for staging area and icons
   stagingItems: TemplateItem[];
@@ -39,7 +38,10 @@ export interface EditorState {
  * Editor actions
  */
 export type EditorAction =
-  | { type: 'LOAD_TEMPLATE'; payload: Template }
+  | {
+      type: 'LOAD_TEMPLATE';
+      payload: { template: Template; stagingItems?: TemplateItem[] };
+    }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'UPDATE_TEMPLATE_NAME'; payload: string }
@@ -72,7 +74,6 @@ const initialState: EditorState = {
   isDirty: false,
   isSaving: false,
   isLoading: false,
-  mode: 'create',
   error: null,
   stagingItems: [],
   defaultIcons: [],
@@ -89,8 +90,8 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       // Older records may not have item identifiers. Keep them editable by
       // assigning client-only temporary ids during initialization.
       const loadedTemplate = {
-        ...action.payload,
-        items: action.payload.items.map((item, index) => ({
+        ...action.payload.template,
+        items: action.payload.template.items.map((item, index) => ({
           ...item,
           templateItemId: item.templateItemId ?? -(index + 1),
         })),
@@ -98,9 +99,13 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       return {
         ...state,
         template: loadedTemplate,
-        mode: 'edit',
+        stagingItems: action.payload.stagingItems ?? [],
+        selectedItemId: null,
         isLoading: false,
+        isSaving: false,
         isDirty: false,
+        error: null,
+        noTransitionItemId: null,
       };
     }
 
@@ -175,8 +180,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         template: action.payload,
         isSaving: false,
         isDirty: false,
-        // Keep mode as 'create' if templateId is still 0 (draft)
-        mode: action.payload.templateId === UNSAVED_TEMPLATE_ID ? 'create' : 'edit',
       };
 
     case 'SAVE_FAILED':
@@ -187,6 +190,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       return {
         ...state,
         stagingItems: [...state.stagingItems, action.payload],
+        isDirty: true,
       };
 
     case 'REMOVE_FROM_STAGING':
@@ -195,6 +199,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         stagingItems: state.stagingItems.filter(
           (item) => item.templateItemId !== action.payload
         ),
+        isDirty: true,
       };
 
     case 'MOVE_TO_CANVAS': {
@@ -279,6 +284,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
             ? { ...item, ...action.payload.changes }
             : item
         ),
+        isDirty: true,
       };
 
     // Icon management actions
@@ -351,11 +357,12 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       // Try loading from IndexedDB first
       const localData = await getLocalTemplate(id);
       if (localData) {
-        dispatch({ type: 'LOAD_TEMPLATE', payload: localData.template });
-
-        // Load staging items if exists
-        localData.stagingItems.forEach((item) => {
-          dispatch({ type: 'ADD_TO_STAGING', payload: item });
+        dispatch({
+          type: 'LOAD_TEMPLATE',
+          payload: {
+            template: localData.template,
+            stagingItems: localData.stagingItems,
+          },
         });
 
         debugLog('[EditorContext] Loaded template from IndexedDB', id);
@@ -417,7 +424,10 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
+        dispatch({
+          type: 'LOAD_TEMPLATE',
+          payload: { template: emptyTemplate },
+        });
       } else {
         const defaultLinks = createDefaultLinkList(
           bulletinResult.status === 'fulfilled'
@@ -441,7 +451,10 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           updatedAt: new Date().toISOString(),
         };
 
-        dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
+        dispatch({
+          type: 'LOAD_TEMPLATE',
+          payload: { template: newTemplate },
+        });
       }
     } catch (error) {
       errorLog('[EditorContext] Failed to initialize template:', error);
@@ -456,7 +469,10 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
+      dispatch({
+        type: 'LOAD_TEMPLATE',
+        payload: { template: emptyTemplate },
+      });
     }
   };
 
