@@ -10,3 +10,31 @@ export const MONITORING_NORMALIZE_MAX_BREADTH = 100;
 export const MONITORING_IGNORED_ERROR_MESSAGES = [
   "The browser is shutting down.",
 ];
+
+function readMonitoringErrorMessage(value: unknown): string | undefined {
+  if (value instanceof Error) {
+    return value.message;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value && typeof value === "object" && "message" in value) {
+    try {
+      const message = (value as { message?: unknown }).message;
+      return typeof message === "string" ? message : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+export function isIgnoredMonitoringError(value: unknown): boolean {
+  const message = readMonitoringErrorMessage(value)?.trim();
+  return Boolean(
+    message && MONITORING_IGNORED_ERROR_MESSAGES.includes(message),
+  );
+}
