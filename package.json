@@ -23,6 +23,7 @@
     "test:monitoring": "node --experimental-strip-types --test tests/monitoring/*.test.ts",
     "test:credentials": "node --experimental-strip-types --test tests/credentials/*.test.ts",
     "test:todo": "node --experimental-strip-types --test tests/todo/*.test.ts",
+    "test:banner": "node --experimental-strip-types --test tests/banner/*.test.ts",
     "preview": "vite preview",
     "deploy": "git subtree push --prefix gh-pages origin gh-pages"
   },
