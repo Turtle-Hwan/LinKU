@@ -47,6 +47,10 @@ import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 
 export { MAX_TEMPLATE_BACKUP_BYTES } from "@/storage/templateBackup";
+export {
+  countQuarantinedRecords,
+  listQuarantinedRecords,
+} from "@/storage/quarantine";
 
 let migrationPromise: Promise<void> | undefined;
 

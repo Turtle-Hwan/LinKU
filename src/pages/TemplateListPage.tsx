@@ -23,17 +23,15 @@ import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
 import type { Template, TemplateSummary } from '@/types/api';
 import {
   createTemplateBackup,
+  countQuarantinedRecords,
   deleteLocalTemplate,
   importSharedTemplate,
   getLocalTemplate,
+  listQuarantinedRecords,
   listLocalTemplates,
   MAX_TEMPLATE_BACKUP_BYTES,
   restoreTemplateBackup,
 } from '@/utils/templateStorage';
-import {
-  countQuarantinedRecords,
-  listQuarantinedRecords,
-} from '@/storage/quarantine';
 import {
   createTemplateShareUrl,
   downloadTemplatePayload,
