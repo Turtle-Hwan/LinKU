@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   const isProductionBuild = mode === "production" || mode === "production-content";
   // Chrome Extension build configuration
   const isChromeExtension = mode !== "gh-pages";
+  const pagesBase = process.env.CF_PAGES === "1" ? "/" : "/LinKU/";
   const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN?.trim();
   const sentryOrg = process.env.SENTRY_ORG?.trim();
   const sentryProject = process.env.SENTRY_PROJECT?.trim();
@@ -79,7 +80,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     publicDir: mode === "gh-pages" ? "web/public" : "public",
-    base: mode === "gh-pages" ? "/LinKU/" : "",
+    base: mode === "gh-pages" ? pagesBase : "",
     build: {
       sourcemap: canUploadSentry ? "hidden" : false,
       modulePreload: isChromeExtension ? false : undefined,
