@@ -95,7 +95,9 @@ popup이나 service worker가 연결을 잡고 있으면 `blocking` callback이 
 
 `main` merge는 Chrome Web Store에 새 draft를 올리지만 실제 심사 제출은 수동입니다.
 서버 전용 템플릿을 계정 로그인 후 가져오는 후속 동기화나 검증된 일회성 내보내기
-경로가 준비되기 전에는 이 local-first draft를 스토어 심사에 제출하지 않습니다.
+경로가 준비되기 전에는 이 local-first draft를 스토어 심사에 제출하지 않습니다. 이는
+후속 경로가 준비될 때까지 `main`의 다른 변경도 포함해 스토어 릴리스를 동결한다는
+뜻입니다.
 
 ## 후속 stateful 계층의 계약
 
