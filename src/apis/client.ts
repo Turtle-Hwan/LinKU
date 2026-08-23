@@ -18,6 +18,10 @@ import {
   recordBreadcrumb,
   reportMessage,
 } from "@/monitoring";
+import {
+  classifyNetworkFailure,
+  isExpectedNetworkFailure,
+} from "@/utils/networkFailure";
 
 /**
  * Token expired error code from backend
@@ -463,10 +467,21 @@ async function request<T = unknown>(
       status: response.status,
     });
   } catch (error) {
-    reportApiException(error, "api_network_error", {
+    const networkFailureKind = classifyNetworkFailure(error);
+    const failureContext = {
       endpoint: safeEndpoint,
       method,
-    });
+      network_failure_kind: networkFailureKind,
+    };
+    recordBreadcrumb(
+      "api.network",
+      "request transport failed",
+      failureContext,
+      "warning",
+    );
+    if (!isExpectedNetworkFailure(error)) {
+      reportApiException(error, "api_network_error", failureContext);
+    }
     warnLogOnly("[API Client] Request error", getErrorLogDetails(error));
     return {
       success: false,

@@ -4,8 +4,13 @@
  */
 
 import { ECampusTodoItem } from '@/types/todo';
-import { errorLog } from '@/utils/logger';
+import { errorLog, warnLogOnly } from '@/utils/logger';
 import { isExtensionEnvironment } from '@/utils/chrome';
+import { recordBreadcrumb } from '@/monitoring';
+import {
+  classifyNetworkFailure,
+  isExpectedNetworkFailure,
+} from '@/utils/networkFailure';
 import { calculateDDay } from '@/utils/todo/dateFormat';
 import { buildECampusLoginBody } from './ecampusLoginBody';
 
@@ -222,6 +227,12 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
     );
 
     if (!response.ok) {
+      recordBreadcrumb(
+        "ecampus.network",
+        "todo request returned non-success status",
+        { status: response.status },
+        "warning",
+      );
       return {
         success: false,
         error: new Error(
@@ -287,7 +298,18 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
       },
     };
   } catch (error) {
-    errorLog('Failed to fetch todo list:', error);
+    const networkFailureKind = classifyNetworkFailure(error);
+    recordBreadcrumb(
+      'ecampus.network',
+      'todo request transport failed',
+      { network_failure_kind: networkFailureKind },
+      'warning',
+    );
+    if (isExpectedNetworkFailure(error)) {
+      warnLogOnly('Failed to fetch todo list:', error);
+    } else {
+      errorLog('Failed to process todo list:', error);
+    }
     return { success: false, error };
   }
 }
