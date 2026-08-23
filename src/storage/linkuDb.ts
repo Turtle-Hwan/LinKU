@@ -69,7 +69,13 @@ export interface LinkuDatabase extends DBSchema {
   };
   migrations: {
     key: string;
-    value: { completedAt: number };
+    value: {
+      completedAt: number;
+      legacySources?: Record<
+        string,
+        { fingerprint: string; status: "migrated" | "quarantined" }
+      >;
+    };
   };
   quarantine: {
     key: string;
