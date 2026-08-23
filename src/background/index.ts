@@ -44,9 +44,7 @@ import {
   getUserFacingErrorMessage,
   UserFacingError,
 } from "@/errors/userFacingError";
-import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
-import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 
 initMonitoring("background");
 debugLog("[Background] Service worker initialized");
@@ -259,19 +257,7 @@ chrome.runtime.onMessageExternal.addListener(
       return false;
     }
 
-    const payload = (
-      message as { data?: { payload?: TemplateSharePayloadV1 } }
-    ).data?.payload;
-
-    try {
-      validateTemplateSharePayload(payload);
-    } catch (error) {
-      sendResponse({
-        success: false,
-        error: error instanceof Error ? error.message : "공유 데이터가 올바르지 않습니다.",
-      });
-      return false;
-    }
+    const payload = (message as { data?: { payload?: unknown } }).data?.payload;
 
     void enqueuePendingTemplateImport(payload)
       .then(() => sendResponse({ success: true }))

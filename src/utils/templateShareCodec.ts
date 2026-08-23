@@ -16,6 +16,19 @@ export const MAX_SHARE_FILE_BYTES = 256 * 1024;
 
 const MAX_FRAGMENT_CHARACTERS = 4_096;
 
+type PortableImageDecoder = (source: Blob) => Promise<boolean>;
+
+export class InvalidSharedIconError extends Error {
+  constructor(index: number, reason: "format" | "content") {
+    super(
+      reason === "format"
+        ? `${index + 1}번째 이미지 아이콘 형식이 올바르지 않습니다.`
+        : `${index + 1}번째 이미지 아이콘이 손상되었습니다.`,
+    );
+    this.name = "InvalidSharedIconError";
+  }
+}
+
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
@@ -81,6 +94,36 @@ function assertHttpUrl(value: string): void {
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new Error("공유 템플릿에는 HTTP 또는 HTTPS 링크만 사용할 수 있습니다.");
   }
+}
+
+function portableIconDataUrlToBlob(dataUrl: string): Blob | null {
+  if (!PORTABLE_ICON_PATTERN.test(dataUrl)) return null;
+
+  try {
+    const separator = dataUrl.indexOf(",");
+    const mimeType = dataUrl.slice("data:".length, dataUrl.indexOf(";base64"));
+    const binary = atob(dataUrl.slice(separator + 1));
+    if (binary.length === 0) return null;
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return new Blob([bytes], { type: mimeType });
+  } catch {
+    return null;
+  }
+}
+
+async function decodePortableImage(source: Blob): Promise<boolean> {
+  if (typeof createImageBitmap !== "function") {
+    throw new Error("이미지 디코딩 기능을 사용할 수 없습니다.");
+  }
+
+  let image: ImageBitmap;
+  try {
+    image = await createImageBitmap(source);
+  } catch {
+    return false;
+  }
+  image.close();
+  return true;
 }
 
 function validatePortableItem(
@@ -184,6 +227,25 @@ export function validateTemplateSharePayload(
   template.items.forEach((item, index) =>
     validatePortableItem(item, index, templateHeight),
   );
+}
+
+export async function validateTemplateSharePayloadImages(
+  payload: TemplateSharePayloadV1,
+  decodeImage: PortableImageDecoder = decodePortableImage,
+): Promise<void> {
+  const decoded = new Set<string>();
+  for (const [index, item] of payload.template.items.entries()) {
+    if (item.icon.kind !== "data" || decoded.has(item.icon.dataUrl)) continue;
+
+    const source = portableIconDataUrlToBlob(item.icon.dataUrl);
+    if (!source) {
+      throw new InvalidSharedIconError(index, "format");
+    }
+    if (!(await decodeImage(source))) {
+      throw new InvalidSharedIconError(index, "content");
+    }
+    decoded.add(item.icon.dataUrl);
+  }
 }
 
 export async function encodeTemplateSharePayload(

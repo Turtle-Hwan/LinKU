@@ -44,7 +44,10 @@ import {
 import type { Template, TemplateItem } from "@/types/api";
 import { debugLog, errorLog, warnLog } from "@/utils/logger";
 import { portablePayloadToTemplate } from "@/utils/templateShare";
-import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
+import {
+  validateTemplateSharePayload,
+  validateTemplateSharePayloadImages,
+} from "@/utils/templateShareCodec";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 
 export { MAX_TEMPLATE_BACKUP_BYTES } from "@/storage/templateBackup";
@@ -274,6 +277,7 @@ export async function importSharedTemplate(
   stagingItems: TemplateItem[] = [],
 ): Promise<StoredTemplate> {
   validateTemplateSharePayload(payload);
+  await validateTemplateSharePayloadImages(payload);
   return importTemplateCopy(portablePayloadToTemplate(payload), stagingItems);
 }
 

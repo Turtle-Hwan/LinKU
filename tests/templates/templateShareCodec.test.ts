@@ -5,6 +5,7 @@ import {
   encodeTemplateSharePayload,
   MAX_SHARE_FILE_BYTES,
   validateTemplateSharePayload,
+  validateTemplateSharePayloadImages,
 } from "../../src/utils/templateShareCodec.ts";
 import type { TemplateSharePayloadV1 } from "../../src/types/templateShare.ts";
 
@@ -50,6 +51,86 @@ test("실행 가능한 SVG data URL을 거부한다", () => {
     dataUrl: "data:image/svg+xml,<svg onload='alert(1)'/>",
   };
   assert.throws(() => validateTemplateSharePayload(svgIcon), /이미지 아이콘/u);
+});
+
+test("디코딩할 수 없는 이미지 data URL을 거부한다", async () => {
+  const brokenIcon = structuredClone(payload);
+  brokenIcon.template.items[0].icon = {
+    kind: "data",
+    name: "broken",
+    dataUrl: "data:image/png;base64,AAAA",
+  };
+
+  await assert.rejects(
+    validateTemplateSharePayloadImages(brokenIcon, async (source) => {
+      assert.equal(source.type, "image/png");
+      assert.equal(source.size, 3);
+      return false;
+    }),
+    /손상/u,
+  );
+});
+
+test("잘못 인코딩한 이미지 data URL을 디코더 호출 전에 거부한다", async () => {
+  const invalidBase64 = structuredClone(payload);
+  invalidBase64.template.items[0].icon = {
+    kind: "data",
+    name: "invalid",
+    dataUrl: "data:image/png;base64,AA=A",
+  };
+  let decodeCalled = false;
+
+  await assert.rejects(
+    validateTemplateSharePayloadImages(invalidBase64, async () => {
+      decodeCalled = true;
+      return true;
+    }),
+    /형식/u,
+  );
+  assert.equal(decodeCalled, false);
+});
+
+test("같은 이미지 data URL은 한 번만 디코딩한다", async () => {
+  const duplicateIcons = structuredClone(payload);
+  const icon = {
+    kind: "data" as const,
+    name: "shared",
+    dataUrl: "data:image/png;base64,iVBORw0KGgo=",
+  };
+  duplicateIcons.template.items = [
+    { ...duplicateIcons.template.items[0], icon },
+    {
+      ...duplicateIcons.template.items[0],
+      name: "두 번째",
+      position: { x: 2, y: 0 },
+      icon,
+    },
+  ];
+  let decodeCount = 0;
+
+  await validateTemplateSharePayloadImages(duplicateIcons, async () => {
+    decodeCount += 1;
+    return true;
+  });
+
+  assert.equal(decodeCount, 1);
+});
+
+test("이미지 디코더의 런타임 오류는 입력 오류로 숨기지 않는다", async () => {
+  const dataIcon = structuredClone(payload);
+  dataIcon.template.items[0].icon = {
+    kind: "data",
+    name: "icon",
+    dataUrl: "data:image/png;base64,iVBORw0KGgo=",
+  };
+  const runtimeError = new Error("decoder unavailable");
+
+  await assert.rejects(
+    validateTemplateSharePayloadImages(dataIcon, async () => {
+      throw runtimeError;
+    }),
+    (error) => error === runtimeError,
+  );
 });
 
 test("외부 추적이 가능한 remote icon 형식을 거부한다", () => {

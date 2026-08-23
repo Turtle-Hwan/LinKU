@@ -1,5 +1,9 @@
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
-import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
+import {
+  InvalidSharedIconError,
+  validateTemplateSharePayload,
+  validateTemplateSharePayloadImages,
+} from "@/utils/templateShareCodec";
 import { errorLog } from "@/utils/logger";
 import { UserFacingError } from "@/errors/userFacingError";
 import {
@@ -55,21 +59,45 @@ function readValidQueue(value: unknown): TemplateSharePayloadV1[] {
   });
 }
 
-export function enqueuePendingTemplateImport(
-  payload: TemplateSharePayloadV1,
+function assertQueueHasCapacity(queue: readonly TemplateSharePayloadV1[]): void {
+  if (queue.length >= MAX_PENDING_IMPORTS) {
+    throw new UserFacingError(
+      "대기 중인 템플릿이 5개입니다. LinKU를 열어 가져오기를 마친 뒤 다시 시도해 주세요.",
+    );
+  }
+}
+
+function toInvalidImportError(error: unknown): UserFacingError {
+  return new UserFacingError(
+    error instanceof Error ? error.message : "공유 데이터가 올바르지 않습니다.",
+  );
+}
+
+export async function enqueuePendingTemplateImport(
+  value: unknown,
 ): Promise<void> {
-  validateTemplateSharePayload(payload);
-  return withMutationQueue(async () => {
+  try {
+    validateTemplateSharePayload(value);
+  } catch (error) {
+    throw toInvalidImportError(error);
+  }
+
+  try {
+    await validateTemplateSharePayloadImages(value);
+  } catch (error) {
+    if (error instanceof InvalidSharedIconError) {
+      throw toInvalidImportError(error);
+    }
+    throw error;
+  }
+
+  await withMutationQueue(async () => {
     const storage = getStorage();
     const stored = await storage.get(STORAGE_KEY);
     const queue = readValidQueue(stored[STORAGE_KEY]);
-    if (queue.length >= MAX_PENDING_IMPORTS) {
-      throw new UserFacingError(
-        "대기 중인 템플릿이 5개입니다. LinKU를 열어 가져오기를 마친 뒤 다시 시도해 주세요.",
-      );
-    }
+    assertQueueHasCapacity(queue);
     await storage.set({
-      [STORAGE_KEY]: [...queue, payload],
+      [STORAGE_KEY]: [...queue, value],
     });
   });
 }

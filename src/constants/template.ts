@@ -24,4 +24,5 @@ export const MAX_SITE_URL_LENGTH = 2_048;
  * Icon images that may travel inside a shared template or be registered as an
  * asset. SVG is excluded on purpose: it can carry script.
  */
-export const PORTABLE_ICON_PATTERN = /^data:image\/(?:png|jpeg|webp);base64,/u;
+export const PORTABLE_ICON_PATTERN =
+  /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/u;
