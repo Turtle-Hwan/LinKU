@@ -185,6 +185,35 @@ test("이름이나 주소가 없는 항목만 제외하고 나머지는 지킨�
   );
 });
 
+test("복원한 항목의 잘못된 주소와 위험한 스킴을 제외한다", () => {
+  const result = normalizeStoredTemplate(
+    record({
+      templateId: 17,
+      name: "주소가 손상된 백업",
+      height: 6,
+      items: [
+        healthyItem,
+        { ...healthyItem, name: "잘못된 주소", siteUrl: "not a url" },
+        {
+          ...healthyItem,
+          name: "실행 스킴",
+          siteUrl: "javascript:alert(1)",
+        },
+      ],
+    }),
+  );
+
+  assert.ok(result.value);
+  assert.deepEqual(
+    result.value.template.items.map((item) => item.name),
+    [healthyItem.name],
+  );
+  assert.equal(
+    result.repairs.filter((note) => note.includes("주소")).length,
+    2,
+  );
+});
+
 test("이름과 높이가 비어 있거나 범위를 벗어나면 보정한다", () => {
   const result = normalizeStoredTemplate(
     record({ templateId: 10, name: "   ", height: 99, items: [] }),

@@ -23,6 +23,7 @@ import {
   GRID_ROWS,
   MAX_TEMPLATE_ITEMS,
   MAX_TEMPLATE_NAME_LENGTH,
+  MAX_SITE_URL_LENGTH,
 } from "../constants/template.ts";
 
 export interface NormalizeResult {
@@ -65,6 +66,16 @@ function toInteger(value: unknown, fallback: number): number {
   return Number.isFinite(value) ? Math.trunc(Number(value)) : fallback;
 }
 
+function isHttpUrl(value: string): boolean {
+  if (value.length > MAX_SITE_URL_LENGTH) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 function normalizeIcon(value: unknown, itemName: string): TemplateIcon {
   const icon = isRecord(value) ? value : {};
   return {
@@ -103,9 +114,9 @@ function normalizeItems(
     const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
     const siteUrl =
       typeof candidate.siteUrl === "string" ? candidate.siteUrl.trim() : "";
-    if (name.length === 0 || siteUrl.length === 0) {
+    if (name.length === 0 || !isHttpUrl(siteUrl)) {
       repairs.push(
-        `${label} ${index + 1}번째 항목에 이름이나 주소가 없어 제외했습니다.`,
+        `${label} ${index + 1}번째 항목의 이름이나 주소가 올바르지 않아 제외했습니다.`,
       );
       return;
     }
