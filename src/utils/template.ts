@@ -6,9 +6,11 @@
 
 import type { TemplateItem, TemplateIcon, Icon, Position, Size } from '@/types/api';
 import { LinkList, type LinkListElement } from '@/constants/LinkList';
-import { BULLETIN_LINK_ID } from '@/constants/bulletin';
-import { warnLog, errorLog } from '@/utils/logger';
+import { GENERIC_LINK_ICON_NAME } from '@/constants/templateIcons';
+import { warnLogOnly, errorLog } from '@/utils/logger';
 import { GRID_CONFIG, isWithinGridBounds } from '@/utils/templateGrid';
+import { matchTemplateIcon } from '@/utils/templateIconMatch';
+import { recordBreadcrumb } from '@/monitoring';
 
 /**
  * Calculate grid position for LinkList item
@@ -53,94 +55,29 @@ function calculateGridSize(colSpan: number): { width: number; height: number } {
   };
 }
 
-/**
- * Extract icon identifier from LinkList item
- * For Lucide icons, use the component's displayName
- * For string/PNG icons, use the label
- */
-function getIconIdentifier(linkItem: LinkListElement): string {
-  const icon = linkItem.icon;
+const reportedIconFallbacks = new Set<string>();
 
-  // If icon is a Lucide component, try to get its name
-  if (typeof icon === 'function') {
-    // Lucide icons have displayName property
-    const lucideName = icon.displayName || icon.name;
-    if (lucideName) {
-      return lucideName.toLowerCase();
-    }
+function findMatchingIcon(linkItem: LinkListElement, defaultIcons: Icon[]): Icon {
+  const result = matchTemplateIcon(
+    linkItem,
+    defaultIcons,
+    GENERIC_LINK_ICON_NAME,
+  );
+  if (!result) {
+    throw new Error('Bundled icon collection is empty');
   }
 
-  // Fallback to label
-  return linkItem.label.toLowerCase();
-}
-
-/**
- * Map a LinkList entry to a bundled icon using several matching strategies.
- */
-function findMatchingIcon(linkItem: LinkListElement, defaultIcons: Icon[]): Icon {
-  // Get icon identifier from LinkList item
-  const iconIdentifier = getIconIdentifier(linkItem);
-  const label = linkItem.label.toLowerCase();
-
-  // Strategy 1: Try exact match with icon identifier
-  let match = defaultIcons.find(icon =>
-    icon.name.toLowerCase() === iconIdentifier
-  );
-
-  // Strategy 2: Try contains match with icon identifier
-  if (!match) {
-    match = defaultIcons.find(icon =>
-      icon.name.toLowerCase().includes(iconIdentifier) ||
-      iconIdentifier.includes(icon.name.toLowerCase())
+  if (result.usedFallback && !reportedIconFallbacks.has(linkItem.label)) {
+    reportedIconFallbacks.add(linkItem.label);
+    recordBreadcrumb(
+      'template.icon',
+      'bundled icon fallback used',
+      { link_label: linkItem.label },
+      'warning',
     );
   }
 
-  // Strategy 3: Try label-based matching (Korean labels)
-  if (!match) {
-    const normalizedLabel = label.replace(/\s+/g, '');
-    match = defaultIcons.find(icon => {
-      const normalizedIconName = icon.name.toLowerCase().replace(/\s+/g, '');
-      return normalizedIconName.includes(normalizedLabel) ||
-             normalizedLabel.includes(normalizedIconName);
-    });
-  }
-
-  // Strategy 4: Map specific labels to common icon names
-  if (!match) {
-    const labelToIconMap: Record<string, string> = {
-      '홈페이지': 'home',
-      '공지사항': 'bell',
-      'ecampus': 'book',
-      '위인전': 'trophy',
-      '수강신청': 'clock',
-      '캠퍼스맵': 'map',
-      '학사정보시스템': 'graduation',
-      '상허기념도서관': 'library',
-      '학사일정': 'calendar',
-      '학식 메뉴': 'utensils',
-      '에브리타임': 'alarm',
-      '학과 정보': 'users',
-      '쿨하우스': 'bed',
-      'kung': 'message',
-      '현장실습': 'building',
-      '창업지원': 'lightbulb',
-    };
-
-    const mappedIconName =
-      linkItem.id === BULLETIN_LINK_ID ? 'scroll' : labelToIconMap[label];
-    if (mappedIconName) {
-      match = defaultIcons.find(icon =>
-        icon.name.toLowerCase().includes(mappedIconName)
-      );
-    }
-  }
-
-  if (match) {
-    return match;
-  }
-
-  warnLog(`findMatchingIcon: No match for "${linkItem.label}", using first bundled icon`);
-  return defaultIcons[0];
+  return result.icon;
 }
 
 /**
@@ -151,7 +88,7 @@ export function convertLinkListToTemplateItems(
   linkList: LinkListElement[] = LinkList,
 ): TemplateItem[] {
   if (defaultIcons.length === 0) {
-    warnLog('convertLinkListToTemplateItems: No bundled icons available');
+    warnLogOnly('convertLinkListToTemplateItems: No bundled icons available');
     return [];
   }
 
