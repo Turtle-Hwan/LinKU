@@ -85,13 +85,13 @@ function normalizeItems(
   templateHeight: number,
   repairs: string[],
   label: string,
+  usedIds: Set<number>,
 ): TemplateItem[] {
   if (!Array.isArray(value)) {
     if (value !== undefined) repairs.push(`${label} 목록이 없어 비웠습니다.`);
     return [];
   }
 
-  const usedIds = new Set<number>();
   const items: TemplateItem[] = [];
 
   value.forEach((candidate, index) => {
@@ -230,6 +230,7 @@ export function normalizeStoredTemplate(
     repairs.push("템플릿 수정 시각이 없어 복구했습니다.");
   }
 
+  const usedItemIds = new Set<number>();
   const template: Template = {
     templateId: Number(templateId),
     id: sourceId ?? crypto.randomUUID(),
@@ -239,7 +240,13 @@ export function normalizeStoredTemplate(
     createdAt,
     updatedAt,
     syncStatus: "local",
-    items: normalizeItems(source.items, height, repairs, "템플릿"),
+    items: normalizeItems(
+      source.items,
+      height,
+      repairs,
+      "템플릿",
+      usedItemIds,
+    ),
   };
 
   const metadata = isRecord(raw.metadata) ? raw.metadata : {};
@@ -256,7 +263,13 @@ export function normalizeStoredTemplate(
   return {
     value: {
       template,
-      stagingItems: normalizeItems(raw.stagingItems, height, repairs, "임시"),
+      stagingItems: normalizeItems(
+        raw.stagingItems,
+        height,
+        repairs,
+        "임시",
+        usedItemIds,
+      ),
       metadata: { lastSaved, savedLocally: true },
     },
     repairs,

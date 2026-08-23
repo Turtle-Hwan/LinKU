@@ -141,6 +141,32 @@ test("항목 식별자가 겹치면 새로 부여해 편집이 막히지 않게 
   assert.ok(result.repairs.some((note) => note.includes("식별자")));
 });
 
+test("캔버스와 임시 저장 공간에서도 항목 식별자는 겹치지 않는다", () => {
+  const result = normalizeStoredTemplate(
+    record(
+      {
+        templateId: 16,
+        name: "영역 간 중복 식별자",
+        height: 6,
+        items: [healthyItem],
+      },
+      {
+        stagingItems: [
+          { ...healthyItem, name: "임시 도서관" },
+        ],
+      },
+    ),
+  );
+
+  assert.ok(result.value);
+  const ids = [
+    ...result.value.template.items,
+    ...result.value.stagingItems,
+  ].map((item) => item.templateItemId);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(result.repairs.some((note) => note.includes("식별자")));
+});
+
 test("이름이나 주소가 없는 항목만 제외하고 나머지는 지킨다", () => {
   const result = normalizeStoredTemplate(
     record({
