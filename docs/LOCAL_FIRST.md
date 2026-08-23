@@ -87,6 +87,16 @@ LinKU의 개인화 기능은 서버가 없어도 먼저 동작하고, 계정 기
 popup이나 service worker가 연결을 잡고 있으면 `blocking` callback이 연결을 닫아 다음
 버전의 upgrade가 멈추지 않게 합니다.
 
+## 기존 서버 데이터의 릴리스 경계
+
+이 기반은 현재 기기의 `localStorage` 템플릿만 IndexedDB로 옮깁니다. 다른 기기에서
+만들었거나 복제해 서버에만 남은 템플릿은 이 migration의 입력이 아니며, 서버 데이터
+자체를 삭제하거나 변경하지도 않습니다.
+
+`main` merge는 Chrome Web Store에 새 draft를 올리지만 실제 심사 제출은 수동입니다.
+서버 전용 템플릿을 계정 로그인 후 가져오는 후속 동기화나 검증된 일회성 내보내기
+경로가 준비되기 전에는 이 local-first draft를 스토어 심사에 제출하지 않습니다.
+
 ## 후속 stateful 계층의 계약
 
 계정 동기화 PR은 다음 원칙을 지켜 이 기반 위에 추가합니다.
