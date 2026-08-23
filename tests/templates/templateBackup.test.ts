@@ -5,6 +5,7 @@ import {
   MAX_TEMPLATE_BACKUP_BYTES,
   parseTemplateBackup,
   prepareRestoredTemplate,
+  selectReferencedBackupAssets,
   type RestoredAssetReference,
 } from "../../src/storage/templateBackup.ts";
 
@@ -109,6 +110,30 @@ test("백업 아이콘 이름의 앞뒤 공백을 정리한다", () => {
   });
 
   assert.equal(parsed.assets[0].name, "내 아이콘");
+});
+
+test("백업에는 템플릿이 참조하는 아이콘만 포함한다", () => {
+  const stagingIconDataUrl = "data:image/png;base64,CCCC";
+  const templateWithDistinctStagingIcon = {
+    ...storedRecord,
+    stagingItems: storedRecord.stagingItems.map((item) => ({
+      ...item,
+      icon: { ...item.icon, iconUrl: stagingIconDataUrl },
+    })),
+  };
+  const selected = selectReferencedBackupAssets(
+    [templateWithDistinctStagingIcon],
+    [
+      { name: "캔버스에서 사용 중", dataUrl: originalIconDataUrl },
+      { name: "임시 공간에서 사용 중", dataUrl: stagingIconDataUrl },
+      { name: "사용하지 않음", dataUrl: "data:image/png;base64,BBBB" },
+    ],
+  );
+
+  assert.deepEqual(selected, [
+    { name: "캔버스에서 사용 중", dataUrl: originalIconDataUrl },
+    { name: "임시 공간에서 사용 중", dataUrl: stagingIconDataUrl },
+  ]);
 });
 
 test("내보내기와 복원은 같은 10MB 크기 제한을 사용한다", () => {

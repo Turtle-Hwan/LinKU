@@ -59,6 +59,22 @@ export interface RestoredAssetReference {
   dataUrl: string;
 }
 
+export function selectReferencedBackupAssets<
+  TAsset extends TemplateBackupAssetV1,
+>(
+  templates: readonly StoredTemplate[],
+  assets: readonly TAsset[],
+): TAsset[] {
+  const referencedDataUrls = new Set(
+    templates.flatMap((stored) =>
+      [...stored.template.items, ...stored.stagingItems].map(
+        (item) => item.icon.iconUrl,
+      ),
+    ),
+  );
+  return assets.filter((asset) => referencedDataUrls.has(asset.dataUrl));
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }

@@ -37,6 +37,7 @@ import {
   assertTemplateBackupSize,
   parseTemplateBackup,
   prepareRestoredTemplate,
+  selectReferencedBackupAssets,
   type RestoredAssetReference,
   type TemplateBackupV1,
 } from "@/storage/templateBackup";
@@ -277,7 +278,7 @@ export async function importSharedTemplate(
 }
 
 /**
- * Exports every local template and icon.
+ * Exports every local template and the user icons those records reference.
  *
  * Sharing covers one template at a time; without a whole-store export a lost
  * Chrome profile takes every template with it, and no server holds a copy.
@@ -287,19 +288,23 @@ export async function createTemplateBackup(): Promise<
 > {
   await ensureMigration();
   const database = await getLinkuDb();
-  const assets = await database.getAll("assets");
+  const templates = (
+    await Promise.all(
+      (await database.getAllKeys("templates")).map((key) =>
+        readRecord({ store: "templates", key }),
+      ),
+    )
+  ).filter((record): record is StoredTemplate => record !== null);
+  const assets = selectReferencedBackupAssets(
+    templates,
+    await database.getAll("assets"),
+  );
 
   const backup: TemplateBackupV1<StoredTemplate> = {
     kind: "linku-backup",
     version: 1,
     exportedAt: new Date().toISOString(),
-    templates: (
-      await Promise.all(
-        (await database.getAllKeys("templates")).map((key) =>
-          readRecord({ store: "templates", key }),
-        ),
-      )
-    ).filter((record): record is StoredTemplate => record !== null),
+    templates,
     assets: assets.map((asset) => ({ name: asset.name, dataUrl: asset.dataUrl })),
   };
 
