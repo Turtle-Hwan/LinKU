@@ -101,10 +101,18 @@ popup에는 override 편집 UI가 없지만 저장 경계는 원본을 덮지 �
 화면 진입 시 필요한 source만 갱신하고, 실패하면 기존 캐시를 유지합니다.
 popup이 닫힌 동안 background polling은 실행하지 않습니다.
 
+### 배너
+
+popup의 기존 배너 요청은 background service worker가 가로채 CacheStorage의 마지막
+정상 JSON·이미지 snapshot을 먼저 반환합니다. 하루에 한 번 새 JSON과 참조 이미지가
+모두 준비된 경우에만 snapshot을 교체하며, 실패하면 기존 snapshot을 유지합니다.
+배너 운영 기간은 캐시 시점이 아니라 popup을 열 때의 현재 시각으로 판정합니다.
+
 ## Storage
 
-- `chrome.storage.local`: auth, 설정, todo, badge, 공지 캐시, 시간표 metadata와
-  snapshot/override.
+- `chrome.storage.local`: auth, 설정, todo, badge, 공지 캐시, 배너 재검사 시각,
+  시간표 metadata와 snapshot/override.
+- CacheStorage: 마지막으로 검증된 배너 JSON·이미지 snapshot.
 - IndexedDB `linku`: 개인 template, legacy draft, 사용자 icon blob, 손상 record 격리.
 - `localStorage`: non-extension 시간표 fallback과 이전 template/draft의 1회
   마이그레이션 원본. 새 template 데이터는 쓰지 않습니다.
