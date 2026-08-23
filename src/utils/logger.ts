@@ -25,6 +25,7 @@
  */
 import { reportError } from "@/monitoring";
 import type { MonitoringLevel } from "@/monitoring";
+import { isIgnoredMonitoringError } from "@/monitoring/constants";
 import {
   isSensitiveKey,
   redactSensitiveString,
@@ -252,6 +253,11 @@ export function warnLog(message: string, ...args: unknown[]): void {
   reportHandledLog(message, args, "warning", "handled_warning", "logger.warn");
 }
 
+/** Console-only warning for a failure already owned by an explicit reporter. */
+export function warnLogOnly(message: string, ...args: unknown[]): void {
+  emitLog("warn", message, args);
+}
+
 function reportHandledLog(
   message: string,
   args: unknown[],
@@ -259,6 +265,10 @@ function reportHandledLog(
   feature: string,
   mechanism: string,
 ): void {
+  if (args.some(isIgnoredMonitoringError)) {
+    return;
+  }
+
   const sanitizedMessage = sanitizeString(message);
   const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
   const originalError = args.find((arg): arg is Error => arg instanceof Error);
@@ -282,6 +292,11 @@ export function errorLog(message: string, ...args: unknown[]): void {
   emitLog("error", message, args);
 
   reportHandledLog(message, args, "error", "handled_error", "logger.error");
+}
+
+/** Console-only error for a failure already owned by an explicit reporter. */
+export function errorLogOnly(message: string, ...args: unknown[]): void {
+  emitLog("error", message, args);
 }
 
 export function getErrorLogDetails(error: unknown): Record<string, unknown> {

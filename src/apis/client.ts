@@ -7,7 +7,12 @@ import type { ApiResponse, RequestConfig } from "../types/api";
 import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
 import { getChromeApi, getStorage, removeStorage } from "../utils/chrome";
-import { debugLog, getErrorLogDetails, warnLog } from "@/utils/logger";
+import {
+  debugLog,
+  getErrorLogDetails,
+  warnLog,
+  warnLogOnly,
+} from "@/utils/logger";
 import {
   createErrorReporter,
   recordBreadcrumb,
@@ -198,7 +203,7 @@ async function handleTokenExpired(): Promise<boolean> {
       }
     } catch (error) {
       reportApiException(error, "silent_reauth_request");
-      warnLog("[API Client] Silent reauth error", getErrorLogDetails(error));
+      warnLogOnly("[API Client] Silent reauth error", getErrorLogDetails(error));
       return false;
     } finally {
       isReauthenticating = false;
@@ -356,7 +361,7 @@ async function request<T = unknown>(
         status: response.status,
         content_type: contentType,
       });
-      warnLog("[API Client] Response parsing error", {
+      warnLogOnly("[API Client] Response parsing error", {
         ...getErrorLogDetails(parseError),
         status: response.status,
         endpoint: safeEndpoint,
@@ -462,7 +467,7 @@ async function request<T = unknown>(
       endpoint: safeEndpoint,
       method,
     });
-    warnLog("[API Client] Request error", getErrorLogDetails(error));
+    warnLogOnly("[API Client] Request error", getErrorLogDetails(error));
     return {
       success: false,
       error: {

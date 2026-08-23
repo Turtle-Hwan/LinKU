@@ -1,4 +1,4 @@
-import { getErrorLogDetails, warnLog } from '@/utils/logger';
+import { getErrorLogDetails, warnLogOnly } from '@/utils/logger';
 import {
   createErrorReporter,
   recordBreadcrumb,
@@ -98,7 +98,7 @@ export const executeScript = async (tabId: number, func: () => void) => {
       tab_id: tabId,
       all_frames: true,
     });
-    warnLog(
+    warnLogOnly(
       "[Chrome] Failed to execute inline script",
       getErrorLogDetails(err),
     );
@@ -135,7 +135,7 @@ export const executeScriptFile = async (tabId: number, files: string[]) => {
       file_count: files.length,
       all_frames: true,
     });
-    warnLog(
+    warnLogOnly(
       "[Chrome] Failed to execute script file",
       getErrorLogDetails(err),
     );
