@@ -21,9 +21,9 @@ import type { StoredTemplate } from "./linkuDb.ts";
 import {
   GRID_COLUMNS,
   GRID_ROWS,
+  MAX_SITE_URL_LENGTH,
   MAX_TEMPLATE_ITEMS,
   MAX_TEMPLATE_NAME_LENGTH,
-  MAX_SITE_URL_LENGTH,
 } from "../constants/template.ts";
 
 export interface NormalizeResult {
@@ -66,13 +66,29 @@ function toInteger(value: unknown, fallback: number): number {
   return Number.isFinite(value) ? Math.trunc(Number(value)) : fallback;
 }
 
-function isHttpUrl(value: string): boolean {
-  if (value.length > MAX_SITE_URL_LENGTH) return false;
+const URL_SCHEME_PATTERN = /^([a-z][a-z\d+.-]*):/iu;
+
+function normalizeHttpUrl(value: string): string | null {
+  if (value.length > MAX_SITE_URL_LENGTH) return null;
   try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
+    const scheme = URL_SCHEME_PATTERN.exec(value)?.[1]?.toLowerCase();
+    if (scheme && scheme !== "https" && scheme !== "http") return null;
+    const candidate = scheme
+      ? value
+      : value.startsWith("//")
+        ? `https:${value}`
+        : `https://${value}`;
+    const url = new URL(candidate);
+    if (
+      (url.protocol !== "https:" && url.protocol !== "http:") ||
+      url.hostname.length === 0 ||
+      /[%\s]/u.test(url.hostname)
+    ) {
+      return null;
+    }
+    return url.href.length <= MAX_SITE_URL_LENGTH ? url.href : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -114,11 +130,15 @@ function normalizeItems(
     const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
     const siteUrl =
       typeof candidate.siteUrl === "string" ? candidate.siteUrl.trim() : "";
-    if (name.length === 0 || !isHttpUrl(siteUrl)) {
+    const normalizedSiteUrl = normalizeHttpUrl(siteUrl);
+    if (name.length === 0 || !normalizedSiteUrl) {
       repairs.push(
         `${label} ${index + 1}번째 항목의 이름이나 주소가 올바르지 않아 제외했습니다.`,
       );
       return;
+    }
+    if (normalizedSiteUrl !== siteUrl) {
+      repairs.push(`${label} “${name}” 항목의 주소를 표준 형식으로 보정했습니다.`);
     }
 
     const position = isRecord(candidate.position) ? candidate.position : {};
@@ -151,7 +171,7 @@ function normalizeItems(
     items.push({
       templateItemId,
       name: name.slice(0, MAX_TEMPLATE_NAME_LENGTH),
-      siteUrl,
+      siteUrl: normalizedSiteUrl,
       position: { x, y },
       size: { width, height },
       icon: normalizeIcon(candidate.icon, name),

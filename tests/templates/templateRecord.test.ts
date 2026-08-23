@@ -193,7 +193,17 @@ test("복원한 항목의 잘못된 주소와 위험한 스킴을 제외한다",
       height: 6,
       items: [
         healthyItem,
+        {
+          ...healthyItem,
+          name: "스킴 없는 주소",
+          siteUrl: "www.example.com/path",
+        },
         { ...healthyItem, name: "잘못된 주소", siteUrl: "not a url" },
+        {
+          ...healthyItem,
+          name: "인코딩된 호스트",
+          siteUrl: "https://not%20a%20url/",
+        },
         {
           ...healthyItem,
           name: "실행 스킴",
@@ -206,12 +216,13 @@ test("복원한 항목의 잘못된 주소와 위험한 스킴을 제외한다",
   assert.ok(result.value);
   assert.deepEqual(
     result.value.template.items.map((item) => item.name),
-    [healthyItem.name],
+    [healthyItem.name, "스킴 없는 주소"],
   );
   assert.equal(
-    result.repairs.filter((note) => note.includes("주소")).length,
-    2,
+    result.value.template.items[1].siteUrl,
+    "https://www.example.com/path",
   );
+  assert.ok(result.repairs.some((note) => note.includes("표준 형식")));
 });
 
 test("이름과 높이가 비어 있거나 범위를 벗어나면 보정한다", () => {
