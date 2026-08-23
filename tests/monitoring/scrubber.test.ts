@@ -93,6 +93,15 @@ test("Sentry event 최종 경계에서 request와 모든 주요 문맥을 비식
         },
       ],
     },
+    debug_meta: {
+      images: [
+        {
+          type: "sourcemap",
+          code_file: "chrome-extension://extension-id/main.js",
+          debug_id: "12345678-1234-4234-8234-123456789abc",
+        },
+      ],
+    },
   } as SentryErrorEvent;
 
   const scrubbed = scrubSentryEvent(event);
@@ -108,6 +117,7 @@ test("Sentry event 최종 경계에서 request와 모든 주요 문맥을 비식
   assert.equal(scrubbed.request?.cookies, undefined);
   assert.equal(scrubbed.request?.data, undefined);
   assert.equal(scrubbed.request?.query_string, undefined);
+  assert.deepEqual(scrubbed.debug_meta, event.debug_meta);
   for (const secret of [
     "student@example.com",
     "oauth-secret",

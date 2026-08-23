@@ -31,6 +31,12 @@ jobs:
           VITE_VOC_ENDPOINT: ${{ vars.VITE_VOC_ENDPOINT }}
         run: pnpm run build:local
 
+      - name: Test monitoring boundaries
+        run: pnpm run test:monitoring
+
+      - name: Verify production Sentry bundle metadata
+        run: pnpm run test:sentry-bundle
+
       - name: Test stateless template sharing
         run: pnpm run test:template-share
 

@@ -21,6 +21,7 @@
     "test:ecampus": "node --experimental-strip-types --test tests/ecampus/*.test.ts",
     "test:forms": "node --experimental-strip-types --test tests/forms/*.test.ts",
     "test:monitoring": "node --experimental-strip-types --test tests/monitoring/*.test.ts",
+    "test:sentry-bundle": "node scripts/verifySentryBundle.mjs",
     "test:credentials": "node --experimental-strip-types --test tests/credentials/*.test.ts",
     "test:template-share": "node --experimental-strip-types --test tests/templates/*.test.ts",
     "test:todo": "node --experimental-strip-types --test tests/todo/*.test.ts",

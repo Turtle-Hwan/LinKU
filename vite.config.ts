@@ -16,10 +16,15 @@ export default defineConfig(({ mode }) => {
   const sentryOrg = process.env.SENTRY_ORG?.trim();
   const sentryProject = process.env.SENTRY_PROJECT?.trim();
   const sentryRelease = process.env.SENTRY_RELEASE?.trim();
+  const verifySentryBundle = process.env.SENTRY_BUNDLE_VERIFY === "1";
+  const configuredOutDir = process.env.LINKU_BUILD_OUT_DIR?.trim();
   const canUploadSentry =
     isChromeExtension &&
     isProductionBuild &&
     Boolean(sentryAuthToken && sentryOrg && sentryProject);
+  const canInjectSentryDebugIds =
+    canUploadSentry ||
+    (isChromeExtension && isProductionBuild && verifySentryBundle);
   const rollupInput: Record<string, string> | undefined = isContentScriptBuild
     ? {
         "content/everytime-timetable": path.resolve(
@@ -50,17 +55,18 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       svgr(),
-      canUploadSentry &&
+      canInjectSentryDebugIds &&
         sentryVitePlugin({
-          org: sentryOrg,
-          project: sentryProject,
-          authToken: sentryAuthToken,
-          release: sentryRelease
+          org: canUploadSentry ? sentryOrg : undefined,
+          project: canUploadSentry ? sentryProject : undefined,
+          authToken: canUploadSentry ? sentryAuthToken : undefined,
+          release: canUploadSentry && sentryRelease
             ? { name: sentryRelease, finalize: isContentScriptBuild }
             : undefined,
-          sourcemaps: {
-            filesToDeleteAfterUpload: ["dist/**/*.map"],
-          },
+          sourcemaps: verifySentryBundle
+            ? { disable: "disable-upload" }
+            : { filesToDeleteAfterUpload: ["dist/**/*.map"] },
+          telemetry: false,
           // A failed upload must fail the release build. The plugin resolves
           // successfully after an upload error, and `silent` hides the reason,
           // so a broken or under-scoped token would ship a release with no
@@ -82,10 +88,11 @@ export default defineConfig(({ mode }) => {
     publicDir: mode === "gh-pages" ? "web/public" : "public",
     base: mode === "gh-pages" ? pagesBase : "",
     build: {
-      sourcemap: canUploadSentry ? "hidden" : false,
+      sourcemap: canInjectSentryDebugIds ? "hidden" : false,
       modulePreload: isChromeExtension ? false : undefined,
       // 빌드 결과물이 dist/ 폴더에 생성되도록 설정
-      outDir: mode === "gh-pages" ? "gh-pages" : "dist",
+      outDir:
+        configuredOutDir || (mode === "gh-pages" ? "gh-pages" : "dist"),
       emptyOutDir: !isContentScriptBuild,
       // assets 폴더를 dist에 직접 생성
       assetsDir: "dist/assets",
