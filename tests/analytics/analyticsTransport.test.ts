@@ -3,11 +3,13 @@ import test from "node:test";
 
 import {
   deliverAnalyticsPayload,
-  isAnalyticsPayload,
   resolveAnalyticsDestination,
   type AnalyticsFetch,
-  type AnalyticsPayload,
 } from "../../src/utils/analyticsTransport.ts";
+import {
+  isAnalyticsPayload,
+  type AnalyticsPayload,
+} from "../../src/utils/analyticsContract.ts";
 
 const payload: AnalyticsPayload = {
   client_id: "test-client-id",

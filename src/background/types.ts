@@ -11,8 +11,8 @@ import type {
 import {
   isAnalyticsPayload,
   type AnalyticsPayload,
-  type AnalyticsTransportResponse,
-} from '../utils/analyticsTransport.ts';
+} from '../utils/analyticsContract.ts';
+import type { AnalyticsTransportResponse } from '../utils/analyticsTransport.ts';
 
 /**
  * Message types for popup -> background communication

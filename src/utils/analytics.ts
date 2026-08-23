@@ -47,7 +47,7 @@ import {
   type AnalyticsPayload,
   type GAEvent,
   type GAEventParam,
-} from "@/utils/analyticsTransport";
+} from "@/utils/analyticsContract";
 import {
   debugLog,
   errorLog,

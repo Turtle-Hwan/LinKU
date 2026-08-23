@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 const DEBUG_ID_PATTERN = /_sentryDebugIdIdentifier=`sentry-dbid-[0-9a-f-]{36}`/u;
 const TEST_RELEASE = "linku@bundle-test";
 const TEST_DSN = "https://public@example.invalid/1";
+const TEST_GA_PROXY = "https://analytics.example.invalid/collect";
 
 async function listFiles(root) {
   const entries = await readdir(root, { withFileTypes: true });
@@ -30,6 +31,8 @@ function runVite(mode, outputDir) {
       VITE_SENTRY_DSN: TEST_DSN,
       VITE_SENTRY_ENVIRONMENT: "production",
       VITE_SENTRY_RELEASE: TEST_RELEASE,
+      VITE_GA_PROXY_URL: TEST_GA_PROXY,
+      VITE_GA_API_SECRET: "",
     },
   });
 
@@ -71,6 +74,23 @@ try {
   assert.ok(combinedBundle.includes(TEST_RELEASE), "bundle has no release");
   assert.ok(combinedBundle.includes("production"), "bundle has no environment");
   assert.ok(combinedBundle.includes("example.invalid"), "bundle has no test DSN");
+
+  const backgroundSource = await readFile(
+    join(outputDir, "background/index.js"),
+    "utf8",
+  );
+  assert.ok(
+    backgroundSource.includes(TEST_GA_PROXY),
+    "background bundle has no configured analytics proxy",
+  );
+  for (const file of javascriptFiles) {
+    if (file.endsWith("background/index.js")) continue;
+    const source = await readFile(file, "utf8");
+    assert.ok(
+      !source.includes("mp/collect"),
+      `${file} contains the background-owned GA transport`,
+    );
+  }
 
   await assertEntrySourceMap(outputDir, "main.js", "src/main.tsx");
   await assertEntrySourceMap(
