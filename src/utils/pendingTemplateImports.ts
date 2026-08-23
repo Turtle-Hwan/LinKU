@@ -2,7 +2,10 @@ import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 import { validateTemplateSharePayload } from "@/utils/templateShareCodec";
 import { errorLog } from "@/utils/logger";
 import { UserFacingError } from "@/errors/userFacingError";
-import { consumeCheckpointedQueue } from "@/utils/checkpointedQueue";
+import {
+  consumeCheckpointedQueue,
+  writeCheckpointedQueue,
+} from "@/utils/checkpointedQueue";
 
 const STORAGE_KEY = "pendingTemplateImports";
 const MAX_PENDING_IMPORTS = 5;
@@ -52,17 +55,6 @@ function readValidQueue(value: unknown): TemplateSharePayloadV1[] {
   });
 }
 
-async function writeQueue(
-  storage: chrome.storage.StorageArea,
-  queue: TemplateSharePayloadV1[],
-): Promise<void> {
-  if (queue.length > 0) {
-    await storage.set({ [STORAGE_KEY]: queue });
-  } else {
-    await storage.remove(STORAGE_KEY);
-  }
-}
-
 export function enqueuePendingTemplateImport(
   payload: TemplateSharePayloadV1,
 ): Promise<void> {
@@ -97,7 +89,8 @@ export function consumePendingTemplateImports(
     const result = await consumeCheckpointedQueue(
       queue,
       importer,
-      (remaining) => writeQueue(storage, remaining),
+      (remaining) =>
+        writeCheckpointedQueue(storage, STORAGE_KEY, remaining),
       (error) => {
         errorLog("Failed to consume pending template import", error);
       },
