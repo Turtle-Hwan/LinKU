@@ -15,10 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Upload, ImageIcon, X } from 'lucide-react';
-import { createIcon } from '@/apis/icons';
+import { createLocalIcon } from '@/utils/localIcons';
 import { toast } from 'sonner';
 import type { Icon } from '@/types/api';
 import { errorLog } from '@/utils/logger';
+import { MAX_TEMPLATE_NAME_LENGTH } from '@/constants/template';
 
 interface IconUploadDialogProps {
   open: boolean;
@@ -26,8 +27,8 @@ interface IconUploadDialogProps {
   onIconUploaded?: (icon: Icon) => void;
 }
 
-const VALID_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg'];
-const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+const VALID_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const MAX_SIZE = 5 * 1024 * 1024;
 
 export const IconUploadDialog = ({
   open,
@@ -54,10 +55,10 @@ export const IconUploadDialog = ({
 
   const validateFile = (file: File): string | null => {
     if (!VALID_TYPES.includes(file.type)) {
-      return 'SVG, PNG, JPG 파일만 업로드 가능합니다.';
+      return 'SVG, PNG, JPG, WebP 파일만 사용할 수 있습니다.';
     }
     if (file.size > MAX_SIZE) {
-      return '파일 크기는 20MB 이하이어야 합니다.';
+      return '파일 크기는 5MB 이하이어야 합니다.';
     }
     return null;
   };
@@ -79,7 +80,9 @@ export const IconUploadDialog = ({
     reader.readAsDataURL(selectedFile);
 
     // Set default icon name from filename (without extension)
-    const defaultName = selectedFile.name.replace(/\.[^/.]+$/, '');
+    const defaultName = selectedFile.name
+      .replace(/\.[^/.]+$/, '')
+      .slice(0, MAX_TEMPLATE_NAME_LENGTH);
     setIconName(defaultName);
   };
 
@@ -127,27 +130,23 @@ export const IconUploadDialog = ({
     setIsUploading(true);
 
     try {
-      const result = await createIcon(iconName.trim(), file);
+      const icon = await createLocalIcon(iconName.trim(), file);
+      toast.success('업로드 완료', {
+        description: `"${icon.name}" 아이콘이 추가되었습니다.`,
+      });
 
-      if (result.success && result.data) {
-        toast.success('업로드 완료', {
-          description: `"${iconName.trim()}" 아이콘이 추가되었습니다.`,
-        });
-
-        if (onIconUploaded) {
-          onIconUploaded(result.data);
-        }
-
-        onOpenChange(false);
-      } else {
-        toast.error('업로드 실패', {
-          description: result.error?.message || '아이콘 업로드에 실패했습니다.',
-        });
+      if (onIconUploaded) {
+        onIconUploaded(icon);
       }
+
+      onOpenChange(false);
     } catch (error) {
       errorLog('Icon upload error:', error);
-      toast.error('오류', {
-        description: '아이콘 업로드 중 오류가 발생했습니다.',
+      toast.error('업로드 실패', {
+        description:
+          error instanceof Error
+            ? error.message
+            : '아이콘 업로드 중 오류가 발생했습니다.',
       });
     } finally {
       setIsUploading(false);
@@ -160,7 +159,7 @@ export const IconUploadDialog = ({
         <DialogHeader>
           <DialogTitle>아이콘 업로드</DialogTitle>
           <DialogDescription>
-            아이콘 이미지를 업로드합니다. (SVG, PNG, JPG / 최대 20MB)
+            아이콘은 이 기기에 WebP로 변환해 저장합니다. (최대 5MB)
           </DialogDescription>
         </DialogHeader>
 
@@ -215,7 +214,7 @@ export const IconUploadDialog = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".svg,.png,.jpg,.jpeg,image/svg+xml,image/png,image/jpeg"
+            accept=".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp"
             onChange={handleFileInputChange}
             className="hidden"
           />
@@ -228,6 +227,7 @@ export const IconUploadDialog = ({
               placeholder="예: my-icon"
               value={iconName}
               onChange={(e) => setIconName(e.target.value)}
+              maxLength={MAX_TEMPLATE_NAME_LENGTH}
               autoComplete="off"
             />
           </div>

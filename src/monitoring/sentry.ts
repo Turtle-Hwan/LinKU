@@ -8,6 +8,7 @@ import {
   MONITORING_NORMALIZE_DEPTH,
   MONITORING_NORMALIZE_MAX_BREADTH,
 } from "./constants";
+import { resolveSentryEnvironment } from "./environment";
 import { redactSensitiveString } from "./redaction";
 import {
   scrubSentryBreadcrumb,
@@ -95,9 +96,10 @@ function initSentry(runtime: MonitoringRuntime): MonitoringInitResult {
   try {
     Sentry.init({
       dsn,
-      environment:
-        import.meta.env.VITE_SENTRY_ENVIRONMENT?.trim() ||
-        (import.meta.env.DEV ? "development" : "production"),
+      environment: resolveSentryEnvironment(
+        import.meta.env.VITE_SENTRY_ENVIRONMENT,
+        import.meta.env.MODE,
+      ),
       release: getReleaseName(version),
       sendDefaultPii: false,
       tracesSampleRate: 0,

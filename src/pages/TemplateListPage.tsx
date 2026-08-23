@@ -1,70 +1,68 @@
-/**
- * Template List Page
- * Displays user's owned and cloned templates
- */
-
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { getOwnedTemplates, getClonedTemplates, deleteTemplate, getTemplate } from '@/apis/templates';
-import type { TemplateSummary, PostedTemplateSummary } from '@/types/api';
-import type { BulletinInfo } from '@/constants/bulletin';
-
-// Extended type with needsSync flag
-interface TemplateSummaryWithSync extends TemplateSummary {
-  needsSync?: boolean;  // 로컬과 서버 데이터가 다를 때 true
-}
+import {
+  AlertTriangle,
+  DatabaseBackup,
+  FileText,
+  FileUp,
+  LayoutTemplate,
+  Plus,
+  Sparkles,
+} from 'lucide-react';
 import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
-import { PostedTemplateCard } from '@/components/Editor/TemplatePreview/PostedTemplateCard';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, FileText, LayoutTemplate, Share2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelectedTemplate } from '@/hooks/useSelectedTemplate';
-import { usePostedTemplates } from '@/hooks/usePostedTemplates';
-import { useTemplateSync } from '@/hooks/useTemplateSync';
-import { useTemplatePublish } from '@/hooks/useTemplatePublish';
+import type { Template, TemplateSummary } from '@/types/api';
+import {
+  createTemplateBackup,
+  countQuarantinedRecords,
+  deleteLocalTemplate,
+  importSharedTemplate,
+  getLocalTemplate,
+  listQuarantinedRecords,
+  listLocalTemplates,
+  MAX_TEMPLATE_BACKUP_BYTES,
+  restoreTemplateBackup,
+} from '@/utils/templateStorage';
+import {
+  createTemplateShareUrl,
+  downloadTemplatePayload,
+  MAX_SHARE_FILE_BYTES,
+  validateTemplateSharePayload,
+} from '@/utils/templateShare';
+import { createBundledDefaultTemplate } from '@/utils/defaultTemplate';
 import {
   resolveLatestBulletin,
   subscribeLatestBulletin,
 } from '@/apis/external/bulletin';
-import { getTemplatesIndex, loadTemplateFromLocalStorage, deleteTemplateFromLocalStorage } from '@/utils/templateStorage';
-import { getErrorMessage } from '@/utils/apiErrorHandler';
-import { convertLinkListToTemplateItems, convertLucideIconToDataUri } from '@/utils/template';
-import { areItemsEqual } from '@/utils/templateUtils';
-import { createDefaultLinkList } from '@/constants/LinkList';
-import { isLoggedIn } from '@/utils/oauth';
-import { warnLog, errorLog } from '@/utils/logger';
-import { sendTemplateApply, sendTemplateCreateStart, sendTemplateDelete } from '@/utils/analytics';
+import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
+import { downloadJson } from '@/utils/download';
+import { errorLog } from '@/utils/logger';
+import {
+  sendTemplateApply,
+  sendTemplateCreateStart,
+  sendTemplateDelete,
+} from '@/utils/analytics';
 
-function createDefaultTemplate(bulletin: BulletinInfo): TemplateSummary {
-  const defaultLinks = createDefaultLinkList(bulletin);
-  const defaultIcons = defaultLinks.map((link, index) => ({
-    id: index,
-    name: link.label,
-    imageUrl:
-      typeof link.icon === 'string'
-        ? link.icon
-        : convertLucideIconToDataUri(link.icon),
-  }));
-  const items = convertLinkListToTemplateItems(defaultIcons, defaultLinks);
-  const timestamp = new Date().toISOString();
-
+function toSummary(template: Template): TemplateSummary {
   return {
-    templateId: 0,
-    name: 'LinKU 기본 템플릿',
-    height: 6,
-    cloned: false,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    itemCount: items.length,
-    syncStatus: 'synced',
-    items,
+    templateId: template.templateId,
+    name: template.name,
+    height: template.height,
+    cloned: template.cloned,
+    createdAt: template.createdAt,
+    updatedAt: template.updatedAt,
+    itemCount: template.items.length,
+    syncStatus: 'local',
+    items: template.items,
   };
 }
 
@@ -72,238 +70,78 @@ export const TemplateListPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { selectedTemplateId, selectTemplate } = useSelectedTemplate();
-  const toastRef = useRef(toast);
-
-  const [ownedTemplates, setOwnedTemplates] = useState<TemplateSummaryWithSync[]>([]);
-  const [clonedTemplates, setClonedTemplates] = useState<TemplateSummaryWithSync[]>([]);
+  const [defaultTemplate, setDefaultTemplate] = useState(
+    createBundledDefaultTemplate,
+  );
+  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'owned' | 'cloned' | 'posted'>('owned');
-  const [userLoggedIn, setUserLoggedIn] = useState(false);
+  const [activeTab, setActiveTab] = useState<'owned' | 'cloned'>('owned');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
-
-  // Posted templates from global context
-  const {
-    postedTemplates,
-    loadPostedTemplates,
-    unpostTemplate,
-    likeTemplate,
-  } = usePostedTemplates();
-
-  // Template sync and publish hooks (Option A style)
-  const { syncToServer } = useTemplateSync();
-  const { publishTemplate } = useTemplatePublish();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
+  const loadRequestIdRef = useRef(0);
+  const [quarantinedCount, setQuarantinedCount] = useState(0);
 
   useEffect(() => {
-    toastRef.current = toast;
-  }, [toast]);
-
-  useEffect(
-    () =>
-      subscribeLatestBulletin((bulletin) => {
-        setOwnedTemplates((templates) =>
-          templates[0]?.templateId === 0
-            ? [createDefaultTemplate(bulletin), ...templates.slice(1)]
-            : templates,
-        );
-      }),
-    [],
-  );
+    const applyBulletin = (bulletin: Parameters<typeof createBundledDefaultTemplate>[0]) => {
+      setDefaultTemplate(createBundledDefaultTemplate(bulletin));
+    };
+    const unsubscribe = subscribeLatestBulletin(applyBulletin);
+    void resolveLatestBulletin().then(applyBulletin);
+    return unsubscribe;
+  }, []);
 
   const loadTemplates = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     setLoading(true);
     try {
-      // 1. 로그인 상태 확인 - 비로그인 시 서버 API 호출 스킵
-      const loggedIn = await isLoggedIn();
-      setUserLoggedIn(loggedIn);
+      const storedTemplates = await listLocalTemplates();
+      const nextQuarantinedCount = await countQuarantinedRecords();
+      if (requestId !== loadRequestIdRef.current) return;
 
-      // 로그인 시 posted 템플릿도 즉시 로드 (탭 개수 표시용)
-      if (loggedIn) {
-        loadPostedTemplates(); // await 없이 병렬 실행
-      }
-
-      let ownedResult: { success: boolean; data?: TemplateSummary[]; error?: { message: string } } = { success: false };
-      let clonedResult: { success: boolean; data?: TemplateSummary[]; error?: { message: string } } = { success: false };
-
-      // 2. 로그인된 경우에만 서버에서 템플릿 목록 가져오기
-      if (loggedIn) {
-        const [ownedRes, clonedRes] = await Promise.allSettled([
-          getOwnedTemplates(),
-          getClonedTemplates(),
-        ]);
-
-        // Extract values from settled promises
-        ownedResult = ownedRes.status === 'fulfilled' ? ownedRes.value : { success: false, error: { message: 'Failed to load owned templates' } };
-        clonedResult = clonedRes.status === 'fulfilled' ? clonedRes.value : { success: false, error: { message: 'Failed to load cloned templates' } };
-      }
-
-      // 3. localStorage에서 템플릿 인덱스 가져오기 (항상 로드)
-      const localIndex = getTemplatesIndex();
-
-      // 4. 서버 템플릿과 localStorage 템플릿 병합 (로컬 우선)
-      let mergedOwned: TemplateSummaryWithSync[] = [];
-      if (ownedResult.success && ownedResult.data) {
-        // 서버 템플릿 처리 - 로컬 데이터가 있으면 로컬 우선 사용
-        const detailedTemplates = await Promise.all(
-          ownedResult.data.map(async (serverTemplate) => {
-            try {
-              // 1. 먼저 localStorage에서 데이터 확인
-              const localStored = loadTemplateFromLocalStorage(serverTemplate.templateId);
-
-              // 2. 서버에서 상세 정보 로드
-              const detailResult = await getTemplate(serverTemplate.templateId);
-
-              if (localStored && localStored.template.items) {
-                // 로컬 데이터가 있으면 로컬 items 사용
-                const serverItems = detailResult.success && detailResult.data
-                  ? detailResult.data.items
-                  : [];
-                const needsSync = !areItemsEqual(localStored.template.items, serverItems);
-
-                return {
-                  ...serverTemplate,
-                  syncStatus: 'synced' as const,
-                  items: localStored.template.items, // 로컬 데이터 우선
-                  needsSync, // 로컬과 서버가 다르면 true
-                };
-              } else if (detailResult.success && detailResult.data) {
-                // 로컬 데이터 없으면 서버 데이터 사용
-                return {
-                  ...serverTemplate,
-                  syncStatus: 'synced' as const,
-                  items: detailResult.data.items,
-                  needsSync: false,
-                };
-              }
-            } catch (error) {
-              errorLog(`Failed to load template ${serverTemplate.templateId}:`, error);
-            }
-            // Fallback without items
-            return {
-              ...serverTemplate,
-              syncStatus: 'synced' as const,
-              needsSync: false,
-            };
-          })
-        );
-        mergedOwned = detailedTemplates;
-      }
-
-      // 4. localStorage에만 있는 템플릿 추가
-      localIndex
-        .filter(localTemplate => localTemplate.templateId !== 0) // Skip draft templates (templateId: 0)
-        .forEach(localTemplate => {
-          // 서버 목록에 없는 템플릿만 추가
-          const existsInServer = mergedOwned.some(
-            t => t.templateId === localTemplate.templateId
-          );
-
-          if (!existsInServer) {
-            // localStorage에서 전체 템플릿 데이터 로드
-            const stored = loadTemplateFromLocalStorage(localTemplate.templateId);
-            if (stored) {
-              mergedOwned.push({
-                templateId: stored.template.templateId,
-                name: stored.template.name,
-                height: stored.template.height,
-                cloned: stored.template.cloned,
-                createdAt: stored.template.createdAt,
-                updatedAt: stored.template.updatedAt,
-                itemCount: stored.template.items.length,
-                syncStatus: stored.metadata.syncedWithServer ? 'synced' : 'local',
-                items: stored.template.items, // Add items for preview
-              });
-            }
-          }
-        });
-
-      // 5. 중복 검사 및 경고 (Deduplication check)
-      const seenIds = new Set<number>();
-      const duplicateIds: number[] = [];
-      for (const template of mergedOwned) {
-        if (seenIds.has(template.templateId)) {
-          duplicateIds.push(template.templateId);
-        }
-        seenIds.add(template.templateId);
-      }
-      if (duplicateIds.length > 0) {
-        warnLog('[TemplateListPage] Duplicate template IDs detected:', duplicateIds);
-        // Remove duplicates - keep first occurrence only
-        mergedOwned = mergedOwned.filter((template, index, self) =>
-          index === self.findIndex(t => t.templateId === template.templateId)
-        );
-      }
-
-      // 6. 기본 템플릿 추가 (항상 맨 위에 표시)
-      const latestBulletin = await resolveLatestBulletin();
-      const defaultTemplate = createDefaultTemplate(latestBulletin);
-
-      // 7. 최종 정렬 (updatedAt 기준 내림차순)
-      mergedOwned.sort((a, b) => {
-        const aTime = new Date(a.updatedAt).getTime();
-        const bTime = new Date(b.updatedAt).getTime();
-        return bTime - aTime;
-      });
-
-      // 기본 템플릿을 맨 앞에 추가
-      setOwnedTemplates([defaultTemplate, ...mergedOwned]);
-
-      // 복제 템플릿도 동일하게 처리 (서버만, 보통 복제는 로컬에 없음)
-      if (clonedResult.success && clonedResult.data) {
-        const detailedCloned = await Promise.all(
-          clonedResult.data.map(async (clonedTemplate) => {
-            try {
-              const detailResult = await getTemplate(clonedTemplate.templateId);
-              if (detailResult.success && detailResult.data) {
-                return {
-                  ...clonedTemplate,
-                  syncStatus: 'synced' as const,
-                  items: detailResult.data.items,
-                };
-              }
-            } catch (error) {
-              errorLog(`Failed to load cloned template ${clonedTemplate.templateId}:`, error);
-            }
-            return {
-              ...clonedTemplate,
-              syncStatus: 'synced' as const,
-            };
-          })
-        );
-        setClonedTemplates(detailedCloned);
-      }
-
-      // 에러 처리 - 에러가 발생해도 localStorage 템플릿은 표시되도록 조용히 처리
-      if (!ownedResult.success) {
-        warnLog('Failed to load owned templates from server:', ownedResult.error);
-        // Don't show error toast - user can still see local templates
-      }
-
-      if (!clonedResult.success) {
-        warnLog('Failed to load cloned templates from server:', clonedResult.error);
-        // Don't show error toast - this is not critical for normal usage
-      }
+      setTemplates(
+        storedTemplates.map((stored) => toSummary(stored.template)),
+      );
+      // Reading is what moves an unreadable record into quarantine, so the
+      // count is refreshed here rather than on mount.
+      setQuarantinedCount(nextQuarantinedCount);
     } catch (error) {
-      errorLog('Failed to load templates:', error);
-      toastRef.current({
-        title: '네트워크 오류',
-        description: '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
+      if (requestId !== loadRequestIdRef.current) return;
+      errorLog('Failed to load IndexedDB templates', error);
+      setTemplates([]);
+      toast({
+        title: '로컬 저장소 오류',
+        description: '기본 템플릿은 계속 사용할 수 있습니다.',
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [loadPostedTemplates]);
+  }, [toast]);
 
   useEffect(() => {
-    loadTemplates();
+    void loadTemplates();
   }, [loadTemplates]);
 
-  // Load posted templates when tab changes to 'posted'
   useEffect(() => {
-    if (activeTab === 'posted' && postedTemplates.length === 0 && userLoggedIn) {
-      loadPostedTemplates();
-    }
-  }, [activeTab, userLoggedIn, postedTemplates.length, loadPostedTemplates]);
+    const handleTemplatesChanged = () => void loadTemplates();
+    window.addEventListener('linku:templates-changed', handleTemplatesChanged);
+    return () => {
+      window.removeEventListener('linku:templates-changed', handleTemplatesChanged);
+    };
+  }, [loadTemplates]);
+
+  const ownedTemplates = useMemo(
+    () => [toSummary(defaultTemplate), ...templates.filter((template) => !template.cloned)],
+    [defaultTemplate, templates],
+  );
+  const clonedTemplates = useMemo(
+    () => templates.filter((template) => template.cloned),
+    [templates],
+  );
+  const visibleTemplates = activeTab === 'cloned' ? clonedTemplates : ownedTemplates;
 
   const handleCreateFromDefault = () => {
     sendTemplateCreateStart('default');
@@ -315,341 +153,265 @@ export const TemplateListPage = () => {
     navigate('/editor?from=empty');
   };
 
-  const handleEditTemplate = (templateId: number) => {
-    navigate(`/editor/${templateId}`);
-  };
-
-  const handleApplyTemplate = async (templateId: number, templateName: string) => {
-    try {
-      // 기본 템플릿(templateId === 0)인 경우 null로 처리
-      const targetId = templateId === 0 ? null : templateId;
-      await selectTemplate(targetId);
-
-      const isDefault = templateId === 0;
-      const isCloned = clonedTemplates.some((t) => t.templateId === templateId);
-      const origin = isDefault ? 'default' : isCloned ? 'cloned' : 'owned';
-      sendTemplateApply(templateId, origin, isDefault);
-
-      const message = isDefault
-        ? '기본 템플릿이 적용되었습니다.'
-        : `"${templateName}" 템플릿이 메인 화면에 적용되었습니다.`;
-
-      toast({
-        title: '템플릿 적용 완료',
-        description: message,
-      });
-    } catch (error) {
-      errorLog('Failed to apply template:', error);
+  const handleApplyTemplate = async (template: TemplateSummary) => {
+    const targetId = template.templateId === UNSAVED_TEMPLATE_ID ? null : template.templateId;
+    if (!(await selectTemplate(targetId))) {
       toast({
         title: '적용 실패',
-        description: '템플릿 적용에 실패했습니다.',
+        description: '템플릿 선택을 이 기기에 저장하지 못했습니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    sendTemplateApply(
+      template.templateId,
+      template.templateId === UNSAVED_TEMPLATE_ID
+        ? 'default'
+        : template.cloned
+          ? 'cloned'
+          : 'owned',
+      template.templateId === UNSAVED_TEMPLATE_ID,
+    );
+    toast({
+      title: '템플릿 적용 완료',
+      description:
+        template.templateId === UNSAVED_TEMPLATE_ID
+          ? '기본 템플릿이 적용되었습니다.'
+          : `“${template.name}” 템플릿이 적용되었습니다.`,
+    });
+  };
+
+  const handleDeleteTemplate = async (template: TemplateSummary) => {
+    if (!confirm(`“${template.name}” 템플릿을 삭제하시겠습니까?`)) return;
+    try {
+      if (
+        selectedTemplateId === template.templateId &&
+        !(await selectTemplate(null))
+      ) {
+        throw new Error('선택 상태를 해제하지 못했습니다.');
+      }
+      await deleteLocalTemplate(template.templateId);
+      setTemplates((current) =>
+        current.filter((item) => item.templateId !== template.templateId),
+      );
+      sendTemplateDelete(
+        template.templateId,
+        template.cloned ? 'cloned' : 'owned',
+        'local',
+      );
+      toast({
+        title: '삭제 완료',
+        description: '이 기기의 저장소에서 삭제했습니다.',
+      });
+    } catch (error) {
+      errorLog('Failed to delete local template', error);
+      toast({
+        title: '삭제 실패',
+        description: '이 기기의 저장소에서 템플릿을 삭제하지 못했습니다.',
         variant: 'destructive',
       });
     }
   };
 
-  const handleDeleteTemplate = async (
-    templateId: number,
-    templateName: string,
-    syncStatus?: 'local' | 'synced'
-  ) => {
-    if (!confirm(`"${templateName}" 템플릿을 삭제하시겠습니까?`)) {
-      return;
-    }
-
+  const handleShareTemplate = async (templateId: number) => {
+    setActionLoading(templateId);
     try {
-      // Local-only template: Delete from localStorage only
-      if (syncStatus === 'local') {
-        deleteTemplateFromLocalStorage(templateId);
+      const stored =
+        templateId === UNSAVED_TEMPLATE_ID
+          ? { template: defaultTemplate }
+          : await getLocalTemplate(templateId);
+      if (!stored) throw new Error('이 기기에서 템플릿을 찾을 수 없습니다.');
 
-        const origin = clonedTemplates.some(t => t.templateId === templateId) ? 'cloned' : 'owned';
-        sendTemplateDelete(templateId, origin, 'local');
-
+      const share = await createTemplateShareUrl(stored.template);
+      if (share.mode === 'url') {
+        await navigator.clipboard.writeText(share.url);
         toast({
-          title: '삭제 완료',
-          description: '로컬 템플릿이 삭제되었습니다.',
+          title: '공유 링크 복사 완료',
+          description: '템플릿 데이터는 링크의 fragment에만 들어 있습니다.',
         });
+      } else {
+        downloadTemplatePayload(share.payload);
+        toast({
+          title: '공유 파일 저장 완료',
+          description: '링크에 담기 큰 템플릿이라 파일로 저장했습니다.',
+        });
+      }
+    } catch (error) {
+      errorLog('Failed to share template', error);
+      toast({
+        title: '공유 실패',
+        description:
+          error instanceof Error ? error.message : '공유 데이터를 만들지 못했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
-        // 목록 갱신
-        setOwnedTemplates(prev => prev.filter(t => t.templateId !== templateId));
-        setClonedTemplates(prev => prev.filter(t => t.templateId !== templateId));
-
-        // 삭제된 템플릿이 현재 적용 중이라면 선택 해제
-        if (selectedTemplateId === templateId) {
-          await selectTemplate(null);
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      let value: unknown;
+      try {
+        if (file.size > MAX_SHARE_FILE_BYTES) {
+          throw new Error('템플릿 가져오기 파일은 256KB 이하여야 합니다.');
         }
+        value = JSON.parse(await file.text()) as unknown;
+        validateTemplateSharePayload(value);
+      } catch (error) {
+        toast({
+          title: '가져오기 실패',
+          description:
+            error instanceof Error ? error.message : '템플릿 파일을 읽지 못했습니다.',
+          variant: 'destructive',
+        });
         return;
       }
 
-      // Synced template: Delete from server first
-      const result = await deleteTemplate(templateId);
-
-      if (result.success) {
-        // Also delete from localStorage if exists
-        deleteTemplateFromLocalStorage(templateId);
-
-        const origin = clonedTemplates.some(t => t.templateId === templateId) ? 'cloned' : 'owned';
-        sendTemplateDelete(templateId, origin, 'synced');
-
+      try {
+        const imported = await importSharedTemplate(value);
+        await loadTemplates();
+        setActiveTab('cloned');
         toast({
-          title: '삭제 완료',
-          description: '템플릿이 서버와 로컬에서 삭제되었습니다.',
+          title: '템플릿 가져오기 완료',
+          description: `“${imported.template.name}”을 이 기기에 저장했습니다.`,
         });
-
-        // 목록 갱신
-        setOwnedTemplates(prev => prev.filter(t => t.templateId !== templateId));
-        setClonedTemplates(prev => prev.filter(t => t.templateId !== templateId));
-
-        // 삭제된 템플릿이 현재 적용 중이라면 선택 해제
-        if (selectedTemplateId === templateId) {
-          await selectTemplate(null);
-        }
-      } else {
-        const errorMsg = getErrorMessage(result, '템플릿 삭제에 실패했습니다.');
+      } catch (error) {
+        errorLog('Failed to store an imported template', error);
         toast({
-          title: '삭제 실패',
-          description: errorMsg,
+          title: '가져오기 실패',
+          description:
+            error instanceof Error ? error.message : '템플릿을 저장하지 못했습니다.',
           variant: 'destructive',
         });
       }
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
+
+  const handleDownloadBackup = async () => {
+    try {
+      const backup = await createTemplateBackup();
+      downloadJson(
+        backup,
+        `linku-backup-${backup.exportedAt.slice(0, 10)}.json`,
+      );
+      toast({
+        title: '백업 파일을 저장했습니다',
+        description: `템플릿 ${backup.templates.length}개와 아이콘 ${backup.assets.length}개를 담았습니다.`,
+      });
     } catch (error) {
-      errorLog('Failed to delete template:', error);
+      errorLog('Failed to export a template backup', error);
       toast({
-        title: '네트워크 오류',
-        description: '서버와 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
+        title: '백업 실패',
+        description:
+          error instanceof Error ? error.message : '백업 파일을 만들지 못했습니다.',
         variant: 'destructive',
       });
     }
   };
 
-  const handleSyncTemplate = async (templateId: number, templateName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    // Load full template data from localStorage
-    const stored = loadTemplateFromLocalStorage(templateId);
-    if (!stored) {
-      toast({
-        title: '동기화 실패',
-        description: '로컬 템플릿을 찾을 수 없습니다.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const result = await syncToServer(stored.template, stored.stagingItems);
-
-    if (result.success && result.data) {
-      // Update local state - replace old templateId with new server ID
-      setOwnedTemplates(prev =>
-        prev.map(t =>
-          t.templateId === templateId
-            ? {
-                ...t,
-                templateId: result.data!.templateId,
-                syncStatus: 'synced' as const,
-                needsSync: false,
-              }
-            : t
-        )
+  const handleRestoreBackup = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      if (file.size > MAX_TEMPLATE_BACKUP_BYTES) {
+        throw new Error('백업 파일은 10MB 이하여야 합니다.');
+      }
+      const result = await restoreTemplateBackup(
+        JSON.parse(await file.text()) as unknown,
       );
-
+      await loadTemplates();
+      const hasRestoreWarnings =
+        result.skipped > 0 || result.failedAssets > 0;
       toast({
-        title: '동기화 완료',
-        description: `"${templateName}" 템플릿이 서버에 동기화되었습니다.`,
+        title: hasRestoreWarnings ? '일부 복원 완료' : '복원 완료',
+        description: [
+          `템플릿 ${result.imported}개를 복원했습니다.`,
+          result.skipped > 0 ? `${result.skipped}개를 건너뛰었습니다.` : '',
+          result.failedAssets > 0
+            ? `아이콘 ${result.failedAssets}개는 복원하지 못했습니다.`
+            : '',
+        ].filter(Boolean).join(' '),
+        variant: hasRestoreWarnings ? 'destructive' : 'default',
       });
-    } else {
+    } catch (error) {
+      errorLog('Failed to restore a template backup', error);
       toast({
-        title: '동기화 실패',
-        description: result.error || '동기화에 실패했습니다.',
+        title: '복원 실패',
+        description:
+          error instanceof Error ? error.message : '백업을 복원하지 못했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      if (restoreInputRef.current) restoreInputRef.current.value = '';
+    }
+  };
+
+  const handleDownloadQuarantined = async () => {
+    try {
+      const records = await listQuarantinedRecords();
+      downloadJson(records, 'linku-damaged-templates.json');
+      toast({
+        title: '복구용 파일을 저장했습니다',
+        description: '원본 데이터를 그대로 담았습니다.',
+      });
+    } catch (error) {
+      errorLog('Failed to export quarantined records', error);
+      toast({
+        title: '내보내기 실패',
+        description: '손상된 데이터를 내보내지 못했습니다.',
         variant: 'destructive',
       });
     }
   };
 
-  // Handle unpost (게시 취소)
-  const handleUnpostTemplate = async (template: PostedTemplateSummary) => {
-    if (!confirm(`"${template.name}" 템플릿의 게시를 취소하시겠습니까?`)) {
-      return;
-    }
-
-    setActionLoading(template.postedTemplateId);
-
-    const result = await unpostTemplate(template.postedTemplateId);
-
-    if (result.success) {
-      toast({
-        title: '게시 취소 완료',
-        description: `"${template.name}" 템플릿이 갤러리에서 제거되었습니다.`,
-      });
-    } else {
-      toast({
-        title: '게시 취소 실패',
-        description: result.error || '게시 취소에 실패했습니다.',
-        variant: 'destructive',
-      });
-    }
-
-    setActionLoading(null);
-  };
-
-  // Handle like for posted templates
-  const handleLikePostedTemplate = async (template: PostedTemplateSummary) => {
-    setActionLoading(template.postedTemplateId);
-
-    const result = await likeTemplate(template.postedTemplateId);
-
-    if (!result.success) {
-      toast({
-        title: '좋아요 실패',
-        description: result.error || '좋아요 처리에 실패했습니다.',
-        variant: 'destructive',
-      });
-    }
-
-    setActionLoading(null);
-  };
-
-  // Handle publish template to gallery
-  const handlePublishTemplate = async (templateId: number, templateName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    // 현재 템플릿의 items 찾기
-    const currentTemplate = [...ownedTemplates, ...clonedTemplates].find(t => t.templateId === templateId);
-    const currentItems = currentTemplate?.items || [];
-
-    const result = await publishTemplate(templateId, currentItems);
-
-    if (result.success) {
-      await loadPostedTemplates();
-      toast({
-        title: '게시 완료',
-        description: `"${templateName}" 템플릿이 갤러리에 게시되었습니다.`,
-      });
-    } else {
-      toast({
-        title: '게시 실패',
-        description: result.error || '게시에 실패했습니다.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const renderTemplateList = (templates: TemplateSummaryWithSync[]) => {
+  const renderList = () => {
     if (loading) {
-      return (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">로딩 중...</p>
-        </div>
-      );
+      return <p className="py-12 text-center text-muted-foreground">불러오는 중...</p>;
     }
-
-    if (templates.length === 0) {
+    if (visibleTemplates.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-12 space-y-4">
-          <p className="text-muted-foreground">템플릿이 없습니다.</p>
-          {activeTab === 'owned' && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  새 템플릿 만들기
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center">
-                <DropdownMenuItem onClick={handleCreateFromDefault}>
-                  <LayoutTemplate className="h-4 w-4 mr-2" />
-                  기본 템플릿에서 시작하기
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleCreateEmpty}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  빈 템플릿에서 시작하기
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+        <div className="flex flex-col items-center gap-4 py-12">
+          <p className="text-muted-foreground">가져온 템플릿이 없습니다.</p>
+          <Button size="sm" onClick={() => navigate('/gallery')}>
+            <Sparkles className="mr-2 h-4 w-4" />템플릿 둘러보기
+          </Button>
         </div>
       );
     }
 
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {templates.map((template) => {
-          // Ensure only ONE template is selected at a time
-          // - If selectedTemplateId is null → default template (0) is selected
-          // - If selectedTemplateId has a value → that specific template is selected
-          const isSelected = selectedTemplateId === null
-            ? template.templateId === 0
-            : selectedTemplateId === template.templateId;
-
-          return (
-            <TemplateCard
-              key={template.templateId}
-              template={template}
-              onClick={template.templateId === 0 ? undefined : () => handleEditTemplate(template.templateId)}
-              isSelected={isSelected}
-              onApply={(e) => {
-                e.stopPropagation();
-                handleApplyTemplate(template.templateId, template.name);
-              }}
-              onDelete={(e) => {
-                e.stopPropagation();
-                handleDeleteTemplate(template.templateId, template.name, template.syncStatus);
-              }}
-              onSync={(e) => handleSyncTemplate(template.templateId, template.name, e)}
-              onPublish={(e) => handlePublishTemplate(template.templateId, template.name, e)}
-              showDelete={activeTab === 'owned' || activeTab === 'cloned'}
-              needsSync={template.needsSync}
-            />
-          );
-        })}
-      </div>
-    );
-  };
-
-  const renderPostedTemplateList = () => {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">로딩 중...</p>
-        </div>
-      );
-    }
-
-    if (!userLoggedIn) {
-      return (
-        <div className="flex flex-col items-center justify-center py-12 space-y-4">
-          <p className="text-muted-foreground">로그인이 필요합니다.</p>
-          <p className="text-sm text-muted-foreground">
-            게시한 템플릿을 보려면 로그인해주세요.
-          </p>
-        </div>
-      );
-    }
-
-    if (postedTemplates.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center py-12 space-y-4">
-          <p className="text-muted-foreground">게시한 템플릿이 없습니다.</p>
-          <p className="text-sm text-muted-foreground">
-            템플릿 편집기에서 템플릿을 게시해보세요.
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {postedTemplates.map((template) => (
-          <PostedTemplateCard
-            key={template.postedTemplateId}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {visibleTemplates.map((template) => (
+          <TemplateCard
+            key={template.templateId}
             template={template}
-            items={template.detailItems}
-            height={template.height}
-            isOwner={true}
-            isLoggedIn={userLoggedIn}
-            isLoading={actionLoading === template.postedTemplateId}
-            onLike={() => handleLikePostedTemplate(template)}
-            onUnpost={() => handleUnpostTemplate(template)}
+            onClick={
+              template.templateId === UNSAVED_TEMPLATE_ID
+                ? undefined
+                : () => navigate(`/editor/${template.templateId}`)
+            }
+            isSelected={
+              selectedTemplateId === null
+                ? template.templateId === UNSAVED_TEMPLATE_ID
+                : selectedTemplateId === template.templateId
+            }
+            onApply={(event) => {
+              event.stopPropagation();
+              void handleApplyTemplate(template);
+            }}
+            onDelete={(event) => {
+              event.stopPropagation();
+              void handleDeleteTemplate(template);
+            }}
+            onShare={(event) => {
+              event.stopPropagation();
+              void handleShareTemplate(template.templateId);
+            }}
+            showDelete={template.templateId !== UNSAVED_TEMPLATE_ID}
+            isActionLoading={actionLoading === template.templateId}
           />
         ))}
       </div>
@@ -657,67 +419,89 @@ export const TemplateListPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-7xl h-full overflow-y-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto h-full max-w-7xl overflow-y-auto px-4 py-6">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">내 템플릿</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            저장된 템플릿을 관리하고 편집하세요
+          <p className="mt-1 text-sm text-muted-foreground">
+            로그인이나 서버 연결 없이 이 기기에 바로 저장합니다.
           </p>
         </div>
-
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => navigate('/gallery')}>
-            <Share2 className="h-4 w-4 mr-2" />
-            갤러리
+            <Sparkles className="mr-2 h-4 w-4" />둘러보기
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                새 템플릿
-              </Button>
+              <Button><Plus className="mr-2 h-4 w-4" />새 템플릿</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleCreateFromDefault}>
-                <LayoutTemplate className="h-4 w-4 mr-2" />
-                기본 템플릿에서 시작하기
+                <LayoutTemplate className="mr-2 h-4 w-4" />기본 템플릿에서 시작
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCreateEmpty}>
-                <FileText className="h-4 w-4 mr-2" />
-                빈 템플릿에서 시작하기
+                <FileText className="mr-2 h-4 w-4" />빈 템플릿에서 시작
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => importInputRef.current?.click()}>
+                <FileUp className="mr-2 h-4 w-4" />파일에서 가져오기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleDownloadBackup()}>
+                <DatabaseBackup className="mr-2 h-4 w-4" />전체 백업 내려받기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => restoreInputRef.current?.click()}>
+                <DatabaseBackup className="mr-2 h-4 w-4" />백업에서 복원
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <input
+            ref={importInputRef}
+            className="hidden"
+            type="file"
+            accept=".json,.linku.json,application/json"
+            onChange={(event) => void handleImportFile(event.target.files?.[0])}
+          />
+          <input
+            ref={restoreInputRef}
+            className="hidden"
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => void handleRestoreBackup(event.target.files?.[0])}
+          />
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'owned' | 'cloned' | 'posted')}>
+      {quarantinedCount > 0 && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold">
+              읽을 수 없는 템플릿 {quarantinedCount}개를 따로 보관했습니다.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              데이터를 지우지 않고 그대로 두었습니다. 파일로 내려받아 두면 나중에
+              복구를 시도할 수 있습니다.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleDownloadQuarantined()}
+          >
+            내려받기
+          </Button>
+        </div>
+      )}
+
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as 'owned' | 'cloned')}
+      >
         <TabsList className="mb-4">
-          <TabsTrigger value="owned">
-            내가 만든 템플릿 ({ownedTemplates.length})
-          </TabsTrigger>
-          <TabsTrigger value="cloned">
-            복제한 템플릿 ({clonedTemplates.length})
-          </TabsTrigger>
-          <TabsTrigger value="posted">
-            게시한 템플릿 ({postedTemplates.length})
-          </TabsTrigger>
+          <TabsTrigger value="owned">내가 만든 템플릿 ({ownedTemplates.length})</TabsTrigger>
+          <TabsTrigger value="cloned">가져온 템플릿 ({clonedTemplates.length})</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="owned">
-          {renderTemplateList(ownedTemplates)}
-        </TabsContent>
-
-        <TabsContent value="cloned">
-          {renderTemplateList(clonedTemplates)}
-        </TabsContent>
-
-        <TabsContent value="posted">
-          {renderPostedTemplateList()}
-        </TabsContent>
+        <TabsContent value="owned">{renderList()}</TabsContent>
+        <TabsContent value="cloned">{renderList()}</TabsContent>
       </Tabs>
     </div>
   );

@@ -10,15 +10,27 @@ import { useState, useRef, useEffect } from 'react';
 import type { TemplateItem } from '@/types/api';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { cn } from '@/lib/utils';
-import { gridToPixelPosition, gridToPixelSize, pixelToGridSize, clampToGridBounds, GRID_CONFIG } from '@/utils/template';
+import { TemplateIconImage } from '@/components/TemplateIconImage';
+import {
+  clampToGridBounds,
+  GRID_CONFIG,
+  gridToPixelPosition,
+  gridToPixelSize,
+  pixelToGridSize,
+} from '@/utils/templateGrid';
 import { Maximize2, Trash2 } from 'lucide-react';
 
 interface DraggableItemProps {
   item: TemplateItem;
   isSelected: boolean;
+  templateHeight: number;
 }
 
-export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
+export const DraggableItem = ({
+  item,
+  isSelected,
+  templateHeight,
+}: DraggableItemProps) => {
   const { state, dispatch } = useEditorContext();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.templateItemId,
@@ -84,10 +96,17 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
       const newHeight = Math.max(GRID_CONFIG.CELL_HEIGHT_PX, resizeStartRef.current.startHeight + deltaY);
 
       // Convert to grid size
-      const newGridSize = pixelToGridSize({ width: newWidth, height: newHeight });
+      const newGridSize = pixelToGridSize(
+        { width: newWidth, height: newHeight },
+        templateHeight,
+      );
 
       // Check if new size would fit within grid bounds
-      const clampedPos = clampToGridBounds(item.position, newGridSize);
+      const clampedPos = clampToGridBounds(
+        item.position,
+        newGridSize,
+        templateHeight,
+      );
 
       // Only update if position hasn't changed (size fits)
       if (clampedPos.x === item.position.x && clampedPos.y === item.position.y) {
@@ -113,7 +132,13 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing, item.templateItemId, item.position, dispatch]);
+  }, [
+    isResizing,
+    item.templateItemId,
+    item.position,
+    dispatch,
+    templateHeight,
+  ]);
 
   return (
     <div
@@ -141,7 +166,7 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
       <div className="flex flex-row items-center justify-start px-4 py-2 h-full gap-3 overflow-hidden">
         {/* Icon with circular background */}
         <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
-          <img
+          <TemplateIconImage
             src={item.icon.iconUrl}
             alt={item.icon.iconName}
             className="w-5 h-5 object-contain"

@@ -41,7 +41,12 @@ import {
   initMonitoring,
   recordBreadcrumb,
 } from "@/monitoring";
-import { getUserFacingErrorMessage } from "@/errors/userFacingError";
+import {
+  getUserFacingErrorMessage,
+  UserFacingError,
+} from "@/errors/userFacingError";
+import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
+import type { TemplateShareImportResponse } from "@/types/templateShare";
 
 initMonitoring("background");
 debugLog("[Background] Service worker initialized");
@@ -238,6 +243,45 @@ chrome.runtime.onMessage.addListener(
       });
       return false;
     }
+  },
+);
+
+chrome.runtime.onMessageExternal.addListener(
+  (
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: TemplateShareImportResponse) => void,
+  ) => {
+    if (
+      sender.origin !== "https://turtle-hwan.github.io" ||
+      !sender.url?.startsWith("https://turtle-hwan.github.io/LinKU/share/") ||
+      !message ||
+      typeof message !== "object" ||
+      (message as { type?: unknown }).type !== "IMPORT_SHARED_TEMPLATE"
+    ) {
+      sendResponse({ success: false, error: "허용되지 않은 가져오기 요청입니다." });
+      return false;
+    }
+
+    const payload = (message as { data?: { payload?: unknown } }).data?.payload;
+
+    void enqueuePendingTemplateImport(payload)
+      .then((result) =>
+        sendResponse({
+          success: true,
+          alreadyQueued: result === "already-queued" || undefined,
+        }),
+      )
+      .catch((error: unknown) => {
+        if (!(error instanceof UserFacingError)) {
+          reportBackgroundException(error, "shared_template_import");
+        }
+        sendResponse({
+          success: false,
+          error: getUserFacingErrorMessage(error, "템플릿을 가져오지 못했습니다."),
+        });
+      });
+    return true;
   },
 );
 

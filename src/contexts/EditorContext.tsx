@@ -5,16 +5,16 @@
 
 import { useReducer, useEffect, ReactNode } from 'react';
 import type { Template, TemplateItem, Icon } from '@/types/api';
-import { getTemplate } from '@/apis/templates';
-import { getDefaultIcons, getMyIcons } from '@/apis/icons';
+import { listLocalIcons } from '@/utils/localIcons';
 import { resolveLatestBulletin } from '@/apis/external/bulletin';
 import { createDefaultLinkList } from '@/constants/LinkList';
 import { BULLETIN_FALLBACK } from '@/constants/bulletin';
+import { getBundledTemplateIcons } from '@/constants/templateIcons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
-import { loadTemplateFromLocalStorage } from '@/utils/templateStorage';
-import { toast } from 'sonner';
+import { getLocalTemplate } from '@/utils/templateStorage';
 import { debugLog, errorLog } from '@/utils/logger';
 import { EditorContext } from './EditorContextObject';
+import { GRID_COLUMNS, UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
 /**
  * Editor state interface
@@ -25,15 +25,11 @@ export interface EditorState {
   isDirty: boolean;
   isSaving: boolean;
   isLoading: boolean;
-  mode: 'create' | 'edit';
   error: string | null;
   // New states for staging area and icons
   stagingItems: TemplateItem[];
   defaultIcons: Icon[];
   userIcons: Icon[];
-  // Sync state
-  isSyncing: boolean;
-  syncStatus: 'local' | 'synced';
   // Transition control
   noTransitionItemId: number | null;
 }
@@ -42,22 +38,20 @@ export interface EditorState {
  * Editor actions
  */
 export type EditorAction =
-  | { type: 'LOAD_TEMPLATE'; payload: Template }
+  | {
+      type: 'LOAD_TEMPLATE';
+      payload: { template: Template; stagingItems?: TemplateItem[] };
+    }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'UPDATE_TEMPLATE_NAME'; payload: string }
-  | { type: 'UPDATE_TEMPLATE_HEIGHT'; payload: number }
-  | { type: 'ADD_ITEM'; payload: TemplateItem }
   | { type: 'UPDATE_ITEM'; payload: { id: number; changes: Partial<TemplateItem> } }
-  | { type: 'DELETE_ITEM'; payload: number }
   | { type: 'MOVE_ITEM'; payload: { id: number; position: { x: number; y: number } } }
   | { type: 'RESIZE_ITEM'; payload: { id: number; size: { width: number; height: number } } }
   | { type: 'SELECT_ITEM'; payload: number | null }
   | { type: 'START_SAVING' }
   | { type: 'SAVE_SUCCESS'; payload: Template }
   | { type: 'SAVE_FAILED'; payload: string }
-  | { type: 'MARK_DIRTY' }
-  | { type: 'MARK_CLEAN' }
   // New actions for staging area and icons
   | { type: 'ADD_TO_STAGING'; payload: TemplateItem }
   | { type: 'REMOVE_FROM_STAGING'; payload: number }
@@ -67,10 +61,6 @@ export type EditorAction =
   | { type: 'LOAD_DEFAULT_ICONS'; payload: Icon[] }
   | { type: 'LOAD_USER_ICONS'; payload: Icon[] }
   | { type: 'ADD_USER_ICON'; payload: Icon }
-  // Sync actions
-  | { type: 'START_SYNCING' }
-  | { type: 'SYNC_SUCCESS'; payload: Template }
-  | { type: 'SYNC_FAILED'; payload: string }
   // Transition control actions
   | { type: 'SET_NO_TRANSITION_ITEM'; payload: number }
   | { type: 'CLEAR_NO_TRANSITION_ITEM' };
@@ -84,13 +74,10 @@ const initialState: EditorState = {
   isDirty: false,
   isSaving: false,
   isLoading: false,
-  mode: 'create',
   error: null,
   stagingItems: [],
   defaultIcons: [],
   userIcons: [],
-  isSyncing: false,
-  syncStatus: 'local',
   noTransitionItemId: null,
 };
 
@@ -100,10 +87,11 @@ const initialState: EditorState = {
 const editorReducer = (state: EditorState, action: EditorAction): EditorState => {
   switch (action.type) {
     case 'LOAD_TEMPLATE': {
-      // templateItemId 유효성 검증 (SYNC_SUCCESS와 동일한 처리)
+      // Older records may not have item identifiers. Keep them editable by
+      // assigning client-only temporary ids during initialization.
       const loadedTemplate = {
-        ...action.payload,
-        items: action.payload.items.map((item, index) => ({
+        ...action.payload.template,
+        items: action.payload.template.items.map((item, index) => ({
           ...item,
           templateItemId: item.templateItemId ?? -(index + 1),
         })),
@@ -111,9 +99,13 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       return {
         ...state,
         template: loadedTemplate,
-        mode: 'edit',
+        stagingItems: action.payload.stagingItems ?? [],
+        selectedItemId: null,
         isLoading: false,
+        isSaving: false,
         isDirty: false,
+        error: null,
+        noTransitionItemId: null,
       };
     }
 
@@ -131,25 +123,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         isDirty: true,
       };
 
-    case 'UPDATE_TEMPLATE_HEIGHT':
-      if (!state.template) return state;
-      return {
-        ...state,
-        template: { ...state.template, height: action.payload },
-        isDirty: true,
-      };
-
-    case 'ADD_ITEM':
-      if (!state.template) return state;
-      return {
-        ...state,
-        template: {
-          ...state.template,
-          items: [...state.template.items, action.payload],
-        },
-        isDirty: true,
-      };
-
     case 'UPDATE_ITEM':
       if (!state.template) return state;
       return {
@@ -162,21 +135,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
               : item
           ),
         },
-        isDirty: true,
-      };
-
-    case 'DELETE_ITEM':
-      if (!state.template) return state;
-      return {
-        ...state,
-        template: {
-          ...state.template,
-          items: state.template.items.filter(
-            (item) => item.templateItemId !== action.payload
-          ),
-        },
-        selectedItemId:
-          state.selectedItemId === action.payload ? null : state.selectedItemId,
         isDirty: true,
       };
 
@@ -222,24 +180,17 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         template: action.payload,
         isSaving: false,
         isDirty: false,
-        // Keep mode as 'create' if templateId is still 0 (draft)
-        mode: action.payload.templateId === 0 ? 'create' : 'edit',
       };
 
     case 'SAVE_FAILED':
       return { ...state, isSaving: false, error: action.payload };
-
-    case 'MARK_DIRTY':
-      return { ...state, isDirty: true };
-
-    case 'MARK_CLEAN':
-      return { ...state, isDirty: false };
 
     // Staging area actions
     case 'ADD_TO_STAGING':
       return {
         ...state,
         stagingItems: [...state.stagingItems, action.payload],
+        isDirty: true,
       };
 
     case 'REMOVE_FROM_STAGING':
@@ -248,6 +199,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         stagingItems: state.stagingItems.filter(
           (item) => item.templateItemId !== action.payload
         ),
+        isDirty: true,
       };
 
     case 'MOVE_TO_CANVAS': {
@@ -262,8 +214,16 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       let newPosition = { x: 0, y: 0 };
       let foundPosition = false;
 
-      for (let y = 0; y <= 6 - itemToMove.size.height && !foundPosition; y++) {
-        for (let x = 0; x <= 6 - itemToMove.size.width && !foundPosition; x++) {
+      for (
+        let y = 0;
+        y <= state.template.height - itemToMove.size.height && !foundPosition;
+        y++
+      ) {
+        for (
+          let x = 0;
+          x <= GRID_COLUMNS - itemToMove.size.width && !foundPosition;
+          x++
+        ) {
           const testPos = { x, y };
           // Check if this position overlaps with any existing item
           const hasOverlap = state.template.items.some((existing) => {
@@ -324,6 +284,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
             ? { ...item, ...action.payload.changes }
             : item
         ),
+        isDirty: true,
       };
 
     // Icon management actions
@@ -343,38 +304,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       return {
         ...state,
         userIcons: [...state.userIcons, action.payload],
-      };
-
-    case 'START_SYNCING':
-      return {
-        ...state,
-        isSyncing: true,
-      };
-
-    case 'SYNC_SUCCESS': {
-      // 서버 응답의 아이템에 templateItemId가 없을 경우 임시 ID 생성
-      const processedTemplate = {
-        ...action.payload,
-        items: action.payload.items.map((item, index) => ({
-          ...item,
-          templateItemId: item.templateItemId ?? -(index + 1),  // null/undefined면 음수 임시 ID
-        })),
-      };
-      return {
-        ...state,
-        template: processedTemplate,
-        isSyncing: false,
-        syncStatus: 'synced',
-        isDirty: false,
-        selectedItemId: null,  // 동기화 후 선택 상태 초기화
-      };
-    }
-
-    case 'SYNC_FAILED':
-      return {
-        ...state,
-        isSyncing: false,
-        error: action.payload,
       };
 
     case 'SET_NO_TRANSITION_ITEM':
@@ -417,49 +346,33 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
 
     try {
       // Load icons first (needed for icon picker)
-      const [iconsResult, userIconsResult] = await Promise.allSettled([
-        getDefaultIcons(),
-        getMyIcons(),
-      ]);
-
-      if (iconsResult.status === 'fulfilled' && iconsResult.value.success && iconsResult.value.data) {
-        const defaultIcons = Array.isArray(iconsResult.value.data)
-          ? iconsResult.value.data
-          : (iconsResult.value.data as { items: Icon[] }).items || [];
-        dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
+      const defaultIcons = getBundledTemplateIcons();
+      dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
+      try {
+        dispatch({ type: 'LOAD_USER_ICONS', payload: await listLocalIcons() });
+      } catch (error) {
+        errorLog('[EditorContext] Failed to load local icons:', error);
       }
 
-      if (userIconsResult.status === 'fulfilled' && userIconsResult.value.success && userIconsResult.value.data) {
-        const userIcons = Array.isArray(userIconsResult.value.data)
-          ? userIconsResult.value.data
-          : (userIconsResult.value.data as { items: Icon[] }).items || [];
-        dispatch({ type: 'LOAD_USER_ICONS', payload: userIcons });
-      }
-
-      // Try loading from localStorage first
-      const localData = loadTemplateFromLocalStorage(id);
+      // Try loading from IndexedDB first
+      const localData = await getLocalTemplate(id);
       if (localData) {
-        dispatch({ type: 'LOAD_TEMPLATE', payload: localData.template });
-
-        // Load staging items if exists
-        localData.stagingItems.forEach((item) => {
-          dispatch({ type: 'ADD_TO_STAGING', payload: item });
+        dispatch({
+          type: 'LOAD_TEMPLATE',
+          payload: {
+            template: localData.template,
+            stagingItems: localData.stagingItems,
+          },
         });
 
-        debugLog('[EditorContext] Loaded template from localStorage', id);
+        debugLog('[EditorContext] Loaded template from IndexedDB', id);
         return;
       }
 
-      // Fallback: Load from server
-      const result = await getTemplate(id);
-      if (result.success && result.data) {
-        dispatch({ type: 'LOAD_TEMPLATE', payload: result.data });
-      } else {
-        dispatch({
-          type: 'SET_ERROR',
-          payload: result.error?.message || '템플릿을 불러올 수 없습니다.',
-        });
-      }
+      dispatch({
+        type: 'SET_ERROR',
+        payload: '이 기기에서 템플릿을 찾을 수 없습니다.',
+      });
     } catch (error) {
       dispatch({
         type: 'SET_ERROR',
@@ -477,51 +390,32 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      // Fetch editor icons and resolve the bulletin only for default templates.
-      const [iconsResult, userIconsResult, bulletinResult] = await Promise.allSettled([
-        getDefaultIcons(),
-        getMyIcons(),
+      // Read bundled/user icons and resolve the public bulletin when needed.
+      const [userIconsResult, bulletinResult] = await Promise.allSettled([
+        listLocalIcons(),
         startFrom === 'empty'
           ? Promise.resolve(BULLETIN_FALLBACK)
           : resolveLatestBulletin(),
       ]);
 
-      debugLog('[EditorContext] Icons API full response:', iconsResult);
-
-      // Parse default icons from response
-      let defaultIcons: Icon[] = [];
-
-      if (iconsResult.status === 'fulfilled' && iconsResult.value.success && iconsResult.value.data) {
-        if (Array.isArray(iconsResult.value.data)) {
-          defaultIcons = iconsResult.value.data;
-        } else if (typeof iconsResult.value.data === 'object' && 'items' in iconsResult.value.data) {
-          // Handle paginated response format
-          defaultIcons = (iconsResult.value.data as { items: Icon[] }).items;
-        } else {
-          errorLog('[EditorContext] Unexpected response structure:', iconsResult.value.data);
-        }
-      } else if (iconsResult.status === 'rejected') {
-        errorLog('[EditorContext] Icons API failed:', iconsResult.reason);
-      }
-
+      const defaultIcons = getBundledTemplateIcons();
       debugLog('[EditorContext] Final defaultIcons count:', defaultIcons.length);
 
-      // Load server icons for icon picker (even if empty)
+      // Load bundled icons for the icon picker.
       dispatch({ type: 'LOAD_DEFAULT_ICONS', payload: defaultIcons });
 
       // Load user icons for icon picker
-      if (userIconsResult.status === 'fulfilled' && userIconsResult.value.success && userIconsResult.value.data) {
-        const userIcons = Array.isArray(userIconsResult.value.data)
-          ? userIconsResult.value.data
-          : (userIconsResult.value.data as { items: Icon[] }).items || [];
-        dispatch({ type: 'LOAD_USER_ICONS', payload: userIcons });
+      if (userIconsResult.status === 'fulfilled') {
+        dispatch({ type: 'LOAD_USER_ICONS', payload: userIconsResult.value });
+      } else {
+        errorLog('[EditorContext] Failed to load local icons:', userIconsResult.reason);
       }
 
       // Create template based on startFrom mode
       if (startFrom === 'empty') {
         // Empty template - no items, just icons for picker
         const emptyTemplate: Template = {
-          templateId: 0,
+          templateId: UNSAVED_TEMPLATE_ID,
           name: '새 템플릿',
           height: 6,
           cloned: false,
@@ -530,54 +424,43 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
+        dispatch({
+          type: 'LOAD_TEMPLATE',
+          payload: { template: emptyTemplate },
+        });
       } else {
-        // Default template - convert LinkList using server icons
-        // If no icons available, show warning and create empty template (still saveable locally)
-        if (defaultIcons.length === 0) {
-          toast.warning('서버 아이콘을 불러올 수 없어 빈 템플릿으로 시작합니다.');
-          const emptyTemplate: Template = {
-            templateId: 0,
-            name: '새 템플릿',
-            height: 6,
-            cloned: false,
-            items: [],
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
-        } else {
-          const defaultLinks = createDefaultLinkList(
-            bulletinResult.status === 'fulfilled'
-              ? bulletinResult.value
-              : undefined,
-          );
-          const templateItems = convertLinkListToTemplateItems(
-            defaultIcons,
-            defaultLinks,
-          );
-          const templateHeight = calculateTemplateHeight();
+        const defaultLinks = createDefaultLinkList(
+          bulletinResult.status === 'fulfilled'
+            ? bulletinResult.value
+            : undefined,
+        );
+        const templateItems = convertLinkListToTemplateItems(
+          getBundledTemplateIcons(defaultLinks),
+          defaultLinks,
+        );
+        const templateHeight = calculateTemplateHeight();
 
-          const newTemplate: Template = {
-            templateId: 0,
-            name: '새 템플릿',
-            height: templateHeight,
-            cloned: false,
-            items: templateItems,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
+        const newTemplate: Template = {
+          templateId: UNSAVED_TEMPLATE_ID,
+          name: '새 템플릿',
+          height: templateHeight,
+          cloned: false,
+          items: templateItems,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
 
-          dispatch({ type: 'LOAD_TEMPLATE', payload: newTemplate });
-        }
+        dispatch({
+          type: 'LOAD_TEMPLATE',
+          payload: { template: newTemplate },
+        });
       }
     } catch (error) {
       errorLog('[EditorContext] Failed to initialize template:', error);
       // Fallback: create empty template (still saveable locally)
       const emptyTemplate: Template = {
-        templateId: 0,
+        templateId: UNSAVED_TEMPLATE_ID,
         name: '새 템플릿',
         height: 6,
         cloned: false,
@@ -586,7 +469,10 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      dispatch({ type: 'LOAD_TEMPLATE', payload: emptyTemplate });
+      dispatch({
+        type: 'LOAD_TEMPLATE',
+        payload: { template: emptyTemplate },
+      });
     }
   };
 

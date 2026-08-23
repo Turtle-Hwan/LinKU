@@ -8,6 +8,13 @@ LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝�
 - API/Chrome bridge: 모든 non-2xx 응답, 네트워크·응답 파싱·토큰 정리, storage/tab/script injection 실패
 - handled application errors: 공통 `errorLog`와 주요 UI fallback 경로
 
+GitHub Pages의 share viewer는 이 범위에서 의도적으로 제외합니다. 해당 페이지는
+`connect-src 'none'` CSP로 template fragment가 어떤 원격 collector에도 전송되지
+않게 하며, 잘못된 공유 링크는 페이지 안의 사용자 안내로만 처리합니다. 정적 link
+catalog와 grid renderer도 monitoring 의존성이 없는 leaf module만 사용하고,
+`pnpm run build:gh-pages`가 Rollup module graph를 검사해 `src/monitoring`이나
+Sentry SDK가 Pages 산출물에 섞이면 PR과 실제 배포 빌드를 모두 실패시킵니다.
+
 ## 모듈 경계
 
 애플리케이션 코드는 `src/monitoring/index.ts`의 provider-neutral API만 사용합니다.
@@ -58,6 +65,10 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 기록하고, `warnLog`도 같은 경로로 `warning` level exception을 기록합니다. 경고는 실패했지만
 흡수된 경로를 뜻하므로, 사용자에게 toast나 축소된 결과가 보이는데 수집에는 아무 흔적이 남지
 않던 구간이 바로 여기였습니다. `debugLog`와 `infoLog`는 계속 console 전용입니다.
+
+하위 저장소 함수가 오류를 다시 throw할 때는 그 자리에서 중복 수집하지 않습니다. toast나
+fallback으로 실패를 최종 처리하는 UI·runtime 경계가 원본 오류를 한 번 기록하고, 내부에서
+실패를 흡수해 계속 진행하는 repair·migration 경로만 저장소 안에서 직접 기록합니다.
 
 실패를 예외가 아니라 `{ success: false, code }`로 돌려주는 경로도 수집합니다. 시간표 import는
 결과 코드를 tag로 붙여 warning으로 기록하므로, LOGIN_REQUIRED·TAB_UNAVAILABLE·

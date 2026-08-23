@@ -5,6 +5,7 @@
 
 import type { Icon } from '@/types/api';
 import { cn } from '@/lib/utils';
+import { TemplateIconImage } from '@/components/TemplateIconImage';
 
 interface IconGridProps {
   icons: Icon[];
@@ -54,7 +55,7 @@ export const IconGrid = ({
             title={icon.name}
             type="button"
           >
-            <img
+            <TemplateIconImage
               src={icon.imageUrl}
               alt={icon.name}
               className="w-full h-full object-contain"

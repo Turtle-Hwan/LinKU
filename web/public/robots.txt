@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://turtle-hwan.github.io/LinKU/sitemap.xml

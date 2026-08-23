@@ -11,6 +11,7 @@ import { CanvasGrid } from './CanvasGrid';
 
 export const EditorCanvas = () => {
   const { state, dispatch } = useEditorContext();
+  const template = state.template;
   const { setNodeRef: setCanvasRef, isOver } = useDroppable({
     id: 'canvas-area',
   });
@@ -20,7 +21,7 @@ export const EditorCanvas = () => {
     dispatch({ type: 'SELECT_ITEM', payload: null });
   };
 
-  if (!state.template) {
+  if (!template) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="text-center space-y-2">
@@ -57,19 +58,20 @@ export const EditorCanvas = () => {
           minHeight: '396px',
         }}
       >
-        <CanvasGrid height={state.template.height} />
+        <CanvasGrid height={template.height} />
 
         {/* Render all template items */}
-        {state.template.items.map((item) => (
+        {template.items.map((item) => (
           <DraggableItem
             key={item.templateItemId}
             item={item}
+            templateHeight={template.height}
             isSelected={state.selectedItemId !== null && state.selectedItemId === item.templateItemId}
           />
         ))}
 
         {/* Empty state */}
-        {state.template.items.length === 0 && (
+        {template.items.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center space-y-2">
               <p className="text-muted-foreground">

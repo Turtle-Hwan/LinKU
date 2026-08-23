@@ -4,6 +4,7 @@
  */
 
 import type { TemplateItem } from '@/types/api';
+import { TemplateIconImage } from '@/components/TemplateIconImage';
 
 interface DragOverlayPreviewProps {
   item: TemplateItem | null;
@@ -18,7 +19,7 @@ export const DragOverlayPreview = ({ item, type }: DragOverlayPreviewProps) => {
       <div className="border rounded-lg bg-white shadow-xl opacity-90">
         <div className="flex flex-row items-center justify-start px-3 py-2 gap-2">
           <div className="w-8 h-8 rounded-full bg-main/10 flex items-center justify-center shrink-0">
-            <img
+            <TemplateIconImage
               src={item.icon.iconUrl}
               alt={item.icon.iconName}
               className="w-4 h-4 object-contain"
@@ -37,7 +38,7 @@ export const DragOverlayPreview = ({ item, type }: DragOverlayPreviewProps) => {
     <div className="border border-primary rounded-lg bg-white shadow-xl opacity-90 px-4 py-2 overflow-hidden">
       <div className="flex flex-row items-center justify-start gap-3 overflow-hidden">
         <div className="w-9 h-9 rounded-full bg-main/10 flex items-center justify-center shrink-0">
-          <img
+          <TemplateIconImage
             src={item.icon.iconUrl}
             alt={item.icon.iconName}
             className="w-5 h-5 object-contain"

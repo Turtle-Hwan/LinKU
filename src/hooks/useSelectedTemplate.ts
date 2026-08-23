@@ -5,7 +5,6 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { getTemplate } from "@/apis/templates";
 import {
   resolveLatestBulletin,
   subscribeLatestBulletin,
@@ -17,8 +16,9 @@ import {
   type LinkListElement,
 } from "@/constants/LinkList";
 import type { BulletinInfo } from "@/constants/bulletin";
-import { loadTemplateFromLocalStorage } from "@/utils/templateStorage";
+import { getLocalTemplate } from "@/utils/templateStorage";
 import { debugLog, errorLog } from '@/utils/logger';
+import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
 const STORAGE_KEY = "selectedTemplateId";
 
@@ -46,7 +46,7 @@ interface UseSelectedTemplateResult {
   linkItems: LinkListElement[];
   isLoading: boolean;
   error: string | null;
-  selectTemplate: (templateId: number | null) => Promise<void>;
+  selectTemplate: (templateId: number | null) => Promise<boolean>;
 }
 
 export function useSelectedTemplate(): UseSelectedTemplateResult {
@@ -181,7 +181,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         type: typeof templateId,
       });
 
-      if (templateId === 0) {
+      if (templateId === UNSAVED_TEMPLATE_ID) {
         // templateId가 0이면 기본 템플릿 → null로 변환
         debugLog(
           "[useSelectedTemplate] Converting 0 to null (default template)",
@@ -215,15 +215,15 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     const isStaleRequest = () => requestId !== loadRequestIdRef.current;
 
     try {
-      // Try loading from localStorage first (for local-only templates)
-      const localData = loadTemplateFromLocalStorage(templateId);
-      if (localData) {
-        if (isStaleRequest()) {
-          return;
-        }
+      // Try loading from IndexedDB first (for local-only templates)
+      const localData = await getLocalTemplate(templateId);
+      if (isStaleRequest()) {
+        return;
+      }
 
+      if (localData) {
         debugLog(
-          "[useSelectedTemplate] Loaded template from localStorage:",
+          "[useSelectedTemplate] Loaded template from IndexedDB:",
           templateId,
         );
         setTemplateData(localData.template);
@@ -232,28 +232,22 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         return;
       }
 
-      // Fallback: Load from server
-      const result = await getTemplate(templateId);
-
+      const storage = getChromeStorage();
+      if (storage?.local) {
+        try {
+          await storage.local.remove(STORAGE_KEY);
+        } catch (storageError) {
+          errorLog("Failed to clear a missing template selection:", storageError);
+        }
+      }
       if (isStaleRequest()) {
         return;
       }
 
-      if (result.success && result.data) {
-        debugLog(
-          "[useSelectedTemplate] Loaded template from server:",
-          templateId,
-        );
-        setTemplateData(result.data);
-        setLinkItems(convertTemplateToLinkList(result.data));
-      } else {
-        // Failed to load template - fallback to default
-        errorLog("Failed to load template:", result.error);
-        setError(result.error?.message || "템플릿을 불러올 수 없습니다.");
-        setTemplateData(null);
-        setSelectedTemplateId(null);
-        setLinkItems(defaultLinkItemsRef.current);
-      }
+      setError("이 기기에서 템플릿을 찾을 수 없어 기본 템플릿을 표시합니다.");
+      setTemplateData(null);
+      setSelectedTemplateId(null);
+      setLinkItems(defaultLinkItemsRef.current);
     } catch (err) {
       if (isStaleRequest()) {
         return;
@@ -271,12 +265,12 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
     }
   };
 
-  const selectTemplate = async (templateId: number | null) => {
+  const selectTemplate = async (templateId: number | null): Promise<boolean> => {
     try {
       const storage = getChromeStorage();
       if (!storage?.local) {
         if (templateId !== null && templateId === selectedTemplateIdRef.current) {
-          return;
+          return true;
         }
 
         if (templateId === null) {
@@ -292,7 +286,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
           setTemplateData(null);
           setSelectedTemplateId(templateId);
         }
-        return;
+        return true;
       }
 
       if (templateId === null) {
@@ -306,7 +300,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         setIsLoading(false);
       } else {
         if (templateId === selectedTemplateIdRef.current) {
-          return;
+          return true;
         }
 
         // Save selection
@@ -316,10 +310,12 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         await storage.local.set({ [STORAGE_KEY]: templateId });
         setSelectedTemplateId(templateId);
       }
+      return true;
     } catch (err) {
       errorLog("Failed to save template selection:", err);
       setError("템플릿 선택을 저장하는데 실패했습니다.");
       setIsLoading(false);
+      return false;
     }
   };
 

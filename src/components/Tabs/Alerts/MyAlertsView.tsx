@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import AlertItem from "./AlertItem";
 import { errorLog } from '@/utils/logger';
 import { matchesAlertQuery } from "./alertSearchUtils";
+import { sendAlertsSubscriptionChange } from '@/utils/analytics';
 
 interface MyAlertsViewProps {
   searchQuery: string;
@@ -107,6 +108,12 @@ const MyAlertsView = ({ searchQuery }: MyAlertsViewProps) => {
     try {
       const result = await subscribeDepartment(departmentId);
       if (result.success) {
+        const departmentName = departments.find(
+          (department) => department.id === departmentId,
+        )?.name;
+        if (departmentName) {
+          sendAlertsSubscriptionChange(departmentName, 'subscribe');
+        }
         toast.success("학과 구독 완료!");
         await loadMyData(); // 목록 새로고침
       } else {
@@ -125,6 +132,12 @@ const MyAlertsView = ({ searchQuery }: MyAlertsViewProps) => {
     try {
       const result = await unsubscribeDepartment(departmentId);
       if (result.success) {
+        const departmentName = mySubscriptions.find(
+          (subscription) => subscription.department.id === departmentId,
+        )?.department.name;
+        if (departmentName) {
+          sendAlertsSubscriptionChange(departmentName, 'unsubscribe');
+        }
         toast.success("구독 취소 완료");
         await loadMyData(); // 목록 새로고침
       } else {
