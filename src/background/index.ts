@@ -33,6 +33,10 @@ import {
   TODO_BADGE_TEXT_COLOR,
 } from "@/utils/todo/badge";
 import {
+  isTransientChromeStorageLock,
+  retryChromeOperation,
+} from "@/utils/chromeRetry";
+import {
   handlePendingImportTabRemoved,
   handlePendingImportTabUpdated,
   handleTimetableImport,
@@ -79,6 +83,16 @@ function reportBackgroundException(
 }
 
 async function restrictLocalStorageAccess(): Promise<void> {
+  if (typeof chrome.storage.local.setAccessLevel !== "function") {
+    recordBreadcrumb(
+      "background.compatibility",
+      "storage access level API unavailable",
+      { api: "chrome.storage.local.setAccessLevel" },
+      "warning",
+    );
+    return;
+  }
+
   try {
     await chrome.storage.local.setAccessLevel({
       accessLevel: "TRUSTED_CONTEXTS",
@@ -377,21 +391,33 @@ function updateBadge(count: number) {
   }
 }
 
-// Initialize badge on service worker start
-try {
-  chrome.storage.local.get("todoCount", (data) => {
-    const lastError = chrome.runtime.lastError;
-    if (lastError) {
-      reportBackgroundException(lastError, "badge_storage_get");
-      return;
-    }
+function readStoredTodoCount(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.storage.local.get("todoCount", (data) => {
+        const lastError = chrome.runtime.lastError;
+        if (lastError) {
+          reject(new Error(lastError.message));
+          return;
+        }
 
-    const count = typeof data.todoCount === "number" ? data.todoCount : 0;
-    updateBadge(count);
+        resolve(typeof data.todoCount === "number" ? data.todoCount : 0);
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
-} catch (error) {
-  reportBackgroundException(error, "badge_storage_get");
 }
+
+void retryChromeOperation(readStoredTodoCount, {
+  maxAttempts: 3,
+  delayMs: 100,
+  shouldRetry: isTransientChromeStorageLock,
+})
+  .then(updateBadge)
+  .catch((error: unknown) => {
+    reportBackgroundException(error, "badge_storage_get");
+  });
 
 // Listen for todoCount changes
 chrome.storage.onChanged.addListener((changes, namespace) => {
