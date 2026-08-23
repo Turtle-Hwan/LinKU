@@ -125,20 +125,30 @@ const createController = ({
   stateStorage,
   fetchFn,
   errors,
+  createCacheName = () => NEW_CACHE_NAME,
 }: {
   cacheStorage: MemoryCacheStorage;
   stateStorage: ReturnType<typeof createStateStorage>["storage"];
   fetchFn: typeof fetch;
   errors: unknown[];
+  createCacheName?: (now: number) => string;
 }) =>
   createBannerCacheController({
     cacheStorage,
     stateStorage,
     fetchFn,
     now: () => NOW,
-    createCacheName: () => NEW_CACHE_NAME,
+    createCacheName,
     onError: (error) => errors.push(error),
   });
+
+const createGate = () => {
+  let release = () => {};
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+};
 
 test("배너 응답과 이미지 경로를 unknown에서 검증한다", () => {
   assert.deepEqual(parseBannersResponse(oldPayload), oldPayload);
@@ -243,6 +253,81 @@ test("만료된 캐시는 먼저 반환하고 완성된 새 스냅샷을 다음 
   );
   assert.deepEqual(await nextResult.response.json(), newPayload);
   assert.equal(nextResult.backgroundTask, undefined);
+});
+
+test("오래된 state를 읽은 요청이 완료된 갱신을 다시 실행하지 않는다", async () => {
+  const cacheStorage = new MemoryCacheStorage();
+  const oldCache = (await cacheStorage.open(OLD_CACHE_NAME)) as unknown as MemoryCache;
+  await oldCache.put(BANNER_JSON_URL, jsonResponse(oldPayload));
+  const { storage, values } = createStateStorage({
+    [CACHE_STATE_KEY]: {
+      activeCacheName: OLD_CACHE_NAME,
+      nextCheckAt: NOW - 1,
+    },
+  });
+  const firstFetchStarted = createGate();
+  const releaseFirstFetch = createGate();
+  const secondMatchStarted = createGate();
+  const releaseSecondMatch = createGate();
+  const originalMatch = oldCache.match.bind(oldCache);
+  let oldCacheMatchCalls = 0;
+  oldCache.match = async (request) => {
+    oldCacheMatchCalls += 1;
+    if (oldCacheMatchCalls === 2) {
+      secondMatchStarted.release();
+      await releaseSecondMatch.promise;
+    }
+    return originalMatch(request);
+  };
+
+  let bannerFetchCalls = 0;
+  let cacheSequence = 0;
+  const errors: unknown[] = [];
+  const controller = createController({
+    cacheStorage,
+    stateStorage: storage,
+    fetchFn: (async (request) => {
+      const requestURL = toRequestURL(request);
+      if (requestURL !== BANNER_JSON_URL) return imageResponse();
+
+      bannerFetchCalls += 1;
+      if (bannerFetchCalls > 1) {
+        throw new Error("a completed refresh must not run again");
+      }
+      firstFetchStarted.release();
+      await releaseFirstFetch.promise;
+      return jsonResponse(newPayload);
+    }) as typeof fetch,
+    createCacheName: () => `${NEW_CACHE_NAME}-${++cacheSequence}`,
+    errors,
+  });
+
+  const firstResult = await controller.getResponse(
+    new Request(BANNER_JSON_URL),
+  );
+  assert.ok(firstResult.backgroundTask);
+  await firstFetchStarted.promise;
+
+  const secondResultPromise = controller.getResponse(
+    new Request(BANNER_JSON_URL),
+  );
+  await secondMatchStarted.promise;
+
+  releaseFirstFetch.release();
+  await firstResult.backgroundTask;
+  releaseSecondMatch.release();
+
+  const secondResult = await secondResultPromise;
+  assert.ok(secondResult.backgroundTask);
+  await secondResult.backgroundTask;
+
+  assert.equal(bannerFetchCalls, 1);
+  assert.equal(cacheSequence, 1);
+  assert.deepEqual(values[CACHE_STATE_KEY], {
+    activeCacheName: `${NEW_CACHE_NAME}-1`,
+    nextCheckAt: NOW + BANNER_REFRESH_INTERVAL_MS,
+  });
+  assert.deepEqual(errors, []);
 });
 
 test("이미지 갱신 실패 시 기존 스냅샷을 유지하고 하루 뒤 재검사한다", async () => {
