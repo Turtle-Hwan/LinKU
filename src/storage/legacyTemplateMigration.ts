@@ -23,7 +23,7 @@ export interface LegacyMigrationReport {
   repaired: Array<{ key: string; repairs: string[] }>;
   quarantined: Array<{
     key: string;
-    kind: "duplicate" | "unreadable";
+    kind: "conflict" | "unreadable";
     reason: string;
     templateId?: number;
   }>;
@@ -114,7 +114,7 @@ export async function migrateLegacyTemplateStorage(
     const quarantine = async (
       source: LegacySource,
       reason: string,
-      kind: "duplicate" | "unreadable",
+      kind: "conflict" | "unreadable",
       templateId?: number,
     ): Promise<void> => {
       await transaction.objectStore("quarantine").put({
@@ -157,20 +157,17 @@ export async function migrateLegacyTemplateStorage(
       const existing = await templateStore.get(stored.template.templateId);
       if (existing) {
         const wasPreviouslyMigrated = previousSource?.status === "migrated";
-        const markerPredatesSourceTracking =
-          previous !== undefined && previousSources === undefined;
 
         if (wasPreviouslyMigrated) {
-          await templateStore.put(stored, stored.template.templateId);
-          nextSources[source.key] = {
-            fingerprint: source.fingerprint,
-            status: "migrated",
-          };
-          continue;
-        }
-        if (markerPredatesSourceTracking) {
           if (stored.metadata.lastSaved > existing.metadata.lastSaved) {
             await templateStore.put(stored, stored.template.templateId);
+          } else {
+            await quarantine(
+              source,
+              "IndexedDB 사본이 같거나 더 최신이어서 변경된 이전 원본을 별도로 보관했습니다.",
+              "conflict",
+              stored.template.templateId,
+            );
           }
           nextSources[source.key] = {
             fingerprint: source.fingerprint,
@@ -184,7 +181,7 @@ export async function migrateLegacyTemplateStorage(
         await quarantine(
           source,
           reason,
-          "duplicate",
+          "conflict",
           stored.template.templateId,
         );
         nextSources[source.key] = {
@@ -207,8 +204,6 @@ export async function migrateLegacyTemplateStorage(
       if (previousSource?.fingerprint === source.fingerprint) {
         nextSources[source.key] = previousSource;
       } else {
-        const markerPredatesSourceTracking =
-          previous !== undefined && previousSources === undefined;
         const result = parseLegacyTemplateRecord(source.raw, {
           allowUnsavedTemplateId: true,
         });
@@ -216,19 +211,41 @@ export async function migrateLegacyTemplateStorage(
           const existing = await transaction
             .objectStore("drafts")
             .get(DRAFT_SLOT_KEY);
-          if (
-            !markerPredatesSourceTracking ||
-            !existing ||
-            result.stored.metadata.lastSaved > existing.metadata.lastSaved
-          ) {
+          if (!existing) {
             await transaction
               .objectStore("drafts")
               .put(result.stored, DRAFT_SLOT_KEY);
+            nextSources[source.key] = {
+              fingerprint: source.fingerprint,
+              status: "migrated",
+            };
+          } else if (previousSource?.status === "migrated") {
+            if (result.stored.metadata.lastSaved > existing.metadata.lastSaved) {
+              await transaction
+                .objectStore("drafts")
+                .put(result.stored, DRAFT_SLOT_KEY);
+            } else {
+              await quarantine(
+                source,
+                "IndexedDB draft가 같거나 더 최신이어서 변경된 이전 원본을 별도로 보관했습니다.",
+                "conflict",
+              );
+            }
+            nextSources[source.key] = {
+              fingerprint: source.fingerprint,
+              status: "migrated",
+            };
+          } else {
+            await quarantine(
+              source,
+              "기존 draft의 원본을 확인할 수 없어 이전 원본을 별도로 보관했습니다.",
+              "conflict",
+            );
+            nextSources[source.key] = {
+              fingerprint: source.fingerprint,
+              status: "quarantined",
+            };
           }
-          nextSources[source.key] = {
-            fingerprint: source.fingerprint,
-            status: "migrated",
-          };
         } else {
           await quarantine(source, result.reason, "unreadable");
           nextSources[source.key] = {

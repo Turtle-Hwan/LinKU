@@ -21,8 +21,8 @@ export async function migrateLegacyTemplates(): Promise<void> {
     debugLog(`Repaired legacy template ${repaired.key}`, repaired.repairs);
   }
   for (const quarantined of report.quarantined) {
-    if (quarantined.kind === "duplicate") {
-      warnLog("Quarantined duplicate legacy template id", {
+    if (quarantined.kind === "conflict") {
+      warnLog("Quarantined conflicting legacy template", {
         key: quarantined.key,
         templateId: quarantined.templateId,
       });

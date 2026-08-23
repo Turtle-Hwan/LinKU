@@ -102,16 +102,49 @@ test("완료 후에도 변경되거나 새로 생긴 레거시 템플릿을 다�
     [brokenKey, conflictKey, firstKey, `${LEGACY_TEMPLATE_PREFIX}202`].sort(),
   );
 
+  const latestIndexedDb = await database.get("templates", 101);
+  assert.ok(latestIndexedDb);
+  await database.put(
+    "templates",
+    {
+      ...latestIndexedDb,
+      template: { ...latestIndexedDb.template, name: "IndexedDB 최신" },
+      metadata: { ...latestIndexedDb.metadata, lastSaved: 4_000 },
+    },
+    101,
+  );
+  storage.setItem(firstKey, legacyRecord(101, "오래된 롤백 수정", 3_000));
+  const staleRollback = await migrateLegacyTemplateStorage(database, storage);
+  assert.equal(
+    (await database.get("templates", 101))?.template.name,
+    "IndexedDB 최신",
+  );
+  assert.equal(
+    staleRollback.quarantined.some((entry) => entry.key === firstKey),
+    true,
+  );
+
+  storage.setItem(firstKey, legacyRecord(101, "최신 롤백 수정", 5_000));
+  await migrateLegacyTemplateStorage(database, storage);
+  assert.equal(
+    (await database.get("templates", 101))?.template.name,
+    "최신 롤백 수정",
+  );
+
   await database.put(
     "migrations",
     { completedAt: 1 },
     LEGACY_MIGRATION_KEY,
   );
-  storage.setItem(firstKey, legacyRecord(101, "이전 마커 이후 수정", 3_000));
-  await migrateLegacyTemplateStorage(database, storage);
+  storage.setItem(firstKey, legacyRecord(101, "추적 없는 원본", 6_000));
+  const untracked = await migrateLegacyTemplateStorage(database, storage);
   assert.equal(
     (await database.get("templates", 101))?.template.name,
-    "이전 마커 이후 수정",
+    "최신 롤백 수정",
+  );
+  assert.equal(
+    untracked.quarantined.some((entry) => entry.key === firstKey),
+    true,
   );
 });
 
