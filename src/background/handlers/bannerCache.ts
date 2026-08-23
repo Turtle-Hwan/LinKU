@@ -195,19 +195,20 @@ export const createBannerCacheController = (
     }
   };
 
-  const refresh = (
-    currentState: BannerCacheState,
-    checkedAt: number,
-  ) => {
+  const refresh = (checkedAt: number) => {
     if (activeRefresh) return activeRefresh;
 
-    const refreshPromise = performRefresh(currentState, checkedAt).finally(
-      () => {
+    const refreshPromise = readState()
+      .then((latestState) =>
+        checkedAt < latestState.nextCheckAt
+          ? latestState
+          : performRefresh(latestState, checkedAt),
+      )
+      .finally(() => {
         if (activeRefresh === refreshPromise) {
           activeRefresh = undefined;
         }
-      },
-    );
+      });
     activeRefresh = refreshPromise;
     return refreshPromise;
   };
@@ -230,7 +231,7 @@ export const createBannerCacheController = (
         ) {
           return {
             response: cachedResponse,
-            backgroundTask: refresh(state, checkedAt)
+            backgroundTask: refresh(checkedAt)
               .then(() => undefined)
               .catch(onError),
           };
@@ -247,7 +248,7 @@ export const createBannerCacheController = (
       }
 
       try {
-        const nextState = await refresh(state, checkedAt);
+        const nextState = await refresh(checkedAt);
         return {
           response:
             (await matchActiveCache(nextState, request)) ??
