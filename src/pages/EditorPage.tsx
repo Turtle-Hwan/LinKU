@@ -120,10 +120,17 @@ const EditorContent = ({ routeTemplateId, startFrom }: EditorContentProps) => {
     };
 
     // Convert pixel position back to grid coordinates (with snapping)
-    const newGridPos = pixelToGridPosition(newPixelPos);
+    const newGridPos = pixelToGridPosition(
+      newPixelPos,
+      state.template.height,
+    );
 
     // Clamp position to grid bounds considering item size
-    const clampedPos = clampToGridBounds(newGridPos, item.size);
+    const clampedPos = clampToGridBounds(
+      newGridPos,
+      item.size,
+      state.template.height,
+    );
 
     // Immediately update the dragged item's position to prevent animation glitch
     dispatch({
@@ -138,7 +145,8 @@ const EditorContent = ({ routeTemplateId, startFrom }: EditorContentProps) => {
     const positionChanges = resolveCollisions(
       itemId,
       clampedPos,
-      state.template.items
+      state.template.items,
+      state.template.height,
     );
 
     if (positionChanges) {

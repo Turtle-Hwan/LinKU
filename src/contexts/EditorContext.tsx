@@ -14,7 +14,7 @@ import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils
 import { getLocalTemplate } from '@/utils/templateStorage';
 import { debugLog, errorLog } from '@/utils/logger';
 import { EditorContext } from './EditorContextObject';
-import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
+import { GRID_COLUMNS, UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
 /**
  * Editor state interface
@@ -209,8 +209,16 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       let newPosition = { x: 0, y: 0 };
       let foundPosition = false;
 
-      for (let y = 0; y <= 6 - itemToMove.size.height && !foundPosition; y++) {
-        for (let x = 0; x <= 6 - itemToMove.size.width && !foundPosition; x++) {
+      for (
+        let y = 0;
+        y <= state.template.height - itemToMove.size.height && !foundPosition;
+        y++
+      ) {
+        for (
+          let x = 0;
+          x <= GRID_COLUMNS - itemToMove.size.width && !foundPosition;
+          x++
+        ) {
           const testPos = { x, y };
           // Check if this position overlaps with any existing item
           const hasOverlap = state.template.items.some((existing) => {

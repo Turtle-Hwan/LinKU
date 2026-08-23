@@ -1,5 +1,5 @@
-import { GRID_COLUMNS, GRID_ROWS } from "@/constants/template";
-import type { Position, Size } from "@/types/api";
+import { GRID_COLUMNS, GRID_ROWS } from "../constants/template.ts";
+import type { Position, Size } from "../types/api.ts";
 
 /** Grid units for data and pixel values for editor/preview rendering. */
 export const GRID_CONFIG = {
@@ -35,7 +35,10 @@ export function gridToPixelSize(gridSize: Size): Size {
   };
 }
 
-export function pixelToGridPosition(pixelPos: Position): Position {
+export function pixelToGridPosition(
+  pixelPos: Position,
+  rowCount: number,
+): Position {
   const gridX = Math.round(
     (pixelPos.x - GRID_CONFIG.PADDING_PX) /
       (GRID_CONFIG.CELL_WIDTH_PX + GRID_CONFIG.GAP_PX),
@@ -46,11 +49,14 @@ export function pixelToGridPosition(pixelPos: Position): Position {
   );
   return {
     x: Math.max(0, Math.min(GRID_CONFIG.COLS - 1, gridX)),
-    y: Math.max(0, Math.min(GRID_CONFIG.ROWS - 1, gridY)),
+    y: Math.max(0, Math.min(rowCount - 1, gridY)),
   };
 }
 
-export function pixelToGridSize(pixelSize: Size): Size {
+export function pixelToGridSize(
+  pixelSize: Size,
+  rowCount: number,
+): Size {
   const gridWidth = Math.round(
     (pixelSize.width + GRID_CONFIG.GAP_PX) /
       (GRID_CONFIG.CELL_WIDTH_PX + GRID_CONFIG.GAP_PX),
@@ -61,22 +67,30 @@ export function pixelToGridSize(pixelSize: Size): Size {
   );
   return {
     width: Math.max(1, Math.min(GRID_CONFIG.COLS, gridWidth)),
-    height: Math.max(1, Math.min(GRID_CONFIG.ROWS, gridHeight)),
+    height: Math.max(1, Math.min(rowCount, gridHeight)),
   };
 }
 
-export function isWithinGridBounds(position: Position, size: Size): boolean {
+export function isWithinGridBounds(
+  position: Position,
+  size: Size,
+  rowCount: number,
+): boolean {
   return (
     position.x >= 0 &&
     position.y >= 0 &&
     position.x + size.width <= GRID_CONFIG.COLS &&
-    position.y + size.height <= GRID_CONFIG.ROWS
+    position.y + size.height <= rowCount
   );
 }
 
-export function clampToGridBounds(position: Position, size: Size): Position {
+export function clampToGridBounds(
+  position: Position,
+  size: Size,
+  rowCount: number,
+): Position {
   return {
     x: Math.max(0, Math.min(GRID_CONFIG.COLS - size.width, position.x)),
-    y: Math.max(0, Math.min(GRID_CONFIG.ROWS - size.height, position.y)),
+    y: Math.max(0, Math.min(rowCount - size.height, position.y)),
   };
 }

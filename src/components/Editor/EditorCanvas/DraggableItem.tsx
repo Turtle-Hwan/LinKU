@@ -23,9 +23,14 @@ import { Maximize2, Trash2 } from 'lucide-react';
 interface DraggableItemProps {
   item: TemplateItem;
   isSelected: boolean;
+  templateHeight: number;
 }
 
-export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
+export const DraggableItem = ({
+  item,
+  isSelected,
+  templateHeight,
+}: DraggableItemProps) => {
   const { state, dispatch } = useEditorContext();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.templateItemId,
@@ -91,10 +96,17 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
       const newHeight = Math.max(GRID_CONFIG.CELL_HEIGHT_PX, resizeStartRef.current.startHeight + deltaY);
 
       // Convert to grid size
-      const newGridSize = pixelToGridSize({ width: newWidth, height: newHeight });
+      const newGridSize = pixelToGridSize(
+        { width: newWidth, height: newHeight },
+        templateHeight,
+      );
 
       // Check if new size would fit within grid bounds
-      const clampedPos = clampToGridBounds(item.position, newGridSize);
+      const clampedPos = clampToGridBounds(
+        item.position,
+        newGridSize,
+        templateHeight,
+      );
 
       // Only update if position hasn't changed (size fits)
       if (clampedPos.x === item.position.x && clampedPos.y === item.position.y) {
@@ -120,7 +132,13 @@ export const DraggableItem = ({ item, isSelected }: DraggableItemProps) => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing, item.templateItemId, item.position, dispatch]);
+  }, [
+    isResizing,
+    item.templateItemId,
+    item.position,
+    dispatch,
+    templateHeight,
+  ]);
 
   return (
     <div

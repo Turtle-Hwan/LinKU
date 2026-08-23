@@ -227,7 +227,8 @@ export function findOverlappingItems(
  */
 function tryPushInDirection(
   item: { position: Position; size: Size },
-  direction: 'up' | 'down' | 'left' | 'right' | 'up-left' | 'up-right' | 'down-left' | 'down-right'
+  direction: 'up' | 'down' | 'left' | 'right' | 'up-left' | 'up-right' | 'down-left' | 'down-right',
+  rowCount: number,
 ): Position | null {
   const newPos = { ...item.position };
 
@@ -264,7 +265,7 @@ function tryPushInDirection(
   }
 
   // Check if new position is within bounds
-  if (isWithinGridBounds(newPos, item.size)) {
+  if (isWithinGridBounds(newPos, item.size, rowCount)) {
     return newPos;
   }
 
@@ -337,7 +338,8 @@ function getPrioritizedDirections(
 export function resolveCollisions(
   movingItemId: number,
   newPosition: Position,
-  allItems: { templateItemId: number; position: Position; size: Size }[]
+  allItems: { templateItemId: number; position: Position; size: Size }[],
+  rowCount: number,
 ): Map<number, Position> | null {
   const movingItem = allItems.find((item) => item.templateItemId === movingItemId);
   if (!movingItem) return null;
@@ -380,7 +382,7 @@ export function resolveCollisions(
     // Try each direction until we find one that works (within 1 grid cell range)
     let pushed = false;
     for (const direction of directions) {
-      const pushedPos = tryPushInDirection(overlappedItem, direction);
+      const pushedPos = tryPushInDirection(overlappedItem, direction, rowCount);
 
       if (pushedPos) {
         // Check if this new position causes overlap with other items
@@ -418,7 +420,10 @@ export function resolveCollisions(
         otherItemsExcludingBoth
       );
 
-      if (swapOverlaps.length === 0 && isWithinGridBounds(originalPosition, overlappedItem.size)) {
+      if (
+        swapOverlaps.length === 0 &&
+        isWithinGridBounds(originalPosition, overlappedItem.size, rowCount)
+      ) {
         // Swap is possible!
         positionChanges.set(overlappedItem.templateItemId, originalPosition);
         pushed = true;

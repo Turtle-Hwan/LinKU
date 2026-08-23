@@ -36,7 +36,7 @@ export const ItemPropertiesPanel = () => {
   const isFromStaging = !!selectedStagingItem;
 
   // No item selected
-  if (!selectedItem) {
+  if (!selectedItem || !state.template) {
     return (
       <aside className="w-72 border-l bg-background p-4">
         <div className="flex items-center justify-center h-full text-center">
@@ -54,6 +54,7 @@ export const ItemPropertiesPanel = () => {
       selectedItem={selectedItem}
       isFromStaging={isFromStaging}
       templateId={state.template?.templateId}
+      templateHeight={state.template.height}
       defaultIcons={state.defaultIcons}
       userIcons={state.userIcons}
       dispatch={dispatch}
@@ -65,6 +66,7 @@ interface ItemPropertiesPanelFormProps {
   selectedItem: TemplateItem;
   isFromStaging: boolean;
   templateId: number | undefined;
+  templateHeight: number;
   defaultIcons: ReturnType<typeof useEditorContext>['state']['defaultIcons'];
   userIcons: ReturnType<typeof useEditorContext>['state']['userIcons'];
   dispatch: ReturnType<typeof useEditorContext>['dispatch'];
@@ -74,6 +76,7 @@ const ItemPropertiesPanelForm = ({
   selectedItem,
   isFromStaging,
   templateId,
+  templateHeight,
   defaultIcons,
   userIcons,
   dispatch,
@@ -137,13 +140,13 @@ const ItemPropertiesPanelForm = ({
     const parsedWidth = parseInt(width) || 1;
     const parsedHeight = parseInt(height) || 1;
     const clampedWidth = Math.max(1, Math.min(GRID_CONFIG.COLS, parsedWidth));
-    const clampedHeight = Math.max(1, Math.min(GRID_CONFIG.ROWS, parsedHeight));
+    const clampedHeight = Math.max(1, Math.min(templateHeight, parsedHeight));
 
     // Parse and validate position bounds
     const parsedPosX = parseInt(posX) || 0;
     const parsedPosY = parseInt(posY) || 0;
     const clampedPosX = Math.max(0, Math.min(GRID_CONFIG.COLS - clampedWidth, parsedPosX));
-    const clampedPosY = Math.max(0, Math.min(GRID_CONFIG.ROWS - clampedHeight, parsedPosY));
+    const clampedPosY = Math.max(0, Math.min(templateHeight - clampedHeight, parsedPosY));
 
     // Update item (use different action based on location)
     dispatch({
@@ -284,7 +287,7 @@ const ItemPropertiesPanelForm = ({
               value: height,
               onChange: setHeight,
               min: 1,
-              max: GRID_CONFIG.ROWS,
+              max: templateHeight,
             },
           ]}
         />
@@ -307,7 +310,7 @@ const ItemPropertiesPanelForm = ({
               value: posY,
               onChange: setPosY,
               min: 0,
-              max: GRID_CONFIG.ROWS - 1,
+              max: templateHeight - 1,
             },
           ]}
         />
