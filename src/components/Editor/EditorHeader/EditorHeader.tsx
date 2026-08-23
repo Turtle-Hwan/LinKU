@@ -7,7 +7,10 @@ import { useEditorContext } from '@/hooks/useEditorContext';
 import { saveLocalTemplate } from '@/utils/templateStorage';
 import { toast } from 'sonner';
 import { errorLog } from '@/utils/logger';
-import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
+import {
+  MAX_TEMPLATE_NAME_LENGTH,
+  UNSAVED_TEMPLATE_ID,
+} from '@/constants/template';
 import { useNavigate } from 'react-router';
 import {
   sendTemplateSaveFail,
@@ -73,6 +76,7 @@ export const EditorHeader = () => {
           onChange={handleNameChange}
           className="w-64"
           placeholder="템플릿 이름"
+          maxLength={MAX_TEMPLATE_NAME_LENGTH}
         />
         {state.isSaving ? (
           <span className="text-sm text-muted-foreground">• 저장 중...</span>

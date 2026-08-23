@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   formatImportedTemplateName,
+  normalizeTemplateName,
   normalizeStoredTemplate,
 } from "../../src/storage/templateRecord.ts";
 
@@ -23,6 +24,12 @@ test("가져온 템플릿 이름은 접미사를 유지하며 최대 길이를 �
   assert.ok(formatted.endsWith(" (가져옴)"));
   assert.ok(formatted.length <= 80);
   assert.equal(formatImportedTemplateName(formatted), formatted);
+});
+
+test("저장할 템플릿 이름은 공백과 길이를 쓰기 전에 정규화한다", () => {
+  assert.equal(normalizeTemplateName("  내 템플릿  "), "내 템플릿");
+  assert.equal(normalizeTemplateName("   "), "이름 없는 템플릿");
+  assert.equal(normalizeTemplateName("가".repeat(81)).length, 80);
 });
 
 test("정상 레코드는 보정 없이 그대로 통과한다", () => {

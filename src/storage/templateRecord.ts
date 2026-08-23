@@ -44,10 +44,16 @@ export interface NormalizeOptions {
 
 const IMPORTED_TEMPLATE_SUFFIX = " (가져옴)";
 
+export function normalizeTemplateName(value: unknown): string {
+  const name = typeof value === "string" ? value.trim() : "";
+  return (name || "이름 없는 템플릿").slice(0, MAX_TEMPLATE_NAME_LENGTH);
+}
+
 export function formatImportedTemplateName(name: string): string {
-  const baseName = name.endsWith(IMPORTED_TEMPLATE_SUFFIX)
-    ? name.slice(0, -IMPORTED_TEMPLATE_SUFFIX.length)
-    : name;
+  const normalizedName = normalizeTemplateName(name);
+  const baseName = normalizedName.endsWith(IMPORTED_TEMPLATE_SUFFIX)
+    ? normalizedName.slice(0, -IMPORTED_TEMPLATE_SUFFIX.length)
+    : normalizedName;
   return `${baseName.slice(
     0,
     MAX_TEMPLATE_NAME_LENGTH - IMPORTED_TEMPLATE_SUFFIX.length,
@@ -217,13 +223,12 @@ export function normalizeStoredTemplate(
     return { value: null, reason: "템플릿 항목 목록이 없습니다.", repairs };
   }
 
-  let name = typeof source.name === "string" ? source.name.trim() : "";
-  if (name.length === 0) {
-    name = "이름 없는 템플릿";
+  const sourceName = typeof source.name === "string" ? source.name.trim() : "";
+  const name = normalizeTemplateName(sourceName);
+  if (sourceName.length === 0) {
     repairs.push("템플릿 이름이 비어 있어 기본 이름을 넣었습니다.");
   }
-  if (name.length > MAX_TEMPLATE_NAME_LENGTH) {
-    name = name.slice(0, MAX_TEMPLATE_NAME_LENGTH);
+  if (sourceName.length > MAX_TEMPLATE_NAME_LENGTH) {
     repairs.push("템플릿 이름이 너무 길어 잘랐습니다.");
   }
 

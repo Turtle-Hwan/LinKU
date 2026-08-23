@@ -31,6 +31,7 @@ import {
 import { repairTemplateIcons } from "@/storage/templateIconRepair";
 import {
   formatImportedTemplateName,
+  normalizeTemplateName,
   normalizeStoredTemplate,
 } from "@/storage/templateRecord";
 import {
@@ -162,6 +163,7 @@ export async function saveLocalTemplate(
         ...template,
         templateId,
         id: template.id || crypto.randomUUID(),
+        name: normalizeTemplateName(template.name),
         syncStatus: "local",
       },
       stagingItems,
