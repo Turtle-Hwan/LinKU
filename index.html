@@ -1,30 +1,15 @@
 <!doctype html>
 <html lang="ko">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="건국대학교 학생들을 위한 건국대, 건대 교내외 페이지 모음 링쿠, LinKU" />
-  <title>LinKU</title>
-
-  <link rel="icon" type="image/png" href="./assets/icon16.png" sizes="16x16" />
-  <link rel="icon" type="image/png" href="./assets/icon32.png" sizes="32x32" />
-  <link rel="icon" type="image/png" href="./assets/icon48.png" sizes="48x48" />
-  <link rel="icon" type="image/png" href="./assets/icon64.png" sizes="64x64" />
-  <link rel="icon" type="image/png" href="./assets/icon128.png" sizes="128x128" />
-
-  <link rel="preload"
-    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css"
-    as="style" />
-  <!-- <link rel="preload" href="https://fonts.googleapis.com/css?family=Nanum+Gothic" as="style" /> -->
-
-  <!-- Google Analytics는 Measurement Protocol로 대체됨 (src/utils/analytics.ts) -->
-  <script type="module" crossorigin src="./index.js"></script>
-  <link rel="stylesheet" crossorigin href="./index.css">
-</head>
-
-<body>
-  <div id="root"></div>
-</body>
-
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="서버 없이 먼저 동작하는 건국대학교 링크 도구 LinKU" />
+    <title>LinKU · Local First</title>
+    <script type="module" crossorigin src="/LinKU/main.js"></script>
+    <link rel="modulepreload" crossorigin href="/LinKU/jsx-runtime.js">
+    <link rel="stylesheet" crossorigin href="/LinKU/jsx-runtime.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>
