@@ -20,6 +20,8 @@ pnpm run build:local
 MV3 service worker와 popup을 자동 smoke test하려면 Playwright Chromium을 한 번
 설치한 뒤 전용 명령을 실행합니다. 이 테스트는 임시 브라우저 프로필에 최신
 `dist/`를 직접 로드하므로 사용자의 Chrome 프로필과 설치된 확장을 변경하지 않습니다.
+실행 비용과 로컬 Chrome 의존성을 고려해 PR CI에는 연결하지 않고 개발자가 필요할 때
+로컬에서 실행합니다.
 
 ```bash
 pnpm exec playwright install --no-shell chromium
