@@ -8,6 +8,24 @@ interface QueueStorage {
   remove(key: string): Promise<void>;
 }
 
+export type QueueAppendStatus = "added" | "duplicate" | "full";
+
+export function planUniqueQueueAppend<T>(
+  queue: readonly T[],
+  entry: T,
+  capacity: number,
+  keyOf: (value: T) => string,
+): { status: QueueAppendStatus; queue: T[] } {
+  const entryKey = keyOf(entry);
+  if (queue.some((candidate) => keyOf(candidate) === entryKey)) {
+    return { status: "duplicate", queue: [...queue] };
+  }
+  if (queue.length >= capacity) {
+    return { status: "full", queue: [...queue] };
+  }
+  return { status: "added", queue: [...queue, entry] };
+}
+
 export async function writeCheckpointedQueue<T>(
   storage: QueueStorage,
   key: string,

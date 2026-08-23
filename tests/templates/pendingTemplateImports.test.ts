@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { TemplateSharePayloadV1 } from "../../src/types/templateShare.ts";
+import { getTemplateSharePayloadKey } from "../../src/utils/templateShareCodec.ts";
 import {
   consumeCheckpointedQueue,
+  planUniqueQueueAppend,
   writeCheckpointedQueue,
 } from "../../src/utils/checkpointedQueue.ts";
 
@@ -14,6 +16,58 @@ function payload(name: string): TemplateSharePayloadV1 {
     template: { name, height: 1, items: [] },
   };
 }
+
+test("중복 요청은 정원 검사보다 먼저 식별하고 새 요청만 추가한다", () => {
+  const first = payload("첫 번째");
+  const reordered = {
+    template: { items: [], height: 1, name: "첫 번째" },
+    version: 1,
+  } as TemplateSharePayloadV1;
+  const fullQueue = Array.from({ length: 5 }, (_, index) =>
+    payload(`${index + 1}번째`),
+  );
+
+  assert.deepEqual(
+    planUniqueQueueAppend(
+      [reordered],
+      first,
+      5,
+      getTemplateSharePayloadKey,
+    ),
+    { status: "duplicate", queue: [reordered] },
+  );
+  assert.deepEqual(
+    planUniqueQueueAppend([first], first, 5, getTemplateSharePayloadKey),
+    { status: "duplicate", queue: [first] },
+  );
+  assert.equal(
+    planUniqueQueueAppend(
+      fullQueue,
+      fullQueue[0],
+      5,
+      getTemplateSharePayloadKey,
+    ).status,
+    "duplicate",
+  );
+  assert.equal(
+    planUniqueQueueAppend(
+      fullQueue,
+      payload("새 요청"),
+      5,
+      getTemplateSharePayloadKey,
+    ).status,
+    "full",
+  );
+  assert.equal(
+    planUniqueQueueAppend(
+      [first],
+      payload("두 번째"),
+      5,
+      getTemplateSharePayloadKey,
+    ).queue.length,
+    2,
+  );
+});
 
 test("대기 가져오기는 각 저장 직후 큐를 체크포인트한다", async () => {
   const first = payload("첫 번째");

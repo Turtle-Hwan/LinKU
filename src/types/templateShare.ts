@@ -27,3 +27,9 @@ export interface TemplateSharePayloadV1 {
     items: PortableTemplateItem[];
   };
 }
+
+export interface TemplateShareImportResponse {
+  success: boolean;
+  error?: string;
+  alreadyQueued?: boolean;
+}

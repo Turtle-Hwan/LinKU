@@ -8,7 +8,10 @@ import {
   CHROME_WEB_STORE_URL,
 } from '@/constants/extension';
 import type { Template } from '@/types/api';
-import type { TemplateSharePayloadV1 } from '@/types/templateShare';
+import type {
+  TemplateShareImportResponse,
+  TemplateSharePayloadV1,
+} from '@/types/templateShare';
 import {
   decodeTemplateSharePayload,
   downloadTemplatePayload,
@@ -16,14 +19,9 @@ import {
 } from '@/utils/templateShare';
 import '@/App.css';
 
-interface ImportResponse {
-  success?: boolean;
-  error?: string;
-}
-
 async function importIntoExtension(
   payload: TemplateSharePayloadV1,
-): Promise<void> {
+): Promise<TemplateShareImportResponse> {
   const runtime = globalThis.chrome?.runtime;
   if (!runtime?.sendMessage) {
     throw new Error('LinKU 확장 프로그램을 찾을 수 없습니다.');
@@ -31,10 +29,11 @@ async function importIntoExtension(
   const response = (await runtime.sendMessage(CHROME_EXTENSION_ID, {
     type: 'IMPORT_SHARED_TEMPLATE',
     data: { payload },
-  })) as ImportResponse | undefined;
+  })) as TemplateShareImportResponse | undefined;
   if (!response?.success) {
     throw new Error(response?.error || '확장 프로그램으로 가져오지 못했습니다.');
   }
+  return response;
 }
 
 export function MessagePage({ title, message }: { title: string; message: string }) {
@@ -57,14 +56,23 @@ export function SharedTemplatePage({
   template: Template;
 }) {
   const [status, setStatus] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleImport = async () => {
+    if (isImporting) return;
+    setIsImporting(true);
     setStatus('가져오는 중...');
     try {
-      await importIntoExtension(payload);
-      setStatus('가져오기 요청을 저장했습니다. LinKU를 열면 이 기기에 추가됩니다.');
+      const response = await importIntoExtension(payload);
+      setStatus(
+        response.alreadyQueued
+          ? '이미 대기 중인 가져오기 요청입니다. LinKU를 열어 완료해 주세요.'
+          : '가져오기 요청을 저장했습니다. LinKU를 열면 이 기기에 추가됩니다.',
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '가져오지 못했습니다.');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -79,7 +87,9 @@ export function SharedTemplatePage({
         <TemplatePreviewCanvas items={template.items} height={template.height} />
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
-        <Button onClick={handleImport}>LinKU로 가져오기</Button>
+        <Button onClick={handleImport} disabled={isImporting}>
+          {isImporting ? '가져오는 중...' : 'LinKU로 가져오기'}
+        </Button>
         <Button variant="outline" onClick={() => downloadTemplatePayload(payload)}>
           <Download className="mr-2 h-4 w-4" />파일로 저장
         </Button>

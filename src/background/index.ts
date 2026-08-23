@@ -45,6 +45,7 @@ import {
   UserFacingError,
 } from "@/errors/userFacingError";
 import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
+import type { TemplateShareImportResponse } from "@/types/templateShare";
 
 initMonitoring("background");
 debugLog("[Background] Service worker initialized");
@@ -244,7 +245,7 @@ chrome.runtime.onMessageExternal.addListener(
   (
     message: unknown,
     sender: chrome.runtime.MessageSender,
-    sendResponse: (response: { success: boolean; error?: string }) => void,
+    sendResponse: (response: TemplateShareImportResponse) => void,
   ) => {
     if (
       sender.origin !== "https://turtle-hwan.github.io" ||
@@ -260,7 +261,12 @@ chrome.runtime.onMessageExternal.addListener(
     const payload = (message as { data?: { payload?: unknown } }).data?.payload;
 
     void enqueuePendingTemplateImport(payload)
-      .then(() => sendResponse({ success: true }))
+      .then((result) =>
+        sendResponse({
+          success: true,
+          alreadyQueued: result === "already-queued" || undefined,
+        }),
+      )
       .catch((error: unknown) => {
         if (!(error instanceof UserFacingError)) {
           reportBackgroundException(error, "shared_template_import");

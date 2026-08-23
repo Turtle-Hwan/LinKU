@@ -29,6 +29,22 @@ export class InvalidSharedIconError extends Error {
   }
 }
 
+function sortJsonKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortJsonKeys);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([key, entry]) => [key, sortJsonKeys(entry)]),
+  );
+}
+
+export function getTemplateSharePayloadKey(
+  payload: TemplateSharePayloadV1,
+): string {
+  return JSON.stringify(sortJsonKeys(payload));
+}
+
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;

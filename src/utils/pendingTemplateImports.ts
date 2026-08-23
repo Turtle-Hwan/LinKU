@@ -1,5 +1,6 @@
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 import {
+  getTemplateSharePayloadKey,
   InvalidSharedIconError,
   validateTemplateSharePayload,
   validateTemplateSharePayloadImages,
@@ -8,6 +9,7 @@ import { errorLog } from "@/utils/logger";
 import { UserFacingError } from "@/errors/userFacingError";
 import {
   consumeCheckpointedQueue,
+  planUniqueQueueAppend,
   writeCheckpointedQueue,
 } from "@/utils/checkpointedQueue";
 
@@ -59,14 +61,6 @@ function readValidQueue(value: unknown): TemplateSharePayloadV1[] {
   });
 }
 
-function assertQueueHasCapacity(queue: readonly TemplateSharePayloadV1[]): void {
-  if (queue.length >= MAX_PENDING_IMPORTS) {
-    throw new UserFacingError(
-      "대기 중인 템플릿이 5개입니다. LinKU를 열어 가져오기를 마친 뒤 다시 시도해 주세요.",
-    );
-  }
-}
-
 function toInvalidImportError(error: unknown): UserFacingError {
   return new UserFacingError(
     error instanceof Error ? error.message : "공유 데이터가 올바르지 않습니다.",
@@ -75,7 +69,7 @@ function toInvalidImportError(error: unknown): UserFacingError {
 
 export async function enqueuePendingTemplateImport(
   value: unknown,
-): Promise<void> {
+): Promise<"queued" | "already-queued"> {
   try {
     validateTemplateSharePayload(value);
   } catch (error) {
@@ -91,14 +85,24 @@ export async function enqueuePendingTemplateImport(
     throw error;
   }
 
-  await withMutationQueue(async () => {
+  return withMutationQueue(async () => {
     const storage = getStorage();
     const stored = await storage.get(STORAGE_KEY);
     const queue = readValidQueue(stored[STORAGE_KEY]);
-    assertQueueHasCapacity(queue);
-    await storage.set({
-      [STORAGE_KEY]: [...queue, value],
-    });
+    const append = planUniqueQueueAppend(
+      queue,
+      value,
+      MAX_PENDING_IMPORTS,
+      getTemplateSharePayloadKey,
+    );
+    if (append.status === "duplicate") return "already-queued";
+    if (append.status === "full") {
+      throw new UserFacingError(
+        "대기 중인 템플릿이 5개입니다. LinKU를 열어 가져오기를 마친 뒤 다시 시도해 주세요.",
+      );
+    }
+    await storage.set({ [STORAGE_KEY]: append.queue });
+    return "queued";
   });
 }
 
