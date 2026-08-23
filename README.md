@@ -95,21 +95,22 @@ pnpm run build
 <details>
 <summary><b>환경 변수 설정 (Google Analytics)</b></summary>
 
-Google Analytics를 사용하기 위해 환경 변수를 설정해야 합니다:
+Google Analytics를 사용하려면 first-party proxy URL을 설정하는 방식을 권장합니다:
 
 ```bash
 # .env.development 파일 생성
 cp .env.development.example .env.development
 
-# .env.development 파일을 열어서 VITE_GA_API_SECRET 값을 입력
+# .env.development 파일에서 VITE_GA_PROXY_URL을 설정
 ```
 
-**Google Analytics API Secret 발급 방법:**
+proxy는 extension이 보내는 GA4 Measurement Protocol payload를 받아 Google endpoint로
+전달하며, Measurement Protocol API secret은 서버 환경에만 보관해야 합니다. 로컬 호환
+확인이 필요할 때만 `VITE_GA_API_SECRET` direct fallback을 사용할 수 있지만 `VITE_` 값은
+extension bundle에 포함되므로 private secret으로 간주할 수 없습니다.
 
-1. [Google Analytics](https://analytics.google.com/) 접속
-2. Admin → Data Streams → 해당 스트림 선택
-3. Measurement Protocol API secrets → Create
-4. 생성된 Secret value를 복사하여 `.env.development` 파일에 입력
+운영 전송 계약과 fallback 정책은
+[`docs/GA4-Data-Taxonomy.md`](docs/GA4-Data-Taxonomy.md)를 참고하세요.
 
 </details>
 

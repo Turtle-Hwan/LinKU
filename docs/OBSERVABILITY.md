@@ -60,6 +60,8 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
   시점의 `The browser is shutting down.`은 LinKU의 실패가 아니라 MV3 service worker가
   내려가는 정황이므로 console 경고만 남기고 collector는 버림
 - 기존 GA4 `sendError`와 React fallback UI는 유지
+- GA offline·tracker 차단·timeout·HTTP 실패는 제품 오류와 분리해 Sentry issue로 만들지
+  않고 background transport breadcrumb로만 남김
 
 처리된 오류도 누락하지 않도록 `errorLog`는 console 출력과 함께 handled Sentry exception을
 기록하고, `warnLog`도 같은 경로로 `warning` level exception을 기록합니다. 경고는 실패했지만
