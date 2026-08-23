@@ -34,6 +34,9 @@ jobs:
       - name: Test monitoring boundaries
         run: pnpm run test:monitoring
 
+      - name: Test analytics transport
+        run: pnpm run test:analytics
+
       - name: Verify production Sentry bundle metadata
         run: pnpm run test:sentry-bundle
 
