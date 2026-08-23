@@ -13,7 +13,11 @@ import {
   saveEverytimeTimetable,
   setActiveTimetable,
 } from "@/utils/timetableStorage";
-import { errorLog, getErrorLogDetails } from "@/utils/logger";
+import { errorLog, warnLog } from "@/utils/logger";
+import {
+  isTransientTabEditError,
+  retryChromeOperation,
+} from "@/utils/chromeRetry";
 import {
   getLatestEverytimeSemesterAnchor,
   parseEverytimeSemester,
@@ -440,9 +444,9 @@ async function findFirstPopulatedSemesterBatch(
     try {
       response = await fetchSemestersFromApi(tabId, semesters);
     } catch (error) {
-      errorLog(
+      warnLog(
         "[Timetable] Everytime API unavailable; using rendered DOM fallback",
-        getErrorLogDetails(error),
+        error,
       );
       response = await captureSemesterBatch(semesters);
     }
@@ -487,7 +491,14 @@ async function importSemesterBatchFromTab(
           requestedAt: new Date().toISOString(),
           mode,
         });
-        await chrome.tabs.update(tabId, { active: true });
+        await retryChromeOperation(
+          () => chrome.tabs.update(tabId, { active: true }),
+          {
+            maxAttempts: 3,
+            delayMs: 100,
+            shouldRetry: isTransientTabEditError,
+          },
+        );
 
         return {
           success: false,
@@ -576,7 +587,7 @@ async function importSemesterBatchFromTab(
     } catch (error) {
       errorLog(
         "[Timetable] Everytime import failed",
-        getErrorLogDetails(error),
+        error,
       );
 
       return {
