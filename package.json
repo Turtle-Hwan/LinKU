@@ -26,8 +26,6 @@
     "test:todo": "node --experimental-strip-types --test tests/todo/*.test.ts",
     "test:banner": "node --experimental-strip-types --test tests/banner/*.test.ts",
     "test:extension": "pnpm run build:local && playwright test tests/extension",
-    "test:extension:smoke": "pnpm run build:local && playwright test tests/extension/smoke.spec.ts",
-    "test:extension:headed": "LINKU_E2E_HEADED=1 pnpm run test:extension",
     "preview": "vite preview",
     "deploy": "git subtree push --prefix gh-pages origin gh-pages"
   },
