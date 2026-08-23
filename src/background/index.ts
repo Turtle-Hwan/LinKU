@@ -10,6 +10,7 @@
 
 import {
   BackgroundMessageType,
+  isAnalyticsBatchMessage,
   isGoogleLoginMessage,
   isSilentReauthMessage,
   isTimetableImportMessage,
@@ -22,6 +23,7 @@ import {
 } from "@/utils/logger";
 import type {
   BackgroundMessage,
+  AnalyticsTransportResponse,
   GoogleLoginResponse,
   SilentReauthResponse,
   TimetableImportResponse,
@@ -56,6 +58,7 @@ import {
 } from "@/errors/userFacingError";
 import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
 import type { TemplateShareImportResponse } from "@/types/templateShare";
+import { deliverAnalyticsPayload } from "@/utils/analyticsTransport";
 
 initMonitoring("background");
 debugLog("[Background] Service worker initialized");
@@ -69,6 +72,46 @@ const captureBackgroundException = createErrorReporter({
   category: "background.error",
   mechanism: "background.handler",
 });
+
+const ANALYTICS_MEASUREMENT_ID = "G-ECMY8N9FX4";
+const analyticsTransportConfig = {
+  proxyUrl: import.meta.env.VITE_GA_PROXY_URL,
+  measurementId: ANALYTICS_MEASUREMENT_ID,
+  apiSecret: import.meta.env.VITE_GA_API_SECRET,
+};
+const recordedAnalyticsFailures = new Set<string>();
+
+function recordAnalyticsTransportFailure(
+  response: Extract<AnalyticsTransportResponse, { success: false }>,
+  eventCount: number,
+): void {
+  const failureKey = [
+    response.failureKind,
+    response.mode ?? "none",
+    response.status ?? "none",
+  ].join(":");
+
+  if (recordedAnalyticsFailures.has(failureKey)) return;
+  recordedAnalyticsFailures.add(failureKey);
+
+  recordBreadcrumb(
+    "analytics.transport",
+    "GA batch delivery skipped",
+    {
+      event_count: eventCount,
+      failure_kind: response.failureKind,
+      transport_mode: response.mode ?? "unavailable",
+      ...(response.status !== undefined && { status: response.status }),
+    },
+    "warning",
+  );
+  warnLogOnly("[GA] Batch delivery skipped", {
+    eventCount,
+    failureKind: response.failureKind,
+    mode: response.mode,
+    status: response.status,
+  });
+}
 
 function reportBackgroundException(
   error: unknown,
@@ -239,6 +282,37 @@ chrome.runtime.onMessage.addListener(
                 "시간표를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
               ),
             } satisfies TimetableImportResponse);
+          });
+
+        return true;
+      }
+
+      if (isAnalyticsBatchMessage(typedMessage)) {
+        const eventCount = typedMessage.data.payload.events.length;
+        deliverAnalyticsPayload(
+          typedMessage.data.payload,
+          analyticsTransportConfig,
+        )
+          .then((response: AnalyticsTransportResponse) => {
+            if (response.success) {
+              debugLog("[GA] Batch delivered", {
+                eventCount,
+                mode: response.mode,
+                status: response.status,
+              });
+            } else {
+              recordAnalyticsTransportFailure(response, eventCount);
+            }
+            respond(response);
+          })
+          .catch((error: unknown) => {
+            reportBackgroundException(error, "analytics_transport", {
+              event_count: eventCount,
+            });
+            respond({
+              success: false,
+              failureKind: "unknown",
+            } satisfies AnalyticsTransportResponse);
           });
 
         return true;
@@ -432,6 +506,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 
 // Export for type checking (not used at runtime)
 export type {
+  AnalyticsTransportResponse,
   BackgroundMessage,
   GoogleLoginResponse,
   SilentReauthResponse,

@@ -8,6 +8,11 @@ import type {
   TimetableImportMode,
   TimetableImportResponse,
 } from '../types/timetable';
+import {
+  isAnalyticsPayload,
+  type AnalyticsPayload,
+  type AnalyticsTransportResponse,
+} from '../utils/analyticsTransport.ts';
 
 /**
  * Message types for popup -> background communication
@@ -16,6 +21,7 @@ export enum BackgroundMessageType {
   GOOGLE_LOGIN = 'GOOGLE_LOGIN',
   SILENT_REAUTH = 'SILENT_REAUTH',
   TIMETABLE_IMPORT = 'TIMETABLE_IMPORT',
+  ANALYTICS_BATCH = 'ANALYTICS_BATCH',
 }
 
 /**
@@ -116,4 +122,29 @@ export function isTimetableImportMessage(
   return mode === undefined || mode === "latest" || mode === "previous";
 }
 
-export type { TimetableImportResponse };
+export interface AnalyticsBatchMessage extends BackgroundMessage {
+  type: BackgroundMessageType.ANALYTICS_BATCH;
+  data: { payload: AnalyticsPayload };
+}
+
+export function isAnalyticsBatchMessage(
+  message: BackgroundMessage,
+): message is AnalyticsBatchMessage {
+  if (message.type !== BackgroundMessageType.ANALYTICS_BATCH) {
+    return false;
+  }
+
+  if (
+    typeof message.data !== "object" ||
+    message.data === null ||
+    !("payload" in message.data)
+  ) {
+    return false;
+  }
+
+  return isAnalyticsPayload(
+    (message.data as { payload?: unknown }).payload,
+  );
+}
+
+export type { AnalyticsTransportResponse, TimetableImportResponse };
