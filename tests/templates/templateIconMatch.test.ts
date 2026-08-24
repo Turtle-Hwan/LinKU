@@ -3,62 +3,45 @@ import test from "node:test";
 
 import type { Icon } from "../../src/types/api.ts";
 import { matchTemplateIcon } from "../../src/utils/templateIconMatch.ts";
+import { createTemplateTestServer } from "./viteTestServer.ts";
 
-const icons: Icon[] = [
-  "University",
-  "BellRing",
-  "eCampus",
-  "Trophy",
-  "Clock",
-  "MapPinned",
-  "GraduationCap",
-  "BookCopy",
-  "CalendarDays",
-  "Utensils",
-  "에브리타임",
-  "UsersRound",
-  "Bed",
-  "MessageCircleMore",
-  "ScrollText",
-  "Building",
-  "Lightbulb",
-  "링크",
-].map((name, index) => ({
-  id: index + 1,
-  name,
-  imageUrl: `data:image/png;base64,${index}`,
-  isDefault: true,
-}));
+test("실제 기본 링크 catalog의 모든 항목을 bundled icon에 연결한다", async () => {
+  const server = await createTemplateTestServer();
 
-const expectedNamesByLabel: Record<string, string> = {
-  홈페이지: "University",
-  공지사항: "BellRing",
-  eCampus: "eCampus",
-  위인전: "Trophy",
-  수강신청: "Clock",
-  캠퍼스맵: "MapPinned",
-  학사정보시스템: "GraduationCap",
-  상허기념도서관: "BookCopy",
-  학사일정: "CalendarDays",
-  "학식 메뉴": "Utensils",
-  에브리타임: "에브리타임",
-  "학과 정보": "UsersRound",
-  쿨하우스: "Bed",
-  KUNG: "MessageCircleMore",
-  게시판: "ScrollText",
-  현장실습: "Building",
-  창업지원: "Lightbulb",
-};
+  try {
+    const { LINK_CATALOG } = (await server.ssrLoadModule(
+      "/src/constants/linkCatalog.ts",
+    )) as {
+      LINK_CATALOG: Array<{ icon: unknown; label: string }>;
+    };
+    const { GENERIC_LINK_ICON_NAME, getBundledTemplateIcons } =
+      (await server.ssrLoadModule("/src/constants/templateIcons.ts")) as {
+        GENERIC_LINK_ICON_NAME: string;
+        getBundledTemplateIcons: () => Icon[];
+      };
+    const bundledIcons = getBundledTemplateIcons();
 
-test("모든 기본 링크를 명시적인 bundled icon에 연결한다", () => {
-  for (const [label, expectedName] of Object.entries(expectedNamesByLabel)) {
-    const result = matchTemplateIcon({ label, icon: label }, icons, "링크");
-    assert.equal(result?.icon.name, expectedName, label);
-    assert.equal(result?.usedFallback, false, label);
+    for (const [index, link] of LINK_CATALOG.entries()) {
+      const result = matchTemplateIcon(
+        link,
+        bundledIcons,
+        GENERIC_LINK_ICON_NAME,
+      );
+      assert.equal(result?.icon.id, index + 1, link.label);
+      assert.equal(result?.usedFallback, false, link.label);
+    }
+  } finally {
+    await server.close();
   }
 });
 
 test("알 수 없는 링크는 첫 아이콘이 아니라 범용 링크 아이콘을 사용한다", () => {
+  const icons: Icon[] = ["University", "링크"].map((name, index) => ({
+    id: index + 1,
+    name,
+    imageUrl: `data:image/png;base64,${index}`,
+    isDefault: true,
+  }));
   const result = matchTemplateIcon(
     { label: "알 수 없는 링크", icon: "unknown" },
     icons,

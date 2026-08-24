@@ -34,7 +34,10 @@ const normalizeIconName = (value: string) =>
   value.toLowerCase().replace(/\s+/gu, "");
 
 function getIconIdentifier(linkItem: TemplateLinkIconDescriptor): string {
-  if (typeof linkItem.icon === "function") {
+  if (
+    (typeof linkItem.icon === "function" ||
+      (typeof linkItem.icon === "object" && linkItem.icon !== null))
+  ) {
     const icon = linkItem.icon as {
       displayName?: string;
       name?: string;
