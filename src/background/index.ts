@@ -210,7 +210,13 @@ chrome.runtime.onMessage.addListener(
       if (!message || typeof message !== "object" || !("type" in message)) {
         // Every LinKU sender posts a typed message, so an untyped one means a
         // caller regressed or a third party is talking to the worker.
-        warnLog("[Background] Rejected message without a type");
+        recordBreadcrumb(
+          "background.message",
+          "rejected message without a type",
+          undefined,
+          "warning",
+        );
+        warnLogOnly("[Background] Rejected message without a type");
         respond({
           success: false,
           error: "Invalid message format",
@@ -332,7 +338,13 @@ chrome.runtime.onMessage.addListener(
       }
 
       // Unknown message type
-      warnLog("[Background] Unknown message type", { type: messageType });
+      recordBreadcrumb(
+        "background.message",
+        "rejected unknown message type",
+        { message_type: messageType },
+        "warning",
+      );
+      warnLogOnly("[Background] Unknown message type", { type: messageType });
       respond({
         success: false,
         error: `Unknown message type: ${messageType}`,
