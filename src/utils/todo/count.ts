@@ -1,7 +1,7 @@
 import type { ECampusTodoItem } from "@/types/todo";
 import { getStorage, setStorage } from "@/utils/chrome";
 import { loadECampusTodos } from "@/utils/ecampus/todos";
-import { errorLog } from "@/utils/logger";
+import { captureErrorLog } from "@/utils/logger";
 
 import { getCustomTodos } from "./customTodo";
 
@@ -83,7 +83,7 @@ export const refreshTodoCount = async (
       return snapshot.ecampusCount;
     });
   } catch (error) {
-    errorLog("[TodoCount] Failed to refresh todo count:", error);
+    captureErrorLog("[TodoCount] Failed to refresh todo count:", error);
     return loadStoredTodoCount();
   }
 };

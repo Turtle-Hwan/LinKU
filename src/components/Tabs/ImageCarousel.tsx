@@ -10,7 +10,7 @@ import {
 import { recordBreadcrumb } from "@/monitoring";
 import { sendBannerOpen } from "@/utils/analytics";
 import { isBannerActive } from "@/utils/banner";
-import { errorLog, warnLogOnly } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 import { isExpectedNetworkFailure } from "@/utils/networkFailure";
 
 const preloadBannerImage = (imageURL: string) => {
@@ -50,9 +50,9 @@ const bannerPromise = getBannersAPI()
     );
 
     if (expected) {
-      warnLogOnly("[Banner] Banner list unavailable", error);
+      warnLog("[Banner] Banner list unavailable", error);
     } else {
-      errorLog("[Banner] Failed to load banner list", error);
+      captureErrorLog("[Banner] Failed to load banner list", error);
     }
 
     // A banner is optional UI. A rejected request must not escape Suspense and

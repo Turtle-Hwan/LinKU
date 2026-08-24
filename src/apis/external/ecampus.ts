@@ -4,7 +4,7 @@
  */
 
 import { ECampusTodoItem } from '@/types/todo';
-import { errorLog, warnLogOnly } from '@/utils/logger';
+import { captureErrorLog, warnLog } from '@/utils/logger';
 import { isExtensionEnvironment } from '@/utils/chrome';
 import { recordBreadcrumb } from '@/monitoring';
 import {
@@ -215,7 +215,7 @@ export async function eCampusLoginAPI(
         { timeout_ms: ECAMPUS_LOGIN_TIMEOUT_MS },
         'warning',
       );
-      warnLogOnly('eCampus login request timed out:', error);
+      warnLog('eCampus login request timed out:', error);
       return {
         success: false,
         error: 'eCampus 로그인 요청 시간이 초과되었습니다.',
@@ -229,9 +229,9 @@ export async function eCampusLoginAPI(
       'warning',
     );
     if (isExpectedNetworkFailure(error)) {
-      warnLogOnly('eCampus login transport failed:', error);
+      warnLog('eCampus login transport failed:', error);
     } else {
-      errorLog('eCampus login request failed unexpectedly:', error);
+      captureErrorLog('eCampus login request failed unexpectedly:', error);
     }
     return {
       success: false,
@@ -248,7 +248,7 @@ export async function eCampusLoginAPI(
       { status: response.status },
       response.status >= 500 ? 'error' : 'warning',
     );
-    warnLogOnly('eCampus login returned non-success status:', {
+    warnLog('eCampus login returned non-success status:', {
       status: response.status,
       statusText: response.statusText,
     });
@@ -280,7 +280,7 @@ export async function eCampusLoginAPI(
   } catch (error) {
     // A 200 response that cannot satisfy the documented login contract is an
     // integration defect. This branch is the sole capture owner for it.
-    errorLog('eCampus login returned an invalid success payload:', error);
+    captureErrorLog('eCampus login returned an invalid success payload:', error);
     return {
       success: false,
       error: 'eCampus 로그인 응답을 처리하지 못했습니다.',
@@ -396,9 +396,9 @@ export async function eCampusTodoListAPI(): Promise<ECampusTodoResponse> {
       'warning',
     );
     if (isExpectedNetworkFailure(error)) {
-      warnLogOnly('Failed to fetch todo list:', error);
+      warnLog('Failed to fetch todo list:', error);
     } else {
-      errorLog('Failed to process todo list:', error);
+      captureErrorLog('Failed to process todo list:', error);
     }
     return { success: false, error };
   }

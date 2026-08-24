@@ -50,9 +50,9 @@ import {
 } from "@/utils/analyticsContract";
 import {
   debugLog,
-  errorLog,
+  captureErrorLog,
   getErrorLogDetails,
-  warnLogOnly,
+  warnLog,
 } from "@/utils/logger";
 import { recordBreadcrumb } from "@/monitoring";
 
@@ -107,7 +107,7 @@ async function getOrCreateSessionId(): Promise<SessionResult> {
     return { sessionId: newSessionId, isNewSession: true };
   } catch (error) {
     // storage 접근 실패 시 fallback — 이 세션은 저장되지 않아 다음 호출에서도 새 세션으로 취급됨
-    errorLog("[GA] Error getting/creating session ID:", error);
+    captureErrorLog("[GA] Error getting/creating session ID:", error);
     return { sessionId: Date.now().toString(), isNewSession: false };
   }
 }
@@ -124,7 +124,7 @@ async function dispatchAnalyticsPayload(
       {},
       "warning",
     );
-    warnLogOnly("[GA] Invalid analytics payload skipped");
+    warnLog("[GA] Invalid analytics payload skipped");
     return false;
   }
 
@@ -141,7 +141,7 @@ async function dispatchAnalyticsPayload(
         { event_count: payload.events.length },
         "warning",
       );
-      warnLogOnly("[GA] Background response missing", {
+      warnLog("[GA] Background response missing", {
         eventCount: payload.events.length,
       });
       return false;
@@ -155,7 +155,7 @@ async function dispatchAnalyticsPayload(
       { error: getErrorLogDetails(error) },
       "warning",
     );
-    warnLogOnly(
+    warnLog(
       "[GA] Background dispatch failed",
       getErrorLogDetails(error),
     );
@@ -208,7 +208,7 @@ async function sendGAEvent(
       debugLog("[GA] Event sent:", eventName, eventParams);
     }
   } catch (error) {
-    errorLog("[GA] Error sending event:", error);
+    captureErrorLog("[GA] Error sending event:", error);
     if (DEBUG_MODE && error instanceof Error) {
       debugLog("[GA] Error details:", { message: error.message, stack: error.stack });
     }
@@ -285,7 +285,7 @@ export async function sendExtensionOpen(
       debugLog("[GA] Lifecycle events sent:", events.map((e) => e.name));
     }
   } catch (error) {
-    errorLog("[GA] Error sending lifecycle events:", error);
+    captureErrorLog("[GA] Error sending lifecycle events:", error);
   }
 }
 

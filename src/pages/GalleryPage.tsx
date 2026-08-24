@@ -10,7 +10,7 @@ import {
   resolveLatestBulletin,
   subscribeLatestBulletin,
 } from '@/apis/external/bulletin';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 
 export const GalleryPage = () => {
   const navigate = useNavigate();
@@ -37,7 +37,7 @@ export const GalleryPage = () => {
       });
       navigate(`/editor/${stored.template.templateId}`);
     } catch (error) {
-      errorLog('Failed to import bundled template', error);
+      captureErrorLog('Failed to import bundled template', error);
       toast({
         title: '가져오기 실패',
         description: '브라우저 저장소에 템플릿을 추가하지 못했습니다.',

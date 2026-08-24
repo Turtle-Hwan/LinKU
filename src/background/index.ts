@@ -18,8 +18,8 @@ import {
 import {
   debugLog,
   getErrorLogDetails,
+  captureWarnLog,
   warnLog,
-  warnLogOnly,
 } from "@/utils/logger";
 import type {
   BackgroundMessage,
@@ -65,7 +65,7 @@ debugLog("[Background] Service worker initialized");
 recordBreadcrumb("background.lifecycle", "service worker initialized");
 
 registerBannerCache((error) => {
-  warnLog("[Background] Banner cache refresh failed", error);
+  captureWarnLog("[Background] Banner cache refresh failed", error);
 });
 
 const captureBackgroundException = createErrorReporter({
@@ -105,7 +105,7 @@ function recordAnalyticsTransportFailure(
     },
     "warning",
   );
-  warnLogOnly("[GA] Batch delivery skipped", {
+  warnLog("[GA] Batch delivery skipped", {
     eventCount,
     failureKind: response.failureKind,
     mode: response.mode,
@@ -152,7 +152,7 @@ function runAsyncMessageHandler<Response>({
         message_type: messageType,
         ...extras,
       });
-      warnLogOnly(failureLog, error);
+      warnLog(failureLog, error);
       respond(fallback(error));
     });
 
@@ -176,7 +176,7 @@ async function restrictLocalStorageAccess(): Promise<void> {
     });
   } catch (error) {
     reportBackgroundException(error, "storage_access_level");
-    warnLogOnly(
+    warnLog(
       "[Background] Failed to restrict local storage access",
       getErrorLogDetails(error),
     );
@@ -216,7 +216,7 @@ chrome.runtime.onMessage.addListener(
           undefined,
           "warning",
         );
-        warnLogOnly("[Background] Rejected message without a type");
+        warnLog("[Background] Rejected message without a type");
         respond({
           success: false,
           error: "Invalid message format",
@@ -344,7 +344,7 @@ chrome.runtime.onMessage.addListener(
         { message_type: messageType },
         "warning",
       );
-      warnLogOnly("[Background] Unknown message type", { type: messageType });
+      warnLog("[Background] Unknown message type", { type: messageType });
       respond({
         success: false,
         error: `Unknown message type: ${messageType}`,
@@ -440,7 +440,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   handlePendingImportTabUpdated(tabId, changeInfo, tab).catch(
     (error: unknown) => {
       reportBackgroundException(error, "pending_import_resume");
-      warnLogOnly(
+      warnLog(
         "[Background] Pending timetable import resume failed",
         getErrorLogDetails(error),
       );
@@ -451,7 +451,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   handlePendingImportTabRemoved(tabId).catch((error: unknown) => {
     reportBackgroundException(error, "pending_import_cleanup");
-    warnLogOnly(
+    warnLog(
       "[Background] Pending timetable import cleanup failed",
       getErrorLogDetails(error),
     );

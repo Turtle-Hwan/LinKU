@@ -1,6 +1,6 @@
 import type { GeneralAlert } from "../../types/api";
 import { recordBreadcrumb } from "@/monitoring";
-import { warnLogOnly } from "@/utils/logger";
+import { warnLog } from "@/utils/logger";
 
 const CAREER_URL = "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do";
 
@@ -84,7 +84,7 @@ const parseHTMLToAlerts = (
       skipped_row_count: skippedRowCount,
       parsed_row_count: alerts.length,
     }, "warning");
-    warnLogOnly(
+    warnLog(
       `[Alerts] Skipped ${skippedRowCount} malformed career alert rows`,
     );
   }

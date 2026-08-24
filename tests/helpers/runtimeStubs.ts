@@ -8,11 +8,11 @@ export function resetRuntimeStubs(): void {
   breadcrumbs.length = 0;
 }
 
-export function errorLog(...args: unknown[]): void {
+export function captureErrorLog(...args: unknown[]): void {
   capturedErrors.push(args);
 }
 
-export function warnLogOnly(...args: unknown[]): void {
+export function warnLog(...args: unknown[]): void {
   consoleWarnings.push(args);
 }
 

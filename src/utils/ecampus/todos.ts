@@ -8,7 +8,7 @@ import {
   clearECampusCredentials,
   loadECampusCredentials,
 } from "@/utils/credentials";
-import { debugLog, errorLog } from "@/utils/logger";
+import { debugLog, captureErrorLog } from "@/utils/logger";
 
 import {
   createSerializedAuthQueue,
@@ -166,7 +166,7 @@ const fetchECampusTodos = async (): Promise<LoadECampusTodosResult> => {
       loginOutcome: "none",
     };
   } catch (error) {
-    errorLog("Error fetching todo list:", error);
+    captureErrorLog("Error fetching todo list:", error);
     return {
       success: false,
       todos: [],
@@ -263,7 +263,7 @@ const loadECampusTodosUncached = async (
     debugLog("[Auto-login] Unknown error, keeping credentials");
     return directResult;
   } catch (error) {
-    errorLog("Error with saved credentials:", error);
+    captureErrorLog("Error with saved credentials:", error);
     return directResult;
   }
 };

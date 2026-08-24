@@ -4,7 +4,7 @@ import type {
   RSSAlertCategory,
 } from "@/types/api";
 import { recordBreadcrumb } from "@/monitoring";
-import { getErrorLogDetails, warnLogOnly } from "@/utils/logger";
+import { getErrorLogDetails, warnLog } from "@/utils/logger";
 import { isExpectedNetworkFailure } from "@/utils/networkFailure";
 import {
   getAlertsFromRSSPage,
@@ -104,7 +104,7 @@ const fetchPublicAlertPage = async (
       page,
       malformed_count: malformedCount,
     }, "warning");
-    warnLogOnly(
+    warnLog(
       `[Alerts] Skipped ${malformedCount} malformed ${source} alerts`,
     );
   }
@@ -341,7 +341,7 @@ export const syncPublicAlerts = async (
       failure_kind: kind,
       error: getErrorLogDetails(result.reason),
     }, "warning");
-    warnLogOnly(
+    warnLog(
       `[Alerts] Failed to refresh ${source} alert cache`,
       getErrorLogDetails(result.reason),
     );

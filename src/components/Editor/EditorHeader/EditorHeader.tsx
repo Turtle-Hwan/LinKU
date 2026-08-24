@@ -6,7 +6,7 @@ import { SaveButton } from './SaveButton';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { saveLocalTemplate } from '@/utils/templateStorage';
 import { toast } from 'sonner';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 import {
   MAX_TEMPLATE_NAME_LENGTH,
   UNSAVED_TEMPLATE_ID,
@@ -58,7 +58,7 @@ export const EditorHeader = () => {
         navigate(`/editor/${savedTemplate.templateId}`, { replace: true });
       }
     } catch (error) {
-      errorLog('[EditorHeader] Save failed:', error);
+      captureErrorLog('[EditorHeader] Save failed:', error);
       const message =
         error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
       dispatch({ type: 'SAVE_FAILED', payload: message });

@@ -3,7 +3,7 @@
  */
 
 import { TodoItem } from "@/types/todo";
-import { errorLog } from "@/utils/logger";
+import { captureErrorLog } from "@/utils/logger";
 
 const TODO_DATE_PATTERN = /^(\d{4})[.-](\d{1,2})[.-](\d{1,2})$/;
 const TODO_TIME_PATTERN = /^(\d{1,2}):(\d{2})$/;
@@ -106,7 +106,7 @@ export function calculateDDay(dueDate: string, dueTime: string): string {
   try {
     const dueDateTime = parseTodoDateTime(dueDate, dueTime);
     if (!dueDateTime) {
-      errorLog("[calculateDDay] Invalid date or time");
+      captureErrorLog("[calculateDDay] Invalid date or time");
       return "D-Day";
     }
 
@@ -142,7 +142,7 @@ export function calculateDDay(dueDate: string, dueTime: string): string {
       }
     }
   } catch (error) {
-    errorLog("[calculateDDay] Error calculating D-Day:", error);
+    captureErrorLog("[calculateDDay] Error calculating D-Day:", error);
     return "D-Day";
   }
 }

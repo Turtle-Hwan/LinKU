@@ -12,7 +12,7 @@ import {
   type QuarantineLocation,
   type RecordLocation,
 } from "@/storage/linkuDb";
-import { errorLog } from "@/utils/logger";
+import { captureErrorLog } from "@/utils/logger";
 
 export interface QuarantineInput {
   at: QuarantineLocation;
@@ -65,7 +65,7 @@ export async function moveRecordToQuarantineSafely(
 
     return true;
   } catch (error) {
-    errorLog("Failed to quarantine damaged template record", error);
+    captureErrorLog("Failed to quarantine damaged template record", error);
     return false;
   }
 }

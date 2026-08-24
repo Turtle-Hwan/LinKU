@@ -10,7 +10,7 @@ import { getChromeApi, getStorage, removeStorage } from "../utils/chrome";
 import {
   debugLog,
   getErrorLogDetails,
-  warnLogOnly,
+  warnLog,
 } from "@/utils/logger";
 import {
   createErrorReporter,
@@ -157,7 +157,7 @@ async function readHttpFailureBody(
         },
         "warning",
       );
-      warnLogOnly(
+      warnLog(
         "[API Client] Ignoring malformed non-success response body",
         getErrorLogDetails(error),
       );
@@ -174,7 +174,7 @@ async function readHttpFailureBody(
       },
       "warning",
     );
-    warnLogOnly(
+    warnLog(
       "[API Client] Failed to read non-success response body",
       getErrorLogDetails(error),
     );
@@ -278,14 +278,14 @@ async function handleTokenExpired(): Promise<boolean> {
         recordBreadcrumb("api.auth", "silent reauth was not completed", {
           error: response?.error,
         });
-        warnLogOnly("[API Client] Silent reauth failed", {
+        warnLog("[API Client] Silent reauth failed", {
           error: response?.error,
         });
         return false;
       }
     } catch (error) {
       reportApiException(error, "silent_reauth_request");
-      warnLogOnly("[API Client] Silent reauth error", getErrorLogDetails(error));
+      warnLog("[API Client] Silent reauth error", getErrorLogDetails(error));
       return false;
     } finally {
       isReauthenticating = false;
@@ -448,7 +448,7 @@ async function request<T = unknown>(
           status: response.status,
           content_type: contentType,
         });
-        warnLogOnly("[API Client] Response parsing error", {
+        warnLog("[API Client] Response parsing error", {
           ...getErrorLogDetails(parseError),
           status: response.status,
           endpoint: safeEndpoint,
@@ -491,7 +491,7 @@ async function request<T = unknown>(
         return request<T>(url, method, body, config, true);
       } else {
         // Reauth failed, clear tokens and notify
-        warnLogOnly("[API Client] Reauth failed, clearing tokens");
+        warnLog("[API Client] Reauth failed, clearing tokens");
         await clearAccessToken();
         window.dispatchEvent(new CustomEvent("auth:unauthorized"));
 
@@ -558,7 +558,7 @@ async function request<T = unknown>(
     if (!isExpectedNetworkFailure(error)) {
       reportApiException(error, "api_network_error", failureContext);
     }
-    warnLogOnly("[API Client] Request error", getErrorLogDetails(error));
+    warnLog("[API Client] Request error", getErrorLogDetails(error));
     return {
       success: false,
       error: {

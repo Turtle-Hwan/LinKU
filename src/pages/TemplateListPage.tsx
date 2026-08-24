@@ -47,7 +47,7 @@ import {
 } from '@/apis/external/bulletin';
 import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 import { downloadJson } from '@/utils/download';
-import { errorLog, warnLogOnly } from '@/utils/logger';
+import { captureErrorLog, warnLog } from '@/utils/logger';
 import { UserFacingError } from '@/errors/userFacingError';
 import { recordBreadcrumb } from '@/monitoring';
 import {
@@ -81,11 +81,11 @@ function reportTemplateOperationFailure(message: string, error: unknown) {
       { validation_code: error.code },
       'warning',
     );
-    warnLogOnly(message, error);
+    warnLog(message, error);
     return;
   }
 
-  errorLog(message, error);
+  captureErrorLog(message, error);
 }
 
 export const TemplateListPage = () => {
@@ -129,7 +129,7 @@ export const TemplateListPage = () => {
       setQuarantinedCount(nextQuarantinedCount);
     } catch (error) {
       if (requestId !== loadRequestIdRef.current) return;
-      errorLog('Failed to load IndexedDB templates', error);
+      captureErrorLog('Failed to load IndexedDB templates', error);
       setTemplates([]);
       toast({
         title: '로컬 저장소 오류',
@@ -234,7 +234,7 @@ export const TemplateListPage = () => {
         description: '이 기기의 저장소에서 삭제했습니다.',
       });
     } catch (error) {
-      errorLog('Failed to delete local template', error);
+      captureErrorLog('Failed to delete local template', error);
       toast({
         title: '삭제 실패',
         description: '이 기기의 저장소에서 템플릿을 삭제하지 못했습니다.',
@@ -267,7 +267,7 @@ export const TemplateListPage = () => {
         });
       }
     } catch (error) {
-      errorLog('Failed to share template', error);
+      captureErrorLog('Failed to share template', error);
       toast({
         title: '공유 실패',
         description:
@@ -403,7 +403,7 @@ export const TemplateListPage = () => {
         description: '원본 데이터를 그대로 담았습니다.',
       });
     } catch (error) {
-      errorLog('Failed to export quarantined records', error);
+      captureErrorLog('Failed to export quarantined records', error);
       toast({
         title: '내보내기 실패',
         description: '손상된 데이터를 내보내지 못했습니다.',

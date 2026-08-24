@@ -14,7 +14,7 @@ import {
   saveTimetableAsset,
   setActiveTimetable,
 } from "@/utils/timetableStorage";
-import { getErrorLogDetails, warnLog } from "@/utils/logger";
+import { getErrorLogDetails, captureWarnLog } from "@/utils/logger";
 import { readTimetableImage } from "@/components/Tabs/TimeTable/timetableImage";
 
 export type TimetableBusyState =
@@ -38,7 +38,7 @@ export function useTimetable() {
       setAsset(storedAsset);
       setAssets(storedAssets);
     } catch (error) {
-      warnLog("[Timetable] Failed to load saved timetable", getErrorLogDetails(error));
+      captureWarnLog("[Timetable] Failed to load saved timetable", getErrorLogDetails(error));
       toast.error("저장된 시간표를 불러오지 못했습니다.");
     } finally {
       setBusy((current) => (current === "loading" ? null : current));
@@ -92,7 +92,7 @@ export function useTimetable() {
             : "이미 저장된 시간표와 같은 이미지예요.",
         );
       } catch (error) {
-        warnLog("[Timetable] Image upload failed", getErrorLogDetails(error));
+        captureWarnLog("[Timetable] Image upload failed", getErrorLogDetails(error));
         toast.error(
           error instanceof Error
             ? error.message
@@ -126,7 +126,7 @@ export function useTimetable() {
             : `${periodLabel} 시간표가 이미 최신 상태예요.`,
       );
     } catch (error) {
-      warnLog(
+      captureWarnLog(
         "[Timetable] Everytime import request failed",
         getErrorLogDetails(error),
       );
@@ -159,7 +159,7 @@ export function useTimetable() {
       toast.success("저장된 시간표를 삭제했어요.");
       return true;
     } catch (error) {
-      warnLog("[Timetable] Delete failed", getErrorLogDetails(error));
+      captureWarnLog("[Timetable] Delete failed", getErrorLogDetails(error));
       toast.error("시간표를 삭제하지 못했습니다.");
       return false;
     } finally {
@@ -178,7 +178,7 @@ export function useTimetable() {
         await setActiveTimetable(id);
         await loadTimetable();
       } catch (error) {
-        warnLog("[Timetable] Failed to select timetable", getErrorLogDetails(error));
+        captureWarnLog("[Timetable] Failed to select timetable", getErrorLogDetails(error));
         toast.error("시간표를 전환하지 못했습니다.");
       } finally {
         setBusy(null);

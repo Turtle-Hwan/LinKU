@@ -245,17 +245,12 @@ export function infoLog(message: string, ...args: unknown[]): void {
 
 export function warnLog(message: string, ...args: unknown[]): void {
   emitLog("warn", message, args);
-
-  // Warnings mark a path that failed and was absorbed, which is exactly the
-  // class of failure that used to leave no trace: the user saw a toast or a
-  // degraded result while the collector recorded nothing. They are reported at
-  // `warning` level so they stay separable from errors in Sentry.
-  reportHandledLog(message, args, "warning", "handled_warning", "logger.warn");
 }
 
-/** Console-only warning for a failure already owned by an explicit reporter. */
-export function warnLogOnly(message: string, ...args: unknown[]): void {
+/** Explicit Sentry owner for an absorbed warning-level failure. */
+export function captureWarnLog(message: string, ...args: unknown[]): void {
   emitLog("warn", message, args);
+  reportHandledLog(message, args, "warning", "handled_warning", "logger.warn");
 }
 
 function reportHandledLog(
@@ -290,13 +285,12 @@ function reportHandledLog(
 
 export function errorLog(message: string, ...args: unknown[]): void {
   emitLog("error", message, args);
-
-  reportHandledLog(message, args, "error", "handled_error", "logger.error");
 }
 
-/** Console-only error for a failure already owned by an explicit reporter. */
-export function errorLogOnly(message: string, ...args: unknown[]): void {
+/** Explicit Sentry owner for an absorbed error-level failure. */
+export function captureErrorLog(message: string, ...args: unknown[]): void {
   emitLog("error", message, args);
+  reportHandledLog(message, args, "error", "handled_error", "logger.error");
 }
 
 export function getErrorLogDetails(error: unknown): Record<string, unknown> {

@@ -18,7 +18,7 @@ import { Upload, ImageIcon, X } from 'lucide-react';
 import { createLocalIcon } from '@/utils/localIcons';
 import { toast } from 'sonner';
 import type { Icon } from '@/types/api';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 import { MAX_TEMPLATE_NAME_LENGTH } from '@/constants/template';
 
 interface IconUploadDialogProps {
@@ -141,7 +141,7 @@ export const IconUploadDialog = ({
 
       onOpenChange(false);
     } catch (error) {
-      errorLog('Icon upload error:', error);
+      captureErrorLog('Icon upload error:', error);
       toast.error('업로드 실패', {
         description:
           error instanceof Error

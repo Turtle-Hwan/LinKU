@@ -5,7 +5,7 @@ import {
   validateTemplateSharePayload,
   validateTemplateSharePayloadImages,
 } from "@/utils/templateShareCodec";
-import { errorLog, warnLogOnly } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 import { UserFacingError } from "@/errors/userFacingError";
 import { recordBreadcrumb } from "@/monitoring";
 import {
@@ -62,7 +62,7 @@ function readValidQueue(value: unknown): TemplateSharePayloadV1[] {
         undefined,
         "warning",
       );
-      warnLogOnly("Discarding invalid pending template import", error);
+      warnLog("Discarding invalid pending template import", error);
       return false;
     }
   });
@@ -131,10 +131,10 @@ export function consumePendingTemplateImports(
             { validation_code: error.code },
             "warning",
           );
-          warnLogOnly("Discarding invalid queued template icon", error);
+          warnLog("Discarding invalid queued template icon", error);
           return "discard";
         }
-        errorLog("Failed to consume pending template import", error);
+        captureErrorLog("Failed to consume pending template import", error);
         return "retry";
       },
     );

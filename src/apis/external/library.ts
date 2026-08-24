@@ -10,7 +10,7 @@ import type {
   LibrarySeatRoomsData,
 } from "@/types/api";
 import { recordBreadcrumb } from "@/monitoring";
-import { errorLog, warnLogOnly } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 import {
   classifyNetworkFailure,
   isExpectedNetworkFailure,
@@ -191,9 +191,9 @@ function reportLibraryFailure(
   );
 
   if (kind === "timeout" || kind === "transport") {
-    warnLogOnly(`[Library] ${operation} ${kind}`, error);
+    warnLog(`[Library] ${operation} ${kind}`, error);
   } else if (kind === "invalid_response") {
-    errorLog(
+    captureErrorLog(
       `[Library] ${operation} returned an invalid response`,
       error ?? new Error("Invalid library response"),
     );
@@ -431,7 +431,7 @@ export async function setLibraryToken(
 
     return true;
   } catch (error) {
-    errorLog("[Library] Failed to set token:", error);
+    captureErrorLog("[Library] Failed to set token:", error);
     return false;
   }
 }
@@ -471,7 +471,7 @@ export async function getLibraryTokenFromStorage(): Promise<string | null> {
 
     return data.accessToken;
   } catch (error) {
-    errorLog("[Library] Failed to get token from storage:", error);
+    captureErrorLog("[Library] Failed to get token from storage:", error);
     return null;
   }
 }
@@ -486,7 +486,7 @@ export async function clearLibraryToken(): Promise<boolean> {
     await chrome.storage.local.remove(LIBRARY_TOKEN_STORAGE_KEY);
     return true;
   } catch (error) {
-    errorLog("[Library] Failed to clear token:", error);
+    captureErrorLog("[Library] Failed to clear token:", error);
     return false;
   }
 }

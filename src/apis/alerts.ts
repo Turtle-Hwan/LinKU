@@ -16,7 +16,7 @@ import {
   syncPublicAlerts,
   type PublicAlertSyncFailure,
 } from './public-alert-cache';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 
 const failedAlertsResponse = (): ApiResponse<GeneralAlert[]> => ({
   success: false,
@@ -40,7 +40,7 @@ const captureAlertContractFailures = (
   const error = firstReason instanceof Error
     ? firstReason
     : new Error("Public alert sync contract failed");
-  errorLog("[Alerts] Public alert sync contract failed", error, {
+  captureErrorLog("[Alerts] Public alert sync contract failed", error, {
     failed_sources: contractFailures.map(({ source }) => source),
     failure_count: contractFailures.length,
   });
@@ -85,7 +85,7 @@ export async function getAlerts(
   } catch (error) {
     // Cache/storage orchestration failures bypass the per-source allSettled
     // result, so this boundary is their single capture owner.
-    errorLog("[Alerts] Failed to synchronize public alerts", error);
+    captureErrorLog("[Alerts] Failed to synchronize public alerts", error);
     return failedAlertsResponse();
   }
 }

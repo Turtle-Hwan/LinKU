@@ -13,7 +13,7 @@ import {
   reportError,
 } from "./monitoring";
 import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
-import { debugLog, errorLog } from "@/utils/logger";
+import { debugLog, captureErrorLog } from "@/utils/logger";
 import { consumePendingTemplateImports } from "@/utils/pendingTemplateImports";
 import { importSharedTemplate } from "@/utils/templateStorage";
 import "./App.css";
@@ -51,7 +51,7 @@ function App() {
         }
       })
       .catch((error: unknown) => {
-        errorLog("Failed to process pending template imports", error);
+        captureErrorLog("Failed to process pending template imports", error);
       });
   }, []);
 

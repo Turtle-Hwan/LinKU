@@ -5,7 +5,7 @@ import {
   LEGACY_TEMPLATE_PREFIX,
   migrateLegacyTemplateStorage,
 } from "@/storage/legacyTemplateMigration";
-import { debugLog, errorLog, warnLog } from "@/utils/logger";
+import { debugLog, captureErrorLog, captureWarnLog } from "@/utils/logger";
 
 export async function migrateLegacyTemplates(): Promise<void> {
   if (typeof localStorage === "undefined") return;
@@ -15,23 +15,23 @@ export async function migrateLegacyTemplates(): Promise<void> {
     localStorage,
   );
   if (report.indexError !== undefined) {
-    errorLog("Failed to read legacy template index", report.indexError);
+    captureErrorLog("Failed to read legacy template index", report.indexError);
   }
   for (const repaired of report.repaired) {
     debugLog(`Repaired legacy template ${repaired.key}`, repaired.repairs);
   }
   for (const quarantined of report.quarantined) {
     if (quarantined.kind === "conflict") {
-      warnLog("Quarantined conflicting legacy template", {
+      captureWarnLog("Quarantined conflicting legacy template", {
         key: quarantined.key,
         templateId: quarantined.templateId,
       });
     } else if (quarantined.key === LEGACY_DRAFT_KEY) {
-      warnLog("Quarantined unreadable legacy template draft", {
+      captureWarnLog("Quarantined unreadable legacy template draft", {
         reason: quarantined.reason,
       });
     } else {
-      warnLog("Quarantined unreadable legacy template", {
+      captureWarnLog("Quarantined unreadable legacy template", {
         key: quarantined.key,
         reason: quarantined.reason,
       });
@@ -65,6 +65,6 @@ export function removeLegacyTemplateSource(templateId: number): void {
     );
   } catch (error) {
     // A stale index entry is harmless once the corresponding record is gone.
-    warnLog("Failed to clean deleted template from legacy index", error);
+    captureWarnLog("Failed to clean deleted template from legacy index", error);
   }
 }

@@ -25,7 +25,7 @@ import {
 import { X, Bell, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import AlertItem from "./AlertItem";
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 import { matchesAlertQuery } from "./alertSearchUtils";
 import { sendAlertsSubscriptionChange } from '@/utils/analytics';
 
@@ -76,7 +76,7 @@ const MyAlertsView = ({ searchQuery }: MyAlertsViewProps) => {
         setMyAlerts(alertsResult.data);
       }
     } catch (error) {
-      errorLog("Failed to load my data:", error);
+      captureErrorLog("Failed to load my data:", error);
       toast.error("데이터를 불러오는데 실패했습니다.");
     } finally {
       setIsLoading(false);
@@ -120,7 +120,7 @@ const MyAlertsView = ({ searchQuery }: MyAlertsViewProps) => {
         toast.error(result.error?.message || "구독에 실패했습니다.");
       }
     } catch (error) {
-      errorLog("Subscribe error:", error);
+      captureErrorLog("Subscribe error:", error);
       toast.error("구독 중 오류가 발생했습니다.");
     } finally {
       setIsSubscribing(false);
@@ -144,7 +144,7 @@ const MyAlertsView = ({ searchQuery }: MyAlertsViewProps) => {
         toast.error(result.error?.message || "구독 취소에 실패했습니다.");
       }
     } catch (error) {
-      errorLog("Unsubscribe error:", error);
+      captureErrorLog("Unsubscribe error:", error);
       toast.error("구독 취소 중 오류가 발생했습니다.");
     }
   };

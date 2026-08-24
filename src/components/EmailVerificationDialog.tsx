@@ -22,7 +22,7 @@ import {
   getFirstValidationMessage,
   konkukEmailSchema,
 } from '@/utils/formValidation';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 import { sendAuthEmailVerificationStart, sendAuthEmailVerificationSuccess } from '@/utils/analytics';
 import { setStorage } from '@/utils/chrome';
 
@@ -87,7 +87,7 @@ export function EmailVerificationDialog({
         }
       }
     } catch (error) {
-      errorLog('Failed to send verification code:', error);
+      captureErrorLog('Failed to send verification code:', error);
       toast.error('인증 코드 발송에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
@@ -125,7 +125,7 @@ export function EmailVerificationDialog({
         }
       }
     } catch (error) {
-      errorLog('Failed to verify code:', error);
+      captureErrorLog('Failed to verify code:', error);
       toast.error('인증에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
@@ -142,7 +142,7 @@ export function EmailVerificationDialog({
         toast.error(response.error?.message || '재발송에 실패했습니다.');
       }
     } catch (error) {
-      errorLog('Failed to resend code:', error);
+      captureErrorLog('Failed to resend code:', error);
       toast.error('재발송에 실패했습니다.');
     } finally {
       setIsLoading(false);

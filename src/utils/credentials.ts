@@ -5,7 +5,7 @@
 
 import { getStorage, setStorage, removeStorage } from "./chrome";
 import { encryptPassword, decryptPassword, looksEncrypted } from "./crypto";
-import { errorLog, warnLog } from '@/utils/logger';
+import { captureErrorLog, captureWarnLog } from '@/utils/logger';
 
 export interface Credentials {
   id: string;
@@ -60,7 +60,7 @@ export async function loadCredentials(
       // 암호문을 그대로 돌려주면 eCampus 로그인 요청에 암호문이 비밀번호로
       // 실려 나가고, 실패한 자동 로그인이 저장된 자격증명을 지운다.
       // 복호화에 실패하면 자격증명이 없는 것으로 취급한다.
-      warnLog(
+      captureWarnLog(
         "[Credentials] Password decryption failed; discarding stored credentials",
         error,
       );
@@ -72,7 +72,7 @@ export async function loadCredentials(
       password: decryptedPassword,
     };
   } catch (error) {
-    errorLog(
+    captureErrorLog(
       `[Credentials] Error loading credentials (${storageKey}):`,
       error
     );

@@ -5,7 +5,7 @@ import {
   type BulletinInfo,
 } from "@/constants/bulletin";
 import { recordBreadcrumb } from "@/monitoring";
-import { errorLog, warnLogOnly } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 import {
   classifyNetworkFailure,
   isExpectedNetworkFailure,
@@ -211,7 +211,7 @@ async function verifyBulletin(
         { status: response.status, year },
         "warning",
       );
-      warnLogOnly("[bulletin] Annual bulletin endpoint unavailable", {
+      warnLog("[bulletin] Annual bulletin endpoint unavailable", {
         status: response.status,
         year,
       });
@@ -248,9 +248,9 @@ async function verifyBulletin(
     );
 
     if (isExpectedNetworkFailure(error)) {
-      warnLogOnly("[bulletin] Failed to check annual bulletin", error);
+      warnLog("[bulletin] Failed to check annual bulletin", error);
     } else {
-      errorLog("[bulletin] Failed to check annual bulletin", error);
+      captureErrorLog("[bulletin] Failed to check annual bulletin", error);
     }
     return "unreachable";
   } finally {
@@ -313,7 +313,7 @@ async function refreshLatestBulletin(
     try {
       await storage.set({ [BULLETIN_CACHE_KEY]: updatedCache });
     } catch (error) {
-      errorLog("[bulletin] Failed to persist bulletin cache", error);
+      captureErrorLog("[bulletin] Failed to persist bulletin cache", error);
     }
   }
 
@@ -338,7 +338,7 @@ function startBulletinRefresh(
     currentYear,
     nowMs,
   ).catch((error) => {
-    errorLog("[bulletin] Failed to refresh annual bulletin", error);
+    captureErrorLog("[bulletin] Failed to refresh annual bulletin", error);
   });
   sessionRefresh = { calendarYear: currentYear, promise };
 }
@@ -364,7 +364,7 @@ export async function resolveLatestBulletin(
     const stored = await storage.get(BULLETIN_CACHE_KEY);
     cache = parseCache(stored[BULLETIN_CACHE_KEY], currentYear, nowMs);
   } catch (error) {
-    errorLog("[bulletin] Failed to read bulletin cache", error);
+    captureErrorLog("[bulletin] Failed to read bulletin cache", error);
     return BULLETIN_FALLBACK;
   }
 

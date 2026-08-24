@@ -44,7 +44,7 @@ import {
   type TemplateBackupV1,
 } from "@/storage/templateBackup";
 import type { Template, TemplateItem } from "@/types/api";
-import { debugLog, errorLog, warnLog, warnLogOnly } from "@/utils/logger";
+import { debugLog, captureErrorLog, captureWarnLog, warnLog } from "@/utils/logger";
 import { recordBreadcrumb } from "@/monitoring";
 import { portablePayloadToTemplate } from "@/utils/templateShare";
 import {
@@ -124,7 +124,7 @@ async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
   if (!result.value) {
     const reason = result.reason ?? "알 수 없는 오류";
     if (await moveRecordToQuarantineSafely({ at, reason, raw })) {
-      warnLog(`Quarantined an unreadable ${at.store} record`, { at, reason });
+      captureWarnLog(`Quarantined an unreadable ${at.store} record`, { at, reason });
     }
     return null;
   }
@@ -132,7 +132,7 @@ async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
   const { stored, changed, registrationFailures } =
     await repairTemplateIcons(result.value);
   if (registrationFailures.length > 0) {
-    errorLog(
+    captureErrorLog(
       "Failed to register inline template icons",
       registrationFailures[0].error,
       { failed_registrations: registrationFailures.length },
@@ -148,7 +148,7 @@ async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
       await writeRecord(at, stored);
     } catch (error) {
       // A failed rewrite only costs us the repair on the next read.
-      errorLog("Failed to persist a repaired template record", error);
+      captureErrorLog("Failed to persist a repaired template record", error);
     }
   }
 
@@ -400,17 +400,17 @@ export async function restoreTemplateBackup(
       { failed_assets: validationFailedAssets },
       "warning",
     );
-    warnLogOnly("Skipped invalid backed up icons", {
+    warnLog("Skipped invalid backed up icons", {
       failed_assets: validationFailedAssets,
     });
   }
   if (unexpectedFailedAssets > 0) {
-    errorLog("Failed to restore backed up icons", firstUnexpectedAssetError, {
+    captureErrorLog("Failed to restore backed up icons", firstUnexpectedAssetError, {
       failed_assets: unexpectedFailedAssets,
     });
   }
   if (firstTemplateError !== undefined) {
-    errorLog("Failed to restore backed up templates", firstTemplateError, {
+    captureErrorLog("Failed to restore backed up templates", firstTemplateError, {
       skipped_templates: skipped,
     });
   }

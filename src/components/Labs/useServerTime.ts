@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { recordBreadcrumb } from "@/monitoring";
-import { errorLog, warnLogOnly } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 import {
   classifyServerTimeSyncFailure,
   getServerTimeSyncErrorMessage,
@@ -110,10 +110,10 @@ export function useServerTime(serverUrl: string): UseServerTimeReturn {
         if (failureKind === "unexpected") {
           if (!reportedUnexpectedUrlsRef.current.has(serverUrl)) {
             reportedUnexpectedUrlsRef.current.add(serverUrl);
-            errorLog("[ServerClock] Sync error", error);
+            captureErrorLog("[ServerClock] Sync error", error);
           }
         } else {
-          warnLogOnly("[ServerClock] Sync skipped", error);
+          warnLog("[ServerClock] Sync skipped", error);
         }
 
         if (

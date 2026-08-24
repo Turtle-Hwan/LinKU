@@ -8,7 +8,7 @@ import {
 import { LibrarySeatRoom } from '@/types/api';
 import { loadECampusCredentials } from '@/utils/credentials';
 import { sendLabsFeatureUse } from '@/utils/analytics';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 
 const LibrarySeatSection = () => {
   const [rooms, setRooms] = useState<LibrarySeatRoom[]>([]);
@@ -38,7 +38,7 @@ const LibrarySeatSection = () => {
         setError(response.error);
       }
     } catch (err) {
-      errorLog('[LibrarySeat] Failed to load seat rooms:', err);
+      captureErrorLog('[LibrarySeat] Failed to load seat rooms:', err);
       setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
     } finally {
       setIsLoading(false);

@@ -13,7 +13,7 @@ import {
   saveEverytimeTimetable,
   setActiveTimetable,
 } from "@/utils/timetableStorage";
-import { errorLog, warnLogOnly } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 import {
   isTransientTabEditError,
   retryChromeOperation,
@@ -450,7 +450,7 @@ async function findFirstPopulatedSemesterBatch(
         { semester_count: semesters.length },
         "warning",
       );
-      warnLogOnly(
+      warnLog(
         "[Timetable] Everytime API unavailable; using rendered DOM fallback",
         error,
       );
@@ -591,7 +591,7 @@ async function importSemesterBatchFromTab(
         skippedCount: response.skippedSemesters.length,
       };
     } catch (error) {
-      errorLog(
+      captureErrorLog(
         "[Timetable] Everytime import failed",
         error,
       );

@@ -3,10 +3,10 @@ import { registerHooks } from "node:module";
 import test from "node:test";
 
 const loggerStub = `data:text/javascript,${encodeURIComponent(`
+  export const captureErrorLog = () => {};
   export const errorLog = () => {};
-  export const errorLogOnly = () => {};
   export const getErrorLogDetails = () => ({});
-  export const warnLogOnly = () => {};
+  export const warnLog = () => {};
 `)}`;
 const monitoringStub = `data:text/javascript,${encodeURIComponent(`
   export const createErrorReporter = () => () => {};

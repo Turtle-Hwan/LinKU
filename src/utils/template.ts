@@ -7,7 +7,7 @@
 import type { TemplateItem, TemplateIcon, Icon, Position, Size } from '@/types/api';
 import { LinkList, type LinkListElement } from '@/constants/LinkList';
 import { GENERIC_LINK_ICON_NAME } from '@/constants/templateIcons';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 import { GRID_CONFIG, isWithinGridBounds } from '@/utils/templateGrid';
 import { matchTemplateIcon } from '@/utils/templateIconMatch';
 import { recordBreadcrumb } from '@/monitoring';
@@ -91,7 +91,7 @@ export function convertLinkListToTemplateItems(
   if (defaultIcons.length === 0) {
     if (!reportedEmptyIconCollection) {
       reportedEmptyIconCollection = true;
-      errorLog(
+      captureErrorLog(
         'convertLinkListToTemplateItems: No bundled icons available',
         new Error('Bundled icon collection is empty'),
       );
@@ -392,7 +392,7 @@ export function resolveCollisions(
       )) {
         // Items still overlap after resolution - this should never happen
         // but if it does, reject the entire operation
-        errorLog('Collision resolution failed: items still overlap', finalItems[i], finalItems[j]);
+        captureErrorLog('Collision resolution failed: items still overlap', finalItems[i], finalItems[j]);
         return null;
       }
     }

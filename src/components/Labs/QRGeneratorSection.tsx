@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Info, Download, Check, Upload, X } from "lucide-react";
 import QRCode from "qrcode";
 import { recordBreadcrumb } from "@/monitoring";
-import { errorLog, warnLogOnly } from '@/utils/logger';
+import { captureErrorLog, warnLog } from '@/utils/logger';
 import { sendLabsFeatureUse } from '@/utils/analytics';
 import { qrUrlSchema } from '@/utils/formValidation';
 
@@ -81,7 +81,7 @@ const QRGeneratorSection = () => {
             },
             "warning",
           );
-          warnLogOnly("[QR] Failed to load logo; generated without logo", error);
+          warnLog("[QR] Failed to load logo; generated without logo", error);
         }
       }
 
@@ -130,7 +130,7 @@ const QRGeneratorSection = () => {
         setError("");
         sendLabsFeatureUse('qr_generator', 'success');
       } catch (error) {
-        errorLog('[QR] Failed to generate QR code:', error);
+        captureErrorLog('[QR] Failed to generate QR code:', error);
         setError("QR 코드 생성에 실패했습니다");
         setQrDataUrl("");
         sendLabsFeatureUse('qr_generator', 'fail');

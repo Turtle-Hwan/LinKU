@@ -7,7 +7,7 @@ import {
   type FeedbackSubmission,
 } from "@/types/feedback";
 import { recordBreadcrumb } from "@/monitoring";
-import { errorLog, warnLogOnly } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 import {
   classifyNetworkFailure,
   type NetworkFailureKind,
@@ -21,7 +21,7 @@ import {
 setFeedbackOutboxWarningReporter((message, error) => {
   // An unreadable outbox is persistent data loss, not a transient warning.
   // Keep the original parsing error as this boundary's single capture owner.
-  errorLog(message, error);
+  captureErrorLog(message, error);
 });
 
 const MAX_OUTBOX_SIZE = 50;
@@ -115,11 +115,11 @@ const reportFeedbackFailure = (
   }, failure.expected ? "warning" : "error");
 
   if (failure.expected || !captureUnexpected) {
-    warnLogOnly(message, failure.originalError);
+    warnLog(message, failure.originalError);
   } else {
     // Pass the originating Error object, not sanitized log details, so Sentry
     // retains its real type and stack.
-    errorLog(message, failure.originalError, {
+    captureErrorLog(message, failure.originalError, {
       failure_kind: failure.kind,
       endpoint_wide: failure.endpointWide,
       delivery_code: failure.deliveryCode,
@@ -304,7 +304,7 @@ async function deliverFeedback(submission: FeedbackSubmission) {
     await removeFromOutbox(submission.submissionId);
   } catch (error) {
     // Sheet 저장은 완료됐으므로 로컬 삭제 실패는 다음 중복 전송에서 정리합니다.
-    errorLog("[VoC] Failed to remove persisted feedback from outbox:", error);
+    captureErrorLog("[VoC] Failed to remove persisted feedback from outbox:", error);
   }
 
   return response;
@@ -368,7 +368,7 @@ export function flushFeedbackOutbox() {
         }
       }
     } catch (error) {
-      errorLog("[VoC] Failed to read feedback outbox:", error);
+      captureErrorLog("[VoC] Failed to read feedback outbox:", error);
     }
   })().finally(() => {
     activeFlush = null;
