@@ -1,6 +1,10 @@
 import { getLinkuDb, type StoredAsset } from "@/storage/linkuDb";
 import { allocateMonotonicId } from "@/storage/monotonicId";
-import { MAX_TEMPLATE_NAME_LENGTH } from "@/constants/template";
+import {
+  MAX_TEMPLATE_NAME_LENGTH,
+  PORTABLE_ICON_PATTERN,
+} from "@/constants/template";
+import { InvalidTemplateBackupAssetError } from "@/storage/templateBackup";
 
 const MAX_ICON_BYTES = 5 * 1024 * 1024;
 const MAX_ICON_DIMENSION = 256;
@@ -90,19 +94,38 @@ async function normalizeIconBlob(source: Blob): Promise<Blob> {
 }
 
 async function assertRestorableIconBlob(source: Blob): Promise<void> {
-  assertIconByteSize(source);
+  if (source.size > MAX_ICON_BYTES) {
+    throw new InvalidTemplateBackupAssetError(
+      `백업 아이콘은 ${MAX_ICON_BYTES / 1024 / 1024}MB 이하여야 합니다.`,
+    );
+  }
   if (!RESTORABLE_ICON_TYPES.has(source.type)) {
-    throw new Error("지원하지 않는 백업 아이콘 형식입니다.");
+    throw new InvalidTemplateBackupAssetError(
+      "지원하지 않는 백업 아이콘 형식입니다.",
+    );
   }
 
-  await withDecodedImage(source, (image) => {
+  try {
+    await withDecodedImage(source, (image) => {
+      if (
+        image.naturalWidth > MAX_ICON_DIMENSION ||
+        image.naturalHeight > MAX_ICON_DIMENSION
+      ) {
+        throw new InvalidTemplateBackupAssetError(
+          `백업 아이콘은 ${MAX_ICON_DIMENSION}px 이하여야 합니다.`,
+        );
+      }
+    });
+  } catch (error) {
     if (
-      image.naturalWidth > MAX_ICON_DIMENSION ||
-      image.naturalHeight > MAX_ICON_DIMENSION
+      typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      error.name === "EncodingError"
     ) {
-      throw new Error(`백업 아이콘은 ${MAX_ICON_DIMENSION}px 이하여야 합니다.`);
+      throw new InvalidTemplateBackupAssetError();
     }
-  });
+    throw error;
+  }
 }
 
 async function persistAsset(
@@ -180,7 +203,27 @@ export async function restoreAssetFromDataUrl(
   dataUrl: string,
 ): Promise<StoredAsset> {
   const normalizedName = normalizeAssetName(name);
-  const blob = dataUrlToBlob(dataUrl);
+  if (!PORTABLE_ICON_PATTERN.test(dataUrl)) {
+    throw new InvalidTemplateBackupAssetError(
+      "백업 아이콘 데이터 형식이 올바르지 않습니다.",
+    );
+  }
+
+  let blob: Blob;
+  try {
+    blob = dataUrlToBlob(dataUrl);
+  } catch (error) {
+    if (
+      typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      error.name === "InvalidCharacterError"
+    ) {
+      throw new InvalidTemplateBackupAssetError(
+        "백업 아이콘 데이터 형식이 올바르지 않습니다.",
+      );
+    }
+    throw error;
+  }
   await assertRestorableIconBlob(blob);
   return persistAsset(normalizedName, blob);
 }

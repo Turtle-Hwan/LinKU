@@ -22,10 +22,18 @@ const MAX_BACKUP_ENTRIES = 10_000;
 const TEMPLATE_BACKUP_VALIDATION_CODES = new Set([
   "TEMPLATE_BACKUP_TOO_LARGE",
   "TEMPLATE_BACKUP_INVALID_ASSET",
+  "TEMPLATE_BACKUP_INVALID_ASSET_CONTENT",
   "TEMPLATE_BACKUP_INVALID_FORMAT",
   "TEMPLATE_BACKUP_FILE_TOO_LARGE",
   "TEMPLATE_BACKUP_INVALID_JSON",
 ]);
+
+export class InvalidTemplateBackupAssetError extends UserFacingError {
+  constructor(message = "백업 아이콘이 손상되었거나 지원되지 않습니다.") {
+    super(message, "TEMPLATE_BACKUP_INVALID_ASSET_CONTENT");
+    this.name = "InvalidTemplateBackupAssetError";
+  }
+}
 
 export function isTemplateBackupValidationError(
   error: unknown,
