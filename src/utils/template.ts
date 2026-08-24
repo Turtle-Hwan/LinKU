@@ -7,7 +7,7 @@
 import type { TemplateItem, TemplateIcon, Icon, Position, Size } from '@/types/api';
 import { LinkList, type LinkListElement } from '@/constants/LinkList';
 import { GENERIC_LINK_ICON_NAME } from '@/constants/templateIcons';
-import { warnLogOnly, errorLog } from '@/utils/logger';
+import { errorLog } from '@/utils/logger';
 import { GRID_CONFIG, isWithinGridBounds } from '@/utils/templateGrid';
 import { matchTemplateIcon } from '@/utils/templateIconMatch';
 import { recordBreadcrumb } from '@/monitoring';
@@ -56,6 +56,7 @@ function calculateGridSize(colSpan: number): { width: number; height: number } {
 }
 
 const reportedIconFallbacks = new Set<string>();
+let reportedEmptyIconCollection = false;
 
 function findMatchingIcon(linkItem: LinkListElement, defaultIcons: Icon[]): Icon {
   const result = matchTemplateIcon(
@@ -88,7 +89,13 @@ export function convertLinkListToTemplateItems(
   linkList: LinkListElement[] = LinkList,
 ): TemplateItem[] {
   if (defaultIcons.length === 0) {
-    warnLogOnly('convertLinkListToTemplateItems: No bundled icons available');
+    if (!reportedEmptyIconCollection) {
+      reportedEmptyIconCollection = true;
+      errorLog(
+        'convertLinkListToTemplateItems: No bundled icons available',
+        new Error('Bundled icon collection is empty'),
+      );
+    }
     return [];
   }
 
