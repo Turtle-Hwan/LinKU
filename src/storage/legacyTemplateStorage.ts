@@ -5,7 +5,12 @@ import {
   LEGACY_TEMPLATE_PREFIX,
   migrateLegacyTemplateStorage,
 } from "@/storage/legacyTemplateMigration";
-import { debugLog, captureErrorLog, captureWarnLog } from "@/utils/logger";
+import {
+  debugLog,
+  captureErrorLog,
+  captureWarnLog,
+  warnLog,
+} from "@/utils/logger";
 
 export async function migrateLegacyTemplates(): Promise<void> {
   if (typeof localStorage === "undefined") return;
@@ -22,7 +27,9 @@ export async function migrateLegacyTemplates(): Promise<void> {
   }
   for (const quarantined of report.quarantined) {
     if (quarantined.kind === "conflict") {
-      captureWarnLog("Quarantined conflicting legacy template", {
+      // The active IndexedDB record won and the duplicate rollback copy was
+      // preserved in quarantine, so this is a successful recovery outcome.
+      warnLog("Quarantined conflicting legacy template", {
         key: quarantined.key,
         templateId: quarantined.templateId,
       });
@@ -65,6 +72,6 @@ export function removeLegacyTemplateSource(templateId: number): void {
     );
   } catch (error) {
     // A stale index entry is harmless once the corresponding record is gone.
-    captureWarnLog("Failed to clean deleted template from legacy index", error);
+    warnLog("Failed to clean deleted template from legacy index", error);
   }
 }
