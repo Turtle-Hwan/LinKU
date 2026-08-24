@@ -33,24 +33,22 @@ export function classifyNetworkFailure(
   error: unknown,
   online: boolean | undefined = globalThis.navigator?.onLine,
 ): NetworkFailureKind {
-  if (online === false) {
-    return "offline";
-  }
-
   const { name, message } = readNetworkError(error);
   if (name === "AbortError" || /aborted|aborterror/iu.test(message)) {
     return "aborted";
   }
 
-  if (
+  const isFetchTransportFailure =
+    (name === "TypeError" || name === "NetworkError") &&
     /failed to fetch|networkerror|network request failed|load failed/iu.test(
       message,
-    )
-  ) {
-    return "blocked_or_unreachable";
+    );
+
+  if (!isFetchTransportFailure) {
+    return "unknown";
   }
 
-  return "unknown";
+  return online === false ? "offline" : "blocked_or_unreachable";
 }
 
 export function isExpectedNetworkFailure(
