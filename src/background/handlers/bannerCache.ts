@@ -6,6 +6,7 @@ import {
   getBannerImageURL,
   parseBannersResponse,
 } from "../../apis/external/banners.ts";
+import { isExpectedNetworkFailure } from "../../utils/networkFailure.ts";
 
 const BANNER_CACHE_PREFIX = "linku-banners-v1-";
 const BANNER_CACHE_STATE_KEY = "linkuBannerCacheStateV1";
@@ -54,6 +55,17 @@ interface BannerServiceWorkerScope {
   ): void;
 }
 
+class ExpectedBannerExternalFailure extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ExpectedBannerExternalFailure";
+  }
+}
+
+const isExpectedBannerExternalFailure = (error: unknown) =>
+  error instanceof ExpectedBannerExternalFailure ||
+  isExpectedNetworkFailure(error);
+
 const isBannerCacheState = (value: unknown): value is BannerCacheState => {
   if (!value || typeof value !== "object") return false;
 
@@ -99,6 +111,12 @@ export const createBannerCacheController = (
     onError,
   } = dependencies;
   let activeRefresh: Promise<BannerCacheState> | undefined;
+
+  const reportUnexpectedFailure = (error: unknown) => {
+    if (!isExpectedBannerExternalFailure(error)) {
+      onError(error);
+    }
+  };
 
   const readState = async (): Promise<BannerCacheState> => {
     const stored = await stateStorage.get(BANNER_CACHE_STATE_KEY);
@@ -147,7 +165,16 @@ export const createBannerCacheController = (
         credentials: "omit",
       });
       if (!bannerResponse.ok) {
-        throw new Error(`Failed to refresh banners: ${bannerResponse.status}`);
+        throw new ExpectedBannerExternalFailure(
+          `Failed to refresh banners: ${bannerResponse.status}`,
+        );
+      }
+      if (
+        !bannerResponse.headers.get("content-type")?.includes("json")
+      ) {
+        throw new ExpectedBannerExternalFailure(
+          "Banner endpoint returned a non-JSON response",
+        );
       }
 
       const responseForCache = bannerResponse.clone();
@@ -163,7 +190,9 @@ export const createBannerCacheController = (
             credentials: "omit",
           });
           if (!isBannerImageResponse(response)) {
-            throw new Error(`Failed to refresh banner image: ${imageURL}`);
+            throw new ExpectedBannerExternalFailure(
+              `Failed to refresh banner image: ${imageURL}`,
+            );
           }
           return [imageURL, response] as const;
         }),
@@ -233,7 +262,7 @@ export const createBannerCacheController = (
             response: cachedResponse,
             backgroundTask: refresh(checkedAt)
               .then(() => undefined)
-              .catch(onError),
+              .catch(reportUnexpectedFailure),
           };
         }
         return { response: cachedResponse };
@@ -255,13 +284,16 @@ export const createBannerCacheController = (
             createEmptyBannerResponse(),
         };
       } catch (error) {
-        onError(error);
+        reportUnexpectedFailure(error);
         return { response: createEmptyBannerResponse() };
       }
     } catch (error) {
-      onError(error);
+      reportUnexpectedFailure(error);
       if (request.url === BANNER_JSON_URL) {
         return { response: createEmptyBannerResponse() };
+      }
+      if (isExpectedBannerExternalFailure(error)) {
+        return { response: Response.error() };
       }
       return { response: await fetchFn(request) };
     }

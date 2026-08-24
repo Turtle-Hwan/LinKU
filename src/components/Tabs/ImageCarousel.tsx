@@ -7,8 +7,11 @@ import {
   getBannerImageURL,
   getBannersAPI,
 } from "@/apis";
+import { recordBreadcrumb } from "@/monitoring";
 import { sendBannerOpen } from "@/utils/analytics";
 import { isBannerActive } from "@/utils/banner";
+import { errorLog, warnLogOnly } from "@/utils/logger";
+import { isExpectedNetworkFailure } from "@/utils/networkFailure";
 
 const preloadBannerImage = (imageURL: string) => {
   const image = new window.Image();
@@ -19,17 +22,43 @@ const preloadBannerImage = (imageURL: string) => {
   );
 };
 
-const bannerPromise = getBannersAPI().then(async ({ banners }) => {
-  const currentTime = Date.now();
-  const activeBanners = banners.filter((item) =>
-    isBannerActive(item, currentTime),
-  );
-  const imageResults = await Promise.all(
-    activeBanners.map(({ img }) => preloadBannerImage(getBannerImageURL(img))),
-  );
+const isExpectedBannerLoadFailure = (error: unknown) =>
+  isExpectedNetworkFailure(error) ||
+  (error instanceof Error && /^Failed to fetch banners: \d+$/u.test(error.message));
 
-  return activeBanners.filter((_, index) => imageResults[index]);
-});
+const bannerPromise = getBannersAPI()
+  .then(async ({ banners }) => {
+    const currentTime = Date.now();
+    const activeBanners = banners.filter((item) =>
+      isBannerActive(item, currentTime),
+    );
+    const imageResults = await Promise.all(
+      activeBanners.map(({ img }) =>
+        preloadBannerImage(getBannerImageURL(img)),
+      ),
+    );
+
+    return activeBanners.filter((_, index) => imageResults[index]);
+  })
+  .catch((error: unknown): BannerItemType[] => {
+    const expected = isExpectedBannerLoadFailure(error);
+    recordBreadcrumb(
+      "banner.request",
+      "banner list unavailable",
+      { expected_external_failure: expected },
+      expected ? "warning" : "error",
+    );
+
+    if (expected) {
+      warnLogOnly("[Banner] Banner list unavailable", error);
+    } else {
+      errorLog("[Banner] Failed to load banner list", error);
+    }
+
+    // A banner is optional UI. A rejected request must not escape Suspense and
+    // replace the whole popup with the global error boundary.
+    return [];
+  });
 
 const ImageCarousel = () => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay()]);

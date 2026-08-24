@@ -65,7 +65,7 @@ debugLog("[Background] Service worker initialized");
 recordBreadcrumb("background.lifecycle", "service worker initialized");
 
 registerBannerCache((error) => {
-  warnLog("[Background] Banner cache refresh failed", getErrorLogDetails(error));
+  warnLog("[Background] Banner cache refresh failed", error);
 });
 
 const captureBackgroundException = createErrorReporter({
