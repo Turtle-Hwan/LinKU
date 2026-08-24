@@ -4,7 +4,8 @@
  */
 
 import { getStorage, setStorage } from "./chrome";
-import { captureErrorLog } from '@/utils/logger';
+import { recordBreadcrumb } from "@/monitoring";
+import { getErrorLogDetails, warnLog } from "@/utils/logger";
 
 /**
  * storage를 읽지 못했을 때 반환하는 임시 ID의 접두사.
@@ -38,7 +39,14 @@ export async function getOrCreateClientId(): Promise<string> {
   try {
     return await getOrCreatePersistentClientId();
   } catch (error) {
-    captureErrorLog("[ClientID] Error getting/creating client ID:", error);
+    const details = getErrorLogDetails(error);
+    recordBreadcrumb(
+      "analytics.storage",
+      "client ID storage unavailable; using an ephemeral ID",
+      { error: details },
+      "warning",
+    );
+    warnLog("[ClientID] Using an ephemeral client ID", details);
     // 에러 시 임시 ID 반환 (analytics 전용, 키 재료로는 쓰지 말 것)
     return EPHEMERAL_PREFIX + Date.now();
   }

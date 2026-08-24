@@ -73,6 +73,20 @@ interface SessionResult {
   isNewSession: boolean;
 }
 
+function recordAnalyticsStorageFallback(
+  operation: string,
+  error: unknown,
+): void {
+  const details = getErrorLogDetails(error);
+  recordBreadcrumb(
+    "analytics.storage",
+    `${operation} failed; using a non-persistent fallback`,
+    { operation, error: details },
+    "warning",
+  );
+  warnLog(`[GA] ${operation} failed; using fallback`, details);
+}
+
 /**
  * Session ID 생성 및 관리
  *
@@ -107,7 +121,7 @@ async function getOrCreateSessionId(): Promise<SessionResult> {
     return { sessionId: newSessionId, isNewSession: true };
   } catch (error) {
     // storage 접근 실패 시 fallback — 이 세션은 저장되지 않아 다음 호출에서도 새 세션으로 취급됨
-    captureErrorLog("[GA] Error getting/creating session ID:", error);
+    recordAnalyticsStorageFallback("session storage", error);
     return { sessionId: Date.now().toString(), isNewSession: false };
   }
 }
@@ -257,10 +271,19 @@ export async function sendExtensionOpen(
     // 전송할 이벤트를 조건에 따라 배열로 누적 — GA4 MP는 단일 요청에 이벤트 배열 지원
     const events: GAEvent[] = [];
 
-    // 기기 최초 설치 후 첫 실행에만 1회 전송 (전송 성공 후 chrome.storage에 플래그 저장)
-    const firstOpenSent = await getStorage<boolean>("firstOpenSent");
-    const shouldMarkFirstOpenSent = !firstOpenSent;
-    if (!firstOpenSent) {
+    // 기기 최초 설치 후 첫 실행에만 1회 전송 (전송 성공 후 chrome.storage에 플래그 저장).
+    // storage 상태를 읽지 못하면 중복 first-open을 만들지 않고 일반 open만 보낸다.
+    let firstOpenSent = true;
+    let canPersistFirstOpen = false;
+    try {
+      firstOpenSent = Boolean(await getStorage<boolean>("firstOpenSent"));
+      canPersistFirstOpen = true;
+    } catch (error) {
+      recordAnalyticsStorageFallback("first-open state read", error);
+    }
+
+    const shouldMarkFirstOpenSent = canPersistFirstOpen && !firstOpenSent;
+    if (shouldMarkFirstOpenSent) {
       events.push({ name: "extension_first_open", params: baseParams });
       if (DEBUG_MODE) debugLog("[GA] extension_first_open queued");
     }
@@ -278,7 +301,11 @@ export async function sendExtensionOpen(
     const delivered = await dispatchAnalyticsPayload(payload);
 
     if (shouldMarkFirstOpenSent && delivered) {
-      await setStorage({ firstOpenSent: true });
+      try {
+        await setStorage({ firstOpenSent: true });
+      } catch (error) {
+        recordAnalyticsStorageFallback("first-open state write", error);
+      }
     }
 
     if (DEBUG_MODE && delivered) {

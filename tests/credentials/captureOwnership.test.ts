@@ -127,8 +127,8 @@ test("storage와 credential 오류는 최종 처리 경계에서 원본 Error로
     resetCalls(calls);
     const fallbackClientId = await modules.clientId.getOrCreateClientId();
     assert.match(fallbackClientId, /^error-/u);
-    assert.equal(calls.errors.length, 1, "swallowed analytics fallback must capture");
-    assert.ok(calls.errors[0]?.error instanceof Error);
+    assert.equal(calls.errors.length, 0, "analytics fallback must not create an issue");
+    assert.equal(calls.breadcrumbs.length, 1);
 
     resetCalls(calls);
     await assert.rejects(
