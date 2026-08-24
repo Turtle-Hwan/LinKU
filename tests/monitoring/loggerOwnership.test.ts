@@ -9,8 +9,9 @@ const runtime = globalThis as typeof globalThis & Record<string, unknown>;
 const calls: Array<{ error: unknown; options: Record<string, unknown> }> = [];
 let server: ViteDevServer;
 let logger: typeof import("../../src/utils/logger.ts");
-const originalError = console.error;
-const originalWarn = console.warn;
+const testConsole = Reflect.get(globalThis, "console") as Console;
+const originalError = testConsole.error;
+const originalWarn = testConsole.warn;
 
 function monitoringStub(): Plugin {
   const virtualId = "\0logger-ownership-monitoring-stub";
@@ -38,8 +39,8 @@ function monitoringStub(): Plugin {
 
 before(async () => {
   runtime[CALLS_KEY] = calls;
-  console.error = () => undefined;
-  console.warn = () => undefined;
+  testConsole.error = () => undefined;
+  testConsole.warn = () => undefined;
   server = await createServer({
     root: process.cwd(),
     configFile: false,
@@ -57,8 +58,8 @@ before(async () => {
 
 after(async () => {
   await server.close();
-  console.error = originalError;
-  console.warn = originalWarn;
+  testConsole.error = originalError;
+  testConsole.warn = originalWarn;
   delete runtime[CALLS_KEY];
 });
 
