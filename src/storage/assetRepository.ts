@@ -5,6 +5,7 @@ import {
   PORTABLE_ICON_PATTERN,
 } from "@/constants/template";
 import { InvalidTemplateBackupAssetError } from "@/storage/templateBackup";
+import { UserFacingError } from "@/errors/userFacingError";
 
 const MAX_ICON_BYTES = 5 * 1024 * 1024;
 const MAX_ICON_DIMENSION = 256;
@@ -14,6 +15,18 @@ const RESTORABLE_ICON_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+
+export class AssetValidationError extends UserFacingError {
+  readonly cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
+    super(message, "ASSET_VALIDATION_FAILED");
+    this.name = "AssetValidationError";
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
+  }
+}
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -44,17 +57,19 @@ async function canvasToWebp(canvas: HTMLCanvasElement): Promise<Blob> {
 function normalizeAssetName(name: string): string {
   const normalizedName = name.trim();
   if (normalizedName.length === 0) {
-    throw new Error("아이콘 이름을 입력해 주세요.");
+    throw new AssetValidationError("아이콘 이름을 입력해 주세요.");
   }
   if (normalizedName.length > MAX_TEMPLATE_NAME_LENGTH) {
-    throw new Error(`아이콘 이름은 ${MAX_TEMPLATE_NAME_LENGTH}자 이하여야 합니다.`);
+    throw new AssetValidationError(
+      `아이콘 이름은 ${MAX_TEMPLATE_NAME_LENGTH}자 이하여야 합니다.`,
+    );
   }
   return normalizedName;
 }
 
 function assertIconByteSize(source: Blob): void {
   if (source.size > MAX_ICON_BYTES) {
-    throw new Error(
+    throw new AssetValidationError(
       `아이콘 원본은 ${MAX_ICON_BYTES / 1024 / 1024}MB 이하여야 합니다.`,
     );
   }
@@ -78,19 +93,33 @@ async function withDecodedImage<T>(
 async function normalizeIconBlob(source: Blob): Promise<Blob> {
   assertIconByteSize(source);
 
-  return withDecodedImage(source, async (image) => {
-    const scale = Math.min(
-      1,
-      MAX_ICON_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight),
-    );
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("이미지 변환 기능을 사용할 수 없습니다.");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return await canvasToWebp(canvas);
-  });
+  try {
+    return await withDecodedImage(source, async (image) => {
+      const scale = Math.min(
+        1,
+        MAX_ICON_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight),
+      );
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("이미지 변환 기능을 사용할 수 없습니다.");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return await canvasToWebp(canvas);
+    });
+  } catch (error) {
+    if (
+      typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      (error.name === "EncodingError" || error.name === "InvalidStateError")
+    ) {
+      throw new AssetValidationError(
+        "손상되었거나 브라우저에서 읽을 수 없는 아이콘입니다.",
+        error,
+      );
+    }
+    throw error;
+  }
 }
 
 async function assertRestorableIconBlob(source: Blob): Promise<void> {
