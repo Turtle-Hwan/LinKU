@@ -400,7 +400,6 @@ chrome.runtime.onInstalled.addListener((details) => {
 chrome.runtime.onStartup.addListener(() => {
   debugLog("[Background] Browser started, service worker activated");
   recordBreadcrumb("background.lifecycle", "browser startup event");
-  void restrictLocalStorageAccess();
 });
 
 chrome.runtime.onSuspend.addListener(() => {
