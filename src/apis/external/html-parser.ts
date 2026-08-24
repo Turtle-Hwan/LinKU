@@ -1,8 +1,8 @@
 import type { GeneralAlert } from "../../types/api";
-import { warnLog } from '@/utils/logger';
+import { recordBreadcrumb } from "@/monitoring";
+import { warnLogOnly } from "@/utils/logger";
 
 const CAREER_URL = "https://www.konkuk.ac.kr/combBbs/konkuk/2/list.do";
-const CAREER_FALLBACK_START_ID = 6001;
 
 export const CAREER_ALERT_PAGE_SIZE = 20;
 
@@ -11,20 +11,21 @@ export const CAREER_ALERT_PAGE_SIZE = 20;
  */
 const parseHTMLToAlerts = (
   htmlText: string,
-  startId: number
 ): GeneralAlert[] => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlText, "text/html");
 
   const alerts: GeneralAlert[] = [];
+  let skippedRowCount = 0;
 
   // Find all table rows in tbody
   const rows = doc.querySelectorAll("table tbody tr");
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const cells = row.querySelectorAll("td");
 
     if (cells.length < 5) {
+      skippedRowCount += 1;
       return; // Skip rows that don't have enough cells
     }
 
@@ -35,6 +36,7 @@ const parseHTMLToAlerts = (
     const titleStrong = titleLink?.querySelector("strong");
 
     if (!titleStrong) {
+      skippedRowCount += 1;
       return; // Skip if no title found
     }
 
@@ -45,34 +47,29 @@ const parseHTMLToAlerts = (
     // Parameters: siteId, boardId, bbsId, artclId
     const hrefAttr = titleLink?.getAttribute("href") || "";
     const viewMatch = hrefAttr.match(
-      /jf_combBbs_view\('([^']+)','([^']+)','([^']+)','([^']+)'\)/
+      /jf_combBbs_view\('([^']+)','(\d+)','(\d+)','(\d+)'\)/
     );
 
+    if (!title || !viewMatch) {
+      skippedRowCount += 1;
+      return;
+    }
+
     // Build URL with correct format: /combBbs/{siteId}/{boardId}/{bbsId}/{artclId}/view.do
-    const url = viewMatch
-      ? `https://www.konkuk.ac.kr/combBbs/${viewMatch[1]}/${viewMatch[2]}/${viewMatch[3]}/${viewMatch[4]}/view.do`
-      : "";
+    const url = `https://www.konkuk.ac.kr/combBbs/${viewMatch[1]}/${viewMatch[2]}/${viewMatch[3]}/${viewMatch[4]}/view.do`;
 
-    // Debug logging
-    if (!url) {
-      warnLog("Failed to parse URL from href:", hrefAttr, "Title:", title);
+    // Invalid dates must not be replaced with "now": doing so promotes a
+    // malformed row to the top of the cache as if it were a new notice.
+    const publishedTimestamp = Date.parse(dateText.replace(/\./g, "-"));
+    if (!dateText || Number.isNaN(publishedTimestamp)) {
+      skippedRowCount += 1;
+      return;
     }
-
-    // Convert date to ISO string (format: YYYY.MM.DD)
-    let publishedAt = new Date().toISOString();
-    if (dateText) {
-      try {
-        // Convert "2025.11.19" to "2025-11-19"
-        const isoDate = dateText.replace(/\./g, "-");
-        publishedAt = new Date(isoDate).toISOString();
-      } catch {
-        // Use current date if parsing fails
-      }
-    }
+    const publishedAt = new Date(publishedTimestamp).toISOString();
 
     alerts.push({
       // artclId remains stable when rows move between list pages.
-      alertId: viewMatch ? -Number(viewMatch[4]) : -(startId + index),
+      alertId: -Number(viewMatch[4]),
       title,
       content: "", // HTML page doesn't provide content in list view
       category: "취창업",
@@ -81,6 +78,16 @@ const parseHTMLToAlerts = (
       isRead: false,
     });
   });
+
+  if (skippedRowCount > 0) {
+    recordBreadcrumb("alerts.parse", "malformed career alert rows skipped", {
+      skipped_row_count: skippedRowCount,
+      parsed_row_count: alerts.length,
+    }, "warning");
+    warnLogOnly(
+      `[Alerts] Skipped ${skippedRowCount} malformed career alert rows`,
+    );
+  }
 
   return alerts;
 };
@@ -100,6 +107,5 @@ export const getCareerAlertsPage = async (
   }
 
   const htmlText = await response.text();
-  const pageOffset = (page - 1) * CAREER_ALERT_PAGE_SIZE;
-  return parseHTMLToAlerts(htmlText, CAREER_FALLBACK_START_ID + pageOffset);
+  return parseHTMLToAlerts(htmlText);
 };

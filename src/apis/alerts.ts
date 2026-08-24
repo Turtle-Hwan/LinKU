@@ -14,8 +14,37 @@ import type {
 import {
   getCachedPublicAlerts,
   syncPublicAlerts,
+  type PublicAlertSyncFailure,
 } from './public-alert-cache';
 import { errorLog } from '@/utils/logger';
+
+const failedAlertsResponse = (): ApiResponse<GeneralAlert[]> => ({
+  success: false,
+  error: {
+    code: "FETCH_FAILED",
+    message: "공지사항을 불러오는데 실패했습니다.",
+  },
+});
+
+const captureAlertContractFailures = (
+  failures: PublicAlertSyncFailure[],
+) => {
+  const contractFailures = failures.filter(
+    ({ kind }) => kind === "sync_contract",
+  );
+  if (contractFailures.length === 0) {
+    return;
+  }
+
+  const firstReason = contractFailures[0]?.reason;
+  const error = firstReason instanceof Error
+    ? firstReason
+    : new Error("Public alert sync contract failed");
+  errorLog("[Alerts] Public alert sync contract failed", error, {
+    failed_sources: contractFailures.map(({ source }) => source),
+    failure_count: contractFailures.length,
+  });
+};
 
 /**
  * Get filtered alerts by category
@@ -36,7 +65,10 @@ export async function getAlerts(
   params?: AlertFilterParams
 ): Promise<ApiResponse<GeneralAlert[]>> {
   try {
-    const { alerts, allFailed } = await syncPublicAlerts(params?.category);
+    const { alerts, allFailed, failures } = await syncPublicAlerts(
+      params?.category,
+    );
+    captureAlertContractFailures(failures);
 
     if (!allFailed || alerts.length > 0) {
       return {
@@ -46,16 +78,15 @@ export async function getAlerts(
       };
     }
 
-    throw new Error("All public alert sources failed without cached data");
+    // External sites being offline, blocked, or returning an HTTP error is an
+    // expected degraded state. The source layer already left a breadcrumb;
+    // return the fallback result without opening another Sentry issue.
+    return failedAlertsResponse();
   } catch (error) {
-    errorLog("[Alerts] Failed to fetch alerts from external sources", error);
-    return {
-      success: false,
-      error: {
-        code: "FETCH_FAILED",
-        message: "공지사항을 불러오는데 실패했습니다.",
-      },
-    };
+    // Cache/storage orchestration failures bypass the per-source allSettled
+    // result, so this boundary is their single capture owner.
+    errorLog("[Alerts] Failed to synchronize public alerts", error);
+    return failedAlertsResponse();
   }
 }
 

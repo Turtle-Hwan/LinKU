@@ -3,7 +3,9 @@ import type {
   GeneralAlert,
   RSSAlertCategory,
 } from "@/types/api";
-import { warnLog } from "@/utils/logger";
+import { recordBreadcrumb } from "@/monitoring";
+import { getErrorLogDetails, warnLogOnly } from "@/utils/logger";
+import { isExpectedNetworkFailure } from "@/utils/networkFailure";
 import {
   getAlertsFromRSSPage,
   RSS_ALERT_PAGE_SIZE,
@@ -35,10 +37,87 @@ interface CachedAlertSource {
   syncAnchorKeys: string[];
 }
 
-const fetchPublicAlertPage = (source: AlertCategory, page: number) =>
-  source === "취창업"
-    ? getCareerAlertsPage(page)
-    : getAlertsFromRSSPage(source as RSSAlertCategory, page);
+export type PublicAlertFailureKind =
+  | "external_unavailable"
+  | "sync_contract";
+
+export interface PublicAlertSyncFailure {
+  source: AlertCategory;
+  kind: PublicAlertFailureKind;
+  reason: unknown;
+}
+
+const EXTERNAL_HTTP_FAILURE_PATTERN =
+  /^(?:RSS|HTML) fetch failed(?: for [^:]+)?: \d{3}$/u;
+
+/** @internal Exported for focused regression tests. */
+export const classifyPublicAlertFailure = (
+  error: unknown,
+): PublicAlertFailureKind => {
+  if (isExpectedNetworkFailure(error)) {
+    return "external_unavailable";
+  }
+
+  return error instanceof Error &&
+    EXTERNAL_HTTP_FAILURE_PATTERN.test(error.message)
+    ? "external_unavailable"
+    : "sync_contract";
+};
+
+const isUsablePublicAlert = (
+  alert: GeneralAlert,
+  source: AlertCategory,
+) => {
+  if (
+    alert.category !== source ||
+    !Number.isFinite(alert.alertId) ||
+    !alert.title.trim() ||
+    !alert.url ||
+    Number.isNaN(Date.parse(alert.publishedAt))
+  ) {
+    return false;
+  }
+
+  try {
+    const url = new URL(alert.url);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+};
+
+const fetchPublicAlertPage = async (
+  source: AlertCategory,
+  page: number,
+) => {
+  const pageItems = source === "취창업"
+    ? await getCareerAlertsPage(page)
+    : await getAlertsFromRSSPage(source as RSSAlertCategory, page);
+  const usableItems = pageItems.filter((alert) =>
+    isUsablePublicAlert(alert, source)
+  );
+  const malformedCount = pageItems.length - usableItems.length;
+
+  if (malformedCount > 0) {
+    recordBreadcrumb("alerts.parse", "malformed public alerts skipped", {
+      source,
+      page,
+      malformed_count: malformedCount,
+    }, "warning");
+    warnLogOnly(
+      `[Alerts] Skipped ${malformedCount} malformed ${source} alerts`,
+    );
+  }
+
+  // A successful first-page response with no usable notices is commonly a
+  // WAF/login/error page returned with HTTP 200. Never replace a healthy cache
+  // with that response.
+  if (page === 1 && usableItems.length === 0) {
+    throw new Error(`Alert source returned no usable items for ${source}`);
+  }
+
+  return usableItems;
+};
 
 const getPageSize = (source: AlertCategory) =>
   source === "취창업" ? CAREER_ALERT_PAGE_SIZE : RSS_ALERT_PAGE_SIZE;
@@ -247,10 +326,27 @@ export const syncPublicAlerts = async (
     sources.map(syncPublicAlertSource),
   );
 
-  results.forEach((result, index) => {
-    if (result.status === "rejected") {
-      warnLog(`Failed to refresh ${sources[index]} alert cache`, result.reason);
+  const failures = results.flatMap<PublicAlertSyncFailure>((result, index) => {
+    if (result.status !== "rejected") {
+      return [];
     }
+
+    const source = sources[index];
+    if (!source) {
+      return [];
+    }
+    const kind = classifyPublicAlertFailure(result.reason);
+    recordBreadcrumb("alerts.sync", "public alert source refresh failed", {
+      source,
+      failure_kind: kind,
+      error: getErrorLogDetails(result.reason),
+    }, "warning");
+    warnLogOnly(
+      `[Alerts] Failed to refresh ${source} alert cache`,
+      getErrorLogDetails(result.reason),
+    );
+
+    return [{ source, kind, reason: result.reason }];
   });
 
   const alerts = await getCachedPublicAlerts(category);
@@ -259,5 +355,6 @@ export const syncPublicAlerts = async (
   return {
     alerts,
     allFailed,
+    failures,
   };
 };
