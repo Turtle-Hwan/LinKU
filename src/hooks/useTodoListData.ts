@@ -81,14 +81,15 @@ export function useTodoListData() {
     setECampusTodos(todos);
   }, []);
 
-  const loadAndStoreCustomTodos = useCallback(async () => {
+  const loadAndStoreCustomTodos = useCallback(async (): Promise<boolean> => {
     try {
       const todos = await getCustomTodos();
       setCustomTodos(todos);
-      return todos;
+      return true;
     } catch (error) {
       errorLog("Error loading custom todos:", error);
-      return [];
+      setCustomTodos([]);
+      return false;
     }
   }, []);
 
@@ -151,8 +152,12 @@ export function useTodoListData() {
     setIsLoading(true);
 
     try {
-      await loadAndStoreCustomTodos();
-      await syncTodoCountAfterCustomChange();
+      const customTodosLoaded = await loadAndStoreCustomTodos();
+      if (customTodosLoaded) {
+        await syncTodoCountAfterCustomChange();
+      }
+    } catch (error) {
+      errorLog("Error syncing custom todo count:", error);
     } finally {
       setIsLoading(false);
     }
@@ -191,8 +196,10 @@ export function useTodoListData() {
   ]);
 
   const refreshCustomTodos = useCallback(async () => {
-    await loadAndStoreCustomTodos();
-    await syncTodoCountAfterCustomChange();
+    const customTodosLoaded = await loadAndStoreCustomTodos();
+    if (customTodosLoaded) {
+      await syncTodoCountAfterCustomChange();
+    }
   }, [loadAndStoreCustomTodos]);
 
   const handleLoginSuccess = useCallback(async (
@@ -265,7 +272,9 @@ export function useTodoListData() {
   );
 
   const handleTodoAdded = useCallback(() => {
-    void refreshCustomTodos();
+    void refreshCustomTodos().catch((error) => {
+      errorLog("Failed to refresh custom todos after add:", error);
+    });
   }, [refreshCustomTodos]);
 
   const handleTodoItemClick = useCallback(
