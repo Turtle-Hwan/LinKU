@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 gh-pages
+playwright-report
+test-results
 *.local
 
 # Environment variables
