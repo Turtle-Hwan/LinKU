@@ -125,6 +125,40 @@ function reportBackgroundException(
   });
 }
 
+interface AsyncMessageHandlerOptions<Response> {
+  feature: string;
+  messageType: string;
+  failureLog: string;
+  handle: () => Promise<Response>;
+  respond: (response: Response) => void;
+  fallback: (error: unknown) => Response;
+  extras?: Record<string, unknown>;
+}
+
+function runAsyncMessageHandler<Response>({
+  feature,
+  messageType,
+  failureLog,
+  handle,
+  respond,
+  fallback,
+  extras,
+}: AsyncMessageHandlerOptions<Response>): true {
+  void Promise.resolve()
+    .then(handle)
+    .then(respond)
+    .catch((error: unknown) => {
+      reportBackgroundException(error, feature, {
+        message_type: messageType,
+        ...extras,
+      });
+      warnLogOnly(failureLog, error);
+      respond(fallback(error));
+    });
+
+  return true;
+}
+
 async function restrictLocalStorageAccess(): Promise<void> {
   if (typeof chrome.storage.local.setAccessLevel !== "function") {
     recordBreadcrumb(
@@ -193,31 +227,24 @@ chrome.runtime.onMessage.addListener(
       if (isGoogleLoginMessage(typedMessage)) {
         debugLog("[Background] Handling Google login request");
 
-        // Handle async OAuth flow
-        handleGoogleLogin()
-          .then((response: GoogleLoginResponse) => {
+        return runAsyncMessageHandler<GoogleLoginResponse>({
+          feature: "oauth",
+          messageType,
+          failureLog: "[Background] OAuth handler error",
+          handle: async () => {
+            const response = await handleGoogleLogin();
             debugLog("[Background] Sending OAuth response to popup");
-            respond(response);
-          })
-          .catch((error: unknown) => {
-            reportBackgroundException(error, "oauth", {
-              message_type: messageType,
-            });
-            warnLogOnly(
-              "[Background] OAuth handler error",
-              getErrorLogDetails(error),
-            );
-            respond({
+            return response;
+          },
+          respond,
+          fallback: (error) => ({
               success: false,
               error: getUserFacingErrorMessage(
                 error,
                 "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.",
               ),
-            });
-          });
-
-        // Return true to indicate async response
-        return true;
+          }),
+        });
       }
 
       // Handle Silent Reauth (when token expires - 5004 error)
@@ -226,74 +253,65 @@ chrome.runtime.onMessage.addListener(
           "[Background] Handling silent reauth request (token expired)",
         );
 
-        // Reuse Google OAuth flow for silent reauth
-        handleGoogleLogin()
-          .then((response: GoogleLoginResponse) => {
+        return runAsyncMessageHandler<SilentReauthResponse>({
+          feature: "silent_reauth",
+          messageType,
+          failureLog: "[Background] Silent reauth error",
+          handle: async () => {
+            const response = await handleGoogleLogin();
             debugLog(
               "[Background] Silent reauth completed:",
               response.success,
             );
-            const reauthResponse: SilentReauthResponse = {
+            return {
               success: response.success,
               error: response.success
                 ? undefined
                 : (response as { error?: string }).error,
             };
-            respond(reauthResponse);
-          })
-          .catch((error: unknown) => {
-            reportBackgroundException(error, "silent_reauth", {
-              message_type: messageType,
-            });
-            warnLogOnly(
-              "[Background] Silent reauth error",
-              getErrorLogDetails(error),
-            );
-            respond({
-              success: false,
-              error: getUserFacingErrorMessage(
-                error,
-                "재인증에 실패했습니다. 다시 로그인해주세요.",
-              ),
-            } as SilentReauthResponse);
-          });
-
-        return true;
+          },
+          respond,
+          fallback: (error) => ({
+            success: false,
+            error: getUserFacingErrorMessage(
+              error,
+              "재인증에 실패했습니다. 다시 로그인해주세요.",
+            ),
+          }),
+        });
       }
 
       if (isTimetableImportMessage(typedMessage)) {
-        handleTimetableImport(typedMessage.data?.mode)
-          .then((response: TimetableImportResponse) => {
-            respond(response);
-          })
-          .catch((error: unknown) => {
-            reportBackgroundException(error, "timetable_import", {
-              message_type: messageType,
-            });
-            warnLogOnly(
-              "[Background] Timetable import handler error",
-              getErrorLogDetails(error),
-            );
-            respond({
+        return runAsyncMessageHandler<TimetableImportResponse>({
+          feature: "timetable_import",
+          messageType,
+          failureLog: "[Background] Timetable import handler error",
+          handle: () => handleTimetableImport(typedMessage.data?.mode),
+          respond,
+          fallback: (error) => ({
               success: false,
               code: "UNKNOWN",
               error: getUserFacingErrorMessage(
                 error,
                 "시간표를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
               ),
-            } satisfies TimetableImportResponse);
-          });
-
-        return true;
+          }),
+        });
       }
 
       if (isAnalyticsBatchMessage(typedMessage)) {
         const eventCount = typedMessage.data.payload.events.length;
-        deliverAnalyticsPayload(
-          typedMessage.data.payload,
-          analyticsTransportConfig,
-        )
-          .then((response: AnalyticsTransportResponse) => {
+
+        return runAsyncMessageHandler<AnalyticsTransportResponse>({
+          feature: "analytics_transport",
+          messageType,
+          failureLog: "[Background] Analytics transport error",
+          extras: { event_count: eventCount },
+          handle: async () => {
+            const response = await deliverAnalyticsPayload(
+              typedMessage.data.payload,
+              analyticsTransportConfig,
+            );
             if (response.success) {
               debugLog("[GA] Batch delivered", {
                 eventCount,
@@ -303,19 +321,14 @@ chrome.runtime.onMessage.addListener(
             } else {
               recordAnalyticsTransportFailure(response, eventCount);
             }
-            respond(response);
-          })
-          .catch((error: unknown) => {
-            reportBackgroundException(error, "analytics_transport", {
-              event_count: eventCount,
-            });
-            respond({
-              success: false,
-              failureKind: "unknown",
-            } satisfies AnalyticsTransportResponse);
-          });
-
-        return true;
+            return response;
+          },
+          respond,
+          fallback: () => ({
+            success: false,
+            failureKind: "unknown",
+          }),
+        });
       }
 
       // Unknown message type
