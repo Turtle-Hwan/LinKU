@@ -73,7 +73,7 @@ try {
   const combinedBundle = javascriptSources.join("\n");
   assert.ok(combinedBundle.includes(TEST_RELEASE), "bundle has no release");
   assert.ok(combinedBundle.includes("production"), "bundle has no environment");
-  assert.ok(combinedBundle.includes("example.invalid"), "bundle has no test DSN");
+  assert.ok(combinedBundle.includes(TEST_DSN), "bundle has no test DSN");
 
   const backgroundSource = await readFile(
     join(outputDir, "background/index.js"),
