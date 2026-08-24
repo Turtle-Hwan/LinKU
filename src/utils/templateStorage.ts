@@ -36,6 +36,7 @@ import {
 } from "@/storage/templateRecord";
 import {
   assertTemplateBackupSize,
+  isTemplateBackupValidationError,
   parseTemplateBackup,
   prepareRestoredTemplate,
   selectReferencedBackupAssets,
@@ -43,7 +44,8 @@ import {
   type TemplateBackupV1,
 } from "@/storage/templateBackup";
 import type { Template, TemplateItem } from "@/types/api";
-import { debugLog, errorLog, warnLog } from "@/utils/logger";
+import { debugLog, errorLog, warnLog, warnLogOnly } from "@/utils/logger";
+import { recordBreadcrumb } from "@/monitoring";
 import { portablePayloadToTemplate } from "@/utils/templateShare";
 import {
   validateTemplateSharePayload,
@@ -89,7 +91,6 @@ async function ensureMigration(): Promise<void> {
   } catch (error) {
     if (migrationPromise === migration) {
       migrationPromise = undefined;
-      errorLog("Legacy template migration failed", error);
     }
     throw error;
   }
@@ -128,7 +129,15 @@ async function readRecord(at: RecordLocation): Promise<StoredTemplate | null> {
     return null;
   }
 
-  const { stored, changed } = await repairTemplateIcons(result.value);
+  const { stored, changed, registrationFailures } =
+    await repairTemplateIcons(result.value);
+  if (registrationFailures.length > 0) {
+    errorLog(
+      "Failed to register inline template icons",
+      registrationFailures[0].error,
+      { failed_registrations: registrationFailures.length },
+    );
+  }
   if (result.repairs.length > 0 || changed) {
     debugLog(`Repaired a stored ${at.store} record`, {
       at,
@@ -231,17 +240,14 @@ export async function importTemplateCopy(
 
   // Icons are registered before the template is written so imported items are
   // editable the first time the user opens them.
-  const repaired = await repairTemplateIcons(
-    {
-      template,
-      stagingItems,
-      metadata: { lastSaved: Date.now(), savedLocally: true },
-    },
-    { reportRegistrationFailures: false },
-  );
-  if (repaired.failedRegistrations > 0) {
+  const repaired = await repairTemplateIcons({
+    template,
+    stagingItems,
+    metadata: { lastSaved: Date.now(), savedLocally: true },
+  });
+  if (repaired.registrationFailures.length > 0) {
     throw toStorageError(
-      repaired.firstRegistrationError,
+      repaired.registrationFailures[0].error,
       "템플릿의 사용자 아이콘을 저장하지 못했습니다.",
     );
   }
@@ -331,7 +337,18 @@ export async function restoreTemplateBackup(
 
   const restoredAssets = new Map<string, RestoredAssetReference>();
   let failedAssets = 0;
-  let firstAssetError: unknown;
+  let validationFailedAssets = 0;
+  let unexpectedFailedAssets = 0;
+  let firstUnexpectedAssetError: unknown;
+  const trackAssetFailure = (error: unknown) => {
+    failedAssets += 1;
+    if (isTemplateBackupValidationError(error)) {
+      validationFailedAssets += 1;
+      return;
+    }
+    unexpectedFailedAssets += 1;
+    firstUnexpectedAssetError ??= error;
+  };
   for (const asset of backup.assets ?? []) {
     try {
       const restored = await restoreAssetFromDataUrl(asset.name, asset.dataUrl);
@@ -341,8 +358,7 @@ export async function restoreTemplateBackup(
         dataUrl: restored.dataUrl,
       });
     } catch (error) {
-      failedAssets += 1;
-      firstAssetError ??= error;
+      trackAssetFailure(error);
     }
   }
 
@@ -362,11 +378,10 @@ export async function restoreTemplateBackup(
     try {
       // A backup may omit an asset that is still embedded in a template. The
       // normal repair path registers it before the record becomes visible.
-      const repaired = await repairTemplateIcons(prepared, {
-        reportRegistrationFailures: false,
+      const repaired = await repairTemplateIcons(prepared);
+      repaired.registrationFailures.forEach(({ error }) => {
+        trackAssetFailure(error);
       });
-      failedAssets += repaired.failedRegistrations;
-      firstAssetError ??= repaired.firstRegistrationError;
       await saveLocalTemplate(
         repaired.stored.template,
         repaired.stored.stagingItems,
@@ -378,9 +393,20 @@ export async function restoreTemplateBackup(
     }
   }
 
-  if (failedAssets > 0) {
-    errorLog("Failed to restore backed up icons", firstAssetError, {
-      failed_assets: failedAssets,
+  if (validationFailedAssets > 0) {
+    recordBreadcrumb(
+      "template.validation",
+      "skipped invalid backed up icons",
+      { failed_assets: validationFailedAssets },
+      "warning",
+    );
+    warnLogOnly("Skipped invalid backed up icons", {
+      failed_assets: validationFailedAssets,
+    });
+  }
+  if (unexpectedFailedAssets > 0) {
+    errorLog("Failed to restore backed up icons", firstUnexpectedAssetError, {
+      failed_assets: unexpectedFailedAssets,
     });
   }
   if (firstTemplateError !== undefined) {

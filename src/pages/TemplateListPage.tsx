@@ -36,6 +36,7 @@ import {
 import {
   createTemplateShareUrl,
   downloadTemplatePayload,
+  isTemplateShareValidationError,
   MAX_SHARE_FILE_BYTES,
   validateTemplateSharePayload,
 } from '@/utils/templateShare';
@@ -70,7 +71,10 @@ function toSummary(template: Template): TemplateSummary {
 }
 
 function reportTemplateOperationFailure(message: string, error: unknown) {
-  if (isTemplateBackupValidationError(error)) {
+  if (
+    isTemplateBackupValidationError(error) ||
+    isTemplateShareValidationError(error)
+  ) {
     recordBreadcrumb(
       'template.validation',
       message,
@@ -206,7 +210,15 @@ export const TemplateListPage = () => {
         selectedTemplateId === template.templateId &&
         !(await selectTemplate(null))
       ) {
-        throw new Error('선택 상태를 해제하지 못했습니다.');
+        // selectTemplate owns and reports its chrome.storage failure. Throwing
+        // a new wrapper here would create a second Sentry issue without the
+        // original error details.
+        toast({
+          title: '삭제 실패',
+          description: '템플릿 선택 상태를 해제하지 못했습니다.',
+          variant: 'destructive',
+        });
+        return;
       }
       await deleteLocalTemplate(template.templateId);
       setTemplates((current) =>
@@ -296,7 +308,10 @@ export const TemplateListPage = () => {
           description: `“${imported.template.name}”을 이 기기에 저장했습니다.`,
         });
       } catch (error) {
-        errorLog('Failed to store an imported template', error);
+        reportTemplateOperationFailure(
+          'Failed to store an imported template',
+          error,
+        );
         toast({
           title: '가져오기 실패',
           description:

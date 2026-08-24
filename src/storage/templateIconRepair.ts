@@ -13,7 +13,24 @@ import {
   getBundledTemplateIcons,
 } from "@/constants/templateIcons";
 import type { TemplateItem } from "@/types/api";
-import { errorLog } from "@/utils/logger";
+
+export interface TemplateIconRegistrationFailure {
+  area: "template" | "staging";
+  itemIndex: number;
+  itemName: string;
+  error: unknown;
+}
+
+export interface TemplateIconRepairResult {
+  stored: StoredTemplate;
+  changed: boolean;
+  registrationFailures: TemplateIconRegistrationFailure[];
+}
+
+interface TemplateIconRepairDependencies {
+  getAssetByNumericId: typeof getAssetByNumericId;
+  saveAssetFromDataUrl: typeof saveAssetFromDataUrl;
+}
 
 /**
  * Re-registers inline images and updates stale bundled references so every
@@ -21,16 +38,13 @@ import { errorLog } from "@/utils/logger";
  */
 export async function repairTemplateIcons(
   stored: StoredTemplate,
-  options: { reportRegistrationFailures?: boolean } = {},
-): Promise<{
-  stored: StoredTemplate;
-  changed: boolean;
-  failedRegistrations: number;
-  firstRegistrationError?: unknown;
-}> {
+  dependencies: Partial<TemplateIconRepairDependencies> = {},
+): Promise<TemplateIconRepairResult> {
   let changed = false;
-  let failedRegistrations = 0;
-  let firstRegistrationError: unknown;
+  const registrationFailures: TemplateIconRegistrationFailure[] = [];
+  const loadAsset = dependencies.getAssetByNumericId ?? getAssetByNumericId;
+  const saveAsset =
+    dependencies.saveAssetFromDataUrl ?? saveAssetFromDataUrl;
   const bundledIcons = getBundledTemplateIcons();
   const fallbackIcon = bundledIcons.find(
     (icon) => icon.name === GENERIC_LINK_ICON_NAME,
@@ -39,9 +53,12 @@ export async function repairTemplateIcons(
     throw new Error("기본 링크 아이콘을 찾을 수 없습니다.");
   }
 
-  const repairItems = async (items: TemplateItem[]): Promise<TemplateItem[]> => {
+  const repairItems = async (
+    items: TemplateItem[],
+    area: TemplateIconRegistrationFailure["area"],
+  ): Promise<TemplateItem[]> => {
     const repaired: TemplateItem[] = [];
-    for (const item of items) {
+    for (const [itemIndex, item] of items.entries()) {
       const { iconId, iconUrl, iconName } = item.icon;
       const bundledIcon = resolveBundledIconReference(item.icon, bundledIcons);
       if (bundledIcon) {
@@ -87,7 +104,7 @@ export async function repairTemplateIcons(
       }
 
       if (iconId > 0) {
-        const existing = await getAssetByNumericId(iconId);
+        const existing = await loadAsset(iconId);
         if (existing?.dataUrl === iconUrl) {
           repaired.push(item);
           continue;
@@ -95,7 +112,7 @@ export async function repairTemplateIcons(
       }
 
       try {
-        const asset = await saveAssetFromDataUrl(iconName || item.name, iconUrl);
+        const asset = await saveAsset(iconName || item.name, iconUrl);
         changed = true;
         repaired.push({
           ...item,
@@ -106,17 +123,16 @@ export async function repairTemplateIcons(
           },
         });
       } catch (error) {
-        failedRegistrations += 1;
-        firstRegistrationError ??= error;
-        changed = true;
-        repaired.push({
-          ...item,
-          icon: {
-            iconId: fallbackIcon.id,
-            iconName: fallbackIcon.name,
-            iconUrl: fallbackIcon.imageUrl,
-          },
+        registrationFailures.push({
+          area,
+          itemIndex,
+          itemName: item.name,
+          error,
         });
+        // This inline image may be the user's only copy. A fallback is useful
+        // for rendering, but persisting one here would destroy the recoverable
+        // original after a transient storage or browser failure.
+        repaired.push(item);
       }
     }
     return repaired;
@@ -124,25 +140,13 @@ export async function repairTemplateIcons(
 
   const template = {
     ...stored.template,
-    items: await repairItems(stored.template.items),
+    items: await repairItems(stored.template.items, "template"),
   };
-  const stagingItems = await repairItems(stored.stagingItems);
-
-  if (
-    failedRegistrations > 0 &&
-    options.reportRegistrationFailures !== false
-  ) {
-    errorLog(
-      "Failed to register inline template icons",
-      firstRegistrationError,
-      { failed_registrations: failedRegistrations },
-    );
-  }
+  const stagingItems = await repairItems(stored.stagingItems, "staging");
 
   return {
     stored: changed ? { ...stored, template, stagingItems } : stored,
     changed,
-    failedRegistrations,
-    firstRegistrationError,
+    registrationFailures,
   };
 }
