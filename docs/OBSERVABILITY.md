@@ -5,8 +5,8 @@ LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝�
 - popup: React Error Boundary와 전역 브라우저 오류
 - background: 전역 오류·unhandled rejection, OAuth, silent reauth, 시간표 import, pending tab, badge, service worker lifecycle
 - content: 전역 오류·unhandled rejection, Everytime 입력 검증·DOM/API 처리·message 응답 실패
-- API/Chrome bridge: 모든 non-2xx 응답, 네트워크·응답 파싱·토큰 정리, storage/tab/script injection 실패
-- handled application errors: 공통 `errorLog`와 주요 UI fallback 경로
+- API/Chrome bridge: 5xx·정상 응답 계약 위반, 토큰 정리, storage/tab/script injection 실패
+- handled application errors: 명시적 `captureErrorLog`/`captureWarnLog` owner와 주요 UI fallback 경로
 
 GitHub Pages의 share viewer는 이 범위에서 의도적으로 제외합니다. 해당 페이지는
 `connect-src 'none'` CSP로 template fragment가 어떤 원격 collector에도 전송되지
@@ -39,9 +39,10 @@ API, Chrome bridge, background, content처럼 기본 category와 mechanism이 �
 호출부마다 달라지지 않습니다.
 
 예상 가능한 도메인 실패만 `UserFacingError`로 표시합니다. runtime 경계에서는 이 타입의
-문구만 사용자 응답에 사용하고, 그 밖의 예외는 기능별 고정 fallback을 반환합니다. 원본
-오류는 `reportError`로 계속 수집하므로 디버깅 정보와 사용자 안전 문구가 서로 섞이지
-않습니다.
+문구만 사용자 응답에 사용하고, 그 밖의 예외는 기능별 고정 fallback을 반환합니다. 파일
+크기·형식, 로그인 취소, 오프라인처럼 사용자가 해결하거나 재시도할 수 있는 결과는 toast와
+breadcrumb만 남기고 issue로 만들지 않습니다. 같은 경계의 예상 밖 runtime·storage 오류만
+원본 `Error`를 한 번 수집합니다.
 
 ## 런타임 정책
 
@@ -63,21 +64,23 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 - GA offline·tracker 차단·timeout·HTTP 실패는 제품 오류와 분리해 Sentry issue로 만들지
   않고 background transport breadcrumb로만 남김
 
-처리된 오류도 누락하지 않도록 `errorLog`는 console 출력과 함께 handled Sentry exception을
-기록하고, `warnLog`도 같은 경로로 `warning` level exception을 기록합니다. 경고는 실패했지만
-흡수된 경로를 뜻하므로, 사용자에게 toast나 축소된 결과가 보이는데 수집에는 아무 흔적이 남지
-않던 구간이 바로 여기였습니다. `debugLog`와 `infoLog`는 계속 console 전용입니다.
+일반 `errorLog`와 `warnLog`는 console 전용입니다. 처리된 오류를 Sentry가 소유해야 하는
+최종 경계만 `captureErrorLog` 또는 `captureWarnLog`를 명시적으로 호출합니다. 이 이름 구분은
+하위 함수가 로그를 남긴 뒤 다시 throw하여 같은 오류가 여러 issue가 되는 일을 막습니다.
+`debugLog`와 `infoLog`도 console 전용입니다.
 
 하위 저장소 함수가 오류를 다시 throw할 때는 그 자리에서 중복 수집하지 않습니다. toast나
 fallback으로 실패를 최종 처리하는 UI·runtime 경계가 원본 오류를 한 번 기록하고, 내부에서
 실패를 흡수해 계속 진행하는 repair·migration 경로만 저장소 안에서 직접 기록합니다.
 
-실패를 예외가 아니라 `{ success: false, code }`로 돌려주는 경로도 수집합니다. 시간표 import는
-결과 코드를 tag로 붙여 warning으로 기록하므로, LOGIN_REQUIRED·TAB_UNAVAILABLE·
-TIMETABLE_NOT_FOUND·NO_PREVIOUS_SEMESTERS의 분포를 실제 데이터로 볼 수 있습니다. 응답 원문·request body·토큰·쿠키는 수집하지 않고, API 오류는 endpoint path,
-HTTP method/status, error code, response shape와 직전 breadcrumbs로 재현에 필요한 맥락을
-남깁니다. background/content의 `runtime.sendResponse`는 one-shot responder로 감싸 중복
-응답과 채널 종료 오류도 별도 기록합니다.
+실패를 예외가 아니라 `{ success: false, code }`로 돌려주는 정상 결과는 breadcrumb로만
+남깁니다. 시간표의 LOGIN_REQUIRED·TAB_UNAVAILABLE·TIMETABLE_NOT_FOUND·
+NO_PREVIOUS_SEMESTERS와 LinKU API 4xx·token 만료는 issue가 아닙니다. 실제 exception과 5xx,
+2xx 응답 계약 위반만 최종 경계가 한 번 수집합니다. 응답 원문·request body·토큰·쿠키는
+수집하지 않고, API 오류는 endpoint path, HTTP method/status, error code, response shape와
+직전 breadcrumbs로 재현에 필요한 맥락을 남깁니다. background/content의
+`runtime.sendResponse`는 one-shot responder로 감싸 중복 응답과 채널 종료 오류를 별도
+기록합니다.
 
 content script는 Chrome의 standalone classic-script 계약을 지키기 위해 별도 단일-entry
 IIFE로 빌드합니다. `pnpm run build:local`과 release workflow는 일반 확장 번들과 content
@@ -141,10 +144,11 @@ runtime을 각각 한 번 발생시키고, Sentry `linku` 프로젝트에서 run
 
 1. Sentry project의 Errors에 이벤트가 보임
 2. 각 이벤트의 release가 `linku@<version>`으로 연결됨
-3. stack trace가 원본 TypeScript/TSX 위치로 symbolicate됨
-4. event에 access/refresh token, cookie, authorization header, email이 없음
-5. Chrome Web Store용 zip에 `.map` 파일이 없음
+3. `linku_distribution`이 Web Store와 unpacked를 올바르게 구분함
+4. stack trace가 원본 TypeScript/TSX 위치로 symbolicate됨
+5. event에 access/refresh token, cookie, authorization header, email이 없음
+6. Chrome Web Store용 zip에 `.map` 파일이 없음
 
-Sentry 프로젝트에 이벤트가 보이지 않는 현재 상태는 SDK 코드만으로는 해결되지 않습니다.
-DSN과 release-upload credential을 설정한 뒤 위 수집 확인을 한 번 수행해야 실제 운영
-수집을 증명할 수 있습니다.
+bundle envelope 테스트와 source map 업로드 성공은 구조 증빙일 뿐, 새 Web Store release의
+원본 TypeScript/TSX symbolication 증빙은 아닙니다. release를 실제 배포한 뒤 그 release에서
+발생시킨 smoke event로 위 항목을 다시 확인해야 운영 수집을 완료로 판정합니다.
