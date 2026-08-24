@@ -2,6 +2,7 @@ import {
   TIMETABLE_IMAGE_MIME_TYPES,
   type TimetableImageMimeType,
 } from "../../../types/timetable.ts";
+import { UserFacingError } from "../../../errors/userFacingError.ts";
 
 const BYTES_PER_MEBIBYTE = 1024 * 1024;
 const MAX_TIMETABLE_IMAGE_SIZE_MB = 5;
@@ -44,6 +45,18 @@ export interface TimetableImage {
   blob: Blob;
   width: number;
   height: number;
+}
+
+export class TimetableImageValidationError extends UserFacingError {
+  readonly cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
+    super(message, "TIMETABLE_IMAGE_INVALID");
+    this.name = "TimetableImageValidationError";
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
+  }
 }
 
 function startsWithBytes(
@@ -113,8 +126,11 @@ export function detectImageMimeType(
 async function decodeImage(blob: Blob): Promise<ImageBitmap> {
   try {
     return await createImageBitmap(blob);
-  } catch {
-    throw new Error("손상되었거나 브라우저에서 읽을 수 없는 이미지입니다.");
+  } catch (error) {
+    throw new TimetableImageValidationError(
+      "손상되었거나 브라우저에서 읽을 수 없는 이미지입니다.",
+      error,
+    );
   }
 }
 
@@ -122,7 +138,7 @@ export async function readTimetableImage(
   file: File,
 ): Promise<TimetableImage> {
   if (file.size > TIMETABLE_IMAGE_REQUIREMENTS.maxByteSize) {
-    throw new Error(
+    throw new TimetableImageValidationError(
       `${TIMETABLE_IMAGE_REQUIREMENTS.maxSizeLabel} 이하 이미지를 올려주세요.`,
     );
   }
@@ -133,7 +149,7 @@ export async function readTimetableImage(
   const mimeType = detectImageMimeType(bytes);
 
   if (!mimeType) {
-    throw new Error(
+    throw new TimetableImageValidationError(
       `${TIMETABLE_IMAGE_REQUIREMENTS.supportedFormatLabel} 형식의 이미지를 올려주세요.`,
     );
   }
@@ -153,14 +169,18 @@ export async function readTimetableImage(
       minWidth,
     } = TIMETABLE_IMAGE_REQUIREMENTS;
     if (bitmap.width < minWidth || bitmap.height < minHeight) {
-      throw new Error("시간표를 확인할 수 있는 크기의 이미지를 올려주세요.");
+      throw new TimetableImageValidationError(
+        "시간표를 확인할 수 있는 크기의 이미지를 올려주세요.",
+      );
     }
     if (
       bitmap.width > maxWidth ||
       bitmap.height > maxHeight ||
       bitmap.width * bitmap.height > maxPixelCount
     ) {
-      throw new Error("해상도가 너무 큰 이미지입니다. 더 작은 이미지를 올려주세요.");
+      throw new TimetableImageValidationError(
+        "해상도가 너무 큰 이미지입니다. 더 작은 이미지를 올려주세요.",
+      );
     }
 
     return {
