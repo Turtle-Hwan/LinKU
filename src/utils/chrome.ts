@@ -1,4 +1,3 @@
-import { getErrorLogDetails, warnLogOnly } from '@/utils/logger';
 import {
   createErrorReporter,
   recordBreadcrumb,
@@ -23,6 +22,19 @@ function reportChromeFailure(
 
 function getStorageKeyCount(key: string | string[]): number {
   return Array.isArray(key) ? key.length : 1;
+}
+
+function createChromeRuntimeError(
+  lastError: chrome.runtime.LastError,
+  operation: string,
+): Error {
+  return Object.assign(
+    new Error(lastError.message ?? `Chrome ${operation} failed.`),
+    {
+      name: "ChromeRuntimeError",
+      cause: lastError,
+    },
+  );
 }
 
 export const getChromeApi = (): typeof chrome | undefined => {
@@ -77,70 +89,36 @@ export const updateTabUrl = (url: string) => {
 export const executeScript = async (tabId: number, func: () => void) => {
   const chromeApi = getChromeApi();
   if (!chromeApi?.scripting?.executeScript) {
-    const error = new Error("chrome.scripting is unavailable in this environment.");
-    reportChromeFailure(error, "execute_script_unavailable", { tab_id: tabId });
-    throw error;
+    throw new Error("chrome.scripting is unavailable in this environment.");
   }
 
-  try {
-    const result = await chromeApi.scripting.executeScript({
-      target: { tabId, allFrames: true },
-      func: func,
-    });
-    // debugLog("Injection Success", result);
-    recordBreadcrumb("chrome.api", "inline script executed", {
-      tab_id: tabId,
-      all_frames: true,
-    });
-    return result;
-  } catch (err) {
-    reportChromeFailure(err, "execute_script", {
-      tab_id: tabId,
-      all_frames: true,
-    });
-    warnLogOnly(
-      "[Chrome] Failed to execute inline script",
-      getErrorLogDetails(err),
-    );
-    throw err;
-  }
+  const result = await chromeApi.scripting.executeScript({
+    target: { tabId, allFrames: true },
+    func: func,
+  });
+  recordBreadcrumb("chrome.api", "inline script executed", {
+    tab_id: tabId,
+    all_frames: true,
+  });
+  return result;
 };
 
 export const executeScriptFile = async (tabId: number, files: string[]) => {
   const chromeApi = getChromeApi();
   if (!chromeApi?.scripting?.executeScript) {
-    const error = new Error("chrome.scripting is unavailable in this environment.");
-    reportChromeFailure(error, "execute_script_file_unavailable", {
-      tab_id: tabId,
-      file_count: files.length,
-    });
-    throw error;
+    throw new Error("chrome.scripting is unavailable in this environment.");
   }
 
-  try {
-    const result = await chromeApi.scripting.executeScript({
-      target: { tabId, allFrames: true },
-      files,
-    });
-    // debugLog("Injection Success", result);
-    recordBreadcrumb("chrome.api", "script file executed", {
-      tab_id: tabId,
-      file_count: files.length,
-      all_frames: true,
-    });
-    return result;
-  } catch (err) {
-    reportChromeFailure(err, "execute_script_file", {
-      tab_id: tabId,
-      file_count: files.length,
-      all_frames: true,
-    });
-    warnLogOnly(
-      "[Chrome] Failed to execute script file",
-      getErrorLogDetails(err),
-    );
-    throw err;
-  }
+  const result = await chromeApi.scripting.executeScript({
+    target: { tabId, allFrames: true },
+    files,
+  });
+  recordBreadcrumb("chrome.api", "script file executed", {
+    tab_id: tabId,
+    file_count: files.length,
+    all_frames: true,
+  });
+  return result;
 };
 
 // Chrome Storage API Promise 래퍼
@@ -152,26 +130,18 @@ export const getStorage = <T>(key: string): Promise<T | undefined> => {
       return;
     }
 
-    try {
-      chromeApi.storage.local.get(key, (data) => {
-        const lastError = chromeApi.runtime?.lastError;
-        if (lastError) {
-          reportChromeFailure(lastError, "storage_get", {
-            key_count: 1,
-          });
-          reject(lastError);
-          return;
-        }
+    chromeApi.storage.local.get(key, (data) => {
+      const lastError = chromeApi.runtime?.lastError;
+      if (lastError) {
+        reject(createChromeRuntimeError(lastError, "storage.get"));
+        return;
+      }
 
-        recordBreadcrumb("chrome.api", "storage value read", {
-          key_count: 1,
-        });
-        resolve(data?.[key] as T | undefined);
+      recordBreadcrumb("chrome.api", "storage value read", {
+        key_count: 1,
       });
-    } catch (error) {
-      reportChromeFailure(error, "storage_get", { key_count: 1 });
-      reject(error);
-    }
+      resolve(data?.[key] as T | undefined);
+    });
   });
 };
 
@@ -185,28 +155,18 @@ export const setStorage = <T extends Record<string, unknown>>(
       return;
     }
 
-    try {
-      chromeApi.storage.local.set(data, () => {
-        const lastError = chromeApi.runtime?.lastError;
-        if (lastError) {
-          reportChromeFailure(lastError, "storage_set", {
-            key_count: Object.keys(data).length,
-          });
-          reject(lastError);
-          return;
-        }
+    chromeApi.storage.local.set(data, () => {
+      const lastError = chromeApi.runtime?.lastError;
+      if (lastError) {
+        reject(createChromeRuntimeError(lastError, "storage.set"));
+        return;
+      }
 
-        recordBreadcrumb("chrome.api", "storage values written", {
-          key_count: Object.keys(data).length,
-        });
-        resolve();
-      });
-    } catch (error) {
-      reportChromeFailure(error, "storage_set", {
+      recordBreadcrumb("chrome.api", "storage values written", {
         key_count: Object.keys(data).length,
       });
-      reject(error);
-    }
+      resolve();
+    });
   });
 };
 
@@ -218,28 +178,18 @@ export const removeStorage = (key: string | string[]): Promise<void> => {
       return;
     }
 
-    try {
-      chromeApi.storage.local.remove(key, () => {
-        const lastError = chromeApi.runtime?.lastError;
-        if (lastError) {
-          reportChromeFailure(lastError, "storage_remove", {
-            key_count: getStorageKeyCount(key),
-          });
-          reject(lastError);
-          return;
-        }
+    chromeApi.storage.local.remove(key, () => {
+      const lastError = chromeApi.runtime?.lastError;
+      if (lastError) {
+        reject(createChromeRuntimeError(lastError, "storage.remove"));
+        return;
+      }
 
-        recordBreadcrumb("chrome.api", "storage values removed", {
-          key_count: getStorageKeyCount(key),
-        });
-        resolve();
-      });
-    } catch (error) {
-      reportChromeFailure(error, "storage_remove", {
+      recordBreadcrumb("chrome.api", "storage values removed", {
         key_count: getStorageKeyCount(key),
       });
-      reject(error);
-    }
+      resolve();
+    });
   });
 };
 
