@@ -103,6 +103,35 @@ test("대기 가져오기는 각 저장 직후 큐를 체크포인트한다", as
   assert.deepEqual(stored, [second]);
 });
 
+test("복구 불가능한 validation 실패는 제거하고 일시적 실패만 유지한다", async () => {
+  const invalid = payload("손상된 요청");
+  const transient = payload("다시 시도할 요청");
+  let stored: TemplateSharePayloadV1[] | undefined = [invalid, transient];
+  const storage = {
+    set: async (values: Record<string, unknown>) => {
+      stored = values[STORAGE_KEY] as TemplateSharePayloadV1[];
+    },
+    remove: async () => {
+      stored = undefined;
+    },
+  };
+
+  const result = await consumeCheckpointedQueue(
+    stored,
+    async (entry) => {
+      throw new Error(entry === invalid ? "validation" : "transient");
+    },
+    (queue) => writeCheckpointedQueue(storage, STORAGE_KEY, queue),
+    (error) =>
+      error instanceof Error && error.message === "validation"
+        ? "discard"
+        : "retry",
+  );
+
+  assert.deepEqual(result, { completedCount: 0, failedCount: 1 });
+  assert.deepEqual(stored, [transient]);
+});
+
 test("모든 가져오기가 끝나면 저장 큐를 제거한다", async () => {
   const first = payload("첫 번째");
   const second = payload("두 번째");

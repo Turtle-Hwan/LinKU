@@ -3,6 +3,8 @@ export interface CheckpointedQueueResult {
   failedCount: number;
 }
 
+export type QueueFailureDisposition = "retry" | "discard";
+
 interface QueueStorage {
   set(values: Record<string, unknown>): Promise<void>;
   remove(key: string): Promise<void>;
@@ -43,7 +45,10 @@ export async function consumeCheckpointedQueue<T>(
   queue: readonly T[],
   consume: (entry: T) => Promise<void>,
   checkpoint: (remaining: T[]) => Promise<void>,
-  onFailure: (error: unknown) => void,
+  onFailure: (
+    error: unknown,
+    entry: T,
+  ) => QueueFailureDisposition | void,
 ): Promise<CheckpointedQueueResult> {
   const failed: T[] = [];
   let completedCount = 0;
@@ -53,8 +58,10 @@ export async function consumeCheckpointedQueue<T>(
       await consume(entry);
       completedCount += 1;
     } catch (error) {
-      onFailure(error);
-      failed.push(entry);
+      const disposition = onFailure(error, entry);
+      if (disposition !== "discard") {
+        failed.push(entry);
+      }
     }
 
     await checkpoint([...failed, ...queue.slice(index + 1)]);
