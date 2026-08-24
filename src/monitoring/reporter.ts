@@ -5,7 +5,10 @@ import type {
   MonitoringLevel,
   MonitoringRuntime,
 } from "./types";
-import { MONITORING_FLUSH_TIMEOUT_MS } from "./constants.ts";
+import {
+  isIgnoredMonitoringError,
+  MONITORING_FLUSH_TIMEOUT_MS,
+} from "./constants.ts";
 import { normalizeError } from "./normalizeError.ts";
 
 type RuntimeGlobal = {
@@ -109,6 +112,10 @@ export function createMonitoringReporter(
     reportOptions: ReportOptions,
   ): void => {
     try {
+      if (isIgnoredMonitoringError(errorValue)) {
+        return;
+      }
+
       const level = reportOptions.level ?? "error";
       const category = reportOptions.category ?? "extension.error";
       const breadcrumbMessage =

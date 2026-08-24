@@ -23,6 +23,8 @@ import {
 export {
   decodeTemplateSharePayload,
   encodeTemplateSharePayload,
+  InvalidSharedIconError,
+  isTemplateShareValidationError,
   MAX_SHARE_FILE_BYTES,
   validateTemplateSharePayload,
 } from "@/utils/templateShareCodec";

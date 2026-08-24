@@ -4,7 +4,8 @@
  */
 
 import { getStorage, setStorage } from "./chrome";
-import { errorLog } from '@/utils/logger';
+import { recordBreadcrumb } from "@/monitoring";
+import { getErrorLogDetails, warnLog } from "@/utils/logger";
 
 /**
  * storage를 읽지 못했을 때 반환하는 임시 ID의 접두사.
@@ -13,13 +14,20 @@ import { errorLog } from '@/utils/logger';
 const EPHEMERAL_PREFIX = "error-";
 
 /**
- * 이 clientId가 storage 실패로 만들어진 일회성 값인지 판별한다.
+ * 영구 저장되는 client ID를 읽거나 새로 만든다.
  *
- * analytics는 이 값이라도 받아 이벤트를 흘려보내면 그만이지만, 자격증명 암호화는
- * 다르다. 매번 다른 값으로 키를 파생하면 저장한 비밀번호를 다시는 복호화할 수 없다.
+ * 자격증명 암호화처럼 같은 ID를 다시 읽어야 하는 호출자는 이 엄격한 경로를
+ * 사용한다. storage 실패를 임시 ID로 숨기지 않고 최종 처리 경계로 전달한다.
  */
-export function isEphemeralClientId(clientId: string): boolean {
-  return clientId.startsWith(EPHEMERAL_PREFIX);
+export async function getOrCreatePersistentClientId(): Promise<string> {
+  let clientId = await getStorage<string>("clientId");
+
+  if (!clientId) {
+    clientId = self.crypto.randomUUID();
+    await setStorage({ clientId });
+  }
+
+  return clientId;
 }
 
 /**
@@ -29,17 +37,16 @@ export function isEphemeralClientId(clientId: string): boolean {
  */
 export async function getOrCreateClientId(): Promise<string> {
   try {
-    let clientId = await getStorage<string>("clientId");
-
-    if (!clientId) {
-      // UUID v4 생성
-      clientId = self.crypto.randomUUID();
-      await setStorage({ clientId });
-    }
-
-    return clientId;
+    return await getOrCreatePersistentClientId();
   } catch (error) {
-    errorLog("[ClientID] Error getting/creating client ID:", error);
+    const details = getErrorLogDetails(error);
+    recordBreadcrumb(
+      "analytics.storage",
+      "client ID storage unavailable; using an ephemeral ID",
+      { error: details },
+      "warning",
+    );
+    warnLog("[ClientID] Using an ephemeral client ID", details);
     // 에러 시 임시 ID 반환 (analytics 전용, 키 재료로는 쓰지 말 것)
     return EPHEMERAL_PREFIX + Date.now();
   }

@@ -17,7 +17,7 @@ import {
 } from "@/constants/LinkList";
 import type { BulletinInfo } from "@/constants/bulletin";
 import { getLocalTemplate } from "@/utils/templateStorage";
-import { debugLog, errorLog } from '@/utils/logger';
+import { debugLog, captureErrorLog } from '@/utils/logger';
 import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
 const STORAGE_KEY = "selectedTemplateId";
@@ -200,7 +200,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         setLinkItems(defaultLinkItemsRef.current);
       }
     } catch (err) {
-      errorLog("Failed to load selected template:", err);
+      captureErrorLog("Failed to load selected template:", err);
       setError("템플릿을 불러오는데 실패했습니다.");
       setLinkItems(defaultLinkItemsRef.current);
       setSelectedTemplateId(null);
@@ -237,7 +237,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         try {
           await storage.local.remove(STORAGE_KEY);
         } catch (storageError) {
-          errorLog("Failed to clear a missing template selection:", storageError);
+          captureErrorLog("Failed to clear a missing template selection:", storageError);
         }
       }
       if (isStaleRequest()) {
@@ -253,7 +253,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
         return;
       }
 
-      errorLog("Error loading template:", err);
+      captureErrorLog("Error loading template:", err);
       setError("템플릿 로딩 중 오류가 발생했습니다.");
       setTemplateData(null);
       setSelectedTemplateId(null);
@@ -312,7 +312,7 @@ export function useSelectedTemplate(): UseSelectedTemplateResult {
       }
       return true;
     } catch (err) {
-      errorLog("Failed to save template selection:", err);
+      captureErrorLog("Failed to save template selection:", err);
       setError("템플릿 선택을 저장하는데 실패했습니다.");
       setIsLoading(false);
       return false;

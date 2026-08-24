@@ -26,6 +26,7 @@ import {
   countQuarantinedRecords,
   deleteLocalTemplate,
   importSharedTemplate,
+  isTemplateBackupValidationError,
   getLocalTemplate,
   listQuarantinedRecords,
   listLocalTemplates,
@@ -35,6 +36,7 @@ import {
 import {
   createTemplateShareUrl,
   downloadTemplatePayload,
+  isTemplateShareValidationError,
   MAX_SHARE_FILE_BYTES,
   validateTemplateSharePayload,
 } from '@/utils/templateShare';
@@ -45,7 +47,9 @@ import {
 } from '@/apis/external/bulletin';
 import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 import { downloadJson } from '@/utils/download';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog, warnLog } from '@/utils/logger';
+import { UserFacingError } from '@/errors/userFacingError';
+import { recordBreadcrumb } from '@/monitoring';
 import {
   sendTemplateApply,
   sendTemplateCreateStart,
@@ -64,6 +68,24 @@ function toSummary(template: Template): TemplateSummary {
     syncStatus: 'local',
     items: template.items,
   };
+}
+
+function reportTemplateOperationFailure(message: string, error: unknown) {
+  if (
+    isTemplateBackupValidationError(error) ||
+    isTemplateShareValidationError(error)
+  ) {
+    recordBreadcrumb(
+      'template.validation',
+      message,
+      { validation_code: error.code },
+      'warning',
+    );
+    warnLog(message, error);
+    return;
+  }
+
+  captureErrorLog(message, error);
 }
 
 export const TemplateListPage = () => {
@@ -107,7 +129,7 @@ export const TemplateListPage = () => {
       setQuarantinedCount(nextQuarantinedCount);
     } catch (error) {
       if (requestId !== loadRequestIdRef.current) return;
-      errorLog('Failed to load IndexedDB templates', error);
+      captureErrorLog('Failed to load IndexedDB templates', error);
       setTemplates([]);
       toast({
         title: '로컬 저장소 오류',
@@ -188,7 +210,15 @@ export const TemplateListPage = () => {
         selectedTemplateId === template.templateId &&
         !(await selectTemplate(null))
       ) {
-        throw new Error('선택 상태를 해제하지 못했습니다.');
+        // selectTemplate owns and reports its chrome.storage failure. Throwing
+        // a new wrapper here would create a second Sentry issue without the
+        // original error details.
+        toast({
+          title: '삭제 실패',
+          description: '템플릿 선택 상태를 해제하지 못했습니다.',
+          variant: 'destructive',
+        });
+        return;
       }
       await deleteLocalTemplate(template.templateId);
       setTemplates((current) =>
@@ -204,7 +234,7 @@ export const TemplateListPage = () => {
         description: '이 기기의 저장소에서 삭제했습니다.',
       });
     } catch (error) {
-      errorLog('Failed to delete local template', error);
+      captureErrorLog('Failed to delete local template', error);
       toast({
         title: '삭제 실패',
         description: '이 기기의 저장소에서 템플릿을 삭제하지 못했습니다.',
@@ -237,7 +267,7 @@ export const TemplateListPage = () => {
         });
       }
     } catch (error) {
-      errorLog('Failed to share template', error);
+      captureErrorLog('Failed to share template', error);
       toast({
         title: '공유 실패',
         description:
@@ -278,7 +308,10 @@ export const TemplateListPage = () => {
           description: `“${imported.template.name}”을 이 기기에 저장했습니다.`,
         });
       } catch (error) {
-        errorLog('Failed to store an imported template', error);
+        reportTemplateOperationFailure(
+          'Failed to store an imported template',
+          error,
+        );
         toast({
           title: '가져오기 실패',
           description:
@@ -303,7 +336,7 @@ export const TemplateListPage = () => {
         description: `템플릿 ${backup.templates.length}개와 아이콘 ${backup.assets.length}개를 담았습니다.`,
       });
     } catch (error) {
-      errorLog('Failed to export a template backup', error);
+      reportTemplateOperationFailure('Failed to export a template backup', error);
       toast({
         title: '백업 실패',
         description:
@@ -317,10 +350,22 @@ export const TemplateListPage = () => {
     if (!file) return;
     try {
       if (file.size > MAX_TEMPLATE_BACKUP_BYTES) {
-        throw new Error('백업 파일은 10MB 이하여야 합니다.');
+        throw new UserFacingError(
+          '백업 파일은 10MB 이하여야 합니다.',
+          'TEMPLATE_BACKUP_FILE_TOO_LARGE',
+        );
+      }
+      let parsedBackup: unknown;
+      try {
+        parsedBackup = JSON.parse(await file.text()) as unknown;
+      } catch {
+        throw new UserFacingError(
+          '백업 파일의 JSON 형식이 올바르지 않습니다.',
+          'TEMPLATE_BACKUP_INVALID_JSON',
+        );
       }
       const result = await restoreTemplateBackup(
-        JSON.parse(await file.text()) as unknown,
+        parsedBackup,
       );
       await loadTemplates();
       const hasRestoreWarnings =
@@ -337,7 +382,7 @@ export const TemplateListPage = () => {
         variant: hasRestoreWarnings ? 'destructive' : 'default',
       });
     } catch (error) {
-      errorLog('Failed to restore a template backup', error);
+      reportTemplateOperationFailure('Failed to restore a template backup', error);
       toast({
         title: '복원 실패',
         description:
@@ -358,7 +403,7 @@ export const TemplateListPage = () => {
         description: '원본 데이터를 그대로 담았습니다.',
       });
     } catch (error) {
-      errorLog('Failed to export quarantined records', error);
+      captureErrorLog('Failed to export quarantined records', error);
       toast({
         title: '내보내기 실패',
         description: '손상된 데이터를 내보내지 못했습니다.',

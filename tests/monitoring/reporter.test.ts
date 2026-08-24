@@ -165,3 +165,19 @@ test("초기화한 runtime에 같은 전역 오류 경계를 한 번만 설치�
     "global.onunhandledrejection",
   );
 });
+
+test("브라우저 종료 생명주기 오류는 wrapper 생성 전에 수집하지 않는다", () => {
+  const { collector, calls } = createCollector();
+  const reporter = createMonitoringReporter(collector);
+
+  reporter.reportError(new Error("The browser is shutting down."), {
+    feature: "pending_import_cleanup",
+  });
+  reporter.reportError({ message: "The browser is shutting down." }, {
+    feature: "pending_import_cleanup",
+  });
+
+  assert.equal(calls.breadcrumbs.length, 0);
+  assert.equal(calls.exceptions.length, 0);
+  assert.equal(calls.flushes.length, 0);
+});

@@ -52,7 +52,7 @@ import {
   clearECampusTodoCount,
   refreshTodoCount,
 } from "@/utils/todo/count";
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 import {
   eCampusCredentialsSchema,
   getFirstValidationMessage,
@@ -93,7 +93,7 @@ const ECampusCredential = () => {
         setHasCredentials(true);
       })
       .catch((error) => {
-        errorLog("[Settings] Load credentials error:", error);
+        captureErrorLog("[Settings] Load credentials error:", error);
         toast.error("인증 정보를 불러오는데 실패했습니다.");
       });
 
@@ -145,7 +145,7 @@ const ECampusCredential = () => {
       sendSettingsCredentialsSaved();
 
       await clearECampusTodoCount().catch((countError) => {
-        errorLog("[Settings] Failed to clear eCampus todo count:", countError);
+        captureErrorLog("[Settings] Failed to clear eCampus todo count:", countError);
       });
       if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
         return;
@@ -160,7 +160,7 @@ const ECampusCredential = () => {
       notifyECampusTodosChange("refresh");
       toast.success("인증 정보를 저장하고 eCampus 로그인을 확인했습니다.");
     } catch (error) {
-      errorLog("[Settings] Save credentials error:", error);
+      captureErrorLog("[Settings] Save credentials error:", error);
       toast.error("인증 정보 저장에 실패했습니다.");
     } finally {
       setIsSaving(false);
@@ -177,7 +177,7 @@ const ECampusCredential = () => {
       await clearECampusCredentials();
       invalidateECampusTodosCache();
       await clearECampusTodoCount().catch((countError) => {
-        errorLog("[Settings] Failed to clear eCampus todo count:", countError);
+        captureErrorLog("[Settings] Failed to clear eCampus todo count:", countError);
       });
       notifyECampusTodosChange("clear");
       setSavedId("");
@@ -186,7 +186,7 @@ const ECampusCredential = () => {
       sendSettingsCredentialsDeleted();
       toast.success("인증 정보가 삭제되었습니다.");
     } catch (error) {
-      errorLog("[Settings] Delete credentials error:", error);
+      captureErrorLog("[Settings] Delete credentials error:", error);
       toast.error("인증 정보 삭제에 실패했습니다.");
     } finally {
       setIsSaving(false);
@@ -349,7 +349,7 @@ const GoogleOAuthSection = () => {
         });
       }
     } catch (error) {
-      errorLog("Login error:", error);
+      captureErrorLog("Login error:", error);
       const errMsg = error instanceof Error ? error.message : "로그인 중 오류가 발생했습니다.";
       sendAuthLoginFail("google", "exception", errMsg);
       toast.error("오류", {
@@ -385,7 +385,7 @@ const GoogleOAuthSection = () => {
         toast.error("인증에 문제가 발생했습니다. 다시 시도해주세요.");
       }
     } catch (error) {
-      errorLog("Re-login error:", error);
+      captureErrorLog("Re-login error:", error);
       toast.error("재로그인에 실패했습니다.");
     } finally {
       setIsLoading(false);
@@ -618,7 +618,7 @@ const RealtimeTimer = () => {
         }
       })
       .catch((error) => {
-        errorLog("[Settings] Load timer setting error:", error);
+        captureErrorLog("[Settings] Load timer setting error:", error);
       });
 
     return () => {
@@ -642,7 +642,7 @@ const RealtimeTimer = () => {
           : "실시간 타이머가 비활성화되었습니다."
       );
     } catch (error) {
-      errorLog("[Settings] Save timer setting error:", error);
+      captureErrorLog("[Settings] Save timer setting error:", error);
       toast.error("설정 저장에 실패했습니다.");
     } finally {
       setIsSaving(false);

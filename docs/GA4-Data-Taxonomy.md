@@ -27,6 +27,32 @@
 | Outcome + context | 이벤트 이름은 행동, 파라미터는 맥락으로 설계한다 |
 | Single module | 모든 이벤트 정의는 `analytics.ts` 안에서만 이루어진다. 호출 지점은 도메인 헬퍼만 import한다 |
 
+## Transport
+
+popup은 GA endpoint를 직접 호출하지 않습니다. 도메인 헬퍼가 만든 최대 25개 event의
+bounded payload를 `ANALYTICS_BATCH` 메시지로 background worker에 넘기고, background가
+전송 완료까지 message channel을 유지합니다. 따라서 popup이 닫혀 요청이 중단되는 경로를
+줄입니다.
+
+운영 권장 경로는 `VITE_GA_PROXY_URL`로 지정한 first-party HTTPS endpoint입니다. 이
+endpoint는 request body를 GA4 Measurement Protocol로 전달하고 Measurement ID와 API
+secret을 서버 환경에서 붙여야 합니다. endpoint는 event 수·이름·primitive params를 다시
+검증하고 rate limit을 적용해야 합니다. proxy가 설정된 release workflow는
+`VITE_GA_API_SECRET`을 Vite 환경에 넣지 않습니다.
+
+proxy가 아직 준비되지 않은 동안에는 기존 `VITE_GA_API_SECRET` direct mode로 호환됩니다.
+이 경로는 `google-analytics.com` 차단과 client bundle 내 API secret 노출을 근본적으로
+피하지 못하는 임시 fallback입니다. tracker 차단기는 hostname에서 요청을 거부하므로
+extension의 `host_permissions`를 넓혀도 해결되지 않습니다. offline, tracker 차단, timeout, GA HTTP 실패는 제품
+오류가 아니므로 Sentry issue로 만들지 않고 background breadcrumb와 console warning으로만
+남깁니다. 이벤트를 로컬에 재전송 큐로 보관하지 않아 검색어 등 analytics payload가 새로
+영속화되지 않습니다.
+
+근본 전환 순서는 first-party proxy 배포 → `VITE_GA_PROXY_URL` repository variable 설정 →
+GA DebugView smoke 확인 → 번들에 사용했던 API secret 교체·제거 → production direct fallback
+fail-closed입니다. proxy가 준비되기 전에 마지막 단계를 먼저 적용하면 release 자체가
+중단되므로 외부 endpoint와 Actions 설정을 함께 완료해야 합니다.
+
 ## Identity Model
 
 | 항목 | 정책 |
@@ -252,7 +278,8 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 ## 구현된 이벤트 전체 레퍼런스
 
 `src/utils/analytics.ts`에 정의된 헬퍼 기준 알파벳 순 정리.
-모든 헬퍼는 `sendGAEvent` (internal) → GA4 MP `/mp/collect`로 전송된다.
+모든 헬퍼는 `sendGAEvent` (internal) → background transport → first-party proxy 또는
+GA4 MP `/mp/collect`로 전송된다.
 
 ### 레거시 이벤트 (v1.5.46~, MP_ prefix 없음, 연속성 유지)
 

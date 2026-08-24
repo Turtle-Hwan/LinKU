@@ -330,7 +330,7 @@ test("오래된 state를 읽은 요청이 완료된 갱신을 다시 실행하�
   assert.deepEqual(errors, []);
 });
 
-test("이미지 갱신 실패 시 기존 스냅샷을 유지하고 하루 뒤 재검사한다", async () => {
+test("외부 이미지 응답 실패 시 이슈 없이 기존 스냅샷을 유지한다", async () => {
   const cacheStorage = new MemoryCacheStorage();
   const oldCache = (await cacheStorage.open(OLD_CACHE_NAME)) as unknown as MemoryCache;
   await oldCache.put(BANNER_JSON_URL, jsonResponse(oldPayload));
@@ -363,10 +363,10 @@ test("이미지 갱신 실패 시 기존 스냅샷을 유지하고 하루 뒤 �
     nextCheckAt: NOW + BANNER_REFRESH_INTERVAL_MS,
   });
   assert.deepEqual(await cacheStorage.keys(), [OLD_CACHE_NAME]);
-  assert.equal(errors.length, 1);
+  assert.deepEqual(errors, []);
 });
 
-test("최초 갱신 실패 후에는 빈 목록을 즉시 반환하고 하루 동안 재요청하지 않는다", async () => {
+test("최초 외부 HTTP 실패는 이슈 없이 빈 목록 fallback을 유지한다", async () => {
   const cacheStorage = new MemoryCacheStorage();
   const { storage, values } = createStateStorage({});
   const errors: unknown[] = [];
@@ -391,10 +391,48 @@ test("최초 갱신 실패 후에는 빈 목록을 즉시 반환하고 하루 �
   assert.deepEqual(await firstResult.response.json(), { banners: [] });
   assert.deepEqual(await secondResult.response.json(), { banners: [] });
   assert.equal(fetchCalls, 1);
-  assert.equal(errors.length, 1);
+  assert.deepEqual(errors, []);
   assert.deepEqual(values[CACHE_STATE_KEY], {
     nextCheckAt: NOW + BANNER_REFRESH_INTERVAL_MS,
   });
+});
+
+test("배너 전송 실패도 이슈를 만들지 않고 빈 목록 fallback을 반환한다", async () => {
+  const cacheStorage = new MemoryCacheStorage();
+  const { storage } = createStateStorage({});
+  const errors: unknown[] = [];
+  const controller = createController({
+    cacheStorage,
+    stateStorage: storage,
+    fetchFn: (async () => {
+      throw new TypeError("Failed to fetch");
+    }) as typeof fetch,
+    errors,
+  });
+
+  const result = await controller.getResponse(new Request(BANNER_JSON_URL));
+
+  assert.deepEqual(await result.response.json(), { banners: [] });
+  assert.deepEqual(errors, []);
+});
+
+test("게시된 배너 JSON 스키마 오류는 예상 외 오류로 보고하고 빈 목록을 반환한다", async () => {
+  const cacheStorage = new MemoryCacheStorage();
+  const { storage } = createStateStorage({});
+  const errors: unknown[] = [];
+  const controller = createController({
+    cacheStorage,
+    stateStorage: storage,
+    fetchFn: (async () =>
+      jsonResponse({ banners: [{ img: "broken.png" }] })) as typeof fetch,
+    errors,
+  });
+
+  const result = await controller.getResponse(new Request(BANNER_JSON_URL));
+
+  assert.deepEqual(await result.response.json(), { banners: [] });
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0]), /Invalid banner response/u);
 });
 
 test("fetch 이벤트 수명 연장을 비동기 캐시 조회 전에 등록한다", async () => {

@@ -4,9 +4,14 @@ import {
   createBulletinInfo,
   type BulletinInfo,
 } from "@/constants/bulletin";
-import { errorLog } from "@/utils/logger";
+import { recordBreadcrumb } from "@/monitoring";
+import { captureErrorLog, warnLog } from "@/utils/logger";
+import {
+  classifyNetworkFailure,
+  isExpectedNetworkFailure,
+} from "@/utils/networkFailure";
 
-type BulletinVerification = "verified" | "unverified";
+type BulletinVerification = "verified" | "unverified" | "unreachable";
 type BulletinListener = (bulletin: BulletinInfo) => void;
 
 interface BulletinCache {
@@ -20,7 +25,7 @@ const BULLETIN_CACHE_KEY = "linku:latest-bulletin:v1";
 const RETRY_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 5_000;
 
-const UNVERIFIED_PAGE_SIGNATURES = [
+const UNREACHABLE_PAGE_SIGNATURES = [
   "웹 공격 차단",
   "웹 방화벽",
   "비정상적인 접근",
@@ -30,6 +35,9 @@ const UNVERIFIED_PAGE_SIGNATURES = [
   "source ip",
   "관리모드",
   "알림메세지",
+];
+
+const MISSING_PAGE_SIGNATURES = [
   "존재하지 않는",
   "페이지를 찾을 수",
   "page not found",
@@ -139,7 +147,15 @@ function verifyBulletinBody(
   const normalizedBody = body.toLowerCase();
 
   if (
-    UNVERIFIED_PAGE_SIGNATURES.some((signature) =>
+    UNREACHABLE_PAGE_SIGNATURES.some((signature) =>
+      normalizedBody.includes(signature),
+    )
+  ) {
+    return "unreachable";
+  }
+
+  if (
+    MISSING_PAGE_SIGNATURES.some((signature) =>
       normalizedBody.includes(signature),
     )
   ) {
@@ -184,17 +200,59 @@ async function verifyBulletin(
       signal: controller.signal,
     });
 
-    if (
-      response.status !== 200 ||
-      !isExpectedBulletinPage(response.url, year)
-    ) {
+    if (response.status === 404 || response.status === 410) {
       return "unverified";
     }
 
-    return verifyBulletinBody(await response.text(), year);
+    if (response.status !== 200) {
+      recordBreadcrumb(
+        "bulletin.http",
+        "annual bulletin endpoint unavailable",
+        { status: response.status, year },
+        "warning",
+      );
+      warnLog("[bulletin] Annual bulletin endpoint unavailable", {
+        status: response.status,
+        year,
+      });
+      return "unreachable";
+    }
+
+    if (!isExpectedBulletinPage(response.url, year)) {
+      recordBreadcrumb(
+        "bulletin.redirect",
+        "annual bulletin verification ended on an unexpected page",
+        { year },
+        "warning",
+      );
+      return "unreachable";
+    }
+
+    const verification = verifyBulletinBody(await response.text(), year);
+    if (verification === "unreachable") {
+      recordBreadcrumb(
+        "bulletin.page",
+        "annual bulletin page was blocked or unavailable",
+        { year },
+        "warning",
+      );
+    }
+    return verification;
   } catch (error) {
-    errorLog("[bulletin] Failed to check annual bulletin", error);
-    return "unverified";
+    const networkFailureKind = classifyNetworkFailure(error);
+    recordBreadcrumb(
+      "bulletin.network",
+      "annual bulletin verification failed",
+      { network_failure_kind: networkFailureKind, year },
+      "warning",
+    );
+
+    if (isExpectedNetworkFailure(error)) {
+      warnLog("[bulletin] Failed to check annual bulletin", error);
+    } else {
+      captureErrorLog("[bulletin] Failed to check annual bulletin", error);
+    }
+    return "unreachable";
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
@@ -234,16 +292,29 @@ async function refreshLatestBulletin(
     ({ verification }) => verification === "verified",
   );
   const resolvedYear = verifiedCandidate?.year ?? cache.resolvedYear;
-  const updatedCache: BulletinCache = {
-    resolvedYear,
-    attemptedYear: currentYear,
-    checkedAt: nowMs,
-  };
+  const hasUnreachableCandidate = results.some(
+    ({ verification }) => verification === "unreachable",
+  );
+  const updatedCache: BulletinCache = hasUnreachableCandidate
+    ? {
+        resolvedYear,
+        attemptedYear: Math.max(cache.attemptedYear, resolvedYear),
+        checkedAt: cache.checkedAt,
+      }
+    : {
+        resolvedYear,
+        attemptedYear: currentYear,
+        checkedAt: nowMs,
+      };
 
-  try {
-    await storage.set({ [BULLETIN_CACHE_KEY]: updatedCache });
-  } catch (error) {
-    errorLog("[bulletin] Failed to persist bulletin cache", error);
+  // A blocked, offline, timed-out, or unavailable request says nothing about
+  // whether the year's handbook exists. Do not turn it into a seven-day miss.
+  if (!hasUnreachableCandidate || resolvedYear > cache.resolvedYear) {
+    try {
+      await storage.set({ [BULLETIN_CACHE_KEY]: updatedCache });
+    } catch (error) {
+      captureErrorLog("[bulletin] Failed to persist bulletin cache", error);
+    }
   }
 
   if (resolvedYear > cache.resolvedYear) {
@@ -267,15 +338,9 @@ function startBulletinRefresh(
     currentYear,
     nowMs,
   ).catch((error) => {
-    errorLog("[bulletin] Failed to refresh annual bulletin", error);
+    captureErrorLog("[bulletin] Failed to refresh annual bulletin", error);
   });
   sessionRefresh = { calendarYear: currentYear, promise };
-
-  void promise.finally(() => {
-    if (sessionRefresh?.promise === promise) {
-      sessionRefresh = undefined;
-    }
-  });
 }
 
 export async function resolveLatestBulletin(
@@ -299,7 +364,7 @@ export async function resolveLatestBulletin(
     const stored = await storage.get(BULLETIN_CACHE_KEY);
     cache = parseCache(stored[BULLETIN_CACHE_KEY], currentYear, nowMs);
   } catch (error) {
-    errorLog("[bulletin] Failed to read bulletin cache", error);
+    captureErrorLog("[bulletin] Failed to read bulletin cache", error);
     return BULLETIN_FALLBACK;
   }
 

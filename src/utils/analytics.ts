@@ -1,6 +1,6 @@
 /**
  * Google Analytics 4 Measurement Protocol for Chrome Extension
- * Manifest V3 호환 — CSP 제약 없이 직접 fetch로 이벤트를 전송한다.
+ * Manifest V3 호환 — popup에서 만든 batch를 background worker가 전송한다.
  *
  * ## 이벤트 분류
  *
@@ -35,21 +35,26 @@
  * - 이벤트 네이밍과 파라미터 패턴: docs/GA4-Data-Taxonomy.md 기준을 따른다
  *
  * ## 전송 흐름
- * 각 헬퍼 → sendGAEvent (internal) → GA4 MP /mp/collect (fetch)
+ * 각 헬퍼 → sendGAEvent (internal) → background worker → GA4/proxy
  */
 
 import { getOrCreateClientId } from "./clientId";
 import { getStorage, isExtensionEnvironment, setStorage } from "./chrome";
-import { debugLog, warnLog, errorLog } from "@/utils/logger";
-
-/** GA4 이벤트 파라미터 타입 — string, number, boolean만 허용 */
-type GAEventParam = string | number | boolean;
-
-const GA_ENDPOINT = "https://www.google-analytics.com/mp/collect";
-const MEASUREMENT_ID = "G-ECMY8N9FX4";
-
-/** 빌드 시 .env에서 주입 */
-const API_SECRET = import.meta.env.VITE_GA_API_SECRET;
+import { BackgroundMessageType } from "@/background/types";
+import type { AnalyticsTransportResponse } from "@/background/types";
+import {
+  isAnalyticsPayload,
+  type AnalyticsPayload,
+  type GAEvent,
+  type GAEventParam,
+} from "@/utils/analyticsContract";
+import {
+  debugLog,
+  captureErrorLog,
+  getErrorLogDetails,
+  warnLog,
+} from "@/utils/logger";
+import { recordBreadcrumb } from "@/monitoring";
 
 /** 세션 타임아웃: 30분 */
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -57,7 +62,7 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 /** 환경 구분: development(개발/로컬) / production(배포) */
 const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || "production";
 
-/** development 환경에서만 debug endpoint + DebugView 활성화 */
+/** development 환경에서만 DebugView parameter 활성화 */
 const DEBUG_MODE = ENVIRONMENT === "development";
 
 // ─── Session management ────────────────────────────────────────────────────
@@ -66,6 +71,20 @@ interface SessionResult {
   sessionId: string;
   /** 30분 타임아웃을 초과해 새 세션이 생성된 경우 true */
   isNewSession: boolean;
+}
+
+function recordAnalyticsStorageFallback(
+  operation: string,
+  error: unknown,
+): void {
+  const details = getErrorLogDetails(error);
+  recordBreadcrumb(
+    "analytics.storage",
+    `${operation} failed; using a non-persistent fallback`,
+    { operation, error: details },
+    "warning",
+  );
+  warnLog(`[GA] ${operation} failed; using fallback`, details);
 }
 
 /**
@@ -102,18 +121,67 @@ async function getOrCreateSessionId(): Promise<SessionResult> {
     return { sessionId: newSessionId, isNewSession: true };
   } catch (error) {
     // storage 접근 실패 시 fallback — 이 세션은 저장되지 않아 다음 호출에서도 새 세션으로 취급됨
-    errorLog("[GA] Error getting/creating session ID:", error);
+    recordAnalyticsStorageFallback("session storage", error);
     return { sessionId: Date.now().toString(), isNewSession: false };
   }
 }
 
 // ─── Base sender ──────────────────────────────────────────────────────────
 
+async function dispatchAnalyticsPayload(
+  payload: unknown,
+): Promise<boolean> {
+  if (!isAnalyticsPayload(payload)) {
+    recordBreadcrumb(
+      "analytics.dispatch",
+      "invalid analytics payload skipped",
+      {},
+      "warning",
+    );
+    warnLog("[GA] Invalid analytics payload skipped");
+    return false;
+  }
+
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: BackgroundMessageType.ANALYTICS_BATCH,
+      data: { payload },
+    })) as AnalyticsTransportResponse | undefined;
+
+    if (!response || typeof response.success !== "boolean") {
+      recordBreadcrumb(
+        "analytics.dispatch",
+        "analytics background response missing",
+        { event_count: payload.events.length },
+        "warning",
+      );
+      warnLog("[GA] Background response missing", {
+        eventCount: payload.events.length,
+      });
+      return false;
+    }
+
+    return response.success;
+  } catch (error) {
+    recordBreadcrumb(
+      "analytics.dispatch",
+      "analytics background dispatch failed",
+      { error: getErrorLogDetails(error) },
+      "warning",
+    );
+    warnLog(
+      "[GA] Background dispatch failed",
+      getErrorLogDetails(error),
+    );
+    return false;
+  }
+}
+
 /**
  * GA4 MP 이벤트 전송 — 모든 도메인 헬퍼의 내부 베이스 함수
  *
  * 이 함수는 파일 외부에 export되지 않는다. 호출 지점에서는 도메인 헬퍼만 사용할 것.
- * API Secret이 없거나 fetch 실패 시 에러를 throw하지 않고 로그만 남긴다.
+ * transport가 준비되지 않았거나 전송이 실패해도 제품 동작에는 에러를 throw하지 않는다.
  *
  * @param eventName 이벤트 이름 (최대 40자, 영문/숫자/언더스코어)
  * @param eventParams 이벤트 파라미터 객체
@@ -129,21 +197,11 @@ async function sendGAEvent(
     return;
   }
 
-  if (!API_SECRET) {
-    warnLog("[GA] API Secret not configured. Event not sent:", eventName);
-    return;
-  }
-
-  if (DEBUG_MODE) {
-    debugLog("[GA] API Secret configured");
-    debugLog("[GA] Environment:", ENVIRONMENT);
-  }
-
   try {
     const clientId = await getOrCreateClientId();
     const { sessionId } = await getOrCreateSessionId();
 
-    const payload = {
+    const payload: AnalyticsPayload = {
       client_id: clientId,
       events: [
         {
@@ -158,23 +216,13 @@ async function sendGAEvent(
       ],
     };
 
-    const response = await fetch(
-      `${GA_ENDPOINT}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
-    );
+    const delivered = await dispatchAnalyticsPayload(payload);
 
-    if (DEBUG_MODE) {
+    if (DEBUG_MODE && delivered) {
       debugLog("[GA] Event sent:", eventName, eventParams);
-      debugLog("[GA] Payload:", JSON.stringify(payload, null, 2));
-      // production endpoint(/mp/collect)는 204 No Content를 반환하므로 response.json() 호출 불가
-      debugLog("[GA] Response status:", response.status, response.statusText);
     }
   } catch (error) {
-    errorLog("[GA] Error sending event:", error);
+    captureErrorLog("[GA] Error sending event:", error);
     if (DEBUG_MODE && error instanceof Error) {
       debugLog("[GA] Error details:", { message: error.message, stack: error.stack });
     }
@@ -191,7 +239,7 @@ async function sendGAEvent(
  * 2. 새 세션(30분 초과)이면 `extension_session_start` 전송
  * 3. 매번 `extension_open` 전송
  *
- * GA4 MP는 단일 요청에 이벤트 배열을 지원하므로 한 번의 fetch로 처리한다.
+ * GA4 MP는 단일 요청에 이벤트 배열을 지원하므로 한 batch로 처리한다.
  *
  * @param screenName 현재 화면 식별자 (예: "popup_home")
  * @param entryPoint 진입 경로 (예: "popup")
@@ -204,11 +252,6 @@ export async function sendExtensionOpen(
     if (DEBUG_MODE) {
       debugLog("[GA] Skipping lifecycle events outside extension context.");
     }
-    return;
-  }
-
-  if (!API_SECRET) {
-    warnLog("[GA] API Secret not configured. Lifecycle events not sent.");
     return;
   }
 
@@ -225,15 +268,22 @@ export async function sendExtensionOpen(
       ...(DEBUG_MODE && { debug_mode: 1 }),
     };
 
-    const url = `${GA_ENDPOINT}?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`;
-
     // 전송할 이벤트를 조건에 따라 배열로 누적 — GA4 MP는 단일 요청에 이벤트 배열 지원
-    const events: { name: string; params: Record<string, GAEventParam> }[] = [];
+    const events: GAEvent[] = [];
 
-    // 기기 최초 설치 후 첫 실행에만 1회 전송 (전송 성공 후 chrome.storage에 플래그 저장)
-    const firstOpenSent = await getStorage<boolean>("firstOpenSent");
-    const shouldMarkFirstOpenSent = !firstOpenSent;
-    if (!firstOpenSent) {
+    // 기기 최초 설치 후 첫 실행에만 1회 전송 (전송 성공 후 chrome.storage에 플래그 저장).
+    // storage 상태를 읽지 못하면 중복 first-open을 만들지 않고 일반 open만 보낸다.
+    let firstOpenSent = true;
+    let canPersistFirstOpen = false;
+    try {
+      firstOpenSent = Boolean(await getStorage<boolean>("firstOpenSent"));
+      canPersistFirstOpen = true;
+    } catch (error) {
+      recordAnalyticsStorageFallback("first-open state read", error);
+    }
+
+    const shouldMarkFirstOpenSent = canPersistFirstOpen && !firstOpenSent;
+    if (shouldMarkFirstOpenSent) {
       events.push({ name: "extension_first_open", params: baseParams });
       if (DEBUG_MODE) debugLog("[GA] extension_first_open queued");
     }
@@ -247,28 +297,22 @@ export async function sendExtensionOpen(
     // 팝업 열릴 때마다 항상 전송
     events.push({ name: "extension_open", params: baseParams });
 
-    const payload = { client_id: clientId, events };
+    const payload: AnalyticsPayload = { client_id: clientId, events };
+    const delivered = await dispatchAnalyticsPayload(payload);
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`GA lifecycle request failed: ${response.status} ${response.statusText}`);
+    if (shouldMarkFirstOpenSent && delivered) {
+      try {
+        await setStorage({ firstOpenSent: true });
+      } catch (error) {
+        recordAnalyticsStorageFallback("first-open state write", error);
+      }
     }
 
-    if (shouldMarkFirstOpenSent) {
-      await setStorage({ firstOpenSent: true });
-    }
-
-    if (DEBUG_MODE) {
+    if (DEBUG_MODE && delivered) {
       debugLog("[GA] Lifecycle events sent:", events.map((e) => e.name));
-      debugLog("[GA] Response status:", response.status, response.statusText);
     }
   } catch (error) {
-    errorLog("[GA] Error sending lifecycle events:", error);
+    captureErrorLog("[GA] Error sending lifecycle events:", error);
   }
 }
 

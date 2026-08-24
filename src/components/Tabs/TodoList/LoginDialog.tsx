@@ -19,7 +19,7 @@ import {
   loginECampusAccount,
   notifyECampusTodosChange,
 } from "@/utils/ecampus/todos";
-import { errorLog } from "@/utils/logger";
+import { captureErrorLog } from "@/utils/logger";
 import { clearECampusTodoCount } from "@/utils/todo/count";
 import {
   eCampusCredentialsSchema,
@@ -86,7 +86,7 @@ const LoginDialog = ({
         try {
           await saveECampusCredentials(credentials.userId, credentials.userPw);
         } catch (saveError) {
-          errorLog("Failed to save credentials:", saveError);
+          captureErrorLog("Failed to save credentials:", saveError);
         }
       } else {
         await clearECampusCredentials();
@@ -98,7 +98,7 @@ const LoginDialog = ({
       }
 
       await clearECampusTodoCount().catch((countError) => {
-        errorLog("[LoginDialog] Failed to clear eCampus todo count:", countError);
+        captureErrorLog("[LoginDialog] Failed to clear eCampus todo count:", countError);
       });
       if (!isECampusAccountCurrent(loginAttempt.requestGeneration)) {
         setError("다른 eCampus 계정 변경으로 로그인 요청이 취소되었습니다.");
@@ -114,7 +114,7 @@ const LoginDialog = ({
 
       onOpenChange(false);
     } catch (loginError) {
-      errorLog("Login error:", loginError);
+      captureErrorLog("Login error:", loginError);
       setError("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsSubmitting(false);

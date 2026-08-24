@@ -2,7 +2,7 @@
  * Todo 실시간 타이머 유틸 함수
  */
 
-import { errorLog } from "@/utils/logger";
+import { captureErrorLog } from "@/utils/logger";
 import { parseTodoDateTime } from "@/utils/todo/dateFormat";
 
 export interface TimeLeft {
@@ -45,7 +45,7 @@ export function calculateTimeLeft(dueDate: string, dueTime: string): TimeLeft | 
       totalMilliseconds: diff,
     };
   } catch (error) {
-    errorLog('Error calculating time left:', error);
+    captureErrorLog('Error calculating time left:', error);
     return null;
   }
 }

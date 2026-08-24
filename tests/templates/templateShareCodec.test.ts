@@ -3,11 +3,13 @@ import test from "node:test";
 import {
   decodeTemplateSharePayload,
   encodeTemplateSharePayload,
+  isTemplateShareValidationError,
   MAX_SHARE_FILE_BYTES,
   validateTemplateSharePayload,
   validateTemplateSharePayloadImages,
 } from "../../src/utils/templateShareCodec.ts";
 import type { TemplateSharePayloadV1 } from "../../src/types/templateShare.ts";
+import { UserFacingError } from "../../src/errors/userFacingError.ts";
 
 const payload: TemplateSharePayloadV1 = {
   version: 1,
@@ -67,7 +69,10 @@ test("디코딩할 수 없는 이미지 data URL을 거부한다", async () => {
       assert.equal(source.size, 3);
       return false;
     }),
-    /손상/u,
+    (error) =>
+      error instanceof UserFacingError &&
+      error.code === "TEMPLATE_SHARE_INVALID_ICON_CONTENT" &&
+      isTemplateShareValidationError(error),
   );
 });
 

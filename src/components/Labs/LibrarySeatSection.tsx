@@ -2,16 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, ExternalLink, Info } from 'lucide-react';
 import {
-  getLibrarySeatRoomsAPI,
-  getLibraryTokenFromStorage,
-  libraryLoginAPI,
-  setLibraryToken,
+  loadLibrarySeatRoomsAPI,
   openLibraryReservationPage,
 } from '@/apis';
 import { LibrarySeatRoom } from '@/types/api';
 import { loadECampusCredentials } from '@/utils/credentials';
 import { sendLabsFeatureUse } from '@/utils/analytics';
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 
 const LibrarySeatSection = () => {
   const [rooms, setRooms] = useState<LibrarySeatRoom[]>([]);
@@ -23,50 +20,25 @@ const LibrarySeatSection = () => {
   const fetchSeatRooms = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setNeedLogin(false);
 
     try {
       // eCampus credentials 로드
       const loadedCredentials = await loadECampusCredentials();
+      const response = await loadLibrarySeatRoomsAPI(loadedCredentials);
 
-      // 1. 먼저 storage에서 토큰 가져오기 시도
-      let token = await getLibraryTokenFromStorage();
-
-      // 2. 토큰이 없으면 eCampus credentials로 로그인 시도
-      if (!token && loadedCredentials) {
-        const loginResponse = await libraryLoginAPI(
-          loadedCredentials.id,
-          loadedCredentials.password
-        );
-
-        if (loginResponse.success && loginResponse.data) {
-          token = loginResponse.data.accessToken;
-          // 토큰 저장
-          await setLibraryToken(loginResponse.data);
-        }
-      }
-
-      // 3. 토큰이 없으면 로그인 필요 표시
-      if (!token) {
-        setNeedLogin(true);
-        setError('eCampus 로그인 정보가 필요합니다.');
-        return;
-      }
-
-      // 4. 좌석 현황 조회
-      const response = await getLibrarySeatRoomsAPI(token);
-
-      if (response.success && response.data) {
+      if (response.success) {
         setRooms(response.data.list);
         setNeedLogin(false);
         setLastUpdated(new Date());
       } else if (response.needLogin) {
         setNeedLogin(true);
-        setError('로그인이 필요합니다.');
+        setError(response.error);
       } else {
-        setError(response.error || '좌석 현황을 불러올 수 없습니다.');
+        setError(response.error);
       }
     } catch (err) {
-      errorLog('[LibrarySeat] Failed to load seat rooms:', err);
+      captureErrorLog('[LibrarySeat] Failed to load seat rooms:', err);
       setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
     } finally {
       setIsLoading(false);

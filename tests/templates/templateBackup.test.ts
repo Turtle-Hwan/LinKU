@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertTemplateBackupSize,
+  isTemplateBackupValidationError,
   MAX_TEMPLATE_BACKUP_BYTES,
   parseTemplateBackup,
   prepareRestoredTemplate,
   selectReferencedBackupAssets,
   type RestoredAssetReference,
 } from "../../src/storage/templateBackup.ts";
+import { UserFacingError } from "../../src/errors/userFacingError.ts";
+import { createTemplateTestServer } from "./viteTestServer.ts";
 
 const originalIconDataUrl = "data:image/png;base64,AAAA";
 
@@ -152,8 +155,37 @@ test("내보내기와 복원은 같은 10MB 크기 제한을 사용한다", () =
     ...base,
     templates: ["x".repeat(MAX_TEMPLATE_BACKUP_BYTES)],
   };
-  assert.throws(() => assertTemplateBackupSize(oversized), /10MB/u);
-  assert.throws(() => parseTemplateBackup(oversized), /10MB/u);
+  assert.throws(
+    () => assertTemplateBackupSize(oversized),
+    (error) =>
+      error instanceof UserFacingError &&
+      error.code === "TEMPLATE_BACKUP_TOO_LARGE",
+  );
+  assert.throws(
+    () => parseTemplateBackup(oversized),
+    (error) =>
+      error instanceof UserFacingError &&
+      error.code === "TEMPLATE_BACKUP_TOO_LARGE",
+  );
+});
+
+test("내부 직렬화 오류는 사용자 입력 validation으로 숨기지 않는다", () => {
+  const cyclic: Record<string, unknown> = {};
+  cyclic.self = cyclic;
+
+  assert.throws(
+    () => assertTemplateBackupSize(cyclic),
+    (error) =>
+      error instanceof UserFacingError &&
+      error.code === "TEMPLATE_BACKUP_SERIALIZE_FAILED" &&
+      !isTemplateBackupValidationError(error),
+  );
+  assert.equal(
+    isTemplateBackupValidationError(
+      new UserFacingError("백업 파일이 너무 큽니다.", "TEMPLATE_BACKUP_TOO_LARGE"),
+    ),
+    true,
+  );
 });
 
 test("복원본은 두 식별자를 새로 만들고 아이콘을 실제 복원 id로 remap한다", () => {
@@ -181,4 +213,69 @@ test("살릴 수 없는 템플릿 레코드는 복원 목록에서 건너뛴다"
     prepareRestoredTemplate({ template: { templateId: 1 } }, new Map()),
     null,
   );
+});
+
+test("손상된 백업 이미지와 이미지 디코더 런타임 실패를 구분한다", async () => {
+  const server = await createTemplateTestServer();
+  const imageDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Image");
+  const createObjectUrl = URL.createObjectURL;
+  const revokeObjectUrl = URL.revokeObjectURL;
+  let decodeError: unknown = new DOMException("broken image", "EncodingError");
+
+  class TestImage {
+    src = "";
+    naturalWidth = 1;
+    naturalHeight = 1;
+
+    decode(): Promise<void> {
+      return Promise.reject(decodeError);
+    }
+  }
+
+  Object.defineProperty(globalThis, "Image", {
+    configurable: true,
+    value: TestImage,
+    writable: true,
+  });
+  URL.createObjectURL = () => "blob:test";
+  URL.revokeObjectURL = () => undefined;
+
+  try {
+    const { restoreAssetFromDataUrl } = (await server.ssrLoadModule(
+      "/src/storage/assetRepository.ts",
+    )) as {
+      restoreAssetFromDataUrl: (name: string, dataUrl: string) => Promise<unknown>;
+    };
+    const { isTemplateBackupValidationError: isBundledValidationError } =
+      (await server.ssrLoadModule("/src/storage/templateBackup.ts")) as {
+        isTemplateBackupValidationError: (error: unknown) => boolean;
+      };
+
+    await assert.rejects(
+      restoreAssetFromDataUrl(
+        "손상된 아이콘",
+        "data:image/png;base64,AAAA",
+      ),
+      (error) => isBundledValidationError(error),
+    );
+
+    const runtimeError = new Error("decoder unavailable");
+    decodeError = runtimeError;
+    await assert.rejects(
+      restoreAssetFromDataUrl(
+        "런타임 오류 아이콘",
+        "data:image/png;base64,AAAA",
+      ),
+      (error) => error === runtimeError,
+    );
+  } finally {
+    if (imageDescriptor) {
+      Object.defineProperty(globalThis, "Image", imageDescriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, "Image");
+    }
+    URL.createObjectURL = createObjectUrl;
+    URL.revokeObjectURL = revokeObjectUrl;
+    await server.close();
+  }
 });

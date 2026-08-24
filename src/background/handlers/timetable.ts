@@ -13,7 +13,11 @@ import {
   saveEverytimeTimetable,
   setActiveTimetable,
 } from "@/utils/timetableStorage";
-import { errorLog, getErrorLogDetails } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
+import {
+  isTransientTabEditError,
+  retryChromeOperation,
+} from "@/utils/chromeRetry";
 import {
   getLatestEverytimeSemesterAnchor,
   parseEverytimeSemester,
@@ -23,7 +27,7 @@ import {
   getUserFacingErrorMessage,
   UserFacingError,
 } from "@/errors/userFacingError";
-import { recordBreadcrumb, reportMessage } from "@/monitoring";
+import { recordBreadcrumb } from "@/monitoring";
 
 const EVERYTIME_TIMETABLE_URL = "https://everytime.kr/timetable";
 const EVERYTIME_TIMETABLE_PATTERN = "https://everytime.kr/timetable*";
@@ -440,9 +444,15 @@ async function findFirstPopulatedSemesterBatch(
     try {
       response = await fetchSemestersFromApi(tabId, semesters);
     } catch (error) {
-      errorLog(
+      recordBreadcrumb(
+        "timetable.fallback",
+        "Everytime API unavailable; using rendered DOM fallback",
+        { semester_count: semesters.length },
+        "warning",
+      );
+      warnLog(
         "[Timetable] Everytime API unavailable; using rendered DOM fallback",
-        getErrorLogDetails(error),
+        error,
       );
       response = await captureSemesterBatch(semesters);
     }
@@ -487,7 +497,14 @@ async function importSemesterBatchFromTab(
           requestedAt: new Date().toISOString(),
           mode,
         });
-        await chrome.tabs.update(tabId, { active: true });
+        await retryChromeOperation(
+          () => chrome.tabs.update(tabId, { active: true }),
+          {
+            maxAttempts: 3,
+            delayMs: 100,
+            shouldRetry: isTransientTabEditError,
+          },
+        );
 
         return {
           success: false,
@@ -574,9 +591,9 @@ async function importSemesterBatchFromTab(
         skippedCount: response.skippedSemesters.length,
       };
     } catch (error) {
-      errorLog(
+      captureErrorLog(
         "[Timetable] Everytime import failed",
-        getErrorLogDetails(error),
+        error,
       );
 
       return {
@@ -618,11 +635,6 @@ async function findExistingTimetableTab(): Promise<chrome.tabs.Tab | null> {
   );
 }
 
-// Import failures resolve as `{ success: false, code }` rather than throwing, so
-// only the CAPTURE_FAILED catch block ever reached the collector. Every other
-// outcome vanished, which is why repeated user-visible failures left a single
-// Sentry event behind. Every code is reported now: the volume is low enough
-// that knowing the distribution is worth more than keeping the feed quiet.
 export async function handleTimetableImport(
   mode: TimetableImportMode = "latest",
 ): Promise<TimetableImportResponse> {
@@ -634,16 +646,6 @@ export async function handleTimetableImport(
     response.success ? { mode } : { mode, code: response.code },
     response.success ? "info" : "warning",
   );
-
-  if (!response.success) {
-    reportMessage(`[Timetable] Everytime import failed: ${response.code}`, {
-      feature: "everytime_import_outcome",
-      category: "timetable.import",
-      level: "warning",
-      mechanism: "timetable.import",
-      tags: { import_mode: mode, import_failure_code: response.code },
-    });
-  }
 
   return response;
 }

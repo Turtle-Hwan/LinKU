@@ -10,6 +10,7 @@ import {
   MAX_TEMPLATE_NAME_LENGTH,
   PORTABLE_ICON_PATTERN,
 } from "../constants/template.ts";
+import { UserFacingError } from "../errors/userFacingError.ts";
 
 export const SHARE_FRAGMENT_PREFIX = "v1.";
 export const MAX_SHARE_FILE_BYTES = 256 * 1024;
@@ -18,15 +19,32 @@ const MAX_FRAGMENT_CHARACTERS = 4_096;
 
 type PortableImageDecoder = (source: Blob) => Promise<boolean>;
 
-export class InvalidSharedIconError extends Error {
+const TEMPLATE_SHARE_ICON_VALIDATION_CODES = new Set([
+  "TEMPLATE_SHARE_INVALID_ICON_FORMAT",
+  "TEMPLATE_SHARE_INVALID_ICON_CONTENT",
+]);
+
+export class InvalidSharedIconError extends UserFacingError {
   constructor(index: number, reason: "format" | "content") {
     super(
       reason === "format"
         ? `${index + 1}번째 이미지 아이콘 형식이 올바르지 않습니다.`
         : `${index + 1}번째 이미지 아이콘이 손상되었습니다.`,
+      reason === "format"
+        ? "TEMPLATE_SHARE_INVALID_ICON_FORMAT"
+        : "TEMPLATE_SHARE_INVALID_ICON_CONTENT",
     );
     this.name = "InvalidSharedIconError";
   }
+}
+
+export function isTemplateShareValidationError(
+  error: unknown,
+): error is InvalidSharedIconError {
+  return (
+    error instanceof UserFacingError &&
+    TEMPLATE_SHARE_ICON_VALIDATION_CODES.has(error.code)
+  );
 }
 
 function sortJsonKeys(value: unknown): unknown {

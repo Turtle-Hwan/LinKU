@@ -12,7 +12,7 @@ import { BULLETIN_FALLBACK } from '@/constants/bulletin';
 import { getBundledTemplateIcons } from '@/constants/templateIcons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
 import { getLocalTemplate } from '@/utils/templateStorage';
-import { debugLog, errorLog } from '@/utils/logger';
+import { debugLog, captureErrorLog } from '@/utils/logger';
 import { EditorContext } from './EditorContextObject';
 import { GRID_COLUMNS, UNSAVED_TEMPLATE_ID } from '@/constants/template';
 
@@ -351,7 +351,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       try {
         dispatch({ type: 'LOAD_USER_ICONS', payload: await listLocalIcons() });
       } catch (error) {
-        errorLog('[EditorContext] Failed to load local icons:', error);
+        captureErrorLog('[EditorContext] Failed to load local icons:', error);
       }
 
       // Try loading from IndexedDB first
@@ -378,7 +378,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         type: 'SET_ERROR',
         payload: '템플릿 로딩 중 오류가 발생했습니다.',
       });
-      errorLog('Failed to load template:', error);
+      captureErrorLog('Failed to load template:', error);
     }
   };
 
@@ -408,7 +408,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
       if (userIconsResult.status === 'fulfilled') {
         dispatch({ type: 'LOAD_USER_ICONS', payload: userIconsResult.value });
       } else {
-        errorLog('[EditorContext] Failed to load local icons:', userIconsResult.reason);
+        captureErrorLog('[EditorContext] Failed to load local icons:', userIconsResult.reason);
       }
 
       // Create template based on startFrom mode
@@ -457,7 +457,7 @@ export const EditorProvider = ({ children, templateId, startFrom }: EditorProvid
         });
       }
     } catch (error) {
-      errorLog('[EditorContext] Failed to initialize template:', error);
+      captureErrorLog('[EditorContext] Failed to initialize template:', error);
       // Fallback: create empty template (still saveable locally)
       const emptyTemplate: Template = {
         templateId: UNSAVED_TEMPLATE_ID,

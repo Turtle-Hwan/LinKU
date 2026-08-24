@@ -25,6 +25,7 @@
  */
 import { reportError } from "@/monitoring";
 import type { MonitoringLevel } from "@/monitoring";
+import { isIgnoredMonitoringError } from "@/monitoring/constants";
 import {
   isSensitiveKey,
   redactSensitiveString,
@@ -244,12 +245,33 @@ export function infoLog(message: string, ...args: unknown[]): void {
 
 export function warnLog(message: string, ...args: unknown[]): void {
   emitLog("warn", message, args);
+}
 
-  // Warnings mark a path that failed and was absorbed, which is exactly the
-  // class of failure that used to leave no trace: the user saw a toast or a
-  // degraded result while the collector recorded nothing. They are reported at
-  // `warning` level so they stay separable from errors in Sentry.
-  reportHandledLog(message, args, "warning", "handled_warning", "logger.warn");
+/** Explicit Sentry owner for an absorbed warning-level failure. */
+export function captureWarnLog(message: string, ...args: unknown[]): void {
+  emitLog("warn", message, args);
+  reportHandledLog(
+    message,
+    args,
+    "warning",
+    "handled_warning",
+    "logger.warn",
+    captureWarnLog,
+  );
+}
+
+type StackBoundary = (...args: never[]) => unknown;
+
+function createHandledLogError(
+  message: string,
+  stackBoundary: StackBoundary,
+): Error {
+  const error = new Error(message);
+  const errorConstructor = Error as ErrorConstructor & {
+    captureStackTrace?: (target: object, boundary?: StackBoundary) => void;
+  };
+  errorConstructor.captureStackTrace?.(error, stackBoundary);
+  return error;
 }
 
 function reportHandledLog(
@@ -258,12 +280,17 @@ function reportHandledLog(
   level: MonitoringLevel,
   feature: string,
   mechanism: string,
+  stackBoundary: StackBoundary,
 ): void {
+  if (args.some(isIgnoredMonitoringError)) {
+    return;
+  }
+
   const sanitizedMessage = sanitizeString(message);
   const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
   const originalError = args.find((arg): arg is Error => arg instanceof Error);
 
-  reportError(originalError ?? new Error(sanitizedMessage), {
+  reportError(originalError ?? createHandledLogError(sanitizedMessage, stackBoundary), {
     feature,
     category: `logger.${level === "warning" ? "warn" : "error"}`,
     breadcrumbMessage: sanitizedMessage,
@@ -280,8 +307,19 @@ function reportHandledLog(
 
 export function errorLog(message: string, ...args: unknown[]): void {
   emitLog("error", message, args);
+}
 
-  reportHandledLog(message, args, "error", "handled_error", "logger.error");
+/** Explicit Sentry owner for an absorbed error-level failure. */
+export function captureErrorLog(message: string, ...args: unknown[]): void {
+  emitLog("error", message, args);
+  reportHandledLog(
+    message,
+    args,
+    "error",
+    "handled_error",
+    "logger.error",
+    captureErrorLog,
+  );
 }
 
 export function getErrorLogDetails(error: unknown): Record<string, unknown> {

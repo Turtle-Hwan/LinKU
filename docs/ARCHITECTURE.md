@@ -118,6 +118,12 @@ popup의 기존 배너 요청은 background service worker가 가로채 CacheSto
   마이그레이션 원본. 새 template 데이터는 쓰지 않습니다.
 - IndexedDB: 사용자가 직접 올린 시간표 이미지 blob.
 
+`chrome.storage.local`에는 token과 eCampus 인증정보도 들어가므로 background가 시작될 때
+access level을 `TRUSTED_CONTEXTS`로 제한합니다. Everytime content script는 이 저장소를
+사용하지 않습니다. 이 보안 경계를 제공하는 `setAccessLevel()`에 맞춰 manifest의 최소
+Chrome 버전은 102이며, runtime feature detection은 unpacked·mock 환경의 방어선으로
+유지합니다.
+
 시간표 metadata의 read-modify-write는 Web Locks로 popup과 background 사이에서
 직렬화합니다. 저장 shape를 변경할 때는 기존 schema migration과 사용자 데이터
 보존을 함께 구현해야 합니다.

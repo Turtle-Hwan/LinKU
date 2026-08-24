@@ -6,7 +6,7 @@ import {
   type NavigationTabViewSource,
 } from "@/utils/analytics";
 import { getStorage, setStorage } from "@/utils/chrome";
-import { errorLog } from "@/utils/logger";
+import { captureErrorLog } from "@/utils/logger";
 
 interface UsePersistentDialogTabOptions<T extends string> {
   open: boolean;
@@ -62,7 +62,7 @@ export function usePersistentDialogTab<T extends string>({
         setValue(storedValue);
       })
       .catch((error) => {
-        errorLog(`[Tabs] Failed to restore ${storageKey}:`, error);
+        captureErrorLog(`[Tabs] Failed to restore ${storageKey}:`, error);
       })
       .finally(() => {
         if (!cancelled) setIsHydrated(true);
@@ -99,7 +99,7 @@ export function usePersistentDialogTab<T extends string>({
 
       if (globalThis.chrome?.storage?.local) {
         void setStorage({ [storageKey]: nextValue }).catch((error) => {
-          errorLog(`[Tabs] Failed to persist ${storageKey}:`, error);
+          captureErrorLog(`[Tabs] Failed to persist ${storageKey}:`, error);
         });
       }
 

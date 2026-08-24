@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   detectImageMimeType,
+  readTimetableImage,
   TIMETABLE_IMAGE_REQUIREMENTS,
 } from "../../src/components/Tabs/TimeTable/timetableImage.ts";
+import { UserFacingError } from "../../src/errors/userFacingError.ts";
 
 test("파일 확장자가 아닌 이미지 시그니처로 형식을 판별한다", () => {
   assert.equal(
@@ -34,4 +36,17 @@ test("압축 크기와 디코딩 해상도 제한을 함께 둔다", () => {
   assert.equal(TIMETABLE_IMAGE_REQUIREMENTS.maxWidth, 8_192);
   assert.equal(TIMETABLE_IMAGE_REQUIREMENTS.maxHeight, 8_192);
   assert.equal(TIMETABLE_IMAGE_REQUIREMENTS.maxPixelCount, 32_000_000);
+});
+
+test("사용자가 고른 비이미지 파일은 수집 대상이 아닌 validation 오류다", async () => {
+  const file = new File([Uint8Array.from([1, 2, 3, 4])], "notes.txt", {
+    type: "text/plain",
+  });
+
+  await assert.rejects(
+    readTimetableImage(file),
+    (error) =>
+      error instanceof UserFacingError &&
+      error.code === "TIMETABLE_IMAGE_INVALID",
+  );
 });

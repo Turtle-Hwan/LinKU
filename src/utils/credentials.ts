@@ -5,7 +5,7 @@
 
 import { getStorage, setStorage, removeStorage } from "./chrome";
 import { encryptPassword, decryptPassword, looksEncrypted } from "./crypto";
-import { errorLog, getErrorLogDetails, warnLog } from '@/utils/logger';
+import { captureErrorLog, captureWarnLog } from '@/utils/logger';
 
 export interface Credentials {
   id: string;
@@ -23,18 +23,10 @@ export async function saveCredentials(
   id: string,
   password: string
 ): Promise<void> {
-  try {
-    const encryptedPassword = await encryptPassword(password);
-    await setStorage({
-      [storageKey]: { id, password: encryptedPassword },
-    });
-  } catch (error) {
-    errorLog(
-      `[Credentials] Error saving credentials (${storageKey}):`,
-      error
-    );
-    throw error;
-  }
+  const encryptedPassword = await encryptPassword(password);
+  await setStorage({
+    [storageKey]: { id, password: encryptedPassword },
+  });
 }
 
 /**
@@ -68,9 +60,9 @@ export async function loadCredentials(
       // 암호문을 그대로 돌려주면 eCampus 로그인 요청에 암호문이 비밀번호로
       // 실려 나가고, 실패한 자동 로그인이 저장된 자격증명을 지운다.
       // 복호화에 실패하면 자격증명이 없는 것으로 취급한다.
-      warnLog(
+      captureWarnLog(
         "[Credentials] Password decryption failed; discarding stored credentials",
-        getErrorLogDetails(error),
+        error,
       );
       return null;
     }
@@ -80,7 +72,7 @@ export async function loadCredentials(
       password: decryptedPassword,
     };
   } catch (error) {
-    errorLog(
+    captureErrorLog(
       `[Credentials] Error loading credentials (${storageKey}):`,
       error
     );
@@ -93,15 +85,7 @@ export async function loadCredentials(
  * @param storageKey 삭제할 storage 키 (예: "ecampus_credentials", "library_credentials")
  */
 export async function clearCredentials(storageKey: string): Promise<void> {
-  try {
-    await removeStorage(storageKey);
-  } catch (error) {
-    errorLog(
-      `[Credentials] Error clearing credentials (${storageKey}):`,
-      error
-    );
-    throw error;
-  }
+  await removeStorage(storageKey);
 }
 
 // ==================== eCampus 전용 헬퍼 함수 ====================

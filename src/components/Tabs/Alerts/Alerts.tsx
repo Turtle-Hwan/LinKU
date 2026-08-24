@@ -9,7 +9,7 @@ import AlertFilter from "./AlertFilter";
 import AlertSearch from "./AlertSearch";
 import MyAlertsView from "./MyAlertsView";
 import { Badge } from "@/components/ui/badge";
-import { errorLog } from '@/utils/logger';
+import { captureErrorLog } from '@/utils/logger';
 import { sendAlertsView } from '@/utils/analytics';
 import { matchesAlertQuery } from "./alertSearchUtils";
 
@@ -114,7 +114,7 @@ const Alerts = () => {
       } catch (error) {
         if (cancelled) return;
 
-        errorLog("Error fetching alerts:", error);
+        captureErrorLog("Error fetching alerts:", error);
         if (!hasCachedAlerts) {
           toast.error("공지사항을 불러오는 중 오류가 발생했습니다.");
         }

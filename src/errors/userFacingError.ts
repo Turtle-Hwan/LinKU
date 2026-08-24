@@ -1,7 +1,13 @@
 export class UserFacingError extends Error {
-  constructor(message: string) {
+  readonly code: string;
+
+  constructor(
+    message: string,
+    code: string = "USER_FACING_ERROR",
+  ) {
     super(message);
     this.name = "UserFacingError";
+    this.code = code;
   }
 }
 

@@ -3,9 +3,8 @@
  * WebCrypto API를 사용한 AES-GCM 암호화
  */
 
-import { getOrCreateClientId, isEphemeralClientId } from "./clientId";
+import { getOrCreatePersistentClientId } from "./clientId";
 import { IV_LENGTH, SALT_LENGTH } from "./credentialFormat";
-import { errorLog } from '@/utils/logger';
 
 export { looksEncrypted } from "./credentialFormat";
 
@@ -94,22 +93,11 @@ function base64ToBuffer(base64: string): Uint8Array {
 }
 
 /**
- * 키 파생에 쓸 clientId를 가져온다.
- *
- * storage 실패로 만들어진 임시 ID는 호출마다 값이 달라진다. 그 값으로 암호화하면
- * 저장된 비밀번호를 영구히 복호화할 수 없고, 그 값으로 복호화하면 멀쩡한 데이터가
- * 실패한다. 어느 쪽이든 조용히 진행하는 것보다 실패하는 편이 낫다.
+ * 키 파생에 쓸 영구 clientId를 가져온다.
+ * storage 실패는 임시 ID로 대체하지 않고 최종 자격증명 처리 경계로 전달한다.
  */
 async function getKeyMaterial(): Promise<string> {
-  const clientId = await getOrCreateClientId();
-
-  if (isEphemeralClientId(clientId)) {
-    throw new Error(
-      "clientId is unavailable; refusing to derive a credential key"
-    );
-  }
-
-  return clientId;
+  return getOrCreatePersistentClientId();
 }
 
 /**
@@ -150,7 +138,6 @@ export async function encryptPassword(password: string): Promise<string> {
 
     return `${saltHex}:${ivHex}:${encryptedBase64}`;
   } catch (error) {
-    errorLog("[Crypto] Encryption error:", error);
     throw Object.assign(new Error("비밀번호 암호화에 실패했습니다."), {
       cause: error,
     });
@@ -197,7 +184,6 @@ export async function decryptPassword(encryptedData: string): Promise<string> {
     const decoder = new TextDecoder();
     return decoder.decode(decryptedData);
   } catch (error) {
-    errorLog("[Crypto] Decryption error:", error);
     throw Object.assign(new Error("비밀번호 복호화에 실패했습니다."), {
       cause: error,
     });

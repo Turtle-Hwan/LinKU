@@ -7,12 +7,20 @@ import type { ApiResponse, RequestConfig } from "../types/api";
 import { BackgroundMessageType } from "../background/types";
 import type { SilentReauthResponse } from "../background/types";
 import { getChromeApi, getStorage, removeStorage } from "../utils/chrome";
-import { debugLog, getErrorLogDetails, warnLog } from "@/utils/logger";
+import {
+  debugLog,
+  getErrorLogDetails,
+  warnLog,
+} from "@/utils/logger";
 import {
   createErrorReporter,
   recordBreadcrumb,
   reportMessage,
 } from "@/monitoring";
+import {
+  classifyNetworkFailure,
+  isExpectedNetworkFailure,
+} from "@/utils/networkFailure";
 
 /**
  * Token expired error code from backend
@@ -76,7 +84,7 @@ function getResponseShape(data: unknown): Record<string, unknown> {
   return { response_type: typeof data };
 }
 
-function reportApiHttpFailure(
+function recordApiHttpFailure(
   method: string,
   endpoint: string,
   response: Response,
@@ -93,10 +101,24 @@ function reportApiHttpFailure(
     ...getResponseShape(data),
   };
 
+  recordBreadcrumb(
+    "api.response",
+    "non-success HTTP response",
+    extras,
+    level,
+  );
+
+  // 4xx responses and backend user-facing codes are request outcomes, not
+  // product defects. Only an unexpected server-side terminal response owns a
+  // Sentry issue here.
+  if (status < 500) {
+    return;
+  }
+
   reportMessage(`LinKU API HTTP ${status}`, {
     feature: "api_http_error",
     category: "api.response",
-    breadcrumbMessage: "non-success HTTP response",
+    breadcrumbMessage: "server-side HTTP failure",
     level,
     mechanism: "fetch.response",
     tags: {
@@ -105,6 +127,68 @@ function reportApiHttpFailure(
     },
     extras,
   });
+}
+
+async function readHttpFailureBody(
+  response: Response,
+  endpoint: string,
+): Promise<unknown> {
+  const contentType = response.headers.get("content-type");
+
+  try {
+    const bodyText = await response.text();
+    if (!contentType?.includes("application/json") || !bodyText.trim()) {
+      return bodyText;
+    }
+
+    try {
+      return JSON.parse(bodyText) as unknown;
+    } catch (error) {
+      // The HTTP status is the failure owner. A proxy-generated HTML error
+      // page that incorrectly advertises JSON must not create a parse issue in
+      // addition to the HTTP outcome.
+      recordBreadcrumb(
+        "api.response",
+        "non-success response body was not valid JSON",
+        {
+          endpoint,
+          status: response.status,
+          content_type: contentType,
+        },
+        "warning",
+      );
+      warnLog(
+        "[API Client] Ignoring malformed non-success response body",
+        getErrorLogDetails(error),
+      );
+      return bodyText;
+    }
+  } catch (error) {
+    recordBreadcrumb(
+      "api.response",
+      "non-success response body was unavailable",
+      {
+        endpoint,
+        status: response.status,
+        content_type: contentType,
+      },
+      "warning",
+    );
+    warnLog(
+      "[API Client] Failed to read non-success response body",
+      getErrorLogDetails(error),
+    );
+    return undefined;
+  }
+}
+
+function isTokenExpiredResponse(data: unknown): boolean {
+  if (!data || typeof data !== "object" || !("code" in data)) {
+    return false;
+  }
+
+  const code = (data as Record<string, unknown>).code;
+  return code === TOKEN_EXPIRED_CODE || code === String(TOKEN_EXPIRED_CODE);
 }
 
 /**
@@ -191,6 +275,9 @@ async function handleTokenExpired(): Promise<boolean> {
         debugLog("[API Client] Silent reauth succeeded");
         return true;
       } else {
+        recordBreadcrumb("api.auth", "silent reauth was not completed", {
+          error: response?.error,
+        });
         warnLog("[API Client] Silent reauth failed", {
           error: response?.error,
         });
@@ -340,65 +427,63 @@ async function request<T = unknown>(
           : "warning",
     );
 
-    // Parse response
+    // Route non-success responses before parsing success payloads. Error pages
+    // from proxies and upstream servers frequently contain HTML even when the
+    // content-type claims JSON; the HTTP status remains the failure owner.
     const contentType = response.headers.get("content-type");
     let data: T;
 
-    try {
-      if (contentType?.includes("application/json")) {
-        data = await response.json();
-      } else {
-        data = (await response.text()) as T;
+    if (!response.ok) {
+      data = (await readHttpFailureBody(response, safeEndpoint)) as T;
+    } else {
+      try {
+        if (contentType?.includes("application/json")) {
+          data = await response.json();
+        } else {
+          data = (await response.text()) as T;
+        }
+      } catch (parseError) {
+        reportApiException(parseError, "api_response_parse", {
+          endpoint: safeEndpoint,
+          status: response.status,
+          content_type: contentType,
+        });
+        warnLog("[API Client] Response parsing error", {
+          ...getErrorLogDetails(parseError),
+          status: response.status,
+          endpoint: safeEndpoint,
+        });
+        return {
+          success: false,
+          error: {
+            code: "PARSE_ERROR",
+            message: "서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해주세요.",
+          },
+          status: response.status,
+        };
       }
-    } catch (parseError) {
-      reportApiException(parseError, "api_response_parse", {
-        endpoint: safeEndpoint,
-        status: response.status,
-        content_type: contentType,
-      });
-      warnLog("[API Client] Response parsing error", {
-        ...getErrorLogDetails(parseError),
-        status: response.status,
-        endpoint: safeEndpoint,
-      });
-      // If parsing fails, return error response
-      return {
-        success: false,
-        error: {
-          code: "PARSE_ERROR",
-          message: "서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해주세요.",
-        },
-        status: response.status,
-      };
     }
 
     // Check for token expired error (5004) and attempt silent reauth
-    if (
-      !isRetry &&
-      data &&
-      typeof data === "object" &&
-      "code" in data &&
-      (data as Record<string, unknown>).code === TOKEN_EXPIRED_CODE
-    ) {
+    if (isTokenExpiredResponse(data)) {
       const authExtras = {
         endpoint: safeEndpoint,
         method: method.toUpperCase(),
         status: response.status,
         error_code: String(TOKEN_EXPIRED_CODE),
+        retry: isRetry,
       };
-      reportMessage("LinKU API token expired", {
-        feature: "api_token_expired",
-        category: "api.auth",
-        breadcrumbMessage: "expired token response handled",
-        level: "warning",
-        mechanism: "api.response.code",
-        extras: authExtras,
-      });
+      recordBreadcrumb(
+        "api.auth",
+        "expired token response handled",
+        authExtras,
+        "warning",
+      );
       debugLog(
         "[API Client] Detected 5004 token expired error, attempting reauth...",
       );
 
-      const reauthSuccess = await handleTokenExpired();
+      const reauthSuccess = !isRetry && (await handleTokenExpired());
 
       if (reauthSuccess) {
         // Retry the original request with new token
@@ -427,7 +512,7 @@ async function request<T = unknown>(
         data && typeof data === "object"
           ? (data as Record<string, unknown>)
           : undefined;
-      reportApiHttpFailure(method, safeEndpoint, response, data);
+      recordApiHttpFailure(method, safeEndpoint, response, data);
       return applyResponseInterceptors({
         success: false,
         error: {
@@ -458,10 +543,21 @@ async function request<T = unknown>(
       status: response.status,
     });
   } catch (error) {
-    reportApiException(error, "api_network_error", {
+    const networkFailureKind = classifyNetworkFailure(error);
+    const failureContext = {
       endpoint: safeEndpoint,
       method,
-    });
+      network_failure_kind: networkFailureKind,
+    };
+    recordBreadcrumb(
+      "api.network",
+      "request transport failed",
+      failureContext,
+      "warning",
+    );
+    if (!isExpectedNetworkFailure(error)) {
+      reportApiException(error, "api_network_error", failureContext);
+    }
     warnLog("[API Client] Request error", getErrorLogDetails(error));
     return {
       success: false,

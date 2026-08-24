@@ -10,6 +10,7 @@ import {
   PORTABLE_ICON_PATTERN,
   UNSAVED_TEMPLATE_ID,
 } from "../constants/template.ts";
+import { UserFacingError } from "../errors/userFacingError.ts";
 import type { TemplateItem } from "../types/api.ts";
 import type { StoredTemplate } from "./linkuDb.ts";
 import { normalizeStoredTemplate } from "./templateRecord.ts";
@@ -17,6 +18,31 @@ import { normalizeStoredTemplate } from "./templateRecord.ts";
 export const MAX_TEMPLATE_BACKUP_BYTES = 10 * 1024 * 1024;
 
 const MAX_BACKUP_ENTRIES = 10_000;
+
+const TEMPLATE_BACKUP_VALIDATION_CODES = new Set([
+  "TEMPLATE_BACKUP_TOO_LARGE",
+  "TEMPLATE_BACKUP_INVALID_ASSET",
+  "TEMPLATE_BACKUP_INVALID_ASSET_CONTENT",
+  "TEMPLATE_BACKUP_INVALID_FORMAT",
+  "TEMPLATE_BACKUP_FILE_TOO_LARGE",
+  "TEMPLATE_BACKUP_INVALID_JSON",
+]);
+
+export class InvalidTemplateBackupAssetError extends UserFacingError {
+  constructor(message = "백업 아이콘이 손상되었거나 지원되지 않습니다.") {
+    super(message, "TEMPLATE_BACKUP_INVALID_ASSET_CONTENT");
+    this.name = "InvalidTemplateBackupAssetError";
+  }
+}
+
+export function isTemplateBackupValidationError(
+  error: unknown,
+): error is UserFacingError {
+  return (
+    error instanceof UserFacingError &&
+    TEMPLATE_BACKUP_VALIDATION_CODES.has(error.code)
+  );
+}
 
 export function assertTemplateBackupSize(value: unknown): void {
   let serialized: string | undefined;
@@ -26,16 +52,23 @@ export function assertTemplateBackupSize(value: unknown): void {
     // representation that could cross the limit only after formatting.
     serialized = JSON.stringify(value, null, 2);
   } catch {
-    throw new Error("백업 데이터를 파일로 만들 수 없습니다.");
+    throw new UserFacingError(
+      "백업 데이터를 파일로 만들 수 없습니다.",
+      "TEMPLATE_BACKUP_SERIALIZE_FAILED",
+    );
   }
 
   if (typeof serialized !== "string") {
-    throw new Error("백업 데이터를 파일로 만들 수 없습니다.");
+    throw new UserFacingError(
+      "백업 데이터를 파일로 만들 수 없습니다.",
+      "TEMPLATE_BACKUP_SERIALIZE_FAILED",
+    );
   }
 
   if (new TextEncoder().encode(serialized).byteLength > MAX_TEMPLATE_BACKUP_BYTES) {
-    throw new Error(
+    throw new UserFacingError(
       "전체 백업 데이터가 10MB를 초과합니다. 사용하지 않는 템플릿이나 사용자 아이콘을 정리한 뒤 다시 시도해 주세요.",
+      "TEMPLATE_BACKUP_TOO_LARGE",
     );
   }
 }
@@ -85,7 +118,10 @@ function isValidExportedAt(value: unknown): value is string {
 
 function parseBackupAsset(value: unknown, index: number): TemplateBackupAssetV1 {
   if (!isRecord(value)) {
-    throw new Error(`${index + 1}번째 백업 아이콘이 올바르지 않습니다.`);
+    throw new UserFacingError(
+      `${index + 1}번째 백업 아이콘이 올바르지 않습니다.`,
+      "TEMPLATE_BACKUP_INVALID_ASSET",
+    );
   }
   const { name, dataUrl } = value;
   const normalizedName = typeof name === "string" ? name.trim() : "";
@@ -96,14 +132,22 @@ function parseBackupAsset(value: unknown, index: number): TemplateBackupAssetV1 
     dataUrl.length > MAX_TEMPLATE_BACKUP_BYTES ||
     !PORTABLE_ICON_PATTERN.test(dataUrl)
   ) {
-    throw new Error(`${index + 1}번째 백업 아이콘이 올바르지 않습니다.`);
+    throw new UserFacingError(
+      `${index + 1}번째 백업 아이콘이 올바르지 않습니다.`,
+      "TEMPLATE_BACKUP_INVALID_ASSET",
+    );
   }
   return { name: normalizedName, dataUrl };
 }
 
 /** Validates the envelope without rejecting recoverable template records. */
 export function parseTemplateBackup(value: unknown): TemplateBackupV1 {
-  if (!isRecord(value)) throw new Error("LinKU 백업 파일이 아닙니다.");
+  if (!isRecord(value)) {
+    throw new UserFacingError(
+      "LinKU 백업 파일이 아닙니다.",
+      "TEMPLATE_BACKUP_INVALID_FORMAT",
+    );
+  }
   assertTemplateBackupSize(value);
 
   const { kind, version, exportedAt, templates, assets } = value;
@@ -116,7 +160,10 @@ export function parseTemplateBackup(value: unknown): TemplateBackupV1 {
     templates.length > MAX_BACKUP_ENTRIES ||
     assets.length > MAX_BACKUP_ENTRIES
   ) {
-    throw new Error("LinKU 백업 파일이 아닙니다.");
+    throw new UserFacingError(
+      "LinKU 백업 파일이 아닙니다.",
+      "TEMPLATE_BACKUP_INVALID_FORMAT",
+    );
   }
 
   return {

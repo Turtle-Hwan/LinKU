@@ -86,32 +86,48 @@ export interface LinkuDatabase extends DBSchema {
 export type LinkuDb = IDBPDatabase<LinkuDatabase>;
 
 const DATABASE_NAME = "linku";
-// This PR is the first release that creates `linku`, so every stateless store
-// belongs to the initial v1 schema. The stacked account-sync PR must bump the
-// version when it adds its own stores after this baseline ships.
-const DATABASE_VERSION = 1;
+// Pre-release unpacked/test profiles may already be at version 2 or 3 with a
+// partial store set. Version 4 forces one more additive compatibility upgrade:
+// it fills every missing stateless store while retaining existing stores and
+// their data.
+export const LINKU_DATABASE_VERSION = 4;
 
-let databasePromise: Promise<LinkuDb> | undefined;
-
-export function getLinkuDb(): Promise<LinkuDb> {
-  if (!databasePromise) {
-    const openingPromise = openDB<LinkuDatabase>(DATABASE_NAME, DATABASE_VERSION, {
-      // Every version step stays additive and guarded by `oldVersion`. An
-      // unguarded `createObjectStore` throws once a user's profile already
-      // holds an earlier version, and that failure is unrecoverable from our
-      // side, so the guard exists from the first version onward.
-      upgrade(database, oldVersion) {
-        if (oldVersion < 1) {
+function openDatabase(
+  databaseName: string,
+  onConnectionClosed: () => void,
+): Promise<LinkuDb> {
+  const openingPromise = openDB<LinkuDatabase>(
+    databaseName,
+    LINKU_DATABASE_VERSION,
+    {
+      // Pre-release v2 profiles contain a different subset of stores. Check
+      // each one independently so the migration is additive and never deletes
+      // or recreates user data.
+      upgrade(database, _oldVersion, _newVersion, transaction) {
+        if (!database.objectStoreNames.contains("templates")) {
           database.createObjectStore("templates");
+        }
+        if (!database.objectStoreNames.contains("drafts")) {
           database.createObjectStore("drafts");
+        }
 
+        if (!database.objectStoreNames.contains("assets")) {
           const assets = database.createObjectStore("assets", {
             keyPath: "id",
           });
           assets.createIndex("by-numeric-id", "numericId", { unique: true });
+        } else {
+          const assets = transaction.objectStore("assets");
+          if (!assets.indexNames.contains("by-numeric-id")) {
+            assets.createIndex("by-numeric-id", "numericId", { unique: true });
+          }
+        }
 
+        if (!database.objectStoreNames.contains("migrations")) {
           database.createObjectStore("migrations");
+        }
 
+        if (!database.objectStoreNames.contains("quarantine")) {
           database.createObjectStore("quarantine", { keyPath: "id" });
         }
       },
@@ -120,16 +136,30 @@ export function getLinkuDb(): Promise<LinkuDb> {
         // Closing this version lets the next release upgrade the shared DB.
         void openingPromise.then((database) => {
           database.close();
-          if (databasePromise === openingPromise) {
-            databasePromise = undefined;
-          }
+          onConnectionClosed();
         });
       },
       terminated() {
-        if (databasePromise === openingPromise) {
-          databasePromise = undefined;
-        }
+        onConnectionClosed();
       },
+    },
+  );
+  return openingPromise;
+}
+
+/** Opens an uncached database name for migration and compatibility tests. */
+export function openLinkuDatabase(databaseName: string): Promise<LinkuDb> {
+  return openDatabase(databaseName, () => {});
+}
+
+let databasePromise: Promise<LinkuDb> | undefined;
+
+export function getLinkuDb(): Promise<LinkuDb> {
+  if (!databasePromise) {
+    const openingPromise = openDatabase(DATABASE_NAME, () => {
+      if (databasePromise === openingPromise) {
+        databasePromise = undefined;
+      }
     });
     databasePromise = openingPromise;
     void openingPromise.catch(() => {

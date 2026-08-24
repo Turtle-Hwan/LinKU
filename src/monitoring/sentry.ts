@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/browser";
 import type { Breadcrumb } from "@sentry/browser";
+import { CHROME_EXTENSION_ID } from "@/constants/extension";
 import {
   MONITORING_FLUSH_TIMEOUT_MS,
   MONITORING_IGNORED_ERROR_MESSAGES,
@@ -8,7 +9,10 @@ import {
   MONITORING_NORMALIZE_DEPTH,
   MONITORING_NORMALIZE_MAX_BREADTH,
 } from "./constants";
-import { resolveSentryEnvironment } from "./environment";
+import {
+  resolveSentryDistribution,
+  resolveSentryEnvironment,
+} from "./environment";
 import { redactSensitiveString } from "./redaction";
 import {
   scrubSentryBreadcrumb,
@@ -30,6 +34,14 @@ let sentryReady = false;
 function getExtensionVersion(): string | undefined {
   try {
     return chrome.runtime.getManifest().version;
+  } catch {
+    return undefined;
+  }
+}
+
+function getExtensionRuntimeId(): string | undefined {
+  try {
+    return chrome.runtime.id;
   } catch {
     return undefined;
   }
@@ -91,6 +103,11 @@ function initSentry(runtime: MonitoringRuntime): MonitoringInitResult {
   }
 
   const version = getExtensionVersion();
+  const runtimeId = getExtensionRuntimeId();
+  const distribution = resolveSentryDistribution(
+    runtimeId,
+    CHROME_EXTENSION_ID,
+  );
   activeRuntime = runtime;
 
   try {
@@ -130,6 +147,7 @@ function initSentry(runtime: MonitoringRuntime): MonitoringInitResult {
     Sentry.setTags({
       linku_runtime: runtime,
       linku_collection_mode: "full_errors",
+      linku_distribution: distribution,
       ...(version ? { linku_extension_version: version } : {}),
     });
     Sentry.setContext("linku_extension", {
@@ -137,6 +155,7 @@ function initSentry(runtime: MonitoringRuntime): MonitoringInitResult {
       extension_version: version,
       manifest_version: version,
       is_chrome_extension: true,
+      distribution,
     });
   } catch {
     // Static context is best-effort; the collector remains usable without it.

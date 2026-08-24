@@ -1,12 +1,13 @@
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 import {
   getTemplateSharePayloadKey,
-  InvalidSharedIconError,
+  isTemplateShareValidationError,
   validateTemplateSharePayload,
   validateTemplateSharePayloadImages,
 } from "@/utils/templateShareCodec";
-import { errorLog } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 import { UserFacingError } from "@/errors/userFacingError";
+import { recordBreadcrumb } from "@/monitoring";
 import {
   consumeCheckpointedQueue,
   planUniqueQueueAppend,
@@ -55,7 +56,13 @@ function readValidQueue(value: unknown): TemplateSharePayloadV1[] {
       validateTemplateSharePayload(candidate);
       return true;
     } catch (error) {
-      errorLog("Discarding invalid pending template import", error);
+      recordBreadcrumb(
+        "template.validation",
+        "discarded invalid pending template import",
+        undefined,
+        "warning",
+      );
+      warnLog("Discarding invalid pending template import", error);
       return false;
     }
   });
@@ -76,14 +83,7 @@ export async function enqueuePendingTemplateImport(
     throw toInvalidImportError(error);
   }
 
-  try {
-    await validateTemplateSharePayloadImages(value);
-  } catch (error) {
-    if (error instanceof InvalidSharedIconError) {
-      throw toInvalidImportError(error);
-    }
-    throw error;
-  }
+  await validateTemplateSharePayloadImages(value);
 
   return withMutationQueue(async () => {
     const storage = getStorage();
@@ -124,7 +124,18 @@ export function consumePendingTemplateImports(
       (remaining) =>
         writeCheckpointedQueue(storage, STORAGE_KEY, remaining),
       (error) => {
-        errorLog("Failed to consume pending template import", error);
+        if (isTemplateShareValidationError(error)) {
+          recordBreadcrumb(
+            "template.validation",
+            "discarded invalid queued template icon",
+            { validation_code: error.code },
+            "warning",
+          );
+          warnLog("Discarding invalid queued template icon", error);
+          return "discard";
+        }
+        captureErrorLog("Failed to consume pending template import", error);
+        return "retry";
       },
     );
     return {
