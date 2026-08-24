@@ -250,7 +250,28 @@ export function warnLog(message: string, ...args: unknown[]): void {
 /** Explicit Sentry owner for an absorbed warning-level failure. */
 export function captureWarnLog(message: string, ...args: unknown[]): void {
   emitLog("warn", message, args);
-  reportHandledLog(message, args, "warning", "handled_warning", "logger.warn");
+  reportHandledLog(
+    message,
+    args,
+    "warning",
+    "handled_warning",
+    "logger.warn",
+    captureWarnLog,
+  );
+}
+
+type StackBoundary = (...args: never[]) => unknown;
+
+function createHandledLogError(
+  message: string,
+  stackBoundary: StackBoundary,
+): Error {
+  const error = new Error(message);
+  const errorConstructor = Error as ErrorConstructor & {
+    captureStackTrace?: (target: object, boundary?: StackBoundary) => void;
+  };
+  errorConstructor.captureStackTrace?.(error, stackBoundary);
+  return error;
 }
 
 function reportHandledLog(
@@ -259,6 +280,7 @@ function reportHandledLog(
   level: MonitoringLevel,
   feature: string,
   mechanism: string,
+  stackBoundary: StackBoundary,
 ): void {
   if (args.some(isIgnoredMonitoringError)) {
     return;
@@ -268,7 +290,7 @@ function reportHandledLog(
   const sanitizedArgs = args.map((arg) => sanitizeValue(arg));
   const originalError = args.find((arg): arg is Error => arg instanceof Error);
 
-  reportError(originalError ?? new Error(sanitizedMessage), {
+  reportError(originalError ?? createHandledLogError(sanitizedMessage, stackBoundary), {
     feature,
     category: `logger.${level === "warning" ? "warn" : "error"}`,
     breadcrumbMessage: sanitizedMessage,
@@ -290,7 +312,14 @@ export function errorLog(message: string, ...args: unknown[]): void {
 /** Explicit Sentry owner for an absorbed error-level failure. */
 export function captureErrorLog(message: string, ...args: unknown[]): void {
   emitLog("error", message, args);
-  reportHandledLog(message, args, "error", "handled_error", "logger.error");
+  reportHandledLog(
+    message,
+    args,
+    "error",
+    "handled_error",
+    "logger.error",
+    captureErrorLog,
+  );
 }
 
 export function getErrorLogDetails(error: unknown): Record<string, unknown> {

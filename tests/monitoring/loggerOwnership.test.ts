@@ -81,3 +81,15 @@ test("일반 로그는 수집하지 않고 명시적 capture 함수만 Sentry ow
     ["handled_warning", "handled_error"],
   );
 });
+
+test("원본 Error가 없는 계약 오류는 logger 내부 frame을 제거한다", () => {
+  calls.length = 0;
+
+  logger.captureErrorLog("captured contract failure", { status: 502 });
+
+  assert.equal(calls.length, 1);
+  const captured = calls[0]?.error;
+  assert.ok(captured instanceof Error);
+  assert.equal(captured.message, "captured contract failure");
+  assert.doesNotMatch(captured.stack ?? "", /reportHandledLog|captureErrorLog/u);
+});
