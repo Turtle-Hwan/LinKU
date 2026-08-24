@@ -19,6 +19,23 @@ export const MAX_TEMPLATE_BACKUP_BYTES = 10 * 1024 * 1024;
 
 const MAX_BACKUP_ENTRIES = 10_000;
 
+const TEMPLATE_BACKUP_VALIDATION_CODES = new Set([
+  "TEMPLATE_BACKUP_TOO_LARGE",
+  "TEMPLATE_BACKUP_INVALID_ASSET",
+  "TEMPLATE_BACKUP_INVALID_FORMAT",
+  "TEMPLATE_BACKUP_FILE_TOO_LARGE",
+  "TEMPLATE_BACKUP_INVALID_JSON",
+]);
+
+export function isTemplateBackupValidationError(
+  error: unknown,
+): error is UserFacingError {
+  return (
+    error instanceof UserFacingError &&
+    TEMPLATE_BACKUP_VALIDATION_CODES.has(error.code)
+  );
+}
+
 export function assertTemplateBackupSize(value: unknown): void {
   let serialized: string | undefined;
   try {

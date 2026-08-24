@@ -51,7 +51,10 @@ import {
 } from "@/utils/templateShareCodec";
 import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 
-export { MAX_TEMPLATE_BACKUP_BYTES } from "@/storage/templateBackup";
+export {
+  isTemplateBackupValidationError,
+  MAX_TEMPLATE_BACKUP_BYTES,
+} from "@/storage/templateBackup";
 export {
   countQuarantinedRecords,
   listQuarantinedRecords,

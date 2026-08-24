@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertTemplateBackupSize,
+  isTemplateBackupValidationError,
   MAX_TEMPLATE_BACKUP_BYTES,
   parseTemplateBackup,
   prepareRestoredTemplate,
@@ -164,6 +165,25 @@ test("내보내기와 복원은 같은 10MB 크기 제한을 사용한다", () =
     (error) =>
       error instanceof UserFacingError &&
       error.code === "TEMPLATE_BACKUP_TOO_LARGE",
+  );
+});
+
+test("내부 직렬화 오류는 사용자 입력 validation으로 숨기지 않는다", () => {
+  const cyclic: Record<string, unknown> = {};
+  cyclic.self = cyclic;
+
+  assert.throws(
+    () => assertTemplateBackupSize(cyclic),
+    (error) =>
+      error instanceof UserFacingError &&
+      error.code === "TEMPLATE_BACKUP_SERIALIZE_FAILED" &&
+      !isTemplateBackupValidationError(error),
+  );
+  assert.equal(
+    isTemplateBackupValidationError(
+      new UserFacingError("백업 파일이 너무 큽니다.", "TEMPLATE_BACKUP_TOO_LARGE"),
+    ),
+    true,
   );
 });
 

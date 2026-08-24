@@ -26,6 +26,7 @@ import {
   countQuarantinedRecords,
   deleteLocalTemplate,
   importSharedTemplate,
+  isTemplateBackupValidationError,
   getLocalTemplate,
   listQuarantinedRecords,
   listLocalTemplates,
@@ -69,7 +70,7 @@ function toSummary(template: Template): TemplateSummary {
 }
 
 function reportTemplateOperationFailure(message: string, error: unknown) {
-  if (error instanceof UserFacingError) {
+  if (isTemplateBackupValidationError(error)) {
     recordBreadcrumb(
       'template.validation',
       message,
