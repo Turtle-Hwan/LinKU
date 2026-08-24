@@ -86,11 +86,11 @@ export interface LinkuDatabase extends DBSchema {
 export type LinkuDb = IDBPDatabase<LinkuDatabase>;
 
 const DATABASE_NAME = "linku";
-// Version 2 builds were already loaded in unpacked/test profiles with the
-// account-sync stores but without `quarantine`. Version 3 is an additive
-// compatibility migration: it fills any missing stateless stores while
-// retaining those pre-release stores and their data.
-export const LINKU_DATABASE_VERSION = 3;
+// Pre-release unpacked/test profiles may already be at version 2 or 3 with a
+// partial store set. Version 4 forces one more additive compatibility upgrade:
+// it fills every missing stateless store while retaining existing stores and
+// their data.
+export const LINKU_DATABASE_VERSION = 4;
 
 function openDatabase(
   databaseName: string,
