@@ -19,10 +19,10 @@ export interface ECampusLoginResponse {
   data?: {
     isError: boolean;
     message: string;
-    count: number;
-    returnURL: string;
-    ids_yn: string;
-    VERIFY: string;
+    count?: number;
+    returnURL?: string;
+    ids_yn?: string;
+    VERIFY?: string;
   };
   error?: string;
 }
@@ -45,6 +45,30 @@ export interface ECampusGoLectureResponse {
 }
 
 const LOCAL_SAMPLE_LECTURE_URL = '__LOCAL_SAMPLE_ECAMPUS_TODO__';
+const ECAMPUS_LOGIN_TIMEOUT_MS = 10_000;
+
+type ECampusLoginPayload = NonNullable<ECampusLoginResponse['data']>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseECampusLoginPayload(responseText: string): ECampusLoginPayload {
+  const trimmedText = responseText.trim();
+  const callbackMatch =
+    /^jsonLogin\s*\(\s*([\s\S]*?)\s*\)\s*;?\s*$/u.exec(trimmedText);
+  const parsed: unknown = JSON.parse(callbackMatch?.[1] ?? trimmedText);
+
+  if (
+    !isRecord(parsed) ||
+    typeof parsed.isError !== 'boolean' ||
+    typeof parsed.message !== 'string'
+  ) {
+    throw new TypeError('eCampus login response has an invalid payload');
+  }
+
+  return parsed as ECampusLoginPayload;
+}
 
 const isLocalSampleMode = () => {
   return import.meta.env.MODE === 'development' && !isExtensionEnvironment();
@@ -160,8 +184,16 @@ export async function eCampusLoginAPI(
     };
   }
 
+  const controller = new AbortController();
+  let didTimeout = false;
+  const timeoutId = globalThis.setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, ECAMPUS_LOGIN_TIMEOUT_MS);
+
+  let response: Response;
   try {
-    const response = await fetch(
+    response = await fetch(
       'https://ecampus.konkuk.ac.kr/ilos/lo/login.acl?data=jsonLogin',
       {
         method: 'POST',
@@ -170,30 +202,88 @@ export async function eCampusLoginAPI(
         },
         body: buildECampusLoginBody(userId, userPw),
         credentials: 'include',
+        signal: controller.signal,
       }
     );
-
-    // Parse response text - comes in jsonLogin() format
-    const responseText = await response.text();
-
-    // Remove "jsonLogin (" and ");" and parse JSON
-    const jsonText = responseText
-      .replace(/\s*jsonLogin\s*\(\s*/, '')
-      .replace(/\s*\)\s*;?\s*$/, '');
-    const data = JSON.parse(jsonText);
-
-    // Check login success - isError false means success
-    const success = data && !data.isError;
-
-    return {
-      success,
-      data,
-    };
   } catch (error) {
-    errorLog('Login error:', error);
+    const networkFailureKind = classifyNetworkFailure(error);
+
+    if (didTimeout) {
+      recordBreadcrumb(
+        'ecampus.network',
+        'login request timed out',
+        { timeout_ms: ECAMPUS_LOGIN_TIMEOUT_MS },
+        'warning',
+      );
+      warnLogOnly('eCampus login request timed out:', error);
+      return {
+        success: false,
+        error: 'eCampus 로그인 요청 시간이 초과되었습니다.',
+      };
+    }
+
+    recordBreadcrumb(
+      'ecampus.network',
+      'login request transport failed',
+      { network_failure_kind: networkFailureKind },
+      'warning',
+    );
+    if (isExpectedNetworkFailure(error)) {
+      warnLogOnly('eCampus login transport failed:', error);
+    } else {
+      errorLog('eCampus login request failed unexpectedly:', error);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+
+  if (!response.ok) {
+    recordBreadcrumb(
+      'ecampus.network',
+      'login request returned non-success status',
+      { status: response.status },
+      response.status >= 500 ? 'error' : 'warning',
+    );
+    warnLogOnly('eCampus login returned non-success status:', {
+      status: response.status,
+      statusText: response.statusText,
+    });
+    return {
+      success: false,
+      error: `eCampus 로그인 요청에 실패했습니다. (${response.status})`,
+    };
+  }
+
+  try {
+    // The endpoint normally wraps JSON in jsonLogin(...), but accepting plain
+    // JSON keeps the parser compatible with equivalent success responses.
+    const responseText = await response.text();
+    const data = parseECampusLoginPayload(responseText);
+
+    if (data.isError) {
+      recordBreadcrumb(
+        'ecampus.auth',
+        'login credentials were rejected',
+        undefined,
+        'info',
+      );
+    }
+
+    return {
+      success: data.isError === false,
+      data,
+    };
+  } catch (error) {
+    // A 200 response that cannot satisfy the documented login contract is an
+    // integration defect. This branch is the sole capture owner for it.
+    errorLog('eCampus login returned an invalid success payload:', error);
+    return {
+      success: false,
+      error: 'eCampus 로그인 응답을 처리하지 못했습니다.',
     };
   }
 }
@@ -334,21 +424,13 @@ export async function eCampusGoLectureAPI(
     };
   }
 
-  try {
-    const lectureUrl = `/ilos/mp/todo_list_connect.acl?SEQ=${seq}&gubun=${gubun}&KJKEY=${kj}`;
+  const lectureUrl = `/ilos/mp/todo_list_connect.acl?SEQ=${seq}&gubun=${gubun}&KJKEY=${kj}`;
 
-    return {
-      success: true,
-      isError: false,
-      message: lectureUrl,
-    };
-  } catch (error) {
-    errorLog('Failed to access lecture:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
+  return {
+    success: true,
+    isError: false,
+    message: lectureUrl,
+  };
 }
 
 export { LOCAL_SAMPLE_LECTURE_URL };
