@@ -6,7 +6,12 @@ import {
   type FeedbackInput,
   type FeedbackSubmission,
 } from "@/types/feedback";
-import { errorLog, getErrorLogDetails, warnLog } from "@/utils/logger";
+import { recordBreadcrumb } from "@/monitoring";
+import { errorLog, warnLogOnly } from "@/utils/logger";
+import {
+  classifyNetworkFailure,
+  type NetworkFailureKind,
+} from "@/utils/networkFailure";
 import {
   readFeedbackOutbox,
   setFeedbackOutboxWarningReporter,
@@ -14,11 +19,115 @@ import {
 } from "@/apis/feedbackOutbox";
 
 setFeedbackOutboxWarningReporter((message, error) => {
-  warnLog(message, getErrorLogDetails(error));
+  // An unreadable outbox is persistent data loss, not a transient warning.
+  // Keep the original parsing error as this boundary's single capture owner.
+  errorLog(message, error);
 });
 
 const MAX_OUTBOX_SIZE = 50;
 const REQUEST_TIMEOUT_MS = 12_000;
+
+type FeedbackFailureKind =
+  | Exclude<NetworkFailureKind, "unknown">
+  | "configuration"
+  | "endpoint"
+  | "contract"
+  | "persistence"
+  | "unexpected";
+
+interface FeedbackFailureDescription {
+  kind: FeedbackFailureKind;
+  endpointWide: boolean;
+  expected: boolean;
+  originalError: Error;
+  deliveryCode?: string;
+}
+
+class FeedbackDeliveryError extends Error {
+  readonly kind: Exclude<
+    FeedbackFailureKind,
+    NetworkFailureKind | "unexpected"
+  >;
+
+  readonly endpointWide: boolean;
+  readonly originalError: Error;
+
+  constructor(
+    code: string,
+    kind: FeedbackDeliveryError["kind"],
+    endpointWide: boolean,
+    originalError?: unknown,
+  ) {
+    super(code);
+    this.name = "FeedbackDeliveryError";
+    this.kind = kind;
+    this.endpointWide = endpointWide;
+    this.originalError = originalError instanceof Error
+      ? originalError
+      : this;
+  }
+}
+
+const toError = (error: unknown) =>
+  error instanceof Error ? error : new Error(String(error));
+
+const describeFeedbackFailure = (
+  error: unknown,
+): FeedbackFailureDescription => {
+  const networkKind = classifyNetworkFailure(error);
+  if (networkKind !== "unknown") {
+    return {
+      kind: networkKind,
+      endpointWide: true,
+      expected: true,
+      originalError: toError(error),
+    };
+  }
+
+  if (error instanceof FeedbackDeliveryError) {
+    return {
+      kind: error.kind,
+      endpointWide: error.endpointWide,
+      expected: false,
+      originalError: error.originalError,
+      deliveryCode: error.message,
+    };
+  }
+
+  return {
+    kind: "unexpected",
+    endpointWide: false,
+    expected: false,
+    originalError: toError(error),
+  };
+};
+
+const reportFeedbackFailure = (
+  message: string,
+  error: unknown,
+  captureUnexpected: boolean = true,
+) => {
+  const failure = describeFeedbackFailure(error);
+  recordBreadcrumb("feedback.delivery", "feedback delivery deferred", {
+    failure_kind: failure.kind,
+    endpoint_wide: failure.endpointWide,
+    delivery_code: failure.deliveryCode,
+  }, failure.expected ? "warning" : "error");
+
+  if (failure.expected || !captureUnexpected) {
+    warnLogOnly(message, failure.originalError);
+  } else {
+    // Pass the originating Error object, not sanitized log details, so Sentry
+    // retains its real type and stack.
+    errorLog(message, failure.originalError, {
+      failure_kind: failure.kind,
+      endpoint_wide: failure.endpointWide,
+      delivery_code: failure.deliveryCode,
+    });
+  }
+
+  return failure;
+};
 
 const activeDeliveries = new Map<
   string,
@@ -94,7 +203,13 @@ async function postFeedback(submission: FeedbackSubmission) {
 
   const delivery = (async () => {
     const endpoint = getFeedbackEndpoint();
-    if (!endpoint) throw new Error("FEEDBACK_ENDPOINT_NOT_CONFIGURED");
+    if (!endpoint) {
+      throw new FeedbackDeliveryError(
+        "FEEDBACK_ENDPOINT_NOT_CONFIGURED",
+        "configuration",
+        true,
+      );
+    }
 
     const controller = new AbortController();
     const timeout = window.setTimeout(
@@ -111,17 +226,61 @@ async function postFeedback(submission: FeedbackSubmission) {
         signal: controller.signal,
       });
 
-      const responseBody = feedbackEndpointResponseSchema.parse(
-        await response.json(),
+      if (!response.ok) {
+        const httpError = new Error(`Feedback endpoint returned ${response.status}`);
+        Object.assign(httpError, {
+          status: response.status,
+          statusText: response.statusText,
+        });
+        throw new FeedbackDeliveryError(
+          `FEEDBACK_HTTP_${response.status}`,
+          "endpoint",
+          true,
+          httpError,
+        );
+      }
+
+      let responseValue: unknown;
+      try {
+        responseValue = await response.json();
+      } catch (error) {
+        throw new FeedbackDeliveryError(
+          "FEEDBACK_RESPONSE_INVALID_JSON",
+          "contract",
+          true,
+          error,
+        );
+      }
+
+      const parsedResponse = feedbackEndpointResponseSchema.safeParse(
+        responseValue,
       );
-      if (!response.ok || !responseBody.success || !responseBody.persisted) {
-        throw new Error(responseBody.error || "FEEDBACK_NOT_PERSISTED");
+      if (!parsedResponse.success) {
+        throw new FeedbackDeliveryError(
+          "FEEDBACK_RESPONSE_SCHEMA_MISMATCH",
+          "contract",
+          true,
+          parsedResponse.error,
+        );
+      }
+
+      const responseBody = parsedResponse.data;
+      if (!responseBody.success || !responseBody.persisted) {
+        throw new FeedbackDeliveryError(
+          responseBody.error || "FEEDBACK_NOT_PERSISTED",
+          "persistence",
+          false,
+        );
       }
       if (
         submission.contactEmail &&
         responseBody.contactEmailStored !== true
       ) {
-        throw new Error("FEEDBACK_CONTACT_EMAIL_NOT_PERSISTED");
+        throw new FeedbackDeliveryError(
+          "FEEDBACK_CONTACT_EMAIL_NOT_PERSISTED",
+          "persistence",
+          false,
+        );
       }
 
       return responseBody;
@@ -177,7 +336,7 @@ export async function submitFeedback(
       status: "persisted",
     };
   } catch (error) {
-    errorLog("[VoC] Feedback queued for retry:", error);
+    reportFeedbackFailure("[VoC] Feedback queued for retry:", error);
     return { status: "queued" };
   }
 }
@@ -188,13 +347,24 @@ export function flushFeedbackOutbox() {
   activeFlush = (async () => {
     try {
       const outbox = await readFeedbackOutbox();
+      let capturedUnexpectedFailure = false;
 
-      // 한 건의 실패가 뒤의 제출을 막지 않도록 각 항목을 독립적으로 처리합니다.
       for (const submission of outbox) {
         try {
           await deliverFeedback(submission);
         } catch (error) {
-          errorLog("[VoC] Outbox retry failed:", error);
+          const failure = reportFeedbackFailure(
+            "[VoC] Outbox retry failed:",
+            error,
+            !capturedUnexpectedFailure,
+          );
+          capturedUnexpectedFailure ||= !failure.expected;
+
+          // Retrying every queued item against the same unavailable or
+          // misconfigured endpoint only repeats work and duplicate events.
+          if (failure.endpointWide) {
+            break;
+          }
         }
       }
     } catch (error) {
