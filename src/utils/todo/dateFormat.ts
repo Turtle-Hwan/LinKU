@@ -3,11 +3,18 @@
  */
 
 import { TodoItem } from "@/types/todo";
-import { captureErrorLog } from "@/utils/logger";
+import { captureErrorLog, warnLog } from "@/utils/logger";
 
 const TODO_DATE_PATTERN = /^(\d{4})[.-](\d{1,2})[.-](\d{1,2})$/;
 const TODO_TIME_PATTERN = /^(\d{1,2}):(\d{2})$/;
 const INVALID_TODO_DEADLINE = "2099-12-31T23:59:59";
+let didWarnAboutInvalidDeadline = false;
+
+function warnAboutInvalidDeadline(): void {
+  if (didWarnAboutInvalidDeadline) return;
+  didWarnAboutInvalidDeadline = true;
+  warnLog("[calculateDDay] Invalid date or time");
+}
 
 const parseTodoTime = (
   dueTime: string,
@@ -106,7 +113,7 @@ export function calculateDDay(dueDate: string, dueTime: string): string {
   try {
     const dueDateTime = parseTodoDateTime(dueDate, dueTime);
     if (!dueDateTime) {
-      captureErrorLog("[calculateDDay] Invalid date or time");
+      warnAboutInvalidDeadline();
       return "D-Day";
     }
 
