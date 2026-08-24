@@ -4,7 +4,12 @@ import {
   createBulletinInfo,
   type BulletinInfo,
 } from "@/constants/bulletin";
-import { errorLog } from "@/utils/logger";
+import { recordBreadcrumb } from "@/monitoring";
+import { errorLog, warnLogOnly } from "@/utils/logger";
+import {
+  classifyNetworkFailure,
+  isExpectedNetworkFailure,
+} from "@/utils/networkFailure";
 
 type BulletinVerification = "verified" | "unverified";
 type BulletinListener = (bulletin: BulletinInfo) => void;
@@ -193,7 +198,19 @@ async function verifyBulletin(
 
     return verifyBulletinBody(await response.text(), year);
   } catch (error) {
-    errorLog("[bulletin] Failed to check annual bulletin", error);
+    const networkFailureKind = classifyNetworkFailure(error);
+    recordBreadcrumb(
+      "bulletin.network",
+      "annual bulletin verification failed",
+      { network_failure_kind: networkFailureKind, year },
+      "warning",
+    );
+
+    if (isExpectedNetworkFailure(error)) {
+      warnLogOnly("[bulletin] Failed to check annual bulletin", error);
+    } else {
+      errorLog("[bulletin] Failed to check annual bulletin", error);
+    }
     return "unverified";
   } finally {
     globalThis.clearTimeout(timeoutId);
