@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Info, Download, Check, Upload, X } from "lucide-react";
 import QRCode from "qrcode";
-import { errorLog, warnLog } from '@/utils/logger';
+import { recordBreadcrumb } from "@/monitoring";
+import { errorLog, warnLogOnly } from '@/utils/logger';
 import { sendLabsFeatureUse } from '@/utils/analytics';
 import { qrUrlSchema } from '@/utils/formValidation';
 
@@ -12,6 +13,16 @@ import { qrUrlSchema } from '@/utils/formValidation';
 const LINKU_LOGO_URL = "/assets/icon128.png";
 
 type LogoOption = "none" | "linku" | "custom";
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
 
 const QRGeneratorSection = () => {
   const [inputUrl, setInputUrl] = useState<string>("");
@@ -24,17 +35,6 @@ const QRGeneratorSection = () => {
   const [logoOption, setLogoOption] = useState<LogoOption>("linku");
   const [customLogoUrl, setCustomLogoUrl] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 이미지 로드 헬퍼
-  const loadImage = (src: string): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = src;
-    });
-  };
 
   // QR 코드에 로고 오버레이
   const generateQRWithLogo = useCallback(
@@ -73,8 +73,15 @@ const QRGeneratorSection = () => {
             ctx.drawImage(logo, position, position, logoSize, logoSize);
           }
         } catch (error) {
-          errorLog('[QR] Failed to load logo:', error);
-          warnLog("로고 로드 실패, 로고 없이 생성");
+          recordBreadcrumb(
+            "labs.qr",
+            "logo overlay skipped",
+            {
+              logo_source: logoSrc === LINKU_LOGO_URL ? "bundled" : "custom",
+            },
+            "warning",
+          );
+          warnLogOnly("[QR] Failed to load logo; generated without logo", error);
         }
       }
 
