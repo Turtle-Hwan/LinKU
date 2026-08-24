@@ -20,10 +20,11 @@ import type { GoogleLoginResponse } from "../types";
 import {
   debugLog,
   captureErrorLog,
-  getErrorLogDetails,
   getHttpErrorLogDetails,
   captureWarnLog,
+  warnLog,
 } from "@/utils/logger";
+import { recordBreadcrumb } from "@/monitoring";
 
 // Backend URL from environment
 const BACKEND_URL = (() => {
@@ -98,7 +99,13 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
       // launchWebAuthFlow resolves without a URL both when the user closes the
       // window and when the flow ends without a redirect, so this is not
       // necessarily a cancellation and must not disappear silently.
-      captureWarnLog("[Background] OAuth flow returned no redirect URL");
+      recordBreadcrumb(
+        "oauth.outcome",
+        "OAuth flow ended without a redirect URL",
+        undefined,
+        "info",
+      );
+      warnLog("[Background] OAuth flow returned no redirect URL");
       return { success: false, error: "인증이 취소되었습니다." };
     }
 
@@ -110,7 +117,22 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
     debugLog("[Background] Extracted code:", code ? "있음" : "없음");
 
     if (error) {
-      captureErrorLog("[Background] OAuth error returned from provider", { error });
+      const isExpectedAuthOutcome = /access_denied|cancel|closed/iu.test(error);
+      recordBreadcrumb(
+        "oauth.outcome",
+        "OAuth provider returned an error outcome",
+        { oauth_error: error, expected: isExpectedAuthOutcome },
+        isExpectedAuthOutcome ? "info" : "error",
+      );
+      if (isExpectedAuthOutcome) {
+        warnLog("[Background] OAuth was not approved", { error });
+        return { success: false, error: "인증이 취소되었습니다." };
+      }
+      captureErrorLog(
+        "[Background] OAuth error returned from provider",
+        new Error(`OAuth provider error: ${error}`),
+        { oauth_error: error },
+      );
       return {
         success: false,
         error: "인증 제공자가 로그인을 완료하지 못했습니다.",
@@ -217,11 +239,17 @@ export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
         error.message.includes("interrupted"));
 
     if (isUserCancellation) {
+      recordBreadcrumb(
+        "oauth.outcome",
+        "OAuth flow cancelled by user",
+        undefined,
+        "info",
+      );
       debugLog("[Background] OAuth cancelled by user", {
         message: error instanceof Error ? error.message : String(error),
       });
     } else {
-      captureErrorLog("[Background] OAuth error", getErrorLogDetails(error));
+      captureErrorLog("[Background] OAuth error", error);
     }
 
     // User closed the popup or cancelled

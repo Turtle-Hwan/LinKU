@@ -9,7 +9,7 @@
 import { BackgroundMessageType } from "../background/types";
 import type { GoogleLoginResponse } from "../background/types";
 import { getChromeApi, getStorage, removeStorage } from "./chrome";
-import { debugLog, captureErrorLog, getErrorLogDetails } from "@/utils/logger";
+import { debugLog, captureErrorLog } from "@/utils/logger";
 
 /**
  * User profile stored in chrome.storage.local
@@ -108,7 +108,7 @@ export async function startGoogleLogin(): Promise<GoogleLoginResponse> {
   } catch (error) {
     captureErrorLog(
       "[Popup] Failed to communicate with background",
-      getErrorLogDetails(error),
+      error,
     );
 
     return {
