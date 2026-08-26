@@ -56,6 +56,11 @@ test("analytics storage 잠금은 issue 없이 lifecycle open을 계속 전송�
     appType: "custom",
     logLevel: "silent",
     server: { middlewareMode: true },
+    define: {
+      "import.meta.env.VITE_GA_PROXY_URL": JSON.stringify(
+        "https://analytics.linku.example/collect",
+      ),
+    },
     resolve: { alias: { "@": path.resolve(process.cwd(), "src") } },
     plugins: [
       {

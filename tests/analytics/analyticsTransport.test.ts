@@ -64,6 +64,25 @@ test("first-party proxy는 client API secret을 URL에 넣지 않는다", () => 
   );
 });
 
+test("transport 미설정 시 네트워크 요청 없이 수집을 건너뛴다", async () => {
+  let fetchCalled = false;
+  const result = await deliverAnalyticsPayload(
+    payload,
+    { measurementId: "G-TEST" },
+    async () => {
+      fetchCalled = true;
+      return { ok: true, status: 204 };
+    },
+    true,
+  );
+
+  assert.deepEqual(result, {
+    success: false,
+    failureKind: "unconfigured",
+  });
+  assert.equal(fetchCalled, false);
+});
+
 test("proxy가 없을 때만 기존 GA Measurement Protocol direct mode를 사용한다", () => {
   const destination = resolveAnalyticsDestination({
     measurementId: "G-TEST",

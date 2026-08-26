@@ -65,6 +65,12 @@ const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || "production";
 /** development 환경에서만 DebugView parameter 활성화 */
 const DEBUG_MODE = ENVIRONMENT === "development";
 
+/** transport 미설정 release에서는 analytics 관련 storage와 message 작업도 생략한다. */
+const ANALYTICS_ENABLED = Boolean(
+  import.meta.env.VITE_GA_PROXY_URL?.trim() ||
+    import.meta.env.VITE_GA_API_SECRET?.trim(),
+);
+
 // ─── Session management ────────────────────────────────────────────────────
 
 interface SessionResult {
@@ -190,6 +196,8 @@ async function sendGAEvent(
   eventName: string,
   eventParams: Record<string, GAEventParam> = {}
 ): Promise<void> {
+  if (!ANALYTICS_ENABLED) return;
+
   if (!isExtensionEnvironment()) {
     if (DEBUG_MODE) {
       debugLog("[GA] Skipping event outside extension context:", eventName);
@@ -248,6 +256,8 @@ export async function sendExtensionOpen(
   screenName: string,
   entryPoint: string
 ): Promise<void> {
+  if (!ANALYTICS_ENABLED) return;
+
   if (!isExtensionEnvironment()) {
     if (DEBUG_MODE) {
       debugLog("[GA] Skipping lifecycle events outside extension context.");
