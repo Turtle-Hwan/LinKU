@@ -40,18 +40,14 @@ secret을 서버 환경에서 붙여야 합니다. endpoint는 event 수·이름
 검증하고 rate limit을 적용해야 합니다. proxy가 설정된 release workflow는
 `VITE_GA_API_SECRET`을 Vite 환경에 넣지 않습니다.
 
-proxy가 아직 준비되지 않은 동안에는 기존 `VITE_GA_API_SECRET` direct mode로 호환됩니다.
-이 경로는 `google-analytics.com` 차단과 client bundle 내 API secret 노출을 근본적으로
-피하지 못하는 임시 fallback입니다. tracker 차단기는 hostname에서 요청을 거부하므로
-extension의 `host_permissions`를 넓혀도 해결되지 않습니다. offline, tracker 차단, timeout, GA HTTP 실패는 제품
-오류가 아니므로 Sentry issue로 만들지 않고 background breadcrumb와 console warning으로만
-남깁니다. 이벤트를 로컬에 재전송 큐로 보관하지 않아 검색어 등 analytics payload가 새로
-영속화되지 않습니다.
+운영 workflow는 `VITE_GA_PROXY_URL`이 없으면 analytics를 비활성화하고 client API secret을
+extension bundle에 주입하지 않습니다. sender도 analytics 관련 storage와 background message를
+만들기 전에 반환하므로 Google endpoint 요청, Sentry issue, 사용자 기능 실패가 발생하지
+않습니다. source의 `VITE_GA_API_SECRET` direct mode는 로컬 호환 확인에만 남겨 둡니다.
 
-근본 전환 순서는 first-party proxy 배포 → `VITE_GA_PROXY_URL` repository variable 설정 →
-GA DebugView smoke 확인 → 번들에 사용했던 API secret 교체·제거 → production direct fallback
-fail-closed입니다. proxy가 준비되기 전에 마지막 단계를 먼저 적용하면 release 자체가
-중단되므로 외부 endpoint와 Actions 설정을 함께 완료해야 합니다.
+향후 운영 지표가 다시 필요해지면 first-party proxy를 별도 작업으로 배포하고 repository
+variable을 설정한 뒤 GA DebugView에서 확인합니다. 그전까지는 이벤트를 로컬에 저장하거나
+재전송하지 않습니다.
 
 ## Identity Model
 
