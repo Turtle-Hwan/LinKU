@@ -113,10 +113,25 @@ test("background transport는 성공 응답과 keepalive request를 반환한다
   assert.equal(requestInit?.body, JSON.stringify(payload));
 });
 
-test("offline과 tracker 차단은 throw하지 않고 transport failure로 분류한다", async () => {
+test("offline, tracker 차단, timeout은 throw하지 않고 transport failure로 분류한다", async () => {
   const fetchImpl: AnalyticsFetch = async () => {
     throw new TypeError("Failed to fetch");
   };
+  const timeoutFetch: AnalyticsFetch = (_url, init) =>
+    new Promise((_resolve, reject) => {
+      const rejectAborted = () => {
+        const error = new Error("The operation was aborted");
+        error.name = "AbortError";
+        reject(error);
+      };
+
+      if (init.signal?.aborted) {
+        rejectAborted();
+        return;
+      }
+
+      init.signal?.addEventListener("abort", rejectAborted, { once: true });
+    });
 
   const offline = await deliverAnalyticsPayload(
     payload,
@@ -130,6 +145,16 @@ test("offline과 tracker 차단은 throw하지 않고 transport failure로 분�
     fetchImpl,
     true,
   );
+  const timedOut = await deliverAnalyticsPayload(
+    payload,
+    {
+      measurementId: "G-TEST",
+      apiSecret: "test-secret",
+      timeoutMs: 1,
+    },
+    timeoutFetch,
+    true,
+  );
 
   assert.deepEqual(offline, {
     success: false,
@@ -138,6 +163,10 @@ test("offline과 tracker 차단은 throw하지 않고 transport failure로 분�
   assert.deepEqual(blocked, {
     success: false,
     failureKind: "blocked_or_unreachable",
+  });
+  assert.deepEqual(timedOut, {
+    success: false,
+    failureKind: "aborted",
   });
 });
 
