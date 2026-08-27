@@ -35,7 +35,7 @@
  * - 이벤트 네이밍과 파라미터 패턴: docs/GA4-Data-Taxonomy.md 기준을 따른다
  *
  * ## 전송 흐름
- * 각 헬퍼 → sendGAEvent (internal) → background worker → GA4/proxy
+ * 각 헬퍼 → sendGAEvent (internal) → background worker → GA4
  */
 
 import { getOrCreateClientId } from "./clientId";
@@ -67,8 +67,7 @@ const DEBUG_MODE = ENVIRONMENT === "development";
 
 /** transport 미설정 release에서는 analytics 관련 storage와 message 작업도 생략한다. */
 const ANALYTICS_ENABLED = Boolean(
-  import.meta.env.VITE_GA_PROXY_URL?.trim() ||
-    import.meta.env.VITE_GA_API_SECRET?.trim(),
+  import.meta.env.VITE_GA_API_SECRET?.trim(),
 );
 
 // ─── Session management ────────────────────────────────────────────────────

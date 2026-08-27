@@ -85,25 +85,18 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "sentry_release=linku@$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Configure analytics transport
+      - name: Configure direct analytics transport
         env:
-          GA_PROXY_URL: ${{ vars.VITE_GA_PROXY_URL }}
           GA_API_SECRET: ${{ secrets.VITE_GA_API_SECRET }}
         shell: bash
         run: |
-          if [ -n "$GA_PROXY_URL" ]; then
-            if [[ "$GA_PROXY_URL" != https://* ]]; then
-              echo "::error::VITE_GA_PROXY_URL must use HTTPS in production"
-              exit 1
-            fi
-            echo "VITE_GA_PROXY_URL=$GA_PROXY_URL" >> "$GITHUB_ENV"
-          elif [ -n "$GA_API_SECRET" ]; then
-            echo "::notice::Using direct GA transport; delivery failures remain non-blocking"
-            echo "VITE_GA_API_SECRET=$GA_API_SECRET" >> "$GITHUB_ENV"
-          else
-            echo "::error::Configure VITE_GA_PROXY_URL or VITE_GA_API_SECRET"
+          if [ -z "$GA_API_SECRET" ]; then
+            echo "::error::Configure VITE_GA_API_SECRET"
             exit 1
           fi
+
+          echo "::notice::Using direct GA transport; delivery failures remain non-blocking"
+          echo "VITE_GA_API_SECRET=$GA_API_SECRET" >> "$GITHUB_ENV"
 
       - name: Build extension
         env:

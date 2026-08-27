@@ -34,21 +34,20 @@ bounded payload를 `ANALYTICS_BATCH` 메시지로 background worker에 넘기고
 전송 완료까지 message channel을 유지합니다. 따라서 popup이 닫혀 요청이 중단되는 경로를
 줄입니다.
 
-운영 권장 경로는 `VITE_GA_PROXY_URL`로 지정한 first-party HTTPS endpoint입니다. 이
-endpoint는 request body를 GA4 Measurement Protocol로 전달하고 Measurement ID와 API
-secret을 서버 환경에서 붙여야 합니다. endpoint는 event 수·이름·primitive params를 다시
-검증하고 rate limit을 적용해야 합니다. proxy가 설정된 release workflow는
-`VITE_GA_API_SECRET`을 Vite 환경에 넣지 않습니다.
+background worker는 `https://www.google-analytics.com/mp/collect`로 직접 전송하며,
+운영 workflow는 `VITE_GA_API_SECRET`이 없으면 analytics 없는 release가 생기지 않도록
+build를 실패시킵니다. Manifest V3에서 원격 호스팅 코드를 실행할 수 없기 때문에
+[Chrome 공식 GA4 가이드](https://developer.chrome.com/docs/extensions/how-to/integrate/google-analytics-4)는
+Measurement Protocol 전송을 안내합니다.
 
-운영 workflow는 `VITE_GA_PROXY_URL`이 있으면 proxy를 사용하고, 없으면
-`VITE_GA_API_SECRET` direct mode를 사용합니다. 둘 다 없으면 analytics 없는 release가
-생기지 않도록 build를 실패시킵니다. proxy는 client-visible API secret과 tracker hostname
-차단을 줄이기 위한 선택적 개선이며 GA 작동 자체에 필수는 아닙니다.
+direct 전송에서는 API secret이 extension bundle에 포함됩니다. Google의 일반
+[Measurement Protocol 안내](https://developers.google.com/analytics/devguides/collection/protocol/ga4/sending-events)는
+API secret을 비공개로 유지하도록 권고하므로, 제3자가 스팸 이벤트를 보내 리포트를 오염시킬
+수 있는 위험을 명시적으로 수용합니다.
 
-direct mode에서는 tracker 차단, offline, timeout, GA HTTP 실패가 발생할 수 있습니다.
-이 실패는 제품 오류가 아니므로 Sentry issue로 만들지 않고 background breadcrumb와 console
-warning으로만 남깁니다. 이벤트를 로컬 재전송 큐에 보관하지 않아 analytics payload가 새로
-영속화되지 않습니다.
+tracker 차단, offline, timeout으로 전송하지 못한 이벤트는 조용히 버립니다. GA HTTP 또는
+구성 오류는 background에 한 번만 경고하되 Sentry issue로 만들지 않습니다. 어떤 실패도
+제품 동작을 막지 않으며, 로컬 재전송 큐에 analytics payload를 영속화하지 않습니다.
 
 ## Identity Model
 
@@ -275,8 +274,8 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 ## 구현된 이벤트 전체 레퍼런스
 
 `src/utils/analytics.ts`에 정의된 헬퍼 기준 알파벳 순 정리.
-모든 헬퍼는 `sendGAEvent` (internal) → background transport → first-party proxy 또는
-GA4 MP `/mp/collect`로 전송된다.
+모든 헬퍼는 `sendGAEvent` (internal) → background transport → GA4 MP
+`/mp/collect`로 전송된다.
 
 ### 레거시 이벤트 (v1.5.46~, MP_ prefix 없음, 연속성 유지)
 
