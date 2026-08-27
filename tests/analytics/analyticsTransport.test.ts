@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   deliverAnalyticsPayload,
-  resolveAnalyticsDestination,
+  resolveAnalyticsUrl,
   type AnalyticsFetch,
 } from "../../src/utils/analyticsTransport.ts";
 import {
@@ -50,20 +50,6 @@ test("analytics message payload는 GA4의 bounded primitive contract만 허용�
   );
 });
 
-test("first-party proxy는 client API secret을 URL에 넣지 않는다", () => {
-  assert.deepEqual(
-    resolveAnalyticsDestination({
-      proxyUrl: "https://analytics.linku.example/collect",
-      measurementId: "G-TEST",
-      apiSecret: "must-not-be-forwarded",
-    }),
-    {
-      mode: "proxy",
-      url: "https://analytics.linku.example/collect",
-    },
-  );
-});
-
 test("transport 미설정 시 네트워크 요청 없이 수집을 건너뛴다", async () => {
   let fetchCalled = false;
   const result = await deliverAnalyticsPayload(
@@ -83,17 +69,16 @@ test("transport 미설정 시 네트워크 요청 없이 수집을 건너뛴다"
   assert.equal(fetchCalled, false);
 });
 
-test("proxy가 없을 때만 기존 GA Measurement Protocol direct mode를 사용한다", () => {
-  const destination = resolveAnalyticsDestination({
+test("GA Measurement Protocol direct URL에 release secret을 사용한다", () => {
+  const destination = resolveAnalyticsUrl({
     measurementId: "G-TEST",
     apiSecret: "test-secret",
   });
 
-  assert.equal("url" in destination, true);
-  if (!("url" in destination)) return;
+  assert.equal(typeof destination, "string");
+  if (typeof destination !== "string") return;
 
-  const url = new URL(destination.url);
-  assert.equal(destination.mode, "direct");
+  const url = new URL(destination);
   assert.equal(url.origin, "https://www.google-analytics.com");
   assert.equal(url.searchParams.get("measurement_id"), "G-TEST");
   assert.equal(url.searchParams.get("api_secret"), "test-secret");
@@ -111,15 +96,18 @@ test("background transport는 성공 응답과 keepalive request를 반환한다
   const result = await deliverAnalyticsPayload(
     payload,
     {
-      proxyUrl: "https://analytics.linku.example/collect",
       measurementId: "G-TEST",
+      apiSecret: "test-secret",
     },
     fetchImpl,
     true,
   );
 
-  assert.deepEqual(result, { success: true, mode: "proxy", status: 204 });
-  assert.equal(requestUrl, "https://analytics.linku.example/collect");
+  assert.deepEqual(result, { success: true, status: 204 });
+  const url = new URL(requestUrl);
+  assert.equal(url.origin, "https://www.google-analytics.com");
+  assert.equal(url.searchParams.get("measurement_id"), "G-TEST");
+  assert.equal(url.searchParams.get("api_secret"), "test-secret");
   assert.equal(requestInit?.method, "POST");
   assert.equal(requestInit?.keepalive, true);
   assert.equal(requestInit?.body, JSON.stringify(payload));
@@ -146,12 +134,10 @@ test("offline과 tracker 차단은 throw하지 않고 transport failure로 분�
   assert.deepEqual(offline, {
     success: false,
     failureKind: "offline",
-    mode: "direct",
   });
   assert.deepEqual(blocked, {
     success: false,
     failureKind: "blocked_or_unreachable",
-    mode: "direct",
   });
 });
 
@@ -166,7 +152,6 @@ test("GA HTTP failure는 response body를 읽지 않고 상태만 남긴다", as
   assert.deepEqual(result, {
     success: false,
     failureKind: "http_error",
-    mode: "direct",
     status: 429,
   });
 });

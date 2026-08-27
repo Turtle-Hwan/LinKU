@@ -75,7 +75,6 @@ const captureBackgroundException = createErrorReporter({
 
 const ANALYTICS_MEASUREMENT_ID = "G-ECMY8N9FX4";
 const analyticsTransportConfig = {
-  proxyUrl: import.meta.env.VITE_GA_PROXY_URL,
   measurementId: ANALYTICS_MEASUREMENT_ID,
   apiSecret: import.meta.env.VITE_GA_API_SECRET,
 };
@@ -85,9 +84,16 @@ function recordAnalyticsTransportFailure(
   response: Extract<AnalyticsTransportResponse, { success: false }>,
   eventCount: number,
 ): void {
+  if (
+    response.failureKind === "offline" ||
+    response.failureKind === "aborted" ||
+    response.failureKind === "blocked_or_unreachable"
+  ) {
+    return;
+  }
+
   const failureKey = [
     response.failureKind,
-    response.mode ?? "none",
     response.status ?? "none",
   ].join(":");
 
@@ -100,7 +106,6 @@ function recordAnalyticsTransportFailure(
     {
       event_count: eventCount,
       failure_kind: response.failureKind,
-      transport_mode: response.mode ?? "unavailable",
       ...(response.status !== undefined && { status: response.status }),
     },
     "warning",
@@ -108,7 +113,6 @@ function recordAnalyticsTransportFailure(
   warnLog("[GA] Batch delivery skipped", {
     eventCount,
     failureKind: response.failureKind,
-    mode: response.mode,
     status: response.status,
   });
 }
@@ -321,7 +325,6 @@ chrome.runtime.onMessage.addListener(
             if (response.success) {
               debugLog("[GA] Batch delivered", {
                 eventCount,
-                mode: response.mode,
                 status: response.status,
               });
             } else {

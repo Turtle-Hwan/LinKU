@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 const DEBUG_ID_PATTERN = /_sentryDebugIdIdentifier=`sentry-dbid-[0-9a-f-]{36}`/u;
 const TEST_RELEASE = "linku@bundle-test";
 const TEST_DSN = "https://public@example.invalid/1";
-const TEST_GA_PROXY = "https://analytics.example.invalid/collect";
+const TEST_GA_SECRET = "bundle-test-ga-secret";
 
 async function listFiles(root) {
   const entries = await readdir(root, { withFileTypes: true });
@@ -31,8 +31,7 @@ function runVite(mode, outputDir) {
       VITE_SENTRY_DSN: TEST_DSN,
       VITE_SENTRY_ENVIRONMENT: "production",
       VITE_SENTRY_RELEASE: TEST_RELEASE,
-      VITE_GA_PROXY_URL: TEST_GA_PROXY,
-      VITE_GA_API_SECRET: "",
+      VITE_GA_API_SECRET: TEST_GA_SECRET,
     },
   });
 
@@ -80,12 +79,20 @@ try {
     "utf8",
   );
   assert.ok(
-    backgroundSource.includes(TEST_GA_PROXY),
-    "background bundle has no configured analytics proxy",
+    backgroundSource.includes(TEST_GA_SECRET),
+    "background bundle has no configured direct analytics secret",
+  );
+  assert.ok(
+    backgroundSource.includes("www.google-analytics.com/mp/collect"),
+    "background bundle has no direct GA endpoint",
   );
   for (const file of javascriptFiles) {
     if (file.endsWith("background/index.js")) continue;
     const source = await readFile(file, "utf8");
+    assert.ok(
+      !source.includes(TEST_GA_SECRET),
+      `${file} contains the background-owned direct GA secret`,
+    );
     assert.ok(
       !source.includes("mp/collect"),
       `${file} contains the background-owned GA transport`,

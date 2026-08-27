@@ -32,7 +32,7 @@ test("analytics storage 잠금은 issue 없이 lifecycle open을 계속 전송�
       ...runtimeState,
       sendMessage: async (message: unknown) => {
         dispatched.push(message);
-        return { success: true, mode: "proxy", status: 204 };
+        return { success: true, status: 204 };
       },
       get lastError() {
         return runtimeState.lastError;
@@ -57,9 +57,7 @@ test("analytics storage 잠금은 issue 없이 lifecycle open을 계속 전송�
     logLevel: "silent",
     server: { middlewareMode: true },
     define: {
-      "import.meta.env.VITE_GA_PROXY_URL": JSON.stringify(
-        "https://analytics.linku.example/collect",
-      ),
+      "import.meta.env.VITE_GA_API_SECRET": JSON.stringify("test-secret"),
     },
     resolve: { alias: { "@": path.resolve(process.cwd(), "src") } },
     plugins: [
