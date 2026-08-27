@@ -95,21 +95,21 @@ pnpm run build
 <details>
 <summary><b>환경 변수 설정 (Google Analytics)</b></summary>
 
-Google Analytics는 GA4 Measurement Protocol direct transport로 동작합니다. first-party
-proxy는 선택 사항입니다:
+Google Analytics는 background worker에서 GA4 Measurement Protocol endpoint로 직접
+전송합니다:
 
 ```bash
 # .env.development 파일 생성
 cp .env.development.example .env.development
 
-# .env.development 파일에서 VITE_GA_API_SECRET 또는 VITE_GA_PROXY_URL을 설정
+# .env.development 파일에서 VITE_GA_API_SECRET을 설정
 ```
 
-운영 workflow는 proxy가 있으면 proxy를 사용하고, 없으면 `VITE_GA_API_SECRET` direct
-mode를 사용합니다. 둘 다 없으면 GA 누락을 막기 위해 release가 실패합니다. proxy는
-client-visible API secret과 tracker hostname 차단을 줄이기 위한 선택적 개선이며 GA
-작동 자체에 필수는 아닙니다. direct 전송이 차단되거나 오프라인이면 해당 이벤트만
-유실되고 확장 프로그램 기능과 Sentry에는 영향을 주지 않습니다.
+운영 workflow는 `VITE_GA_API_SECRET`이 없으면 GA가 빠진 release를 만들지 않도록
+실패합니다. direct 전송 특성상 API secret은 extension bundle에서 확인할 수 있으며,
+스팸 이벤트로 리포트가 오염될 수 있는 위험을 수용합니다. 광고 차단기나 오프라인으로
+전송하지 못한 이벤트는 재시도하지 않고 버리며, 확장 프로그램 기능과 Sentry에는
+영향을 주지 않습니다.
 
 운영 전송 계약과 fallback 정책은
 [`docs/GA4-Data-Taxonomy.md`](docs/GA4-Data-Taxonomy.md)를 참고하세요.
