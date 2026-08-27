@@ -95,19 +95,21 @@ pnpm run build
 <details>
 <summary><b>환경 변수 설정 (Google Analytics)</b></summary>
 
-Google Analytics는 선택 기능입니다. 사용하려면 first-party proxy URL을 설정합니다:
+Google Analytics는 GA4 Measurement Protocol direct transport로 동작합니다. first-party
+proxy는 선택 사항입니다:
 
 ```bash
 # .env.development 파일 생성
 cp .env.development.example .env.development
 
-# .env.development 파일에서 VITE_GA_PROXY_URL을 설정
+# .env.development 파일에서 VITE_GA_API_SECRET 또는 VITE_GA_PROXY_URL을 설정
 ```
 
-proxy를 설정하지 않으면 analytics 수집만 건너뛰며 확장 프로그램 기능에는 영향을 주지
-않습니다. 운영 workflow는 client API secret을 주입하지 않습니다. 로컬 호환 확인에만
-`VITE_GA_API_SECRET` direct mode를 사용할 수 있지만 `VITE_` 값은 extension bundle에
-포함되므로 private secret으로 간주할 수 없습니다.
+운영 workflow는 proxy가 있으면 proxy를 사용하고, 없으면 `VITE_GA_API_SECRET` direct
+mode를 사용합니다. 둘 다 없으면 GA 누락을 막기 위해 release가 실패합니다. proxy는
+client-visible API secret과 tracker hostname 차단을 줄이기 위한 선택적 개선이며 GA
+작동 자체에 필수는 아닙니다. direct 전송이 차단되거나 오프라인이면 해당 이벤트만
+유실되고 확장 프로그램 기능과 Sentry에는 영향을 주지 않습니다.
 
 운영 전송 계약과 fallback 정책은
 [`docs/GA4-Data-Taxonomy.md`](docs/GA4-Data-Taxonomy.md)를 참고하세요.
