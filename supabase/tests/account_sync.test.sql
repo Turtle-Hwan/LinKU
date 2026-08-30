@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(36);
 
 select has_table('public', 'templates', 'templates table exists');
 select has_table('public', 'template_publications', 'publications table exists');
@@ -50,12 +50,25 @@ insert into auth.users (
     '{}',
     now(),
     now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '33333333-3333-4333-8333-333333333333',
+    'authenticated',
+    'authenticated',
+    'password@example.test',
+    '',
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{}',
+    now(),
+    now()
   );
 
 set local role authenticated;
 select set_config(
   'request.jwt.claims',
-  '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}',
+  '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","app_metadata":{"provider":"google","providers":["google"]}}',
   true
 );
 
@@ -65,6 +78,27 @@ select throws_ok(
   '42501',
   null,
   'direct template writes are denied'
+);
+
+select throws_ok(
+  $$select public.put_template(
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    '{
+      "version": 1,
+      "name": "잘못된 높이",
+      "height": 1.5,
+      "cloned": false,
+      "createdAt": "2026-08-31T00:00:00.000Z",
+      "updatedAt": "2026-08-31T00:00:00.000Z",
+      "items": [],
+      "stagingItems": []
+    }'::jsonb,
+    repeat('c', 64),
+    null
+  )$$,
+  '22023',
+  'INVALID_TEMPLATE',
+  'template height must be an integer'
 );
 
 select lives_ok(
@@ -100,10 +134,121 @@ select is(
 );
 
 reset role;
+insert into public.templates (
+  id,
+  owner_id,
+  document,
+  content_hash,
+  deleted_at
+)
+select
+  ('10000000-0000-4000-8000-' || lpad(sequence::text, 12, '0'))::uuid,
+  '11111111-1111-4111-8111-111111111111'::uuid,
+  (select document from public.templates
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+  repeat('1', 64),
+  now() - make_interval(secs => sequence)
+from generate_series(1, 101) sequence;
+
 set local role authenticated;
 select set_config(
   'request.jwt.claims',
-  '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}',
+  '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","app_metadata":{"provider":"google","providers":["google"]}}',
+  true
+);
+
+select lives_ok(
+  $$select public.put_template(
+    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    (select document from public.templates
+      where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+    repeat('d', 64),
+    null
+  )$$,
+  'creating a template prunes old deletion markers'
+);
+
+select is(
+  (select count(*)::integer from public.templates where deleted_at is not null),
+  100,
+  'deletion history stays bounded per account'
+);
+
+select lives_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'template-assets',
+      '11111111-1111-4111-8111-111111111111/' || repeat('d', 64) || '.webp',
+      '11111111-1111-4111-8111-111111111111'
+    )$$,
+  'owner can store a content-addressed private icon'
+);
+
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'template-assets',
+      '11111111-1111-4111-8111-111111111111/nested/' || repeat('d', 64) || '.webp',
+      '11111111-1111-4111-8111-111111111111'
+    )$$,
+  '42501',
+  null,
+  'private icon paths cannot create nested or arbitrary objects'
+);
+
+select lives_ok(
+  $$select public.put_template(
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    format('{
+      "version": 1,
+      "name": "아이콘 템플릿",
+      "height": 1,
+      "cloned": false,
+      "createdAt": "2026-08-31T00:00:00.000Z",
+      "updatedAt": "2026-08-31T00:00:00.000Z",
+      "items": [{
+        "templateItemId": 2,
+        "name": "링쿠",
+        "siteUrl": "https://linku.example/",
+        "position": {"x": 0, "y": 0},
+        "size": {"width": 2, "height": 1},
+        "icon": {"kind": "asset", "hash": "%s", "name": "링쿠 아이콘"}
+      }],
+      "stagingItems": []
+    }', repeat('e', 64))::jsonb,
+    repeat('b', 64),
+    null
+  )$$,
+  'owner can create a template that references a private icon'
+);
+
+select lives_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'published-template-assets',
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/' || repeat('e', 64) || '.webp',
+      '11111111-1111-4111-8111-111111111111'
+    )$$,
+  'owner can publish an icon referenced by the source template'
+);
+
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'published-template-assets',
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/' || repeat('f', 64) || '.webp',
+      '11111111-1111-4111-8111-111111111111'
+    )$$,
+  '42501',
+  null,
+  'unreferenced files cannot consume public storage'
+);
+
+reset role;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated","app_metadata":{"provider":"google","providers":["google"]}}',
   true
 );
 
@@ -111,6 +256,12 @@ select is(
   (select count(*)::integer from public.templates),
   0,
   'another user cannot read the template'
+);
+
+select is(
+  (select count(*)::integer from storage.objects),
+  0,
+  'another user cannot list the owner storage objects'
 );
 
 select throws_ok(
@@ -138,7 +289,7 @@ reset role;
 set local role authenticated;
 select set_config(
   'request.jwt.claims',
-  '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}',
+  '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","app_metadata":{"provider":"google","providers":["google"]}}',
   true
 );
 
@@ -185,7 +336,7 @@ reset role;
 set local role authenticated;
 select set_config(
   'request.jwt.claims',
-  '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}',
+  '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated","app_metadata":{"provider":"google","providers":["google"]}}',
   true
 );
 
@@ -205,7 +356,7 @@ reset role;
 set local role authenticated;
 select set_config(
   'request.jwt.claims',
-  '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}',
+  '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","app_metadata":{"provider":"google","providers":["google"]}}',
   true
 );
 
@@ -268,6 +419,52 @@ select is(
   (select count(*)::integer from public.browse_publications('', 'latest', 0, 12)),
   0,
   'unpublished templates disappear from the gallery'
+);
+
+reset role;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}',
+  true
+);
+
+select throws_ok(
+  $$select public.update_nickname('공급자 없는 사용자')$$,
+  '42501',
+  'GOOGLE_ACCOUNT_REQUIRED',
+  'sessions without provider metadata cannot use account RPCs'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated","app_metadata":{"provider":"email","providers":["email"]}}',
+  true
+);
+
+select is(
+  (select count(*)::integer from public.profiles),
+  0,
+  'non-Google sessions cannot read even their own profile'
+);
+
+select throws_ok(
+  $$select public.update_nickname('비밀번호 사용자')$$,
+  '42501',
+  'GOOGLE_ACCOUNT_REQUIRED',
+  'non-Google sessions cannot use account RPCs'
+);
+
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'template-assets',
+      '33333333-3333-4333-8333-333333333333/' || repeat('f', 64) || '.webp',
+      '33333333-3333-4333-8333-333333333333'
+    )$$,
+  '42501',
+  null,
+  'non-Google sessions cannot write storage objects'
 );
 
 select * from finish();

@@ -179,6 +179,7 @@ begin
     or jsonb_typeof(value -> 'updatedAt') <> 'string'
     or jsonb_array_length(value -> 'items') > 36
     or jsonb_array_length(value -> 'stagingItems') > 36
+    or (value ->> 'height')::numeric <> trunc((value ->> 'height')::numeric)
   then
     return false;
   end if;
@@ -241,12 +242,24 @@ create trigger create_linku_profile
 after insert on auth.users
 for each row execute function linku_private.create_profile();
 
+create or replace function linku_private.lock_account(target_user uuid)
+returns void
+language sql
+volatile
+set search_path = ''
+as $$
+  select pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(target_user::text, 0)
+  );
+$$;
+
 create or replace function linku_private.enforce_asset_limit()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 begin
+  perform linku_private.lock_account(new.owner_id);
   if not exists (
     select 1 from public.template_assets
     where owner_id = new.owner_id and content_hash = new.content_hash
@@ -296,12 +309,30 @@ set search_path = ''
 as $$
 declare
   current_user_id uuid := auth.uid();
+  app_metadata jsonb := coalesce(auth.jwt() -> 'app_metadata', '{}'::jsonb);
 begin
   if current_user_id is null then
     raise exception using errcode = '42501', message = 'LOGIN_REQUIRED';
   end if;
+  if coalesce(app_metadata ->> 'provider', '') <> 'google'
+    and not coalesce(app_metadata -> 'providers' ? 'google', false)
+  then
+    raise exception using errcode = '42501', message = 'GOOGLE_ACCOUNT_REQUIRED';
+  end if;
   return current_user_id;
 end;
+$$;
+
+create or replace function linku_private.is_google_session()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select auth.uid() is not null and (
+    auth.jwt() -> 'app_metadata' ->> 'provider' = 'google'
+    or coalesce(auth.jwt() -> 'app_metadata' -> 'providers' ? 'google', false)
+  );
 $$;
 
 create or replace function public.put_template(
@@ -319,6 +350,7 @@ declare
   current_user_id uuid := linku_private.require_user();
   current_record public.templates;
   saved public.templates;
+  stale_template_id uuid;
 begin
   if not linku_private.is_valid_template_document(p_document)
     or pg_column_size(p_document) > 262144
@@ -326,6 +358,8 @@ begin
   then
     raise exception using errcode = '22023', message = 'INVALID_TEMPLATE';
   end if;
+
+  perform linku_private.lock_account(current_user_id);
 
   select * into current_record
   from public.templates
@@ -338,6 +372,23 @@ begin
     if (select count(*) from public.templates where owner_id = current_user_id and deleted_at is null) >= 100 then
       raise exception using errcode = 'P0001', message = 'TEMPLATE_LIMIT_REACHED';
     end if;
+
+    for stale_template_id in
+      select id
+      from public.templates
+      where owner_id = current_user_id and deleted_at is not null
+      order by deleted_at desc, id
+      offset 100
+    loop
+      delete from public.template_publications
+      where template_id = stale_template_id and unpublished_at is not null;
+      delete from public.templates
+      where id = stale_template_id
+        and not exists (
+          select 1 from public.template_publications
+          where template_id = stale_template_id
+        );
+    end loop;
 
     insert into public.templates (id, owner_id, document, content_hash)
     values (p_id, current_user_id, p_document, p_content_hash)
@@ -383,6 +434,8 @@ declare
   current_user_id uuid := linku_private.require_user();
   deleted public.templates;
 begin
+  perform linku_private.lock_account(current_user_id);
+
   if exists (
     select 1 from public.template_publications
     where template_id = p_id and owner_id = current_user_id and unpublished_at is null
@@ -418,6 +471,8 @@ declare
   normalized text := btrim(p_nickname);
   updated_profile public.profiles;
 begin
+  perform linku_private.lock_account(current_user_id);
+
   if char_length(normalized) not between 1 and 32 then
     raise exception using errcode = '22023', message = 'INVALID_NICKNAME';
   end if;
@@ -453,6 +508,8 @@ declare
   public_snapshot jsonb;
   saved public.template_publications;
 begin
+  perform linku_private.lock_account(current_user_id);
+
   select * into source
   from public.templates
   where id = p_template_id and owner_id = current_user_id and deleted_at is null;
@@ -543,6 +600,8 @@ declare
   current_user_id uuid := linku_private.require_user();
   saved public.template_publications;
 begin
+  perform linku_private.lock_account(current_user_id);
+
   update public.template_publications
   set revision = revision + 1,
       updated_at = now(),
@@ -583,8 +642,8 @@ security definer
 set search_path = ''
 as $$
 declare
-  search_text text := btrim(coalesce(p_query, ''));
-  safe_offset integer := greatest(coalesce(p_offset, 0), 0);
+  search_text text := left(btrim(coalesce(p_query, '')), 80);
+  safe_offset integer := least(greatest(coalesce(p_offset, 0), 0), 1000);
   safe_limit integer := least(greatest(coalesce(p_limit, 12), 1), 24);
 begin
   if p_sort not in ('latest', 'likes', 'clones') then
@@ -636,6 +695,8 @@ declare
   current_user_id uuid := linku_private.require_user();
   current_count bigint;
 begin
+  perform linku_private.lock_account(current_user_id);
+
   if not exists (
     select 1 from public.template_publications
     where template_id = p_template_id and unpublished_at is null
@@ -686,6 +747,8 @@ as $$
 declare
   current_user_id uuid := linku_private.require_user();
 begin
+  perform linku_private.lock_account(current_user_id);
+
   delete from public.publication_likes where user_id = current_user_id;
   delete from public.template_publications where owner_id = current_user_id;
   delete from public.template_assets where owner_id = current_user_id;
@@ -704,32 +767,32 @@ alter table public.publication_likes enable row level security;
 
 create policy profiles_select_own on public.profiles
 for select to authenticated
-using (user_id = auth.uid());
+using (user_id = auth.uid() and linku_private.is_google_session());
 
 create policy templates_select_own on public.templates
 for select to authenticated
-using (owner_id = auth.uid());
+using (owner_id = auth.uid() and linku_private.is_google_session());
 
 create policy assets_select_own on public.template_assets
 for select to authenticated
-using (owner_id = auth.uid());
+using (owner_id = auth.uid() and linku_private.is_google_session());
 
 create policy assets_insert_own on public.template_assets
 for insert to authenticated
-with check (owner_id = auth.uid());
+with check (owner_id = auth.uid() and linku_private.is_google_session());
 
 create policy assets_update_own on public.template_assets
 for update to authenticated
-using (owner_id = auth.uid())
-with check (owner_id = auth.uid());
+using (owner_id = auth.uid() and linku_private.is_google_session())
+with check (owner_id = auth.uid() and linku_private.is_google_session());
 
 create policy publications_select_own on public.template_publications
 for select to authenticated
-using (owner_id = auth.uid());
+using (owner_id = auth.uid() and linku_private.is_google_session());
 
 create policy likes_select_own on public.publication_likes
 for select to authenticated
-using (user_id = auth.uid());
+using (user_id = auth.uid() and linku_private.is_google_session());
 
 revoke all on table public.profiles from anon, authenticated;
 revoke all on table public.templates from anon, authenticated;
@@ -772,11 +835,63 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
+create or replace function linku_private.can_store_private_asset(
+  target_user uuid,
+  target_name text
+)
+returns boolean
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  perform linku_private.lock_account(target_user);
+  return exists (
+    select 1 from storage.objects
+    where bucket_id = 'template-assets' and name = target_name
+  ) or (
+    select count(*) from storage.objects
+    where bucket_id = 'template-assets'
+      and (storage.foldername(name))[1] = target_user::text
+  ) < 100;
+end;
+$$;
+
+create or replace function linku_private.can_store_published_asset(
+  target_user uuid,
+  target_name text
+)
+returns boolean
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  perform linku_private.lock_account(target_user);
+  return exists (
+    select 1 from storage.objects
+    where bucket_id = 'published-template-assets' and name = target_name
+  ) or (
+    select count(*)
+    from storage.objects object
+    join public.templates source
+      on source.id::text = (storage.foldername(object.name))[1]
+    where object.bucket_id = 'published-template-assets'
+      and source.owner_id = target_user
+  ) < 900;
+end;
+$$;
+
 create policy private_assets_select_own on storage.objects
 for select to authenticated
 using (
   bucket_id = 'template-assets'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
 );
 
 create policy private_assets_insert_own on storage.objects
@@ -784,6 +899,10 @@ for insert to authenticated
 with check (
   bucket_id = 'template-assets'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.can_store_private_asset(auth.uid(), name)
+  and linku_private.is_google_session()
 );
 
 create policy private_assets_update_own on storage.objects
@@ -791,10 +910,16 @@ for update to authenticated
 using (
   bucket_id = 'template-assets'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
 )
 with check (
   bucket_id = 'template-assets'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
 );
 
 create policy private_assets_delete_own on storage.objects
@@ -802,17 +927,44 @@ for delete to authenticated
 using (
   bucket_id = 'template-assets'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
+);
+
+create policy published_assets_select_owner on storage.objects
+for select to authenticated
+using (
+  bucket_id = 'published-template-assets'
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
+  and exists (
+    select 1 from public.templates
+    where id::text = (storage.foldername(name))[1]
+      and owner_id = auth.uid()
+  )
 );
 
 create policy published_assets_insert_owner on storage.objects
 for insert to authenticated
 with check (
   bucket_id = 'published-template-assets'
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
+  and linku_private.can_store_published_asset(auth.uid(), name)
   and exists (
-    select 1 from public.templates
-    where id::text = (storage.foldername(name))[1]
-      and owner_id = auth.uid()
-      and deleted_at is null
+    select 1
+    from public.templates source,
+      jsonb_array_elements(source.document -> 'items') item
+    where source.id::text = (storage.foldername(name))[1]
+      and source.owner_id = auth.uid()
+      and source.deleted_at is null
+      and item -> 'icon' ->> 'kind' = 'asset'
+      and item -> 'icon' ->> 'hash' = substring(
+        storage.filename(name) from '^([0-9a-f]{64})[.]webp$'
+      )
   )
 );
 
@@ -820,6 +972,9 @@ create policy published_assets_update_owner on storage.objects
 for update to authenticated
 using (
   bucket_id = 'published-template-assets'
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
   and exists (
     select 1 from public.templates
     where id::text = (storage.foldername(name))[1]
@@ -828,11 +983,20 @@ using (
 )
 with check (
   bucket_id = 'published-template-assets'
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
   and exists (
-    select 1 from public.templates
-    where id::text = (storage.foldername(name))[1]
-      and owner_id = auth.uid()
-      and deleted_at is null
+    select 1
+    from public.templates source,
+      jsonb_array_elements(source.document -> 'items') item
+    where source.id::text = (storage.foldername(name))[1]
+      and source.owner_id = auth.uid()
+      and source.deleted_at is null
+      and item -> 'icon' ->> 'kind' = 'asset'
+      and item -> 'icon' ->> 'hash' = substring(
+        storage.filename(name) from '^([0-9a-f]{64})[.]webp$'
+      )
   )
 );
 
@@ -840,6 +1004,9 @@ create policy published_assets_delete_owner on storage.objects
 for delete to authenticated
 using (
   bucket_id = 'published-template-assets'
+  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
+  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.is_google_session()
   and exists (
     select 1 from public.templates
     where id::text = (storage.foldername(name))[1]
