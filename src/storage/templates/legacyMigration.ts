@@ -1,5 +1,8 @@
-import { DRAFT_SLOT_KEY, type LinkuDb } from "./linkuDb.ts";
-import { parseLegacyTemplateRecord } from "./legacyTemplateRecord.ts";
+import {
+  DRAFT_SLOT_KEY,
+  type LinkuDb,
+} from "../indexedDb/linkuDatabase.ts";
+import { parseLegacyTemplateRecord } from "./legacyRecord.ts";
 
 export const LEGACY_TEMPLATE_PREFIX = "linku_template_";
 export const LEGACY_TEMPLATE_INDEX_KEY = "linku_templates_index";

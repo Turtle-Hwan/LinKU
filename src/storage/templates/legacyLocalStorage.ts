@@ -1,10 +1,10 @@
-import { getLinkuDb } from "@/storage/linkuDb";
+import { getLinkuDb } from "@/storage/indexedDb/linkuDatabase";
 import {
   LEGACY_DRAFT_KEY,
   LEGACY_TEMPLATE_INDEX_KEY,
   LEGACY_TEMPLATE_PREFIX,
   migrateLegacyTemplateStorage,
-} from "@/storage/legacyTemplateMigration";
+} from "@/storage/templates/legacyMigration";
 import {
   debugLog,
   captureErrorLog,

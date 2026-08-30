@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import UtilityDialog from "@/components/UtilityDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { usePersistentDialogTab } from "@/hooks/usePersistentDialogTab";
 import {
@@ -23,23 +22,28 @@ import {
 import {
   startGoogleLogin,
   logout,
-  isLoggedIn,
   getUserProfile,
-  isGuestUser,
-  UserProfile,
+  isLoggedIn,
+  type UserProfile,
 } from "@/utils/oauth";
+import { updateAccountNickname } from "@/apis/supabase/account";
+import { clearLinkuCloudData } from "@/apis/supabase/community";
+import { SupabaseConfigurationError } from "@/apis/supabase/client";
+import {
+  getActiveSyncAccountId,
+  resetSyncConnection,
+} from "@/storage/account/syncRepository";
 import {
   Info,
   Palette,
   LogOut,
-  Mail,
   Settings as SettingsIcon,
   Timer,
+  Trash2,
   User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getChromeApi, getStorage, setStorage } from "@/utils/chrome";
-import { EmailVerificationDialog } from "@/components/EmailVerificationDialog";
 import TodoDeadlineBadge from "@/components/Tabs/TodoList/TodoDeadlineBadge";
 import { calculateDDay } from "@/utils/todo/dateFormat";
 import {
@@ -53,6 +57,9 @@ import {
   refreshTodoCount,
 } from "@/utils/todo/count";
 import { captureErrorLog } from '@/utils/logger';
+import { UserFacingError } from '@/errors/userFacingError';
+import { isExpectedNetworkFailure } from '@/utils/networkFailure';
+import { recordBreadcrumb } from '@/monitoring';
 import {
   eCampusCredentialsSchema,
   getFirstValidationMessage,
@@ -61,6 +68,30 @@ import {
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+function reportAccountFailure(message: string, error: unknown) {
+  if (
+    error instanceof UserFacingError ||
+    error instanceof SupabaseConfigurationError ||
+    isExpectedNetworkFailure(error)
+  ) {
+    recordBreadcrumb(
+      'account.settings',
+      message,
+      {
+        reason:
+          error instanceof UserFacingError
+            ? error.code
+            : error instanceof SupabaseConfigurationError
+              ? 'not_configured'
+              : 'network',
+      },
+      'warning',
+    );
+    return;
+  }
+  captureErrorLog(message, error);
 }
 
 const SETTINGS_TABS = ["google", "ecampus"] as const;
@@ -265,58 +296,54 @@ const ECampusCredential = () => {
 
 const GoogleOAuthSection = () => {
   const [loggedIn, setLoggedIn] = useState<boolean>(false);
-  const [isGuest, setIsGuest] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [nickname, setNickname] = useState("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showEmailVerification, setShowEmailVerification] = useState<boolean>(false);
-  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [isDeletingCloud, setIsDeletingCloud] = useState(false);
+  const [hasSyncBinding, setHasSyncBinding] = useState(false);
 
   // Check login status on mount
   useEffect(() => {
-    checkLoginStatus();
+    void checkLoginStatus().catch((error) => {
+      reportAccountFailure("[Settings] Failed to load account profile", error);
+    });
   }, []);
 
   // Listen for auth events
   useEffect(() => {
     const handleLogout = () => {
       setLoggedIn(false);
-      setIsGuest(false);
       setUserProfile(null);
-      setVerifiedEmail(null);
+      setNickname("");
     };
-
-    const handleUnauthorized = () => {
-      setLoggedIn(false);
-      setIsGuest(false);
-      setUserProfile(null);
+    const handleLogin = (event: Event) => {
+      const profile = (event as CustomEvent<UserProfile>).detail;
+      setLoggedIn(true);
+      setUserProfile(profile);
+      setNickname(profile.nickname);
     };
 
     window.addEventListener('auth:logout', handleLogout);
-    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    window.addEventListener('auth:login', handleLogin);
 
     return () => {
       window.removeEventListener('auth:logout', handleLogout);
-      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+      window.removeEventListener('auth:login', handleLogin);
     };
   }, []);
 
   const checkLoginStatus = async () => {
-    const loggedIn = await isLoggedIn();
-    setLoggedIn(loggedIn);
-
-    if (loggedIn) {
-      const guest = await isGuestUser();
-      setIsGuest(guest);
-
-      const profile = await getUserProfile();
-      setUserProfile(profile);
-
-      // Load verified email if exists
-      const kuMail = await getStorage<string>('kuMail');
-      if (kuMail) {
-        setVerifiedEmail(kuMail);
-      }
-    }
+    const [connected, boundAccountId] = await Promise.all([
+      isLoggedIn(),
+      getActiveSyncAccountId(),
+    ]);
+    setHasSyncBinding(boundAccountId !== null);
+    setLoggedIn(connected);
+    if (!connected) return;
+    const profile = await getUserProfile();
+    if (!profile) return;
+    setUserProfile(profile);
+    setNickname(profile.nickname);
   };
 
   const handleGoogleLogin = async () => {
@@ -328,20 +355,11 @@ const GoogleOAuthSection = () => {
 
       if (result.success) {
         setLoggedIn(true);
-
-        // Check if this is a guest (requires signup)
-        if (result.response.requiresSignup) {
-          setIsGuest(true);
-          sendAuthLoginSuccess("google", true);
-          // Auto-open email verification dialog for guests
-          setShowEmailVerification(true);
-          toast.info("건국대 이메일 인증이 필요합니다.");
-        } else {
-          setIsGuest(false);
-          setUserProfile(result.response.profile);
-          sendAuthLoginSuccess("google", false);
-          toast.success("로그인 성공!");
-        }
+        setHasSyncBinding(true);
+        setUserProfile(result.profile);
+        setNickname(result.profile.nickname);
+        sendAuthLoginSuccess("google", false);
+        toast.success("로그인했습니다.");
       } else {
         sendAuthLoginFail("google", "login_failed", result.error || "알 수 없는 오류");
         toast.error("로그인 실패", {
@@ -360,72 +378,100 @@ const GoogleOAuthSection = () => {
     }
   };
 
-  // Called after email verification is complete
-  const handleVerificationComplete = async () => {
-    // Re-login to get member token
+  const handleLogout = async () => {
+    sendAuthLogout("settings_dialog");
+    try {
+      await logout();
+      toast.success("로그아웃 완료");
+    } catch (error) {
+      reportAccountFailure('[Settings] Failed to sign out', error);
+      toast.error('서버 로그아웃을 완료하지 못했지만 이 기기의 세션은 지웠습니다.');
+    } finally {
+      setLoggedIn(false);
+      setUserProfile(null);
+      setNickname("");
+    }
+  };
+
+  const handleNicknameSave = async () => {
     setIsLoading(true);
     try {
-      const result = await startGoogleLogin();
-
-      if (result.success && !result.response.requiresSignup) {
-        setIsGuest(false);
-        setUserProfile(result.response.profile);
-
-        // Load verified email
-        const kuMail = await getStorage<string>('kuMail');
-        if (kuMail) {
-          setVerifiedEmail(kuMail);
-        }
-
-        toast.success("회원가입 완료!", {
-          description: "이제 모든 기능을 사용할 수 있습니다.",
-        });
-      } else {
-        // Still guest after re-login (edge case)
-        toast.error("인증에 문제가 발생했습니다. 다시 시도해주세요.");
-      }
+      const profile = await updateAccountNickname(nickname);
+      setUserProfile(profile);
+      setNickname(profile.nickname);
+      toast.success("공개 닉네임을 저장했습니다.");
     } catch (error) {
-      captureErrorLog("Re-login error:", error);
-      toast.error("재로그인에 실패했습니다.");
+      reportAccountFailure("[Settings] Failed to update public nickname", error);
+      toast.error(
+        error instanceof Error ? error.message : "닉네임을 저장하지 못했습니다.",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    sendAuthLogout("settings_dialog");
+  const handleCloudDataDelete = async () => {
+    if (
+      !confirm(
+        'Supabase에 동기화된 템플릿, 사용자 아이콘, 게시물을 모두 삭제하시겠습니까? 이 기기의 로컬 데이터와 LinKU 로그인 계정은 삭제되지 않습니다.',
+      )
+    ) {
+      return;
+    }
 
-    await logout();
-    setLoggedIn(false);
-    setIsGuest(false);
-    setUserProfile(null);
-    setVerifiedEmail(null);
-
-    toast.success("로그아웃 완료");
+    setIsDeletingCloud(true);
+    try {
+      await clearLinkuCloudData();
+      try {
+        await logout();
+      } catch (error) {
+        reportAccountFailure('[Settings] Failed to sign out after clearing cloud data', error);
+      }
+      setLoggedIn(false);
+      setUserProfile(null);
+      setNickname('');
+      toast.success('LinKU 클라우드 데이터를 삭제했습니다.');
+    } catch (error) {
+      reportAccountFailure('[Settings] Failed to clear cloud data', error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'LinKU 클라우드 데이터를 삭제하지 못했습니다.',
+      );
+    } finally {
+      setIsDeletingCloud(false);
+    }
   };
 
-  // Get initials for avatar fallback
-  const getInitials = (name: string): string => {
-    if (!name) return "??";
-    return name
-      .split(' ')
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const handleSyncBindingReset = async () => {
+    if (
+      !confirm(
+        '이 기기의 동기화 계정 연결을 초기화하시겠습니까? 로컬 템플릿은 유지되며, 다음에 로그인한 Google 계정으로 동기화됩니다.',
+      )
+    ) {
+      return;
+    }
+    try {
+      await resetSyncConnection();
+      setHasSyncBinding(false);
+      toast.success('동기화 계정 연결을 초기화했습니다.');
+    } catch (error) {
+      reportAccountFailure('[Settings] Failed to reset account binding', error);
+      toast.error('동기화 계정 연결을 초기화하지 못했습니다.');
+    }
   };
 
   if (!loggedIn) {
     // Not logged in - show login button
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold">Google / Konkuk 계정 연동</h2>
+        <h2 className="text-base font-semibold">LinKU 계정 동기화</h2>
 
         <div className="space-y-3">
           <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
             <p className="text-xs text-muted-foreground leading-relaxed">
-              계정 연동을 하면 템플릿을 서버에 저장하고 여러 기기에서 동기화할 수 있습니다.
+              로컬 템플릿은 로그인 없이도 계속 쓸 수 있고, Google 로그인 후에는 여러 기기에서 동기화됩니다.
             </p>
           </div>
 
@@ -436,76 +482,35 @@ const GoogleOAuthSection = () => {
           >
             {isLoading ? "로그인 중..." : "Google 로그인"}
           </Button>
+          {hasSyncBinding && (
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={() => void handleSyncBindingReset()}
+            >
+              다른 Google 계정으로 전환
+            </Button>
+          )}
         </div>
       </div>
     );
   }
 
-  // Guest user - show email verification prompt
-  if (isGuest) {
-    return (
-      <>
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold">이메일 인증 필요</h2>
-
-          <div className="space-y-3">
-            <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3">
-              <Mail className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
-              <p className="text-xs text-amber-700 leading-relaxed">
-                건국대학교 이메일 인증을 완료해야 템플릿 동기화 기능을 사용할 수 있습니다.
-              </p>
-            </div>
-
-            <Button
-              onClick={() => setShowEmailVerification(true)}
-              className="w-full"
-              disabled={isLoading}
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              건국대 이메일 인증하기
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="w-full text-muted-foreground"
-            >
-              다른 계정으로 로그인
-            </Button>
-          </div>
-        </div>
-
-        <EmailVerificationDialog
-          open={showEmailVerification}
-          onOpenChange={setShowEmailVerification}
-          onVerificationComplete={handleVerificationComplete}
-        />
-      </>
-    );
-  }
-
-  // Logged in as member - show user profile
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-semibold">Google / Konkuk 계정 연동</h2>
+      <h2 className="text-base font-semibold">LinKU 계정 동기화</h2>
 
       <div className="space-y-3">
         <div className="flex items-center gap-3 rounded-lg border p-4">
-          <Avatar className="h-12 w-12">
-            <AvatarImage src={userProfile?.picture} alt={userProfile?.name} />
-            <AvatarFallback>
-              {userProfile?.name ? getInitials(userProfile.name) : <User className="h-6 w-6 text-muted-foreground" />}
-            </AvatarFallback>
-          </Avatar>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+            <User className="h-5 w-5 text-muted-foreground" />
+          </div>
 
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">
-              {userProfile?.name || "사용자"}
+              {userProfile?.nickname ?? 'LinKU 계정'}
             </p>
-            <p className="text-sm text-muted-foreground truncate">
-              {verifiedEmail || userProfile?.email || "인증된 사용자"}
-            </p>
+            <p className="text-sm text-muted-foreground">Google 계정으로 연결됨</p>
           </div>
 
           <Button
@@ -515,6 +520,52 @@ const GoogleOAuthSection = () => {
             title="로그아웃"
           >
             <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="publicNickname" className="text-sm font-medium">
+            공개 닉네임
+          </label>
+          <div className="flex gap-2">
+            <Input
+              id="publicNickname"
+              value={nickname}
+              maxLength={32}
+              onChange={(event) => setNickname(event.target.value)}
+              disabled={isLoading}
+            />
+            <Button
+              variant="outline"
+              onClick={handleNicknameSave}
+              disabled={
+                isLoading ||
+                !userProfile ||
+                nickname.trim().length === 0 ||
+                nickname.trim() === userProfile?.nickname
+              }
+            >
+              저장
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            게시한 템플릿에는 Google 이름이나 이메일 대신 이 닉네임만 표시됩니다.
+          </p>
+        </div>
+
+        <div className="space-y-2 border-t pt-4">
+          <p className="text-sm font-medium">클라우드 데이터</p>
+          <p className="text-xs text-muted-foreground">
+            동기화본과 게시물만 삭제합니다. 이 기기의 템플릿과 Google 로그인 계정은 유지됩니다.
+          </p>
+          <Button
+            variant="outline"
+            className="w-full text-destructive hover:text-destructive"
+            disabled={isDeletingCloud}
+            onClick={() => void handleCloudDataDelete()}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {isDeletingCloud ? '삭제 중...' : 'LinKU 클라우드 데이터 삭제'}
           </Button>
         </div>
       </div>
@@ -731,7 +782,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="google">Google / Konkuk 계정 연동</TabsTrigger>
+          <TabsTrigger value="google">LinKU 계정</TabsTrigger>
           <TabsTrigger value="ecampus">eCampus 계정</TabsTrigger>
         </TabsList>
 

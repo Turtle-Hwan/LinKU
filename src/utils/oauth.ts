@@ -1,131 +1,91 @@
-/**
- * OAuth utilities for Chrome Extension - Popup Context
- * Handles Google OAuth flow by communicating with background service worker
- *
- * Note: chrome.identity API is NOT available in popup context.
- * All OAuth flows are handled by the background service worker.
- */
+import {
+  getAccountProfile,
+  getGoogleAccountId,
+  signOutAccount,
+} from "@/apis/supabase/account";
+import {
+  clearStoredSupabaseSession,
+  SupabaseConfigurationError,
+} from "@/apis/supabase/client";
+import { BackgroundMessageType, type GoogleLoginResponse } from "@/background/types";
+import {
+  activateSyncAccount,
+  SyncAccountMismatchError,
+} from "@/storage/account/syncRepository";
+import type { AccountProfile } from "@/types/account";
+import { getChromeApi } from "@/utils/chrome";
+import { captureErrorLog } from "@/utils/logger";
+import { recordBreadcrumb } from "@/monitoring";
 
-import { BackgroundMessageType } from "../background/types";
-import type { GoogleLoginResponse } from "../background/types";
-import { getChromeApi, getStorage, removeStorage } from "./chrome";
-import { debugLog, captureErrorLog } from "@/utils/logger";
+export type UserProfile = AccountProfile;
 
-/**
- * User profile stored in chrome.storage.local
- */
-export interface UserProfile {
-  email: string;
-  name: string;
-  picture: string;
-}
-
-function isUserProfile(value: unknown): value is UserProfile {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const profile = value as Record<string, unknown>;
-  return (
-    typeof profile.email === "string" &&
-    typeof profile.name === "string" &&
-    typeof profile.picture === "string"
-  );
-}
-
-/**
- * Get access token from chrome.storage.local
- */
-export async function getAccessToken(): Promise<string | null> {
-  const token = await getStorage<unknown>("accessToken");
-  return typeof token === "string" ? token : null;
-}
-
-/**
- * Get user profile from chrome.storage.local
- */
 export async function getUserProfile(): Promise<UserProfile | null> {
-  const profile = await getStorage<unknown>("userProfile");
-  return isUserProfile(profile) ? profile : null;
+  try {
+    return await getAccountProfile();
+  } catch (error) {
+    if (error instanceof SupabaseConfigurationError) return null;
+    throw error;
+  }
 }
 
-/**
- * Clear all tokens and user profile from chrome.storage.local
- */
-export async function clearTokens(): Promise<void> {
-  await removeStorage([
-    "accessToken",
-    "refreshToken",
-    "guestToken",
-    "userProfile",
-    "isGuest",
-    "kuMail",
-  ]);
-}
-
-/**
- * Check if user is logged in
- */
 export async function isLoggedIn(): Promise<boolean> {
-  const token = await getAccessToken();
-  return !!token;
+  try {
+    return (await getGoogleAccountId()) !== null;
+  } catch (error) {
+    if (error instanceof SupabaseConfigurationError) return false;
+    throw error;
+  }
 }
 
-/**
- * Check if current user is a guest (needs email verification)
- */
-export async function isGuestUser(): Promise<boolean> {
-  const isGuest = await getStorage<boolean>("isGuest");
-  const refreshToken = await getStorage<string>("refreshToken");
-  // Guest if isGuest flag is true OR no refreshToken
-  return isGuest === true || !refreshToken;
-}
-
-/**
- * Google OAuth login flow
- * Sends message to background service worker to handle OAuth
- *
- * Background service worker has access to chrome.identity API
- */
 export async function startGoogleLogin(): Promise<GoogleLoginResponse> {
   const chromeApi = getChromeApi();
   if (!chromeApi?.runtime?.sendMessage) {
     return {
       success: false,
-      error: "Chrome extension environment is unavailable.",
+      error: "Google 로그인은 설치된 LinKU 확장에서 사용할 수 있습니다.",
     };
   }
 
   try {
-    debugLog("[Popup] Sending Google login request to background");
-
-    // Send message to background service worker
-    const response = await chromeApi.runtime.sendMessage({
+    const response = (await chromeApi.runtime.sendMessage({
       type: BackgroundMessageType.GOOGLE_LOGIN,
-    });
+    })) as GoogleLoginResponse;
+    if (!response.success) return response;
 
-    return response as GoogleLoginResponse;
-  } catch (error) {
-    captureErrorLog(
-      "[Popup] Failed to communicate with background",
-      error,
+    try {
+      await activateSyncAccount(response.profile.userId);
+    } catch (error) {
+      await signOutAccount().catch(() => clearStoredSupabaseSession());
+      if (error instanceof SyncAccountMismatchError) {
+        recordBreadcrumb(
+          "account.sync",
+          "login blocked by a different local sync binding",
+          undefined,
+          "warning",
+        );
+        return { success: false, error: error.message };
+      }
+      throw error;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("auth:login", { detail: response.profile }),
     );
-
+    return response;
+  } catch (error) {
+    captureErrorLog("[Popup] Failed to complete Google login", error);
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "백그라운드와 통신 중 오류가 발생했습니다.",
+      error: "로그인을 완료하지 못했습니다.",
     };
   }
 }
 
-/**
- * Logout - clear all tokens
- */
 export async function logout(): Promise<void> {
-  await clearTokens();
-  // Dispatch custom event for UI updates
-  window.dispatchEvent(new CustomEvent("auth:logout"));
+  try {
+    await signOutAccount();
+  } finally {
+    await clearStoredSupabaseSession();
+    window.dispatchEvent(new CustomEvent("auth:logout"));
+  }
 }

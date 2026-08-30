@@ -1,5 +1,5 @@
-import type { StoredTemplate } from "./linkuDb.ts";
-import { normalizeStoredTemplate } from "./templateRecord.ts";
+import type { StoredTemplate } from "../indexedDb/linkuDatabase.ts";
+import { normalizeStoredTemplate } from "./record.ts";
 
 export type LegacyTemplateRecordResult =
   | { ok: true; stored: StoredTemplate; repairs: string[] }

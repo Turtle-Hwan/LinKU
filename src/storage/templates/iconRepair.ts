@@ -1,12 +1,12 @@
 import {
   getAssetByNumericId,
   saveAssetFromDataUrl,
-} from "@/storage/assetRepository";
+} from "@/storage/templates/assetRepository";
 import {
   isRemoteHttpIconUrl,
   resolveBundledIconReference,
-} from "@/storage/iconReference";
-import type { StoredTemplate } from "@/storage/linkuDb";
+} from "@/storage/templates/iconReference";
+import type { StoredTemplate } from "@/storage/indexedDb/linkuDatabase";
 import { PORTABLE_ICON_PATTERN } from "@/constants/template";
 import {
   GENERIC_LINK_ICON_NAME,

@@ -9,11 +9,11 @@ import {
   MAX_TEMPLATE_NAME_LENGTH,
   PORTABLE_ICON_PATTERN,
   UNSAVED_TEMPLATE_ID,
-} from "../constants/template.ts";
-import { UserFacingError } from "../errors/userFacingError.ts";
-import type { TemplateItem } from "../types/api.ts";
-import type { StoredTemplate } from "./linkuDb.ts";
-import { normalizeStoredTemplate } from "./templateRecord.ts";
+} from "../../constants/template.ts";
+import { UserFacingError } from "../../errors/userFacingError.ts";
+import type { TemplateItem } from "../../types/api.ts";
+import type { StoredTemplate } from "../indexedDb/linkuDatabase.ts";
+import { normalizeStoredTemplate } from "./record.ts";
 
 export const MAX_TEMPLATE_BACKUP_BYTES = 10 * 1024 * 1024;
 

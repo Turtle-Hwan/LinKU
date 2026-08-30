@@ -11,7 +11,7 @@ import {
   type QuarantinedRecord,
   type QuarantineLocation,
   type RecordLocation,
-} from "@/storage/linkuDb";
+} from "@/storage/indexedDb/linkuDatabase";
 import { captureErrorLog } from "@/utils/logger";
 
 export interface QuarantineInput {

@@ -15,25 +15,29 @@
  * 3. inline icons are registered as assets so imported items stay editable.
  */
 
-import { restoreAssetFromDataUrl } from "@/storage/assetRepository";
+import { restoreAssetFromDataUrl } from "@/storage/templates/assetRepository";
 import {
   getLinkuDb,
   type RecordLocation,
   type StoredTemplate,
-} from "@/storage/linkuDb";
+} from "@/storage/indexedDb/linkuDatabase";
+import {
+  createSyncOutboxEntry,
+  isTemplatePublished,
+} from "@/storage/account/syncRepository";
 import { UNSAVED_TEMPLATE_ID } from "@/constants/template";
-import { moveRecordToQuarantineSafely } from "@/storage/quarantine";
-import { allocateMonotonicId } from "@/storage/monotonicId";
+import { moveRecordToQuarantineSafely } from "@/storage/templates/quarantine";
+import { allocateMonotonicId } from "@/storage/templates/monotonicId";
 import {
   migrateLegacyTemplates,
   removeLegacyTemplateSource,
-} from "@/storage/legacyTemplateStorage";
-import { repairTemplateIcons } from "@/storage/templateIconRepair";
+} from "@/storage/templates/legacyLocalStorage";
+import { repairTemplateIcons } from "@/storage/templates/iconRepair";
 import {
   formatImportedTemplateName,
   normalizeTemplateName,
   normalizeStoredTemplate,
-} from "@/storage/templateRecord";
+} from "@/storage/templates/record";
 import {
   assertTemplateBackupSize,
   isTemplateBackupValidationError,
@@ -42,27 +46,35 @@ import {
   selectReferencedBackupAssets,
   type RestoredAssetReference,
   type TemplateBackupV1,
-} from "@/storage/templateBackup";
+} from "@/storage/templates/backup";
 import type { Template, TemplateItem } from "@/types/api";
 import { debugLog, captureErrorLog, captureWarnLog, warnLog } from "@/utils/logger";
 import { recordBreadcrumb } from "@/monitoring";
-import { portablePayloadToTemplate } from "@/utils/templateShare";
-import {
-  validateTemplateSharePayload,
-  validateTemplateSharePayloadImages,
-} from "@/utils/templateShareCodec";
-import type { TemplateSharePayloadV1 } from "@/types/templateShare";
 
 export {
   isTemplateBackupValidationError,
   MAX_TEMPLATE_BACKUP_BYTES,
-} from "@/storage/templateBackup";
+} from "@/storage/templates/backup";
 export {
   countQuarantinedRecords,
   listQuarantinedRecords,
-} from "@/storage/quarantine";
+} from "@/storage/templates/quarantine";
 
 let migrationPromise: Promise<void> | undefined;
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+function ensureTemplateUuid(value: string): string {
+  return UUID_PATTERN.test(value) ? value : crypto.randomUUID();
+}
+
+export class PublishedTemplateDeleteError extends Error {
+  constructor() {
+    super("게시 중인 템플릿은 게시를 내린 뒤 삭제해 주세요.");
+    this.name = "PublishedTemplateDeleteError";
+  }
+}
 
 function isQuotaError(error: unknown): boolean {
   return (
@@ -101,7 +113,14 @@ async function writeRecord(
   value: StoredTemplate,
 ): Promise<void> {
   const database = await getLinkuDb();
-  await database.put("templates", value, at.key);
+  const transaction = database.transaction(["templates", "outbox"], "readwrite");
+  await Promise.all([
+    transaction.objectStore("templates").put(value, at.key),
+    transaction.objectStore("outbox").put(
+      createSyncOutboxEntry("template", value.template.id, "put"),
+    ),
+  ]);
+  await transaction.done;
 }
 
 async function readStoredRecord(at: RecordLocation): Promise<unknown> {
@@ -161,7 +180,10 @@ export async function saveLocalTemplate(
 ): Promise<StoredTemplate> {
   await ensureMigration();
   const database = await getLinkuDb();
-  const transaction = database.transaction("templates", "readwrite");
+  const transaction = database.transaction(
+    ["templates", "outbox"],
+    "readwrite",
+  );
   const store = transaction.objectStore("templates");
 
   try {
@@ -174,7 +196,7 @@ export async function saveLocalTemplate(
       template: {
         ...template,
         templateId,
-        id: template.id || crypto.randomUUID(),
+        id: ensureTemplateUuid(template.id),
         name: normalizeTemplateName(template.name),
         syncStatus: "local",
       },
@@ -186,6 +208,9 @@ export async function saveLocalTemplate(
     };
 
     await store.put(stored, templateId);
+    await transaction
+      .objectStore("outbox")
+      .put(createSyncOutboxEntry("template", stored.template.id, "put"));
     await transaction.done;
     return stored;
   } catch (error) {
@@ -217,24 +242,42 @@ export async function deleteLocalTemplate(
   templateId: number,
 ): Promise<void> {
   await ensureMigration();
+  const database = await getLinkuDb();
+  const current = await database.get("templates", templateId);
+  if (current && (await isTemplatePublished(current.template.id))) {
+    throw new PublishedTemplateDeleteError();
+  }
+
   // Remove the rollback source before IndexedDB. If this write is blocked,
   // keep the active record rather than reporting a deletion that can later
   // reappear during a fresh migration.
   removeLegacyTemplateSource(templateId);
 
-  const database = await getLinkuDb();
-  await database.delete("templates", templateId);
+  const transaction = database.transaction(
+    ["templates", "outbox"],
+    "readwrite",
+  );
+  const templates = transaction.objectStore("templates");
+  const stored = await templates.get(templateId);
+  await templates.delete(templateId);
+  if (stored) {
+    await transaction
+      .objectStore("outbox")
+      .put(createSyncOutboxEntry("template", stored.template.id, "delete"));
+  }
+  await transaction.done;
 }
 
 /**
  * Stores a copy of an existing template under a freshly allocated id.
  *
- * Used by both the gallery ("이 템플릿 추가") and shared-template imports, so
- * the id allocation and icon registration stay in one place.
+ * Used by gallery clones and backup restores, so id allocation and icon
+ * registration stay in one place.
  */
 export async function importTemplateCopy(
   template: Template,
   stagingItems: TemplateItem[] = [],
+  options: { nameSuffix?: string } = {},
 ): Promise<StoredTemplate> {
   await ensureMigration();
 
@@ -254,7 +297,10 @@ export async function importTemplateCopy(
   const withIcons = repaired.stored;
 
   const database = await getLinkuDb();
-  const transaction = database.transaction("templates", "readwrite");
+  const transaction = database.transaction(
+    ["templates", "outbox"],
+    "readwrite",
+  );
   const store = transaction.objectStore("templates");
 
   try {
@@ -265,7 +311,10 @@ export async function importTemplateCopy(
         ...withIcons.template,
         id: crypto.randomUUID(),
         templateId,
-        name: formatImportedTemplateName(withIcons.template.name),
+        name: formatImportedTemplateName(
+          withIcons.template.name,
+          options.nameSuffix,
+        ),
         cloned: true,
         syncStatus: "local",
         createdAt: now,
@@ -276,6 +325,9 @@ export async function importTemplateCopy(
     };
 
     await store.put(stored, templateId);
+    await transaction
+      .objectStore("outbox")
+      .put(createSyncOutboxEntry("template", stored.template.id, "put"));
     await transaction.done;
     return stored;
   } catch (error) {
@@ -283,20 +335,57 @@ export async function importTemplateCopy(
   }
 }
 
-export async function importSharedTemplate(
-  payload: TemplateSharePayloadV1,
+export async function findTemplateBySyncId(
+  resourceId: string,
+): Promise<StoredTemplate | null> {
+  const templates = await listLocalTemplates();
+  return templates.find((stored) => stored.template.id === resourceId) ?? null;
+}
+
+export async function saveRemoteTemplate(
+  template: Template,
   stagingItems: TemplateItem[] = [],
+  existingTemplateId?: number,
 ): Promise<StoredTemplate> {
-  validateTemplateSharePayload(payload);
-  await validateTemplateSharePayloadImages(payload);
-  return importTemplateCopy(portablePayloadToTemplate(payload), stagingItems);
+  await ensureMigration();
+  const database = await getLinkuDb();
+  const transaction = database.transaction("templates", "readwrite");
+  const store = transaction.objectStore("templates");
+
+  try {
+    const templateId = existingTemplateId ?? (await allocateMonotonicId(store));
+    const stored: StoredTemplate = {
+      template: {
+        ...template,
+        templateId,
+        name: normalizeTemplateName(template.name),
+        syncStatus: "synced",
+      },
+      stagingItems,
+      metadata: { lastSaved: Date.now(), savedLocally: true },
+    };
+    await store.put(stored, templateId);
+    await transaction.done;
+    return stored;
+  } catch (error) {
+    throw toStorageError(error, "동기화한 템플릿을 저장하지 못했습니다.");
+  }
+}
+
+export async function removeLocalTemplateWithoutSync(
+  templateId: number,
+): Promise<void> {
+  await ensureMigration();
+  removeLegacyTemplateSource(templateId);
+  const database = await getLinkuDb();
+  await database.delete("templates", templateId);
 }
 
 /**
  * Exports every local template and the user icons those records reference.
  *
- * Sharing covers one template at a time; without a whole-store export a lost
- * Chrome profile takes every template with it, and no server holds a copy.
+ * Account sync is asynchronous, so whole-store backup remains the explicit
+ * recovery path for local data that has not reached the cloud yet.
  */
 export async function createTemplateBackup(): Promise<
   TemplateBackupV1<StoredTemplate>

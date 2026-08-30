@@ -44,10 +44,6 @@ export default defineConfig(({ mode }) => {
         }
       : {
           main: path.resolve(import.meta.dirname, "web/index.html"),
-          "share/index": path.resolve(
-            import.meta.dirname,
-            "web/share/index.html",
-          ),
         };
 
   return {
@@ -176,10 +172,6 @@ function moveGhPagesWebFilesToRoot() {
       if (fs.existsSync(rootIndex)) fs.rmSync(rootIndex);
       fs.renameSync(webIndex, rootIndex);
 
-      const webShareIndex = path.resolve(webDir, "share/index.html");
-      const shareDir = path.resolve(outputDir, "share");
-      fs.mkdirSync(shareDir, { recursive: true });
-      fs.renameSync(webShareIndex, path.resolve(shareDir, "index.html"));
       fs.rmSync(webDir, { recursive: true });
     },
   };

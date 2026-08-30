@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { BackButton } from './BackButton';
 import { SaveButton } from './SaveButton';
 import { useEditorContext } from '@/hooks/useEditorContext';
-import { saveLocalTemplate } from '@/utils/templateStorage';
+import { saveLocalTemplate } from '@/storage/templates/repository';
 import { toast } from 'sonner';
 import { captureErrorLog } from '@/utils/logger';
 import {
@@ -54,6 +54,7 @@ export const EditorHeader = () => {
       toast.success('저장 완료', {
         description: '이 기기에 저장했습니다.',
       });
+      window.dispatchEvent(new Event('linku:templates-changed'));
       if (isFirstSave) {
         navigate(`/editor/${savedTemplate.templateId}`, { replace: true });
       }

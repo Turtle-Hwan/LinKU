@@ -1,13 +1,18 @@
-import { getLinkuDb, type StoredAsset } from "@/storage/linkuDb";
-import { allocateMonotonicId } from "@/storage/monotonicId";
+import {
+  getLinkuDb,
+  type StoredAsset,
+} from "@/storage/indexedDb/linkuDatabase";
+import { allocateMonotonicId } from "@/storage/templates/monotonicId";
+import { createSyncOutboxEntry } from "@/storage/account/syncRepository";
 import {
   MAX_TEMPLATE_NAME_LENGTH,
   PORTABLE_ICON_PATTERN,
 } from "@/constants/template";
-import { InvalidTemplateBackupAssetError } from "@/storage/templateBackup";
+import { InvalidTemplateBackupAssetError } from "@/storage/templates/backup";
 import { UserFacingError } from "@/errors/userFacingError";
 
 const MAX_ICON_BYTES = 5 * 1024 * 1024;
+export const MAX_SYNCED_ICON_BYTES = 512 * 1024;
 const MAX_ICON_DIMENSION = 256;
 const ICON_WEBP_QUALITY = 0.9;
 const RESTORABLE_ICON_TYPES = new Set([
@@ -123,9 +128,9 @@ async function normalizeIconBlob(source: Blob): Promise<Blob> {
 }
 
 async function assertRestorableIconBlob(source: Blob): Promise<void> {
-  if (source.size > MAX_ICON_BYTES) {
+  if (source.size > MAX_SYNCED_ICON_BYTES) {
     throw new InvalidTemplateBackupAssetError(
-      `백업 아이콘은 ${MAX_ICON_BYTES / 1024 / 1024}MB 이하여야 합니다.`,
+      "백업 아이콘은 512KB 이하여야 합니다.",
     );
   }
   if (!RESTORABLE_ICON_TYPES.has(source.type)) {
@@ -160,16 +165,25 @@ async function assertRestorableIconBlob(source: Blob): Promise<void> {
 async function persistAsset(
   normalizedName: string,
   blob: Blob,
+  options: { expectedId?: string; queueSync?: boolean } = {},
 ): Promise<StoredAsset> {
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   const id = bytesToHex(new Uint8Array(digest));
+  if (options.expectedId && options.expectedId !== id) {
+    throw new AssetValidationError("아이콘 파일이 동기화 정보와 일치하지 않습니다.");
+  }
   const dataUrl = await blobToDataUrl(blob);
   const createdAt = Date.now();
   const database = await getLinkuDb();
-  const transaction = database.transaction("assets", "readwrite");
+  const transaction = database.transaction(["assets", "outbox"], "readwrite");
   const store = transaction.objectStore("assets");
   const existing = await store.get(id);
   if (existing) {
+    if (options.queueSync !== false) {
+      await transaction
+        .objectStore("outbox")
+        .put(createSyncOutboxEntry("asset", id, "put"));
+    }
     await transaction.done;
     return existing;
   }
@@ -185,13 +199,22 @@ async function persistAsset(
     createdAt,
   };
   await store.put(asset);
+  if (options.queueSync !== false) {
+    await transaction
+      .objectStore("outbox")
+      .put(createSyncOutboxEntry("asset", id, "put"));
+  }
   await transaction.done;
   return asset;
 }
 
 export async function saveAsset(name: string, source: Blob): Promise<StoredAsset> {
   const normalizedName = normalizeAssetName(name);
-  return persistAsset(normalizedName, await normalizeIconBlob(source));
+  const normalized = await normalizeIconBlob(source);
+  if (normalized.size > MAX_SYNCED_ICON_BYTES) {
+    throw new AssetValidationError("아이콘은 변환 후 512KB 이하여야 합니다.");
+  }
+  return persistAsset(normalizedName, normalized);
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -206,13 +229,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
-/**
- * Registers an inline icon image so it becomes a first-class asset.
- *
- * Shared templates carry their icons as data URLs. Persisting them here is
- * what keeps an imported item editable: the editor resolves icons by numeric
- * id, and an id that no asset backs cannot be selected or saved again.
- */
+/** Registers an inline icon so imported templates remain editable. */
 export async function saveAssetFromDataUrl(
   name: string,
   dataUrl: string,
@@ -220,13 +237,7 @@ export async function saveAssetFromDataUrl(
   return saveAsset(name, dataUrlToBlob(dataUrl));
 }
 
-/**
- * Restores bytes that were already normalized before backup.
- *
- * Re-encoding a backed-up WebP changes its digest and creates a duplicate
- * asset on every restore. Validate the stored constraints again, then keep
- * the original bytes so the content-addressed id remains stable.
- */
+/** Restores validated WebP bytes without changing their content-addressed id. */
 export async function restoreAssetFromDataUrl(
   name: string,
   dataUrl: string,
@@ -254,7 +265,44 @@ export async function restoreAssetFromDataUrl(
     throw error;
   }
   await assertRestorableIconBlob(blob);
+  if (blob.type !== "image/webp") {
+    return saveAsset(normalizedName, blob);
+  }
   return persistAsset(normalizedName, blob);
+}
+
+export async function saveRemoteAsset(
+  name: string,
+  source: Blob,
+  expectedId: string,
+): Promise<StoredAsset> {
+  const normalizedName = normalizeAssetName(name);
+  if (source.type !== "image/webp" || source.size > MAX_SYNCED_ICON_BYTES) {
+    throw new AssetValidationError("동기화한 아이콘 형식이 올바르지 않습니다.");
+  }
+  await assertRestorableIconBlob(source);
+  return persistAsset(normalizedName, source, {
+    expectedId,
+    queueSync: false,
+  });
+}
+
+export async function saveImportedCloudAsset(
+  name: string,
+  source: Blob,
+  expectedId: string,
+): Promise<StoredAsset> {
+  const normalizedName = normalizeAssetName(name);
+  if (source.type !== "image/webp" || source.size > MAX_SYNCED_ICON_BYTES) {
+    throw new AssetValidationError("가져온 아이콘 형식이 올바르지 않습니다.");
+  }
+  await assertRestorableIconBlob(source);
+  return persistAsset(normalizedName, source, { expectedId });
+}
+
+export async function getAssetById(id: string): Promise<StoredAsset | undefined> {
+  const database = await getLinkuDb();
+  return database.get("assets", id);
 }
 
 export async function getAssetByNumericId(
