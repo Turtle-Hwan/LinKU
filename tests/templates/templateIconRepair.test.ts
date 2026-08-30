@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { StoredAsset, StoredTemplate } from "../../src/storage/linkuDb.ts";
-import type { TemplateIconRepairResult } from "../../src/storage/templateIconRepair.ts";
+import type { StoredAsset, StoredTemplate } from "../../src/storage/indexedDb/linkuDatabase.ts";
+import type { TemplateIconRepairResult } from "../../src/storage/templates/iconRepair.ts";
 import { createTemplateTestServer } from "./viteTestServer.ts";
 
 function createStoredTemplate(): StoredTemplate {
@@ -53,7 +53,7 @@ test("다른 보정을 저장해도 등록에 실패한 inline icon 원본은 �
 
   try {
     const { repairTemplateIcons } = (await server.ssrLoadModule(
-      "/src/storage/templateIconRepair.ts",
+      "/src/storage/templates/iconRepair.ts",
     )) as {
       repairTemplateIcons: (
         stored: StoredTemplate,

@@ -4,7 +4,7 @@ import {
   formatImportedTemplateName,
   normalizeTemplateName,
   normalizeStoredTemplate,
-} from "../../src/storage/templateRecord.ts";
+} from "../../src/storage/templates/record.ts";
 
 function record(template: unknown, extra: Record<string, unknown> = {}) {
   return { template, metadata: { lastSaved: 1_700_000_000_000 }, ...extra };

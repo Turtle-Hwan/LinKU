@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import "fake-indexeddb/auto";
 import { openDB, type IDBPDatabase } from "idb";
-import { allocateMonotonicId } from "../../src/storage/monotonicId.ts";
+import { allocateMonotonicId } from "../../src/storage/templates/monotonicId.ts";
 
 // The schema is re-declared here rather than imported so the test exercises
 // the allocator against a plain store, without pulling the popup's module
