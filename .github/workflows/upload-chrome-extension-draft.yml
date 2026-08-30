@@ -64,6 +64,25 @@ jobs:
             exit 1
           fi
 
+      - name: Validate Supabase public configuration
+        env:
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --max-time 10 \
+            "${SUPABASE_URL%/}/rest/v1/rpc/browse_publications" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" \
+            --data '{"p_query":"","p_sort":"latest","p_offset":0,"p_limit":1}' \
+            --output /dev/null
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
 
@@ -81,9 +100,11 @@ jobs:
         run: |
           node scripts/updateVersion.js
           VERSION=$(node -p "require('./public/manifest.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "sentry_release=linku@$VERSION" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$VERSION"
+            echo "tag=v$VERSION"
+            echo "sentry_release=linku@$VERSION"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Configure direct analytics transport
         env:
@@ -100,7 +121,8 @@ jobs:
 
       - name: Build extension
         env:
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_VOC_ENDPOINT: ${{ vars.VITE_VOC_ENDPOINT }}
           VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
           VITE_SENTRY_ENVIRONMENT: production
