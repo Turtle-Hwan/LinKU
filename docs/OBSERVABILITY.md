@@ -3,15 +3,12 @@
 LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝트로 묶습니다.
 
 - popup: React Error Boundary와 전역 브라우저 오류
-- background: 전역 오류·unhandled rejection, OAuth, silent reauth, 시간표 import, pending tab, badge, service worker lifecycle
+- background: 전역 오류·unhandled rejection, PKCE OAuth, 시간표 import, pending tab, badge, service worker lifecycle
 - content: 전역 오류·unhandled rejection, Everytime 입력 검증·DOM/API 처리·message 응답 실패
-- API/Chrome bridge: 5xx·정상 응답 계약 위반, 토큰 정리, storage/tab/script injection 실패
+- Supabase/Chrome bridge: 예상 밖 응답 계약 위반, session 정리, storage/tab/script injection 실패
 - handled application errors: 명시적 `captureErrorLog`/`captureWarnLog` owner와 주요 UI fallback 경로
 
-GitHub Pages의 share viewer는 이 범위에서 의도적으로 제외합니다. 해당 페이지는
-`connect-src 'none'` CSP로 template fragment가 어떤 원격 collector에도 전송되지
-않게 하며, 잘못된 공유 링크는 페이지 안의 사용자 안내로만 처리합니다. 정적 link
-catalog와 grid renderer도 monitoring 의존성이 없는 leaf module만 사용하고,
+정적 GitHub Pages site는 이 범위에서 의도적으로 제외합니다.
 `pnpm run build:gh-pages`가 Rollup module graph를 검사해 `src/monitoring`이나
 Sentry SDK가 Pages 산출물에 섞이면 PR과 실제 배포 빌드를 모두 실패시킵니다.
 
@@ -75,8 +72,8 @@ fallback으로 실패를 최종 처리하는 UI·runtime 경계가 원본 오류
 
 실패를 예외가 아니라 `{ success: false, code }`로 돌려주는 정상 결과는 breadcrumb로만
 남깁니다. 시간표의 LOGIN_REQUIRED·TAB_UNAVAILABLE·TIMETABLE_NOT_FOUND·
-NO_PREVIOUS_SEMESTERS와 LinKU API 4xx·token 만료는 issue가 아닙니다. 실제 exception과 5xx,
-2xx 응답 계약 위반만 최종 경계가 한 번 수집합니다. 응답 원문·request body·토큰·쿠키는
+NO_PREVIOUS_SEMESTERS, Supabase validation/RLS·conflict와 session 만료는 issue가 아닙니다.
+실제 exception과 2xx 응답 계약 위반만 최종 경계가 한 번 수집합니다. 응답 원문·request body·토큰·쿠키는
 수집하지 않고, API 오류는 endpoint path, HTTP method/status, error code, response shape와
 직전 breadcrumbs로 재현에 필요한 맥락을 남깁니다. background/content의
 `runtime.sendResponse`는 one-shot responder로 감싸 중복 응답과 채널 종료 오류를 별도

@@ -1,131 +1,106 @@
 # 기여 가이드
 
-LinKU는 실제 사용자가 설치하는 Chrome Extension입니다. 변경 범위를 작게 유지하고
-사용자 데이터, permission, 인증, release 흐름에 미치는 영향을 명확히 드러내세요.
+LinKU는 실제 사용자가 설치하는 Chrome Extension입니다. 사용자 데이터, permission,
+인증과 release에 미치는 영향을 작고 검증 가능한 변경으로 제출해 주세요.
 
-## 시작하기
+## 개발 환경
 
 ```bash
 pnpm install
+cp .env.development.example .env.development
 pnpm run dev
 ```
 
-`pnpm run dev`는 React UI 확인용입니다. Chrome extension runtime 검증에는 다음
-명령으로 만든 `dist/`를 `chrome://extensions`에서 로드합니다.
+`pnpm run dev`는 React UI 반복 작업용입니다. MV3 service worker, `chrome.identity`,
+extension storage가 관련된 변경은 반드시 빌드된 확장에서 확인합니다.
 
 ```bash
 pnpm run build:local
+# dist/를 chrome://extensions에서 unpacked extension으로 로드
 ```
 
-MV3 service worker와 popup을 자동 smoke test하려면 Playwright Chromium을 한 번
-설치한 뒤 전용 명령을 실행합니다. 이 테스트는 임시 브라우저 프로필에 최신
-`dist/`를 직접 로드하므로 사용자의 Chrome 프로필과 설치된 확장을 변경하지 않습니다.
-실행 비용과 로컬 Chrome 의존성을 고려해 PR CI에는 연결하지 않고 개발자가 필요할 때
-로컬에서 실행합니다.
+## Supabase 로컬 개발
+
+Docker가 실행 중인 상태에서 다음 명령으로 Postgres/Auth/Storage를 시작합니다.
+
+```bash
+pnpm exec supabase start
+pnpm exec supabase status
+pnpm exec supabase db reset
+pnpm exec supabase db lint --level warning
+pnpm exec supabase test db
+pnpm exec supabase stop
+```
+
+`supabase status`의 API URL과 publishable key를 `.env.development`의
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`에 넣습니다. 두 값은 공개 client
+설정이며 service-role key를 사용하면 안 됩니다.
+
+DB/RLS/Storage policy 테스트에는 Google credential이 필요하지 않습니다. 실제 OAuth를
+검증할 때만 Supabase Auth에 Google provider를 켜고 로컬 unpacked extension의
+`https://<extension-id>.chromiumapp.org/supabase` redirect URL을 allowlist에 추가합니다.
+Google client ID/secret은 로컬 ignored environment 또는 Supabase provider 설정에만
+두고 `VITE_` 변수, source, fixture나 문서에 값을 기록하지 않습니다.
+Google Cloud의 Authorized redirect URI에는 chromiumapp URL이 아니라 Supabase Dashboard가
+표시하는 `/auth/v1/callback` URL을 등록합니다.
+
+운영 Supabase에도 email/phone/anonymous signup은 끄고 Google provider만 활성화해야
+합니다. Google nonce 검증은 끄지 않습니다. DB의 RLS/RPC도 JWT의 Google provider를
+검사하지만 provider 설정은 배포 전 수동 gate입니다.
+
+## 변경 원칙
+
+- IndexedDB 쓰기 성공과 원격 동기화 결과를 분리합니다.
+- schema 변경은 기존 store와 record를 보존하는 additive upgrade로 작성합니다.
+- SQL schema 변경은 migration, generated TypeScript type와 pgTAP을 함께 갱신합니다.
+- public gallery 응답에 email, Google profile, owner ID나 private document를 넣지 않습니다.
+- permission과 `host_permissions`는 필요한 범위보다 넓히지 않습니다.
+- access/refresh token, auth code, PKCE verifier, secret, cookie, template JSON과 icon
+  bytes를 로그로 남기지 않습니다.
+- 예상 가능한 offline, conflict, validation과 RLS 결과는 toast/breadcrumb로 처리하고
+  예상 밖 contract/storage 오류만 한 경계에서 Sentry에 수집합니다.
+- 새 상태 관리·UI·test framework는 feature 변경과 함께 도입하지 않습니다.
+
+## 검증
+
+모든 code change는 최소 다음 명령을 실행합니다.
+
+```bash
+pnpm run lint
+pnpm run build:local
+```
+
+변경 영역에 따라 관련 테스트를 추가합니다.
+
+```bash
+pnpm run test:templates
+pnpm run test:timetable
+pnpm run test:alerts
+pnpm run test:monitoring
+pnpm run build:gh-pages
+pnpm exec supabase test db
+```
+
+빌드된 MV3 runtime smoke test는 임시 Chromium profile을 사용합니다.
 
 ```bash
 pnpm exec playwright install --no-shell chromium
 pnpm run test:extension
 ```
 
-`tests/extension/extension.fixture.ts`는 임시 Chromium에 확장을 로드하고 MV3
-background worker를 찾은 뒤 context를 정리하는 일만 담당합니다.
-`tests/extension/smoke.spec.ts`는 action popup이 열리고 React root가 렌더링되는지만
-확인합니다. 기능별 runtime 검증은 `tests/extension/features/*.spec.ts`에 추가합니다.
-예를 들어 배너 기능 테스트는 오프라인에서도 마지막 snapshot이 즉시 표시되며 실패한
-갱신이 기존 캐시를 지우지 않는지 독립적으로 검증합니다. `test:extension`은 로딩
-smoke와 등록된 기능별 spec을 모두 실행합니다. 특정 spec이나 headed 실행이 필요할
-때는 package script를 늘리지 않고 Playwright 경로나 `LINKU_E2E_HEADED=1` 환경 변수를
-사용합니다.
+실제 Google 계정 선택과 운영 Supabase RLS는 local/mock 테스트와 구분해 PR에 기록합니다.
+테스트하지 못한 범위와 기존 실패를 숨기지 마세요.
 
-Chrome Web Store 설치본이나 실제 OAuth 계정처럼 사용자 Chrome 상태에 의존하는
-흐름은 별도 수동 검증 대상으로 유지합니다.
+## PR과 릴리즈
 
-backend 기능에는 유효한 `VITE_API_BASE_URL`이 필요합니다. 실제 secret은 commit하지
-마세요.
+커밋은 가장 작은 coherent unit으로 나누고 PR에는 사용자 영향, migration, permission,
+검증 결과를 적습니다. UI 변경은 popup 크기의 screenshot이나 GIF를 첨부합니다.
 
-## 작업 원칙
+일반 PR에서 `public/manifest.json` version을 수정하지 않습니다. `main` workflow가
+Chrome Web Store draft, GitHub Release, Pages 배포와 version bump를 담당합니다.
 
-- 하나의 branch와 PR은 하나의 목적에 집중합니다.
-- 기존 working tree의 사용자 변경과 저장된 데이터의 하위 호환성을 보존합니다.
-- route, feature, external API, background 책임은 `docs/ARCHITECTURE.md`의 소스
-  경계를 따릅니다.
-- 외부 API·DOM parser는 수집 범위와 fallback을 명확히 하고 실패를 사용자 데이터
-  손실로 이어지게 하지 않습니다.
-- feature PR에서 새로운 state library, router, styling system, formatter, test
-  framework를 함께 도입하지 않습니다.
-- loading·empty·saved·dialog처럼 하나의 feature 화면이 여러 역할로 나뉘면
-  compound component를 우선 검토합니다.
-
-커밋은 가능한 한 작은 단위로 나누고 Conventional Commits 형식을 권장합니다.
-
-```text
-feat: add user-facing behavior
-fix(auth): handle expired token
-refactor(editor): split canvas helpers
-docs: update contributor guide
-```
-
-## 검증
-
-모든 code change는 최소한 다음을 통과해야 합니다.
-
-```bash
-pnpm run build:local
-```
-
-TypeScript, React hook, shared utility를 수정했다면 lint를 실행합니다. 시간표 도메인
-로직을 수정했다면 전용 회귀 테스트도 실행합니다.
-
-```bash
-pnpm run lint
-pnpm run test:timetable
-pnpm run test:template-share
-```
-
-변경 유형별 추가 확인:
-
-- UI: 실제 popup 크기에서 layout, keyboard, loading/error 상태.
-- Background, storage, OAuth, badge: 빌드된 unpacked extension.
-- 외부 사이트 parser: 실제 페이지·응답과 fallback. 로그인 정보나 원문 응답을
-  로그 또는 fixture에 남기지 않습니다.
-- Permission: 추가된 API/domain이 최소 범위인지 확인합니다.
-- Template share: codec test와 `pnpm run build:gh-pages`를 함께 실행하고,
-  fragment가 네트워크 요청에 포함되지 않는지 확인합니다.
-- 배너 운영 기간: `startAt`/`endAt`에 timezone이 포함된 ISO 8601 값을 사용하고,
-  즉시 내려야 하는 배너는 이전 확장도 고려해 목록에서 제거합니다.
-
-테스트하지 못한 범위와 기존 실패는 PR 설명에 명시합니다.
-
-## PR 체크리스트
-
-- 변경 목적과 사용자 영향 요약.
-- 실행한 검증 명령과 수동 확인 결과.
-- UI 변경의 screenshot 또는 GIF.
-- backend·외부 응답 shape 가정.
-- permission 변경 사유와 실제 extension 검증 방법.
-- migration 또는 사용자 데이터 보존 영향.
-
-## 보안과 로깅
-
-- `host_permissions`는 domain 단위로 최소화하고 `<all_urls>`를 새로 사용하지
-  않습니다.
-- access/refresh token, auth code, secret, authorization header, cookie, private
-  user data를 로그에 남기지 않습니다.
-- `console.*` 대신 `src/utils/logger.ts`를 사용하고 production에는 필요한
-  warn/error만 남깁니다.
-- 외부 응답 전체보다 상태 코드와 비민감 핵심 필드만 기록합니다.
-
-## 릴리즈와 문서
-
-일반 PR에서 `public/manifest.json` version을 직접 수정하지 않습니다. main의
-workflow가 Chrome Web Store draft, GitHub Release, Pages 배포와 version bump를
-담당합니다.
-
-- `README.md`: 제품 소개와 빠른 시작.
-- `docs/ARCHITECTURE.md`: 런타임 경계와 데이터 흐름.
-- `docs/CONTRIBUTING.md`: 작업·검증·PR 규칙.
-- `AGENTS.md`: 코딩 에이전트 진입점.
-
-architecture, permission, workflow 또는 onboarding이 바뀌면 관련 문서만 같은 PR에서
-갱신합니다.
+- `README.md`: 제품 소개와 빠른 시작
+- `docs/ARCHITECTURE.md`: 런타임과 데이터 경계
+- `docs/LOCAL_FIRST.md`: 저장·동기화 계약
+- `docs/OBSERVABILITY.md`: Sentry 정책
+- `AGENTS.md`: 코딩 에이전트 진입점
