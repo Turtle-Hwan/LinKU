@@ -3,11 +3,7 @@
  * Centralized export for all API endpoints
  */
 
-// HTTP Client & Configuration
-export * from "./client";
-
 // Domain APIs
-export * from "./auth";
 export * from "./alerts";
 
 // External Integrations

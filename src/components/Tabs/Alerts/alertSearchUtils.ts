@@ -16,10 +16,8 @@ export const matchesAlertQuery = (alert: Alert, query: string) => {
     return true;
   }
 
-  const sourceName =
-    "department" in alert ? alert.department.name : alert.category;
   const searchableText = normalizeSearchText(
-    [alert.title, alert.content, sourceName].filter(Boolean).join(" ")
+    [alert.title, alert.content, alert.category].filter(Boolean).join(" ")
   );
 
   return queryTokens.every((token) => searchableText.includes(token));
