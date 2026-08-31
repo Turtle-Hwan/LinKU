@@ -38,11 +38,28 @@ const Alerts = () => {
   const hasSearchQuery = searchQuery.trim().length > 0;
 
   useEffect(() => {
-    void getStorage<AlertCategory>(ALERT_CATEGORY_KEY).then((savedCategory) => {
+    let cancelled = false;
+
+    const initialize = async () => {
+      let savedCategory: AlertCategory | undefined;
+      try {
+        savedCategory = await getStorage<AlertCategory>(ALERT_CATEGORY_KEY);
+      } catch (error) {
+        captureErrorLog("[Alerts] Failed to restore category:", error);
+        if (!cancelled) {
+          toast.error("저장된 공지 설정을 불러오지 못했습니다.");
+        }
+      }
+      if (cancelled) return;
       setSelectedCategory(savedCategory);
       setIsInitialized(true);
-      sendAlertsView("all", savedCategory ?? "전체");
-    });
+      void sendAlertsView("all", savedCategory ?? "전체");
+    };
+
+    void initialize();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -92,8 +109,17 @@ const Alerts = () => {
   }, [isInitialized, selectedCategory]);
 
   const handleCategoryChange = async (category: AlertCategory | undefined) => {
+    const previousCategory = selectedCategory;
     setSelectedCategory(category);
-    await setStorage({ [ALERT_CATEGORY_KEY]: category ?? null });
+    try {
+      await setStorage({ [ALERT_CATEGORY_KEY]: category ?? null });
+    } catch (error) {
+      setSelectedCategory((current) =>
+        current === category ? previousCategory : current,
+      );
+      captureErrorLog("[Alerts] Failed to persist category:", error);
+      toast.error("공지 설정을 저장하지 못했습니다.");
+    }
   };
 
   if (!isInitialized) {
