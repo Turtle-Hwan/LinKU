@@ -727,6 +727,7 @@ as $$
 declare
   current_count bigint;
 begin
+  perform linku_private.require_user();
   update public.template_publications
   set clone_count = clone_count + 1
   where template_id = p_template_id and unpublished_at is null
@@ -823,7 +824,7 @@ grant execute on function public.publish_template(uuid, bigint) to authenticated
 grant execute on function public.unpublish_template(uuid, bigint) to authenticated;
 grant execute on function public.browse_publications(text, text, integer, integer) to anon, authenticated;
 grant execute on function public.set_publication_liked(uuid, boolean) to authenticated;
-grant execute on function public.record_publication_clone(uuid) to anon, authenticated;
+grant execute on function public.record_publication_clone(uuid) to authenticated;
 grant execute on function public.clear_linku_data() to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(37);
 
 select has_table('public', 'templates', 'templates table exists');
 select has_table('public', 'template_publications', 'publications table exists');
@@ -319,10 +319,11 @@ select is(
   'gallery returns only the chosen public nickname'
 );
 
-select is(
-  public.record_publication_clone('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
-  1::bigint,
-  'anonymous clone counting is atomic'
+select throws_ok(
+  $$select public.record_publication_clone('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')$$,
+  '42501',
+  'LOGIN_REQUIRED',
+  'clone counting requires login'
 );
 
 select throws_ok(
@@ -350,6 +351,12 @@ select is(
   public.set_publication_liked('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true),
   1::bigint,
   'liking twice is idempotent'
+);
+
+select is(
+  public.record_publication_clone('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+  1::bigint,
+  'signed-in clone counting is atomic'
 );
 
 reset role;

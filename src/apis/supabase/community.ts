@@ -1,3 +1,4 @@
+import { getGoogleAccountId } from "@/apis/supabase/account";
 import { getSupabaseClient } from "@/apis/supabase/client";
 import {
   toSupabaseAuthError,
@@ -364,32 +365,33 @@ export async function clonePublication(
   );
   const stored = await importTemplateCopy(template);
 
-  // The local import is the product action. Counting is intentionally best
-  // effort and never rolls back or retries that saved copy.
-  void Promise.resolve(
-    getSupabaseClient().rpc("record_publication_clone", {
-      p_template_id: publication.templateId,
-    }),
-  )
-    .then(({ error }) => {
-      if (error) {
-        recordBreadcrumb(
-          "community.clone",
-          "clone counter was not recorded",
-          undefined,
-          "warning",
-        );
-      }
-    })
-    .catch(() => {
+  void recordSignedInClone(publication.templateId);
+  return stored.template.templateId;
+}
+
+async function recordSignedInClone(templateId: string): Promise<void> {
+  try {
+    if (!(await getGoogleAccountId())) return;
+    const { error } = await getSupabaseClient().rpc(
+      "record_publication_clone",
+      { p_template_id: templateId },
+    );
+    if (error) {
       recordBreadcrumb(
         "community.clone",
-        "clone counter request was unavailable",
+        "clone counter was not recorded",
         undefined,
         "warning",
       );
-    });
-  return stored.template.templateId;
+    }
+  } catch {
+    recordBreadcrumb(
+      "community.clone",
+      "clone counter request was unavailable",
+      undefined,
+      "warning",
+    );
+  }
 }
 
 export async function isPublicationOutdated(

@@ -59,6 +59,10 @@ Google profile과 내부 account ID는 포함하지 않습니다. 원본의 공�
 게시 hash와 다르면 업데이트 필요 상태가 됩니다. 업데이트 전까지 기존 snapshot을
 계속 보여 주므로 작성 중 변경이 공개 화면에 섞이지 않습니다.
 
+게시물 복제는 로그인 없이 로컬에 저장할 수 있습니다. 공개 clone counter는 익명
+쓰기 API를 열지 않도록 Google 로그인 상태에서만 best-effort로 집계하며, 집계 실패가
+로컬 복제 결과를 되돌리지 않습니다.
+
 ## 제한과 복구
 
 - 계정당 active template 100개, user icon 100개, active publication 25개
