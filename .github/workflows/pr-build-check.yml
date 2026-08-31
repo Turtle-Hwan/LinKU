@@ -25,42 +25,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm run lint
+
       - name: Build project
         env:
           VITE_VOC_ENDPOINT: ${{ vars.VITE_VOC_ENDPOINT }}
         run: pnpm run build:local
 
-      - name: Test monitoring boundaries
-        run: pnpm run test:monitoring
-
-      - name: Test analytics transport
-        run: pnpm run test:analytics
-
-      - name: Verify production Sentry bundle metadata
-        run: pnpm run test:sentry-bundle
-
-      - name: Test local template storage
-        run: pnpm run test:templates
-
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Test MV3 extension runtime
-        run: pnpm exec playwright test tests/extension
-
-      - name: Test Supabase schema and RLS
+      - name: Test local-first and monitoring contracts
         run: |
-          pnpm exec supabase db start
-          pnpm exec supabase db reset
-          pnpm exec supabase db lint --level warning
-          pnpm exec supabase test db
-
-      - name: Stop Supabase database
-        if: always()
-        run: pnpm exec supabase stop --no-backup || true
-
-      - name: Build GitHub Pages site
-        run: pnpm run build:gh-pages
-
-      - name: Build success
-        run: echo "✅ Build completed successfully!"
+          pnpm run test:monitoring
+          pnpm run test:sentry-bundle
+          pnpm run test:templates

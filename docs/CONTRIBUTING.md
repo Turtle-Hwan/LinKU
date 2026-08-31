@@ -91,6 +91,11 @@ pnpm run test:extension
 실제 Google 계정 선택과 운영 Supabase RLS는 local/mock 테스트와 구분해 PR에 기록합니다.
 테스트하지 못한 범위와 기존 실패를 숨기지 마세요.
 
+PR CI는 매 변경에 필요한 lint, extension build, local-first template과 monitoring 계약만
+검사합니다. Chromium 설치가 필요한 MV3 Playwright, Docker 기반 Supabase pgTAP과 전체
+기능 회귀는 관련 변경에서 로컬로 실행하고 결과를 PR에 기록합니다. GitHub Pages는 실제
+배포 workflow에서 다시 빌드하므로 일반 PR에서 중복 빌드하지 않습니다.
+
 ## PR과 릴리즈
 
 커밋은 가장 작은 coherent unit으로 나누고 PR에는 사용자 영향, migration, permission,
