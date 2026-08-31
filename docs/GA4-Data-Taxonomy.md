@@ -128,8 +128,6 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `auth_login_success` | 구현됨 | 실제 로그인 성공률 측정 | `provider`, `is_guest` | P1 |
 | `auth_login_fail` | 구현됨 | 로그인 장애 파악 | `provider`, `error_code`, `error_message` | P1 |
 | `auth_logout` | 구현됨 | 로그아웃 행동 파악 | `ui_location` | P2 |
-| `auth_email_verification_start` | 구현됨 | 게스트 → 회원 전환 시작점 | `ui_location` | P1 |
-| `auth_email_verification_success` | 구현됨 | 회원 전환 완료 | `domain_type` | P1 |
 
 ## Template Events
 
@@ -168,8 +166,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | Event Name | 상태 | 목적 | 주요 Params | 우선순위 |
 | --- | --- | --- | --- | --- |
 | `alerts_view_open` | 구현됨 | 공지 탭 사용 여부 | `view_mode`(`all`\|`my`), `category` | P2 |
-| `alerts_item_open` | 구현됨 | 공지 클릭률 | `alert_id`, `category`, `source`(`general`\|`department`) | P2 |
-| `alerts_subscription_change` | 구현됨 | 개인화 기능 사용 | `category`, `result` | P3 |
+| `alerts_item_open` | 구현됨 | 공지 클릭률 | `alert_id`, `category`, `source`(=`general`) | P2 |
 | `todo_view_open` | 구현됨 | Todo 기능 사용 여부 | `todo_count` | P2 |
 | `todo_item_create` | 구현됨 | Todo 입력 | `source`, `has_due_date` | P2 |
 | `todo_item_complete` | 구현됨 | Todo 완료율 | `item_type`(`custom`\|`ecampus`) | P2 |
@@ -207,7 +204,6 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | --- | --- | --- |
 | `search_submit` | `MP_search_submit` | MP_ prefix 적용 |
 | `auth_login_start/success/fail` | `MP_authLogin_start/success/fail` | prefix + camelCase trio |
-| `auth_email_verification_start/success` | `MP_authEmailVerification_start/success` | prefix + camelCase |
 | `auth_logout` | `MP_auth_logout` | prefix 적용 |
 | `settings_open` | `MP_settings_open` | prefix 적용 |
 | `settings_credentials_saved/deleted` | `MP_settingsCredentials_save/delete` | prefix + camelCase, 이벤트명은 동작형 save/delete 사용 |
@@ -225,7 +221,6 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `template_name_edit` | **제거** | P3 — 분석 활용도 낮음, save_success에 함축 |
 | `alerts_view_open` | `MP_alerts_view` | prefix + _view 진입 컨벤션 |
 | `alerts_item_open` | `MP_alertsItem_open` | prefix + camelCase object |
-| `alerts_subscription_change` | `MP_alertsSubscription_update` | prefix + _change 레거시 전용 규칙 |
 | `todo_view_open` | `MP_todo_view` | prefix + _view 진입 컨벤션 |
 | `todo_item_create/complete/delete` | `MP_todoItem_create/complete/delete` | prefix + camelCase object |
 | `labs_view_open` | `MP_labs_open` | prefix + _open 다이얼로그 컨벤션 |
@@ -246,7 +241,6 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | P0 | `template_apply` | 구현됨 |
 | P1 | `auth_login_start` | 구현됨 |
 | P1 | `auth_login_success` | 구현됨 |
-| P1 | `auth_email_verification_success` | 구현됨 |
 | P1 | `template_editor_open` | 구현됨 |
 | P1 | `template_item_add` | 구현됨 |
 | P1 | `system_error` | 구현됨 |
@@ -259,7 +253,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | Session-based return cohort | `extension_session_start` |
 | Core action retention | `extension_first_open` cohort + `link_open` return condition |
 | Local template funnel | `template_editor_open` → `template_item_add` → `template_save_success` → `template_apply` |
-| Auth funnel | `auth_login_start` → `auth_login_success` → `auth_email_verification_success` |
+| Auth funnel | `auth_login_start` → `auth_login_success` |
 
 ## Non-Goals
 
@@ -298,9 +292,6 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `navigation_tab_view` | 다이얼로그 탭 노출 | 실제로 표시된 실험실·설정 탭 측정 | `feature_area`, `tab_name`, `ui_location`, `view_source` | `usePersistentDialogTab.ts` | 기본값·복원·사용자 선택을 구분 |
 | `MP_alerts_view` | 공지 탭 진입 | 공지 탭 사용 여부 | `view_mode`, `category` | `Alerts.tsx · initialize()` | - |
 | `MP_alertsItem_open` | 공지 클릭 | 공지 클릭률 측정 | `alert_id`, `category`, `source` | `AlertItem.tsx · handleClick` | - |
-| `MP_alertsSubscription_update` | 구독 변경 | 학과 구독 변경 파악 | `category`, `subscription_result`(`subscribe`\|`unsubscribe`) | `MyAlertsView.tsx · handleSubscribe`, `handleUnsubscribe` | - |
-| `MP_authEmailVerification_start` | 이메일 인증 시작 | 게스트→회원 전환 시작점 | `ui_location` | `EmailVerificationDialog.tsx · useEffect([open])` | 다이얼로그 재진입마다 전송 → funnel 시작 수 과집계 가능 |
-| `MP_authEmailVerification_success` | 이메일 인증 완료 | 회원 전환 완료 | `domain_type` | `EmailVerificationDialog.tsx · handleVerifyCode` | - |
 | `MP_authLogin_fail` | 로그인 실패 | 로그인 장애 파악 | `provider`, `error_code`, `error_message` | `SettingsDialog.tsx · handleGoogleLogin` (결과·예외 분기) | - |
 | `MP_authLogin_start` | 로그인 시도 | 로그인 의도 파악 | `provider`, `ui_location` | `SettingsDialog.tsx · handleGoogleLogin` | - |
 | `MP_authLogin_success` | 로그인 성공 | 실제 로그인 성공률 측정 | `provider`, `is_guest` | `SettingsDialog.tsx · handleGoogleLogin` | - |

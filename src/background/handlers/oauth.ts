@@ -1,291 +1,135 @@
-/**
- * Google OAuth Handler for Chrome Extension
- *
- * 백엔드 API 스펙 (PR #26):
- * 1. GET /api/oauth2/google?redirectUri={uri} - Google OAuth 페이지로 리다이렉트
- * 2. GET /api/oauth2/google/login?redirectUri={uri}&code={code} - 토큰 교환
- *
- * 응답 형식:
- * {
- *   "code": 1000,
- *   "message": "SUCCESS",
- *   "result": {
- *     "accessToken": "token_here",
- *     "refreshToken": "refresh_or_null"
- *   }
- * }
- */
-
 import type { GoogleLoginResponse } from "../types";
+import { getAccountProfile } from "@/apis/supabase/account";
+import { toSupabaseAuthError } from "@/apis/supabase/errors";
 import {
-  debugLog,
-  captureErrorLog,
-  getHttpErrorLogDetails,
-  captureWarnLog,
-  warnLog,
-} from "@/utils/logger";
+  clearLegacyAuthStorage,
+  getSupabaseClient,
+  SupabaseConfigurationError,
+} from "@/apis/supabase/client";
 import { recordBreadcrumb } from "@/monitoring";
+import { captureErrorLog, captureWarnLog, debugLog } from "@/utils/logger";
 
-// Backend URL from environment
-const BACKEND_URL = (() => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;
-  if (!baseUrl) return "";
-
-  try {
-    const url = new URL(baseUrl);
-    if (url.pathname.endsWith("/api")) {
-      url.pathname = url.pathname.slice(0, -4);
-    }
-    const result = url.origin + url.pathname;
-    return result.endsWith("/") ? result.slice(0, -1) : result;
-  } catch {
-    const result = baseUrl.replace("/api", "");
-    return result.endsWith("/") ? result.slice(0, -1) : result;
-  }
-})();
-
-/**
- * Save tokens and auth state to chrome.storage.local
- */
-async function saveTokens(
-  accessToken: string,
-  refreshToken?: string | null
-): Promise<void> {
-  const isGuest = !refreshToken;
-  const data: Record<string, string | boolean> = {
-    accessToken,
-    isGuest,
-  };
-  if (refreshToken) {
-    data.refreshToken = refreshToken;
-  }
-  await chrome.storage.local.set(data);
+function isUserCancellation(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /did not approve|closed|cancell?ed|interrupted|access_denied/iu.test(
+    message,
+  );
 }
 
-/**
- * Handle Google OAuth Login
- * Uses chrome.identity.launchWebAuthFlow for OAuth flow
- */
-export async function handleGoogleLogin(): Promise<GoogleLoginResponse> {
+function expectedCallbackMatches(responseUrl: URL, redirectUri: string): boolean {
+  const expected = new URL(redirectUri);
+  return (
+    responseUrl.origin === expected.origin &&
+    responseUrl.pathname === expected.pathname
+  );
+}
+
+let activeLogin: Promise<GoogleLoginResponse> | null = null;
+
+async function performGoogleLogin(): Promise<GoogleLoginResponse> {
   try {
-    debugLog("[Background] Starting Google OAuth flow");
-
-    // 1. Get extension ID and construct redirect URI
-    const extensionId = chrome.runtime.id;
-    const redirectUri = `https://${extensionId}.chromiumapp.org/`;
-
-    if (!BACKEND_URL) {
-      // A build shipped without a backend URL cannot log anyone in, and the
-      // user only sees a generic retry message. Record it so the broken
-      // configuration is visible instead of looking like a transient outage.
-      captureWarnLog("[Background] OAuth unavailable: backend URL is not configured");
-      return {
-        success: false,
-        error: "로그인 기능을 사용할 수 없습니다. 잠시 후 다시 시도해주세요.",
-      };
+    const client = getSupabaseClient();
+    const redirectUri = chrome.identity.getRedirectURL("supabase");
+    const { data, error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: redirectUri,
+        skipBrowserRedirect: true,
+      },
+    });
+    if (error) {
+      throw toSupabaseAuthError(error, "Google 로그인을 시작하지 못했습니다.");
     }
+    if (!data.url) throw new Error("OAUTH_URL_MISSING");
 
-    // 2. Construct OAuth URL (새 API 스펙)
-    const authUrl = new URL(`${BACKEND_URL}/api/oauth2/google`);
-    authUrl.searchParams.set("redirectUri", redirectUri);
-
-    // 3. Launch OAuth flow using chrome.identity API
-    const responseUrl = await chrome.identity.launchWebAuthFlow({
-      url: authUrl.toString(),
+    const response = await chrome.identity.launchWebAuthFlow({
+      url: data.url,
       interactive: true,
     });
-
-    if (!responseUrl) {
-      // launchWebAuthFlow resolves without a URL both when the user closes the
-      // window and when the flow ends without a redirect, so this is not
-      // necessarily a cancellation and must not disappear silently.
+    if (!response) {
       recordBreadcrumb(
         "oauth.outcome",
         "OAuth flow ended without a redirect URL",
         undefined,
         "info",
       );
-      warnLog("[Background] OAuth flow returned no redirect URL");
-      return { success: false, error: "인증이 취소되었습니다." };
+      return { success: false, error: "사용자가 인증을 취소했습니다." };
     }
 
-    // 4. Parse response URL to extract code
-    const url = new URL(responseUrl);
-    const code = url.searchParams.get("code");
-    const error = url.searchParams.get("error");
+    const callback = new URL(response);
+    if (!expectedCallbackMatches(callback, redirectUri)) {
+      captureErrorLog("[Background] OAuth callback origin verification failed");
+      return { success: false, error: "로그인 응답을 확인하지 못했습니다." };
+    }
 
-    debugLog("[Background] Extracted code:", code ? "있음" : "없음");
-
-    if (error) {
-      const isExpectedAuthOutcome = /access_denied|cancel|closed/iu.test(error);
+    const providerError = callback.searchParams.get("error");
+    if (providerError) {
+      const expected = /access_denied|cancel|closed/iu.test(providerError);
       recordBreadcrumb(
         "oauth.outcome",
         "OAuth provider returned an error outcome",
-        { oauth_error: error, expected: isExpectedAuthOutcome },
-        isExpectedAuthOutcome ? "info" : "error",
+        { oauth_error: providerError, expected },
+        expected ? "info" : "error",
       );
-      if (isExpectedAuthOutcome) {
-        warnLog("[Background] OAuth was not approved", { error });
-        return { success: false, error: "인증이 취소되었습니다." };
+      if (expected) {
+        return { success: false, error: "사용자가 인증을 취소했습니다." };
       }
       captureErrorLog(
-        "[Background] OAuth error returned from provider",
-        new Error(`OAuth provider error: ${error}`),
-        { oauth_error: error },
+        "[Background] OAuth provider returned an unexpected error",
+        new Error(`OAuth provider error: ${providerError}`),
       );
-      return {
-        success: false,
-        error: "인증 제공자가 로그인을 완료하지 못했습니다.",
-      };
+      return { success: false, error: "Google 로그인을 완료하지 못했습니다." };
     }
 
+    const code = callback.searchParams.get("code");
     if (!code) {
-      captureErrorLog("[Background] OAuth response did not include an authorization code");
-      return {
-        success: false,
-        error: "인증 코드를 받지 못했습니다.",
-      };
+      captureErrorLog("[Background] OAuth callback did not include a code");
+      return { success: false, error: "로그인 응답을 확인하지 못했습니다." };
     }
 
-    // 5. Exchange code for token via backend (새 API 스펙)
-    debugLog("[Background] Exchanging code for token...");
-
-    const tokenUrl = new URL(`${BACKEND_URL}/api/oauth2/google/login`);
-    tokenUrl.searchParams.set("redirectUri", redirectUri);
-    tokenUrl.searchParams.set("code", code);
-
-    const tokenResponse = await fetch(tokenUrl.toString(), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    debugLog("[Background] Token Response Status:", tokenResponse.status);
-
-    if (!tokenResponse.ok) {
-      const errorBody = await tokenResponse.text();
-      captureErrorLog(
-        "[Background] Token exchange failed",
-        getHttpErrorLogDetails(
-          tokenResponse.status,
-          tokenResponse.statusText,
-          errorBody,
-        ),
-      );
-      return {
-        success: false,
-        error: "로그인 정보를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
-      };
+    const { error: exchangeError } = await client.auth.exchangeCodeForSession(code);
+    if (exchangeError) {
+      throw toSupabaseAuthError(exchangeError, "Google 로그인을 완료하지 못했습니다.");
+    }
+    const profile = await getAccountProfile();
+    if (!profile) {
+      await client.auth.signOut({ scope: "local" });
+      throw new Error("GOOGLE_ACCOUNT_REQUIRED");
     }
 
-    const tokenData = await tokenResponse.json();
-
-    // 6. Parse backend response
-    // 응답 형식: { code: 1000, message: "SUCCESS", result: { accessToken, refreshToken } }
-    if (tokenData.code !== 1000) {
-      captureErrorLog("[Background] Backend rejected token exchange", {
-        status: tokenResponse.status,
-        code: tokenData.code,
-        message: tokenData.message,
-      });
-      return {
-        success: false,
-        error: "로그인 정보를 처리하지 못했습니다. 잠시 후 다시 시도해주세요.",
-      };
-    }
-
-    const { accessToken, refreshToken } = tokenData.result || {};
-
-    if (!accessToken) {
-      captureErrorLog("[Background] No accessToken in OAuth response", {
-        status: tokenResponse.status,
-        code: tokenData.code,
-      });
-      return {
-        success: false,
-        error: "로그인 응답을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.",
-      };
-    }
-
-    // 7. Save tokens
-    await saveTokens(accessToken, refreshToken);
-    debugLog("[Background] Tokens saved successfully");
-
-    // 8. Return success response
-    // refreshToken이 없으면 게스트(신규 회원)
-    const isGuest = !refreshToken;
-
-    return {
-      success: true,
-      response: {
-        guestToken: accessToken,
-        requiresSignup: isGuest,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        profile: {
-          email: "",
-          name: "",
-          picture: "",
-        },
-      },
-    };
+    await clearLegacyAuthStorage();
+    debugLog("[Background] Google session established");
+    return { success: true, profile };
   } catch (error) {
-    // 사용자 취소 케이스는 warn으로, 실제 오류는 error로 구분
-    const isUserCancellation =
-      error instanceof Error &&
-      (error.message.includes("The user did not approve") ||
-        error.message.includes("closed") ||
-        error.message.includes("cancelled") ||
-        error.message.includes("interrupted"));
-
-    if (isUserCancellation) {
+    if (isUserCancellation(error)) {
       recordBreadcrumb(
         "oauth.outcome",
         "OAuth flow cancelled by user",
         undefined,
         "info",
       );
-      debugLog("[Background] OAuth cancelled by user", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    } else {
-      captureErrorLog("[Background] OAuth error", error);
+      return { success: false, error: "사용자가 인증을 취소했습니다." };
     }
-
-    // User closed the popup or cancelled
-    if (error instanceof Error) {
-      if (
-        error.message.includes("The user did not approve") ||
-        error.message.includes("closed") ||
-        error.message.includes("cancelled")
-      ) {
-        return {
-          success: false,
-          error: "사용자가 인증을 취소했습니다.",
-        };
-      }
-
-      // Authorization page could not be loaded
-      if (error.message.includes("Authorization page could not be loaded")) {
-        return {
-          success: false,
-          error:
-            "인증 페이지를 로드할 수 없습니다. 백엔드 서버 상태를 확인해주세요.",
-        };
-      }
-
-      // Interrupted
-      if (error.message.includes("interrupted")) {
-        return {
-          success: false,
-          error: "로그인이 중단되었습니다.",
-        };
-      }
+    if (error instanceof SupabaseConfigurationError) {
+      captureWarnLog("[Background] Supabase auth is not configured");
+      return {
+        success: false,
+        error: "로그인 기능을 준비 중입니다.",
+      };
     }
-
+    captureErrorLog("[Background] Google OAuth failed", error);
     return {
       success: false,
-      error: "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     };
   }
+}
+
+export function handleGoogleLogin(): Promise<GoogleLoginResponse> {
+  if (!activeLogin) {
+    activeLogin = performGoogleLogin().finally(() => {
+      activeLogin = null;
+    });
+  }
+  return activeLogin;
 }

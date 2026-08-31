@@ -30,7 +30,6 @@ jobs:
 
       - name: Build for GitHub Pages
         env:
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_VOC_ENDPOINT: ${{ vars.VITE_VOC_ENDPOINT }}
         run: pnpm run build:gh-pages
 

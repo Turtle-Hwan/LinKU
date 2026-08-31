@@ -1,15 +1,12 @@
 /**
  * Alerts API
- * Notification and subscription management
+ * Direct public notice cache
  */
 
-import { get, post, del, ENDPOINTS } from './client';
 import type {
   ApiResponse,
   GeneralAlert,
   AlertFilterParams,
-  Department,
-  Subscription,
 } from '../types/api';
 import {
   getCachedPublicAlerts,
@@ -88,114 +85,4 @@ export async function getAlerts(
     captureErrorLog("[Alerts] Failed to synchronize public alerts", error);
     return failedAlertsResponse();
   }
-}
-
-/**
- * Backend response type for my alerts API
- */
-interface MyAlertsResponse {
-  alertResponseList: Array<{
-    alertId: number;
-    departmentName: string;
-    url: string;
-    title: string;
-    postTime: string;
-    content: string;
-  }>;
-}
-
-/**
- * Get my alerts
- * Fetch alerts from subscribed departments
- */
-export async function getMyAlerts(): Promise<ApiResponse<GeneralAlert[]>> {
-  const response = await get<MyAlertsResponse>(ENDPOINTS.ALERTS.MY);
-
-  if (response.success && response.data?.alertResponseList) {
-    // Transform to GeneralAlert format
-    const alerts: GeneralAlert[] = response.data.alertResponseList.map(item => ({
-      alertId: item.alertId,
-      title: item.title,
-      content: item.content,
-      category: item.departmentName as GeneralAlert['category'],
-      url: item.url,
-      publishedAt: item.postTime,
-    }));
-    return { ...response, data: alerts };
-  }
-
-  return { ...response, data: [] };
-}
-
-/**
- * Backend response type for subscription API
- */
-interface DepartmentConfigResponse {
-  departmentConfigList: Array<{
-    departmentConfigId: number;
-    departmentConfigName: string;
-  }>;
-}
-
-/**
- * Get all available departments for subscription
- * Transforms backend response to frontend Department format
- */
-export async function getSubscriptions(): Promise<ApiResponse<Department[]>> {
-  const response = await get<DepartmentConfigResponse>(ENDPOINTS.ALERTS.SUBSCRIPTION);
-
-  if (response.success && response.data?.departmentConfigList) {
-    // Transform field names to match frontend Department type
-    // Use type assertion since API may return categories not in DepartmentCategory
-    const departments = response.data.departmentConfigList.map(item => ({
-      id: item.departmentConfigId,
-      name: item.departmentConfigName,
-    })) as Department[];
-    return { ...response, data: departments };
-  }
-
-  return { ...response, data: [] };
-}
-
-/**
- * Get my subscribed departments
- * Uses same response structure as getSubscriptions (departmentConfigList)
- */
-export async function getMySubscriptions(): Promise<ApiResponse<Subscription[]>> {
-  const response = await get<DepartmentConfigResponse>(ENDPOINTS.ALERTS.MY_SUBSCRIPTION);
-
-  if (response.success && response.data?.departmentConfigList) {
-    // Transform to Subscription format (using departmentConfigId as subscriptionId)
-    const subscriptions: Subscription[] = response.data.departmentConfigList.map(item => ({
-      subscriptionId: item.departmentConfigId,
-      department: {
-        id: item.departmentConfigId,
-        name: item.departmentConfigName,
-      } as Department,
-      createdAt: '',
-    }));
-    return { ...response, data: subscriptions };
-  }
-
-  return { ...response, data: [] };
-}
-
-/**
- * Subscribe to a department
- * Start receiving alerts from the department
- */
-export async function subscribeDepartment(
-  departmentId: number
-): Promise<ApiResponse<Subscription>> {
-  return post<Subscription>(ENDPOINTS.ALERTS.SUBSCRIBE(departmentId));
-}
-
-/**
- * Unsubscribe from a department
- * Stop receiving alerts from the department
- */
-export async function unsubscribeDepartment(
-  departmentId: number
-): Promise<ApiResponse<{ message: string }>> {
-  return del<{ message: string }>(ENDPOINTS.ALERTS.UNSUBSCRIBE(departmentId));
 }

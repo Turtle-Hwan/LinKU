@@ -25,26 +25,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm run lint
+
       - name: Build project
         env:
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_VOC_ENDPOINT: ${{ vars.VITE_VOC_ENDPOINT }}
         run: pnpm run build:local
 
-      - name: Test monitoring boundaries
-        run: pnpm run test:monitoring
-
-      - name: Test analytics transport
-        run: pnpm run test:analytics
-
-      - name: Verify production Sentry bundle metadata
-        run: pnpm run test:sentry-bundle
-
-      - name: Test stateless template sharing
-        run: pnpm run test:template-share
-
-      - name: Build GitHub Pages share viewer
-        run: pnpm run build:gh-pages
-
-      - name: Build success
-        run: echo "✅ Build completed successfully!"
+      - name: Test local-first and monitoring contracts
+        run: |
+          pnpm run test:monitoring
+          pnpm run test:sentry-bundle
+          pnpm run test:templates

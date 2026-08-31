@@ -8,8 +8,8 @@ test("사용자 아이콘 이름과 크기 오류는 validation으로 구분한�
 
   try {
     const module = (await server.ssrLoadModule(
-      "/src/storage/assetRepository.ts",
-    )) as typeof import("../../src/storage/assetRepository.ts");
+      "/src/storage/templates/assetRepository.ts",
+    )) as typeof import("../../src/storage/templates/assetRepository.ts");
 
     await assert.rejects(
       module.saveAsset("", new Blob([Uint8Array.from([1])])),

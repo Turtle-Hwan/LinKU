@@ -16,14 +16,14 @@
  * - Lifecycle  : sendExtensionOpen
  * - Search     : sendSearchSubmit
  * - Auth       : sendAuthLoginStart, sendAuthLoginSuccess, sendAuthLoginFail,
- *                sendAuthLogout, sendAuthEmailVerificationStart/Success
+ *                sendAuthLogout
  * - Settings   : sendSettingsOpen, sendSettingsCredentialsSaved, sendSettingsCredentialsDeleted
  * - System     : sendError
  * - Template   : sendTemplateEditorView, sendTemplateCreateStart,
  *                sendTemplateItemAdd, sendTemplateItemUpdate, sendTemplateItemDelete,
  *                sendTemplateSaveSuccess/Fail, sendTemplateApply, sendTemplateDelete
  * - Banner     : sendBannerOpen
- * - Alerts     : sendAlertsView, sendAlertsItemOpen, sendAlertsSubscriptionChange
+ * - Alerts     : sendAlertsView, sendAlertsItemOpen
  * - Todo       : sendTodoView, sendTodoItemCreate, sendTodoItemComplete, sendTodoItemDelete
  * - Labs       : sendLabsOpen, sendLabsFeatureUse
  * - Navigation : sendNavigationTabView
@@ -523,28 +523,6 @@ export async function sendAuthLogout(uiLocation: string): Promise<void> {
   await sendGAEvent("MP_auth_logout", { ui_location: uiLocation });
 }
 
-/**
- * 이메일 인증 시작 이벤트 전송 (게스트 → 정회원 전환 시작)
- * @param uiLocation 버튼이 위치한 UI (예: "settings_dialog")
- */
-export async function sendAuthEmailVerificationStart(
-  uiLocation: string
-): Promise<void> {
-  await sendGAEvent("MP_authEmailVerification_start", {
-    ui_location: uiLocation,
-  });
-}
-
-/**
- * 이메일 인증 완료 이벤트 전송 (게스트 → 정회원 전환 완료)
- * @param domainType 인증된 이메일 도메인 유형 (예: "konkuk.ac.kr")
- */
-export async function sendAuthEmailVerificationSuccess(
-  domainType: string
-): Promise<void> {
-  await sendGAEvent("MP_authEmailVerification_success", { domain_type: domainType });
-}
-
 // ─── Settings ─────────────────────────────────────────────────────────────
 
 /**
@@ -768,21 +746,6 @@ export async function sendAlertsItemOpen(
     alert_id: String(alertId),
     category,
     source,
-  });
-}
-
-/**
- * 학과 구독 변경 이벤트 전송
- * @param category 구독 변경된 학과명
- * @param subscriptionResult 변경 결과 ("subscribe" | "unsubscribe")
- */
-export async function sendAlertsSubscriptionChange(
-  category: string,
-  subscriptionResult: string
-): Promise<void> {
-  await sendGAEvent("MP_alertsSubscription_update", {
-    category,
-    subscription_result: subscriptionResult,
   });
 }
 

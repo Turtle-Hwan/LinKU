@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import "fake-indexeddb/auto";
-import { getLinkuDb } from "../../src/storage/linkuDb.ts";
+import { getLinkuDb } from "../../src/storage/indexedDb/linkuDatabase.ts";
 import {
   LEGACY_MIGRATION_KEY,
   LEGACY_TEMPLATE_PREFIX,
   migrateLegacyTemplateStorage,
-} from "../../src/storage/legacyTemplateMigration.ts";
+} from "../../src/storage/templates/legacyMigration.ts";
 
 class MemoryStorage {
   readonly values = new Map<string, string>();
