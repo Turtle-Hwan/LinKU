@@ -112,7 +112,7 @@ function publicAssetPath(templateId: string, hash: string): string {
   return `${templateId}/${hash}.webp`;
 }
 
-export function getPublishedAssetUrl(templateId: string, hash: string): string {
+function getPublishedAssetUrl(templateId: string, hash: string): string {
   return getSupabaseClient().storage
     .from(PUBLIC_BUCKET)
     .getPublicUrl(publicAssetPath(templateId, hash)).data.publicUrl;
@@ -386,18 +386,11 @@ async function recordSignedInClone(templateId: string): Promise<void> {
       "record_publication_clone",
       { p_template_id: templateId },
     );
-    if (error) {
-      recordBreadcrumb(
-        "community.clone",
-        "clone counter was not recorded",
-        undefined,
-        "warning",
-      );
-    }
+    if (error) throw error;
   } catch {
     recordBreadcrumb(
       "community.clone",
-      "clone counter request was unavailable",
+      "clone counter was not recorded",
       undefined,
       "warning",
     );
