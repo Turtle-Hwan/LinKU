@@ -225,8 +225,6 @@ export type CloudAssetResolver = (
   name: string,
 ) => Promise<Pick<StoredAsset, "dataUrl" | "name" | "numericId"> | undefined>;
 
-const resolveLocalAsset: CloudAssetResolver = async (hash) => getAssetById(hash);
-
 async function fromCloudIcon(
   icon: CloudTemplateIcon,
   resolveAsset: CloudAssetResolver,
@@ -258,7 +256,7 @@ async function fromCloudItem(
 export async function cloudDocumentToTemplate(
   id: string,
   value: unknown,
-  resolveAsset: CloudAssetResolver = resolveLocalAsset,
+  resolveAsset: CloudAssetResolver = getAssetById,
 ): Promise<{ template: Template; stagingItems: TemplateItem[] }> {
   const document = parseCloudTemplateDocument(value);
   return {

@@ -72,7 +72,6 @@ function errorMessage(error: unknown): string {
 function isExpectedSyncFailure(error: unknown): boolean {
   return (
     error instanceof UserFacingError ||
-    error instanceof SyncConflictError ||
     isExpectedNetworkFailure(error)
   );
 }
@@ -132,7 +131,6 @@ async function pushAsset(
   await completeSyncOperation(entry, {
     key: metadataKey,
     contentHash: remote.contentHash,
-    lastSyncedAt: Date.now(),
   });
 }
 
@@ -158,7 +156,6 @@ async function applyRemoteTemplate(
       key: syncMetadataKey(accountId, "template", resourceId),
       revision: remote?.revision,
       contentHash: remote?.contentHash,
-      lastSyncedAt: Date.now(),
       lastError: undefined,
       ...(options.isPublished === undefined ? {} : { isPublished: options.isPublished }),
     },
@@ -216,7 +213,6 @@ async function pushTemplate(
         key: metadataKey,
         revision: remote.revision,
         contentHash: remote.contentHash,
-        lastSyncedAt: Date.now(),
         lastError: undefined,
       });
       result.synced += 1;
@@ -241,7 +237,6 @@ async function pushTemplate(
       key: metadataKey,
       revision: remote.revision,
       contentHash: remote.contentHash,
-      lastSyncedAt: Date.now(),
       lastError: undefined,
     });
     result.synced += 1;

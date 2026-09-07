@@ -43,7 +43,6 @@ export interface SyncMetadata {
   publicationRevision?: number;
   publishedContentHash?: string;
   isPublished?: boolean;
-  lastSyncedAt?: number;
   lastError?: string;
 }
 

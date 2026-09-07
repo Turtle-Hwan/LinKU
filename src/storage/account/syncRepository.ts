@@ -47,14 +47,7 @@ export function syncMetadataKey(
 
 export async function listSyncOutbox(): Promise<SyncOutboxEntry[]> {
   const database = await getLinkuDb();
-  const entries = await database.getAllFromIndex("outbox", "by-queued-at");
-  return entries.map((entry) => ({
-    ...entry,
-    generation:
-      entry.generation ??
-      `${entry.key}:${entry.queuedAt}:${entry.operation}`,
-    resource: entry.resource ?? "template",
-  }));
+  return database.getAllFromIndex("outbox", "by-queued-at");
 }
 
 export async function isSyncOutboxEntryCurrent(
@@ -69,10 +62,7 @@ export function isCurrentOperation(
   current: SyncOutboxEntry,
   expected: SyncOutboxEntry,
 ): boolean {
-  const currentGeneration =
-    current.generation ??
-    `${current.key}:${current.queuedAt}:${current.operation}`;
-  return currentGeneration === expected.generation;
+  return current.generation === expected.generation;
 }
 
 export async function removeSyncOutboxEntry(

@@ -7,6 +7,7 @@ import {
   createSyncOutboxEntry,
   getTemplateAccountStates,
   isSyncOutboxEntryCurrent,
+  listSyncOutbox,
   markSyncAttempt,
   replacePublicationMetadata,
   resetSyncConnection,
@@ -25,6 +26,7 @@ test("이전 동기화 완료가 더 최신 outbox 작업을 지우지 않는다
 
   await database.put("outbox", previous);
   await database.put("outbox", current);
+  assert.deepEqual(await listSyncOutbox(), [current]);
   assert.equal(await isSyncOutboxEntryCurrent(previous), false);
   assert.equal(await isSyncOutboxEntryCurrent(current), true);
   await completeSyncOperation(previous, {
