@@ -188,7 +188,6 @@ for (const courseCount of [2, 51]) {
     await sourcePage.goto(EVERYTIME_URL);
     const tabId = await findContentTab(worker);
     const pendingCapture = captureDom(worker, tabId);
-    // Deliver markup in a later task, while the capture observer is waiting.
     await sourcePage.evaluate((markup) => new Promise<void>((resolve) => {
       setTimeout(() => {
         document.querySelector(".nontimes")!.innerHTML = markup;
