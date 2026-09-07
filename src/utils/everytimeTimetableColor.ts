@@ -76,10 +76,6 @@ export type EverytimeSubjectColor = (typeof EVERYTIME_SUBJECT_COLORS)[number];
 
 export const DEFAULT_EVERYTIME_SUBJECT_COLOR: EverytimeSubjectColor = "color1";
 
-export interface EverytimeSubjectColorCandidate {
-  key: string;
-}
-
 export function isEverytimeSubjectColor(
   value: string,
 ): value is EverytimeSubjectColor {
@@ -87,11 +83,11 @@ export function isEverytimeSubjectColor(
 }
 
 export function createEverytimeSubjectColorMap(
-  candidates: readonly EverytimeSubjectColorCandidate[],
+  courseKeys: readonly string[],
 ): Map<string, string> {
   const colorsByKey = new Map<string, string>();
 
-  candidates.forEach(({ key }) => {
+  courseKeys.forEach((key) => {
     if (colorsByKey.has(key)) {
       return;
     }

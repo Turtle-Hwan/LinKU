@@ -81,9 +81,9 @@ function getContrastRatio(background: string, foreground: string): number {
 
 test("서로 다른 과목에 서로 다른 파스텔 색을 배정한다", () => {
   const colors = createEverytimeSubjectColorMap([
-    { key: "course-a" },
-    { key: "course-b" },
-    { key: "course-c" },
+    "course-a",
+    "course-b",
+    "course-c",
   ]);
 
   assert.equal(colors.get("course-a"), "#f7a1a1");
@@ -93,9 +93,7 @@ test("서로 다른 과목에 서로 다른 파스텔 색을 배정한다", () =
 });
 
 test("50개 과목까지 선별된 팔레트 색이 중복되지 않는다", () => {
-  const candidates = Array.from({ length: 50 }, (_, index) => ({
-    key: `course-${index}`,
-  }));
+  const candidates = Array.from({ length: 50 }, (_, index) => `course-${index}`);
   const colors = createEverytimeSubjectColorMap(candidates);
 
   assert.equal(colors.size, candidates.length);
@@ -106,9 +104,7 @@ test("50개 과목까지 선별된 팔레트 색이 중복되지 않는다", () 
 test("50색 전체와 자주 쓰이는 앞쪽 색의 지각 거리를 유지한다", () => {
   const colors = [
     ...createEverytimeSubjectColorMap(
-      Array.from({ length: 50 }, (_, index) => ({
-        key: `course-${index}`,
-      })),
+      Array.from({ length: 50 }, (_, index) => `course-${index}`),
     ).values(),
   ];
 
@@ -125,9 +121,7 @@ test("50색 전체와 자주 쓰이는 앞쪽 색의 지각 거리를 유지한�
 
 test("파스텔 배경 50색 모두 본문과 높은 대비를 유지한다", () => {
   const colors = createEverytimeSubjectColorMap(
-    Array.from({ length: 50 }, (_, index) => ({
-      key: `course-${index}`,
-    })),
+    Array.from({ length: 50 }, (_, index) => `course-${index}`),
   );
 
   colors.forEach((color) => {
@@ -140,9 +134,7 @@ test("파스텔 배경 50색 모두 본문과 높은 대비를 유지한다", ()
 });
 
 test("50개를 넘으면 색을 재사용하지 않고 명시적으로 거부한다", () => {
-  const candidates = Array.from({ length: 51 }, (_, index) => ({
-    key: `course-${index}`,
-  }));
+  const candidates = Array.from({ length: 51 }, (_, index) => `course-${index}`);
 
   assert.throws(
     () => createEverytimeSubjectColorMap(candidates),
@@ -152,9 +144,9 @@ test("50개를 넘으면 색을 재사용하지 않고 명시적으로 거부한
 
 test("같은 과목 키의 여러 수업은 하나의 안정된 색을 공유한다", () => {
   const candidates = [
-    { key: "course-a" },
-    { key: "course-b" },
-    { key: "course-a" },
+    "course-a",
+    "course-b",
+    "course-a",
   ];
 
   assert.deepEqual(

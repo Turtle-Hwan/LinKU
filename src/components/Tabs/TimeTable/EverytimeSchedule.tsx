@@ -149,12 +149,8 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
     () => {
       try {
         return createEverytimeSubjectColorMap([
-          ...(timetable.courses ?? []).map((course) => ({
-            key: course.id,
-          })),
-          ...timetable.subjects.map((subject) => ({
-            key: getEverytimeSubjectCourseKey(subject),
-          })),
+          ...(timetable.courses ?? []).map((course) => course.id),
+          ...timetable.subjects.map(getEverytimeSubjectCourseKey),
         ]);
       } catch (error) {
         if (error instanceof RangeError) {

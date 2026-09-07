@@ -305,14 +305,10 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
       semester,
       nontimeCourseTitles,
     );
-    const colorsByCourseKey = createEverytimeSubjectColorMap(
-      [
-        ...subjects.map((subject) => ({
-          key: getEverytimeSubjectCourseKey(subject),
-        })),
-        ...courses.map((course) => ({ key: course.id })),
-      ],
-    );
+    const colorsByCourseKey = createEverytimeSubjectColorMap([
+      ...subjects.map(getEverytimeSubjectCourseKey),
+      ...courses.map((course) => course.id),
+    ]);
 
     return {
       semester,
@@ -628,7 +624,7 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
       ];
     });
     const colorsByCourseId = createEverytimeSubjectColorMap(
-      courses.map((course) => ({ key: course.id })),
+      courses.map((course) => course.id),
     );
     const subjects = courses.flatMap((course) =>
       course.meetings.map((meeting, timeIndex): EverytimeSubject => ({
