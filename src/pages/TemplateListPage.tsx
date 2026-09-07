@@ -209,9 +209,6 @@ export const TemplateListPage = () => {
 
   useEffect(() => {
     void loadTemplates();
-  }, [loadTemplates]);
-
-  useEffect(() => {
     const handleTemplatesChanged = () => void loadTemplates();
     window.addEventListener('linku:templates-changed', handleTemplatesChanged);
     return () => {

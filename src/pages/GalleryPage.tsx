@@ -125,8 +125,9 @@ export const GalleryPage = () => {
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<PublicationSort>("latest");
-  const [publications, setPublications] = useState<TemplatePublication[]>([]);
-  const [previews, setPreviews] = useState<Record<string, Template>>({});
+  const [publications, setPublications] = useState<
+    (TemplatePublication & { preview: Template })[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -157,18 +158,14 @@ export const GalleryPage = () => {
           offset,
           limit: PAGE_SIZE,
         });
-        const nextPreviews = await Promise.all(
-          next.map(async (publication) => [
-            publication.templateId,
-            await createPublicationPreview(publication),
-          ] as const),
+        const cards = await Promise.all(
+          next.map(async (publication) => ({
+            ...publication,
+            preview: await createPublicationPreview(publication),
+          })),
         );
         if (requestId !== loadRequestIdRef.current) return;
-        setPublications((current) => (offset === 0 ? next : [...current, ...next]));
-        setPreviews((current) => ({
-          ...(offset === 0 ? {} : current),
-          ...Object.fromEntries(nextPreviews),
-        }));
+        setPublications((current) => (offset === 0 ? cards : [...current, ...cards]));
         setHasMore(next.length === PAGE_SIZE);
         setCommunityUnavailable(false);
       } catch (error) {
@@ -176,7 +173,6 @@ export const GalleryPage = () => {
         if (offset === 0) {
           setCommunityUnavailable(true);
           setPublications([]);
-          setPreviews({});
         } else {
           toast({
             title: "더 불러오지 못했습니다",
@@ -334,19 +330,16 @@ export const GalleryPage = () => {
         </div>
       ) : publications.length > 0 ? (
         <div className="grid gap-5 lg:grid-cols-2">
-          {publications.map((publication) => {
-            const preview = previews[publication.templateId];
-            return preview ? (
-              <PublicationCard
-                key={publication.templateId}
-                publication={publication}
-                preview={preview}
-                busy={busyTemplateId === publication.templateId}
-                onClone={() => void handleClone(publication)}
-                onLike={() => void handleLike(publication)}
-              />
-            ) : null;
-          })}
+          {publications.map((publication) => (
+            <PublicationCard
+              key={publication.templateId}
+              publication={publication}
+              preview={publication.preview}
+              busy={busyTemplateId === publication.templateId}
+              onClone={() => void handleClone(publication)}
+              onLike={() => void handleLike(publication)}
+            />
+          ))}
         </div>
       ) : !communityUnavailable ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
