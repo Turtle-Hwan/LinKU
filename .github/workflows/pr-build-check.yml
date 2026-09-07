@@ -37,6 +37,9 @@ jobs:
       - name: Test analytics transport
         run: pnpm run test:analytics
 
+      - name: Test timetable parsing and colors
+        run: pnpm run test:timetable
+
       - name: Verify production Sentry bundle metadata
         run: pnpm run test:sentry-bundle
 

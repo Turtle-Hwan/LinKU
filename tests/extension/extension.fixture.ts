@@ -8,7 +8,7 @@ import {
   type Worker,
 } from "@playwright/test";
 
-const EXTENSION_PATH = path.resolve("dist");
+const EXTENSION_PATH = path.resolve(process.env.LINKU_BUILD_OUT_DIR?.trim() || "dist");
 const BACKGROUND_PATH = "/background/index.js";
 
 export interface ExtensionRuntime {

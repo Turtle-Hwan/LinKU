@@ -5,30 +5,9 @@ import {
   useState,
 } from "react";
 import { EverytimeSubjectTooltip } from "@/components/Tabs/TimeTable/EverytimeSubjectTooltip";
+import { getEverytimeSubjectColorPresentation } from "@/components/Tabs/TimeTable/everytimeSubjectColorStyles";
 import { cn } from "@/lib/utils";
 import type { EverytimeSubject } from "@/types/timetable";
-import type { EverytimeSubjectColor } from "@/utils/everytimeTimetableColor";
-
-const SUBJECT_COLOR_CLASS_NAMES: Record<string, string> = {
-  color1: "bg-red-100 text-red-950",
-  color2: "bg-rose-100 text-rose-950",
-  color3: "bg-lime-100 text-lime-950",
-  color4: "bg-emerald-100 text-emerald-950",
-  color5: "bg-sky-100 text-sky-950",
-  color6: "bg-violet-100 text-violet-950",
-  color7: "bg-orange-100 text-orange-950",
-  color8: "bg-amber-100 text-amber-950",
-  color9: "bg-cyan-100 text-cyan-950",
-  color10: "bg-blue-100 text-blue-950",
-  color11: "bg-fuchsia-100 text-fuchsia-950",
-  color12: "bg-teal-100 text-teal-950",
-  color13: "bg-yellow-100 text-yellow-950",
-  color14: "bg-green-100 text-green-950",
-  color15: "bg-indigo-100 text-indigo-950",
-  color16: "bg-pink-100 text-pink-950",
-} satisfies Record<EverytimeSubjectColor, string>;
-
-const FALLBACK_SUBJECT_COLOR_CLASS_NAME = "bg-neutral-200 text-neutral-900";
 const SUBJECT_TITLE_MAX_HEIGHT_EM = 2.4;
 const OVERFLOW_TOLERANCE_PX = 1;
 const TOOLTIP_HOVER_DELAY_MS = 300;
@@ -122,18 +101,23 @@ function getSubjectDetailLines(subject: EverytimeSubject): string[] {
 }
 
 interface EverytimeSubjectCardProps {
+  color?: string;
   subject: EverytimeSubject;
   weekday: string;
   viewportStart: number;
 }
 
 export function EverytimeSubjectCard({
+  color,
   subject,
   weekday,
   viewportStart,
 }: EverytimeSubjectCardProps) {
   const description = getSubjectDescription(subject, weekday);
   const detailLines = getSubjectDetailLines(subject);
+  const colorPresentation = getEverytimeSubjectColorPresentation(
+    color ?? subject.color,
+  );
   const articleRef = useRef<HTMLElement>(null);
   const tooltipTimerRef = useRef<number | null>(null);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
@@ -183,12 +167,12 @@ export function EverytimeSubjectCard({
         ref={articleRef}
         className={cn(
           "absolute inset-x-0 overflow-hidden border-y border-white/70 px-1 py-px text-sm font-medium leading-[1.2] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-main/60",
-          SUBJECT_COLOR_CLASS_NAMES[subject.color] ??
-            FALLBACK_SUBJECT_COLOR_CLASS_NAME,
+          colorPresentation.className,
         )}
         style={{
           top: `${subject.top - viewportStart}px`,
           height: `${subject.height}px`,
+          ...colorPresentation.style,
         }}
         tabIndex={hasOverflow ? 0 : undefined}
         aria-label={description}

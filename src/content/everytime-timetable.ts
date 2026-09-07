@@ -7,11 +7,16 @@ import type {
   EverytimeTimetable,
 } from "@/types/timetable";
 import {
+  createEverytimeSubjectColorMap,
   DEFAULT_EVERYTIME_SUBJECT_COLOR,
-  getStableEverytimeSubjectColor,
   isEverytimeSubjectColor,
 } from "@/utils/everytimeTimetableColor";
-import { isPrimaryEverytimeTable } from "@/utils/everytimeTimetableParsing";
+import { getEverytimeSubjectCourseKey } from "@/utils/everytimeTimetable";
+import {
+  createEverytimeNontimeCourses,
+  hasEverytimeTimetableData,
+  isPrimaryEverytimeTable,
+} from "@/utils/everytimeTimetableParsing";
 import {
   createErrorReporter,
   createRuntimeMessageResponder,
@@ -290,11 +295,32 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
 
     const firstGrid = bodyTable.querySelector("td div.grids");
     const hourGridCount = firstGrid?.querySelectorAll(":scope > div.grid").length ?? 0;
+    const semester = readSemester(documentRoot) ?? expectedSemester;
+    const nontimeCourseTitles = Array.from(
+      root.querySelectorAll(
+        "div.tablebody > div.nontimes > div.subject > span.name",
+      ),
+    ).map((element) => exactText(element));
+    const courses = createEverytimeNontimeCourses(
+      semester,
+      nontimeCourseTitles,
+    );
+    const colorsByCourseKey = createEverytimeSubjectColorMap([
+      ...subjects.map(getEverytimeSubjectCourseKey),
+      ...courses.map((course) => course.id),
+    ]);
+
     return {
-      semester: readSemester(documentRoot) ?? expectedSemester,
+      semester,
+      courses,
       weekdays,
       slotCount: Math.max(1, hourGridCount * 2),
-      subjects,
+      subjects: subjects.map((subject) => ({
+        ...subject,
+        color:
+          colorsByCourseKey.get(getEverytimeSubjectCourseKey(subject)) ??
+          subject.color,
+      })),
     };
   };
 
@@ -337,22 +363,27 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
   const waitForRenderedTimetable = (
     semester: string,
   ): Promise<EverytimeTimetable | null> =>
-    new Promise((resolve) => {
-      const resolveRenderedTimetable = (): boolean => {
-        const timetable = parseTimetable(document, semester);
-        if (timetable?.subjects.length) {
+    new Promise((resolve, reject) => {
+      const resolveRenderedTimetable = (allowEmpty = false): boolean => {
+        try {
+          const timetable = parseTimetable(document, semester);
+          if (!allowEmpty && !hasEverytimeTimetableData(timetable)) {
+            return false;
+          }
           cleanup();
           resolve(timetable);
-          return true;
+        } catch (error) {
+          // Observer/timer callbacks run outside the Promise executor. Reject
+          // explicitly so parse failures still receive a runtime response.
+          cleanup();
+          reject(error);
         }
-
-        return false;
+        return true;
       };
 
-      const observer = new MutationObserver(resolveRenderedTimetable);
+      const observer = new MutationObserver(() => resolveRenderedTimetable());
       const timeoutId = window.setTimeout(() => {
-        cleanup();
-        resolve(parseTimetable(document, semester));
+        resolveRenderedTimetable(true);
       }, TIMETABLE_RENDER_TIMEOUT_MS);
       const cleanup = (): void => {
         observer.disconnect();
@@ -592,6 +623,9 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
         },
       ];
     });
+    const colorsByCourseId = createEverytimeSubjectColorMap(
+      courses.map((course) => course.id),
+    );
     const subjects = courses.flatMap((course) =>
       course.meetings.map((meeting, timeIndex): EverytimeSubject => ({
         id: `${semester}:${course.id}:${timeIndex}`,
@@ -610,7 +644,9 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
         detail:
           [course.professor, meeting.place].filter(Boolean).join(" · ") ||
           undefined,
-        color: getStableEverytimeSubjectColor(course.id),
+        color:
+          colorsByCourseId.get(course.id) ??
+          DEFAULT_EVERYTIME_SUBJECT_COLOR,
         top: meeting.startTime * EVERYTIME_TIME_UNIT_PX,
         height:
           (meeting.endTime - meeting.startTime) * EVERYTIME_TIME_UNIT_PX,
@@ -716,11 +752,7 @@ if (!linkuWindow.__LINKU_EVERYTIME_CAPTURE_INSTALLED__) {
       };
     }
 
-    const timetables = results.filter(
-      (timetable): timetable is EverytimeTimetable =>
-        timetable != null &&
-        (timetable.subjects.length > 0 || (timetable.courses?.length ?? 0) > 0),
-    );
+    const timetables = results.filter(hasEverytimeTimetableData);
     const loadedSemesters = new Set(
       timetables.map((timetable) => timetable.semester),
     );

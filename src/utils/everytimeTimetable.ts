@@ -163,3 +163,24 @@ export function mergeEverytimeTimetable(
     subjects: appendUniqueById(snapshotSubjects, addedSubjects),
   };
 }
+
+export function getEverytimeSubjectCourseKey(
+  subject: Pick<
+    EverytimeSubject,
+    "subjectId" | "internalId" | "title" | "professor"
+  >,
+): string {
+  return (
+    subject.subjectId?.trim() ||
+    subject.internalId?.trim() ||
+    `${subject.title}\u0000${subject.professor ?? ""}`
+  );
+}
+
+export function getUnscheduledEverytimeCourses(
+  timetable: Pick<EverytimeTimetable, "courses">,
+): EverytimeCourse[] {
+  return (timetable.courses ?? []).filter(
+    (course) => course.meetings.length === 0,
+  );
+}

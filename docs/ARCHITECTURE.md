@@ -95,6 +95,9 @@ popup에는 override 편집 UI가 없지만 저장 경계는 원본을 덮지 �
 있습니다. LinKU는 Everytime password, cookie, session token을 읽거나 저장하지
 않습니다.
 
+시간 미지정 과목은 시간표 아래에 표시하며, 최대 50과목에 서로 다른 색을 배정합니다.
+50과목을 넘으면 기존 snapshot을 보존하고 가져오기를 중단합니다.
+
 ### 공개 공지
 
 공개 공지는 학교 RSS와 HTML source별로 `chrome.storage.local`에 캐시합니다.
