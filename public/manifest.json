@@ -39,14 +39,8 @@
     "<all_urls>",
     "*://ecampus.konkuk.ac.kr/*",
     "*://library.konkuk.ac.kr/*",
-    "https://www.google-analytics.com/*",
-    "https://ku-linku.store/*"
+    "https://www.google-analytics.com/*"
   ],
-  "externally_connectable": {
-    "matches": [
-      "https://turtle-hwan.github.io/LinKU/*"
-    ]
-  },
   "commands": {
     "_execute_action": {
       "suggested_key": {

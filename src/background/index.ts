@@ -12,7 +12,6 @@ import {
   BackgroundMessageType,
   isAnalyticsBatchMessage,
   isGoogleLoginMessage,
-  isSilentReauthMessage,
   isTimetableImportMessage,
 } from "./types";
 import {
@@ -25,7 +24,6 @@ import type {
   BackgroundMessage,
   AnalyticsTransportResponse,
   GoogleLoginResponse,
-  SilentReauthResponse,
   TimetableImportResponse,
 } from "./types";
 import { handleGoogleLogin } from "./handlers/oauth";
@@ -54,10 +52,7 @@ import {
 } from "@/monitoring";
 import {
   getUserFacingErrorMessage,
-  UserFacingError,
 } from "@/errors/userFacingError";
-import { enqueuePendingTemplateImport } from "@/utils/pendingTemplateImports";
-import type { TemplateShareImportResponse } from "@/types/templateShare";
 import { deliverAnalyticsPayload } from "@/utils/analyticsTransport";
 
 initMonitoring("background");
@@ -248,44 +243,10 @@ chrome.runtime.onMessage.addListener(
           },
           respond,
           fallback: (error) => ({
-              success: false,
-              error: getUserFacingErrorMessage(
-                error,
-                "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.",
-              ),
-          }),
-        });
-      }
-
-      // Handle Silent Reauth (when token expires - 5004 error)
-      if (isSilentReauthMessage(typedMessage)) {
-        debugLog(
-          "[Background] Handling silent reauth request (token expired)",
-        );
-
-        return runAsyncMessageHandler<SilentReauthResponse>({
-          feature: "silent_reauth",
-          messageType,
-          failureLog: "[Background] Silent reauth error",
-          handle: async () => {
-            const response = await handleGoogleLogin();
-            debugLog(
-              "[Background] Silent reauth completed:",
-              response.success,
-            );
-            return {
-              success: response.success,
-              error: response.success
-                ? undefined
-                : (response as { error?: string }).error,
-            };
-          },
-          respond,
-          fallback: (error) => ({
             success: false,
             error: getUserFacingErrorMessage(
               error,
-              "재인증에 실패했습니다. 다시 로그인해주세요.",
+              "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.",
             ),
           }),
         });
@@ -299,12 +260,12 @@ chrome.runtime.onMessage.addListener(
           handle: () => handleTimetableImport(typedMessage.data?.mode),
           respond,
           fallback: (error) => ({
-              success: false,
-              code: "UNKNOWN",
-              error: getUserFacingErrorMessage(
-                error,
-                "시간표를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
-              ),
+            success: false,
+            code: "UNKNOWN",
+            error: getUserFacingErrorMessage(
+              error,
+              "시간표를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
+            ),
           }),
         });
       }
@@ -364,45 +325,6 @@ chrome.runtime.onMessage.addListener(
       });
       return false;
     }
-  },
-);
-
-chrome.runtime.onMessageExternal.addListener(
-  (
-    message: unknown,
-    sender: chrome.runtime.MessageSender,
-    sendResponse: (response: TemplateShareImportResponse) => void,
-  ) => {
-    if (
-      sender.origin !== "https://turtle-hwan.github.io" ||
-      !sender.url?.startsWith("https://turtle-hwan.github.io/LinKU/share/") ||
-      !message ||
-      typeof message !== "object" ||
-      (message as { type?: unknown }).type !== "IMPORT_SHARED_TEMPLATE"
-    ) {
-      sendResponse({ success: false, error: "허용되지 않은 가져오기 요청입니다." });
-      return false;
-    }
-
-    const payload = (message as { data?: { payload?: unknown } }).data?.payload;
-
-    void enqueuePendingTemplateImport(payload)
-      .then((result) =>
-        sendResponse({
-          success: true,
-          alreadyQueued: result === "already-queued" || undefined,
-        }),
-      )
-      .catch((error: unknown) => {
-        if (!(error instanceof UserFacingError)) {
-          reportBackgroundException(error, "shared_template_import");
-        }
-        sendResponse({
-          success: false,
-          error: getUserFacingErrorMessage(error, "템플릿을 가져오지 못했습니다."),
-        });
-      });
-    return true;
   },
 );
 
@@ -536,7 +458,6 @@ export type {
   AnalyticsTransportResponse,
   BackgroundMessage,
   GoogleLoginResponse,
-  SilentReauthResponse,
   TimetableImportResponse,
 };
 export { BackgroundMessageType };
