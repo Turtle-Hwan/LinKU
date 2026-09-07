@@ -16,7 +16,7 @@ import {
   type LinkListElement,
 } from "@/constants/LinkList";
 import type { BulletinInfo } from "@/constants/bulletin";
-import { getLocalTemplate } from "@/utils/templateStorage";
+import { getLocalTemplate } from "@/storage/templates/repository";
 import { debugLog, captureErrorLog } from '@/utils/logger';
 import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
 

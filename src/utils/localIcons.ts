@@ -1,5 +1,5 @@
-import { listAssets, saveAsset } from "@/storage/assetRepository";
-import type { StoredAsset } from "@/storage/linkuDb";
+import { listAssets, saveAsset } from "@/storage/templates/assetRepository";
+import type { StoredAsset } from "@/storage/indexedDb/linkuDatabase";
 import type { Icon } from "@/types/api";
 
 function toIcon(asset: StoredAsset): Icon {

@@ -8,9 +8,8 @@ import { convertLucideIconToDataUri } from "@/utils/iconDataUri";
 let bundledIcons: Icon[] | undefined;
 
 /**
- * Fallback icon for links whose original image cannot travel — a remote URL
- * that we refuse to re-request from a shared template, or a bundled icon the
- * receiving version no longer has.
+ * Fallback icon for remote image URLs that are not portable or bundled icons
+ * that a newer or older client no longer recognizes.
  *
  * It is a bundled icon rather than a synthetic placeholder so the editor can
  * resolve it like any other: an item pointing at an icon that no list holds

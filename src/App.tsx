@@ -7,18 +7,17 @@ import { useEffect } from "react";
 import { Outlet } from "react-router";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "./components/ui/sonner";
-import { toast } from "sonner";
 import {
   recordBreadcrumb,
   reportError,
 } from "./monitoring";
 import { sendExtensionOpen, sendPageView, sendError } from "./utils/analytics";
-import { debugLog, captureErrorLog } from "@/utils/logger";
-import { consumePendingTemplateImports } from "@/utils/pendingTemplateImports";
-import { importSharedTemplate } from "@/utils/templateStorage";
+import { debugLog } from "@/utils/logger";
 import "./App.css";
+import { useAccountSync } from "@/hooks/useAccountSync";
 
 function App() {
+  useAccountSync();
   // GA4: popup mount 시 first_open / session_start / extension_open 자동 전송
   useEffect(() => {
     debugLog(
@@ -31,28 +30,6 @@ function App() {
     });
     sendExtensionOpen("popup_home", "popup");
     sendPageView("LinKU Extension - Popup");
-  }, []);
-
-  useEffect(() => {
-    void consumePendingTemplateImports(async (payload) => {
-      await importSharedTemplate(payload);
-    })
-      .then(({ importedCount, failedCount }) => {
-        if (importedCount > 0) {
-          window.dispatchEvent(new Event("linku:templates-changed"));
-          toast.success("템플릿 가져오기 완료", {
-            description: `${importedCount}개를 이 기기에 저장했습니다.`,
-          });
-        }
-        if (failedCount > 0) {
-          toast.error("일부 템플릿을 가져오지 못했습니다", {
-            description: `실패한 ${failedCount}개는 다음 실행 때 다시 시도합니다.`,
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        captureErrorLog("Failed to process pending template imports", error);
-      });
   }, []);
 
   return (

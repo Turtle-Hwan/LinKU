@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   AlertTriangle,
+  Cloud,
+  CloudOff,
   DatabaseBackup,
   FileText,
-  FileUp,
   LayoutTemplate,
   Plus,
+  RefreshCw,
   Sparkles,
 } from 'lucide-react';
 import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
@@ -25,21 +27,13 @@ import {
   createTemplateBackup,
   countQuarantinedRecords,
   deleteLocalTemplate,
-  importSharedTemplate,
   isTemplateBackupValidationError,
-  getLocalTemplate,
   listQuarantinedRecords,
   listLocalTemplates,
   MAX_TEMPLATE_BACKUP_BYTES,
+  PublishedTemplateDeleteError,
   restoreTemplateBackup,
-} from '@/utils/templateStorage';
-import {
-  createTemplateShareUrl,
-  downloadTemplatePayload,
-  isTemplateShareValidationError,
-  MAX_SHARE_FILE_BYTES,
-  validateTemplateSharePayload,
-} from '@/utils/templateShare';
+} from '@/storage/templates/repository';
 import { createBundledDefaultTemplate } from '@/utils/defaultTemplate';
 import {
   resolveLatestBulletin,
@@ -51,10 +45,32 @@ import { captureErrorLog, warnLog } from '@/utils/logger';
 import { UserFacingError } from '@/errors/userFacingError';
 import { recordBreadcrumb } from '@/monitoring';
 import {
+  isPublicationOutdated,
+  publishLocalTemplate,
+  refreshPublicationMetadata,
+  unpublishLocalTemplate,
+} from '@/apis/supabase/community';
+import { SupabaseConfigurationError } from '@/apis/supabase/client';
+import {
+  getTemplateAccountStates,
+} from '@/storage/account/syncRepository';
+import type { AccountSyncStatus } from '@/types/account';
+import { syncAccount } from '@/utils/accountSync';
+import { getAccountSyncFeedback } from '@/utils/accountSyncResult';
+import { isExpectedNetworkFailure } from '@/utils/networkFailure';
+import { isLoggedIn, startGoogleLogin } from '@/utils/oauth';
+import {
   sendTemplateApply,
   sendTemplateCreateStart,
   sendTemplateDelete,
 } from '@/utils/analytics';
+
+interface TemplateListItem extends TemplateSummary {
+  syncId?: string;
+  accountSyncStatus: AccountSyncStatus;
+  published: boolean;
+  publicationOutdated: boolean;
+}
 
 function toSummary(template: Template): TemplateSummary {
   return {
@@ -73,12 +89,24 @@ function toSummary(template: Template): TemplateSummary {
 function reportTemplateOperationFailure(message: string, error: unknown) {
   if (
     isTemplateBackupValidationError(error) ||
-    isTemplateShareValidationError(error)
+    error instanceof UserFacingError ||
+    error instanceof PublishedTemplateDeleteError ||
+    error instanceof SupabaseConfigurationError ||
+    isExpectedNetworkFailure(error)
   ) {
     recordBreadcrumb(
-      'template.validation',
+      'template.operation',
       message,
-      { validation_code: error.code },
+      {
+        reason:
+          error instanceof UserFacingError
+            ? error.code
+            : error instanceof SupabaseConfigurationError
+              ? 'not_configured'
+              : isExpectedNetworkFailure(error)
+                ? 'network'
+                : 'local_state',
+      },
       'warning',
     );
     warnLog(message, error);
@@ -95,11 +123,12 @@ export const TemplateListPage = () => {
   const [defaultTemplate, setDefaultTemplate] = useState(
     createBundledDefaultTemplate,
   );
-  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'owned' | 'cloned'>('owned');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const importInputRef = useRef<HTMLInputElement>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [accountConnected, setAccountConnected] = useState(false);
   const restoreInputRef = useRef<HTMLInputElement>(null);
   const loadRequestIdRef = useRef(0);
   const [quarantinedCount, setQuarantinedCount] = useState(0);
@@ -119,11 +148,46 @@ export const TemplateListPage = () => {
     try {
       const storedTemplates = await listLocalTemplates();
       const nextQuarantinedCount = await countQuarantinedRecords();
+      let connected = false;
+      try {
+        connected = await isLoggedIn();
+        if (connected) {
+          await refreshPublicationMetadata();
+        }
+      } catch (error) {
+        reportTemplateOperationFailure(
+          'Failed to refresh publication metadata',
+          error,
+        );
+      }
+      const accountStates = await getTemplateAccountStates(
+        storedTemplates.map((stored) => stored.template.id),
+      );
+      const nextTemplates = await Promise.all(
+        storedTemplates.map(async (stored): Promise<TemplateListItem> => {
+          const syncId = stored.template.id;
+          const accountState = accountStates.get(syncId) ?? {
+            status: 'local' as const,
+            isPublished: false,
+          };
+          return {
+            ...toSummary(stored.template),
+            syncId,
+            accountSyncStatus: accountState.status,
+            published: accountState.isPublished,
+            publicationOutdated:
+              accountState.isPublished &&
+              (await isPublicationOutdated(
+                stored,
+                accountState.publishedContentHash,
+              )),
+          };
+        }),
+      );
       if (requestId !== loadRequestIdRef.current) return;
 
-      setTemplates(
-        storedTemplates.map((stored) => toSummary(stored.template)),
-      );
+      setTemplates(nextTemplates);
+      setAccountConnected(connected);
       // Reading is what moves an unreadable record into quarantine, so the
       // count is refreshed here rather than on mount.
       setQuarantinedCount(nextQuarantinedCount);
@@ -156,7 +220,15 @@ export const TemplateListPage = () => {
   }, [loadTemplates]);
 
   const ownedTemplates = useMemo(
-    () => [toSummary(defaultTemplate), ...templates.filter((template) => !template.cloned)],
+    (): TemplateListItem[] => [
+      {
+        ...toSummary(defaultTemplate),
+        accountSyncStatus: 'local',
+        published: false,
+        publicationOutdated: false,
+      },
+      ...templates.filter((template) => !template.cloned),
+    ],
     [defaultTemplate, templates],
   );
   const clonedTemplates = useMemo(
@@ -203,7 +275,14 @@ export const TemplateListPage = () => {
     });
   };
 
-  const handleDeleteTemplate = async (template: TemplateSummary) => {
+  const handleDeleteTemplate = async (template: TemplateListItem) => {
+    if (template.published) {
+      toast({
+        title: '게시 중인 템플릿',
+        description: '게시를 내린 뒤 삭제해 주세요.',
+      });
+      return;
+    }
     if (!confirm(`“${template.name}” 템플릿을 삭제하시겠습니까?`)) return;
     try {
       if (
@@ -233,45 +312,73 @@ export const TemplateListPage = () => {
         title: '삭제 완료',
         description: '이 기기의 저장소에서 삭제했습니다.',
       });
+      window.dispatchEvent(new Event('linku:templates-changed'));
     } catch (error) {
-      captureErrorLog('Failed to delete local template', error);
+      reportTemplateOperationFailure('Failed to delete local template', error);
       toast({
         title: '삭제 실패',
-        description: '이 기기의 저장소에서 템플릿을 삭제하지 못했습니다.',
+        description:
+          error instanceof Error
+            ? error.message
+            : '이 기기의 저장소에서 템플릿을 삭제하지 못했습니다.',
         variant: 'destructive',
       });
     }
   };
 
-  const handleShareTemplate = async (templateId: number) => {
-    setActionLoading(templateId);
-    try {
-      const stored =
-        templateId === UNSAVED_TEMPLATE_ID
-          ? { template: defaultTemplate }
-          : await getLocalTemplate(templateId);
-      if (!stored) throw new Error('이 기기에서 템플릿을 찾을 수 없습니다.');
+  const ensureAccount = async (): Promise<boolean> => {
+    if (await isLoggedIn()) return true;
+    const result = await startGoogleLogin();
+    if (!result.success) {
+      toast({ title: 'Google 로그인 필요', description: result.error });
+      return false;
+    }
+    setAccountConnected(true);
+    return true;
+  };
 
-      const share = await createTemplateShareUrl(stored.template);
-      if (share.mode === 'url') {
-        await navigator.clipboard.writeText(share.url);
-        toast({
-          title: '공유 링크 복사 완료',
-          description: '템플릿 데이터는 링크의 fragment에만 들어 있습니다.',
-        });
-      } else {
-        downloadTemplatePayload(share.payload);
-        toast({
-          title: '공유 파일 저장 완료',
-          description: '링크에 담기 큰 템플릿이라 파일로 저장했습니다.',
-        });
-      }
-    } catch (error) {
-      captureErrorLog('Failed to share template', error);
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      if (!(await ensureAccount())) return;
+      const result = await syncAccount();
+      const feedback = getAccountSyncFeedback(result);
       toast({
-        title: '공유 실패',
+        title: feedback.title,
+        description: feedback.description,
+        variant: feedback.destructive ? 'destructive' : 'default',
+      });
+      await loadTemplates();
+    } catch (error) {
+      reportTemplateOperationFailure('Failed to sync templates', error);
+      toast({
+        title: '동기화 실패',
         description:
-          error instanceof Error ? error.message : '공유 데이터를 만들지 못했습니다.',
+          error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handlePublish = async (template: TemplateListItem) => {
+    if (!template.syncId) return;
+    setActionLoading(template.templateId);
+    try {
+      if (!(await ensureAccount())) return;
+      await publishLocalTemplate(template.syncId);
+      await loadTemplates();
+      toast({
+        title: template.published ? '게시물 업데이트 완료' : '템플릿 게시 완료',
+        description: '커뮤니티에 현재 저장본을 공개했습니다.',
+      });
+    } catch (error) {
+      reportTemplateOperationFailure('Failed to publish template', error);
+      toast({
+        title: '게시 실패',
+        description:
+          error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
         variant: 'destructive',
       });
     } finally {
@@ -279,48 +386,25 @@ export const TemplateListPage = () => {
     }
   };
 
-  const handleImportFile = async (file: File | undefined) => {
-    if (!file) return;
+  const handleUnpublish = async (template: TemplateListItem) => {
+    if (!template.syncId || !confirm(`“${template.name}” 게시를 내리시겠습니까?`)) {
+      return;
+    }
+    setActionLoading(template.templateId);
     try {
-      let value: unknown;
-      try {
-        if (file.size > MAX_SHARE_FILE_BYTES) {
-          throw new Error('템플릿 가져오기 파일은 256KB 이하여야 합니다.');
-        }
-        value = JSON.parse(await file.text()) as unknown;
-        validateTemplateSharePayload(value);
-      } catch (error) {
-        toast({
-          title: '가져오기 실패',
-          description:
-            error instanceof Error ? error.message : '템플릿 파일을 읽지 못했습니다.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      try {
-        const imported = await importSharedTemplate(value);
-        await loadTemplates();
-        setActiveTab('cloned');
-        toast({
-          title: '템플릿 가져오기 완료',
-          description: `“${imported.template.name}”을 이 기기에 저장했습니다.`,
-        });
-      } catch (error) {
-        reportTemplateOperationFailure(
-          'Failed to store an imported template',
-          error,
-        );
-        toast({
-          title: '가져오기 실패',
-          description:
-            error instanceof Error ? error.message : '템플릿을 저장하지 못했습니다.',
-          variant: 'destructive',
-        });
-      }
+      await unpublishLocalTemplate(template.syncId);
+      await loadTemplates();
+      toast({ title: '게시를 내렸습니다' });
+    } catch (error) {
+      reportTemplateOperationFailure('Failed to unpublish template', error);
+      toast({
+        title: '게시 내리기 실패',
+        description:
+          error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
+        variant: 'destructive',
+      });
     } finally {
-      if (importInputRef.current) importInputRef.current.value = '';
+      setActionLoading(null);
     }
   };
 
@@ -368,6 +452,7 @@ export const TemplateListPage = () => {
         parsedBackup,
       );
       await loadTemplates();
+      window.dispatchEvent(new Event('linku:templates-changed'));
       const hasRestoreWarnings =
         result.skipped > 0 || result.failedAssets > 0;
       toast({
@@ -429,56 +514,116 @@ export const TemplateListPage = () => {
 
     return (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {visibleTemplates.map((template) => (
-          <TemplateCard
-            key={template.templateId}
-            template={template}
-            onClick={
-              template.templateId === UNSAVED_TEMPLATE_ID
-                ? undefined
-                : () => navigate(`/editor/${template.templateId}`)
-            }
-            isSelected={
-              selectedTemplateId === null
-                ? template.templateId === UNSAVED_TEMPLATE_ID
-                : selectedTemplateId === template.templateId
-            }
-            onApply={(event) => {
-              event.stopPropagation();
-              void handleApplyTemplate(template);
-            }}
-            onDelete={(event) => {
-              event.stopPropagation();
-              void handleDeleteTemplate(template);
-            }}
-            onShare={(event) => {
-              event.stopPropagation();
-              void handleShareTemplate(template.templateId);
-            }}
-            showDelete={template.templateId !== UNSAVED_TEMPLATE_ID}
-            isActionLoading={actionLoading === template.templateId}
-          />
-        ))}
+        {visibleTemplates.map((template) => {
+          const isStored = template.templateId !== UNSAVED_TEMPLATE_ID;
+          const isBusy = actionLoading === template.templateId;
+          const syncLabel = {
+            error: '동기화 지연',
+            local: accountConnected ? '동기화 전' : '이 기기에 저장',
+            pending: '동기화 대기',
+            synced: '동기화됨',
+          }[template.accountSyncStatus];
+
+          return (
+            <article key={template.templateId} className="overflow-hidden rounded-lg border">
+              <TemplateCard
+                template={template}
+                className="w-full rounded-none border-0"
+                onClick={
+                  isStored
+                    ? () => navigate(`/editor/${template.templateId}`)
+                    : undefined
+                }
+                isSelected={
+                  selectedTemplateId === null
+                    ? !isStored
+                    : selectedTemplateId === template.templateId
+                }
+                onApply={(event) => {
+                  event.stopPropagation();
+                  void handleApplyTemplate(template);
+                }}
+                onDelete={(event) => {
+                  event.stopPropagation();
+                  void handleDeleteTemplate(template);
+                }}
+                showDelete={isStored}
+                isActionLoading={isBusy}
+              />
+
+              {isStored && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {template.accountSyncStatus === 'synced' ? (
+                      <Cloud className="h-3.5 w-3.5" />
+                    ) : (
+                      <CloudOff className="h-3.5 w-3.5" />
+                    )}
+                    <span>{syncLabel}</span>
+                    {template.published && (
+                      <span className="rounded-full bg-muted px-2 py-0.5">
+                        {template.publicationOutdated ? '업데이트 필요' : '게시됨'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    {(!template.published || template.publicationOutdated) && (
+                      <Button
+                        size="sm"
+                        disabled={isBusy}
+                        onClick={() => void handlePublish(template)}
+                      >
+                        {template.published ? '게시물 업데이트' : '게시'}
+                      </Button>
+                    )}
+                    {template.published && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isBusy}
+                        onClick={() => void handleUnpublish(template)}
+                      >
+                        게시 내리기
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
     );
   };
 
   return (
     <div className="container mx-auto h-full max-w-7xl overflow-y-auto px-4 py-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 space-y-4">
         <div>
           <h1 className="text-2xl font-bold">내 템플릿</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            로그인이나 서버 연결 없이 이 기기에 바로 저장합니다.
+            먼저 이 기기에 저장하고, 로그인하면 여러 기기와 동기화합니다.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate('/gallery')}>
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            className="min-w-0"
+            variant="outline"
+            disabled={syncing}
+            onClick={() => void handleSync()}
+          >
+            <RefreshCw className={syncing ? 'mr-2 h-4 w-4 animate-spin' : 'mr-2 h-4 w-4'} />
+            {accountConnected ? '지금 동기화' : '로그인하고 동기화'}
+          </Button>
+          <Button className="min-w-0" variant="outline" onClick={() => navigate('/gallery')}>
             <Sparkles className="mr-2 h-4 w-4" />둘러보기
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />새 템플릿</Button>
+              <Button className="w-full min-w-0">
+                <Plus className="mr-2 h-4 w-4" />새 템플릿
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleCreateFromDefault}>
@@ -486,9 +631,6 @@ export const TemplateListPage = () => {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCreateEmpty}>
                 <FileText className="mr-2 h-4 w-4" />빈 템플릿에서 시작
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => importInputRef.current?.click()}>
-                <FileUp className="mr-2 h-4 w-4" />파일에서 가져오기
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void handleDownloadBackup()}>
                 <DatabaseBackup className="mr-2 h-4 w-4" />전체 백업 내려받기
@@ -498,13 +640,6 @@ export const TemplateListPage = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <input
-            ref={importInputRef}
-            className="hidden"
-            type="file"
-            accept=".json,.linku.json,application/json"
-            onChange={(event) => void handleImportFile(event.target.files?.[0])}
-          />
           <input
             ref={restoreInputRef}
             className="hidden"

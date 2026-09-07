@@ -11,7 +11,7 @@ import { createDefaultLinkList } from '@/constants/LinkList';
 import { BULLETIN_FALLBACK } from '@/constants/bulletin';
 import { getBundledTemplateIcons } from '@/constants/templateIcons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
-import { getLocalTemplate } from '@/utils/templateStorage';
+import { getLocalTemplate } from '@/storage/templates/repository';
 import { debugLog, captureErrorLog } from '@/utils/logger';
 import { EditorContext } from './EditorContextObject';
 import { GRID_COLUMNS, UNSAVED_TEMPLATE_ID } from '@/constants/template';
