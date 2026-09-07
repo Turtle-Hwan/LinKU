@@ -20,8 +20,9 @@ test("프로필 생성은 명시적으로 요청하고 기존 이름은 보존�
     } : null }, error: null }) },
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: profile, error: null }) }) }) }),
     rpc: async (name: string, args: { p_nickname: string }) => {
-      assert.equal(name, "initialize_profile");
+      assert.ok(name === "initialize_profile" || name === "update_nickname");
       writes++;
+      if (name === "update_nickname") profile = { user_id: "account-A", nickname: args.p_nickname };
       profile ??= { user_id: "account-A", nickname: args.p_nickname };
       return { data: profile, error: null };
     },
@@ -38,7 +39,7 @@ test("프로필 생성은 명시적으로 요청하고 기존 이름은 보존�
     },
   }]);
   try {
-    const { getAccountProfile, initializeAccountProfile } = await server.ssrLoadModule(
+    const { getAccountProfile, initializeAccountProfile, updateAccountNickname } = await server.ssrLoadModule(
       "/src/apis/supabase/account.ts",
     ) as typeof import("../../src/apis/supabase/account.ts");
     await t.test("조회는 생성 요청을 하지 않는다", async () => {
@@ -59,6 +60,15 @@ test("프로필 생성은 명시적으로 요청하고 기존 이름은 보존�
       signedIn = false;
       assert.equal(await initializeAccountProfile(), null);
       assert.equal(writes, 1);
+    });
+    await t.test("닉네임 변경은 로그인 상태에서만 요청하고 저장 결과를 반환한다", async () => {
+      await assert.rejects(updateAccountNickname("차가운 건덕이"), { code: "LOGIN_REQUIRED" });
+      assert.equal(writes, 1);
+      signedIn = true;
+      assert.deepEqual(await updateAccountNickname("차가운 건덕이"), {
+        userId: "account-A", nickname: "차가운 건덕이",
+      });
+      assert.equal(writes, 2);
     });
   } finally {
     await server.close();

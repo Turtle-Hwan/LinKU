@@ -65,21 +65,14 @@ export async function initializeAccountProfile(): Promise<AccountProfile | null>
 export async function updateAccountNickname(
   nickname: string,
 ): Promise<AccountProfile> {
-  const client = getSupabaseClient();
-  const { data: sessionData, error: sessionError } = await client.auth.getSession();
-  if (sessionError) {
-    throw toSupabaseAuthError(sessionError, "계정 정보를 불러오지 못했습니다.");
-  }
-  const userId = sessionData.session?.user.id;
-  if (!userId) {
+  if (!(await getGoogleAccountId())) {
     throw new UserFacingError("Google 로그인이 필요합니다.", "LOGIN_REQUIRED");
   }
-
-  const { data, error } = await client.rpc("update_nickname", {
+  const { data, error } = await getSupabaseClient().rpc("update_nickname", {
     p_nickname: nickname,
   });
   if (error) throw toSupabaseUserError(error, "닉네임을 저장하지 못했습니다.");
-  return { userId, nickname: data.nickname };
+  return { userId: data.user_id, nickname: data.nickname };
 }
 
 export async function signOutAccount(): Promise<void> {

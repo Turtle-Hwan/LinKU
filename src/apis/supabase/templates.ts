@@ -1,6 +1,6 @@
 import { getSupabaseClient } from "@/apis/supabase/client";
+import { getGoogleAccountId } from "@/apis/supabase/account";
 import {
-  toSupabaseAuthError,
   toSupabaseStorageError,
   toSupabaseUserError,
 } from "@/apis/supabase/errors";
@@ -14,14 +14,17 @@ import { parseCloudTemplateDocument } from "@/sync/templateDocument";
 import { recordBreadcrumb } from "@/monitoring";
 import { UserFacingError } from "@/errors/userFacingError";
 
-type TemplateRow = Database["public"]["Tables"]["templates"]["Row"];
-type AssetRow = Database["public"]["Tables"]["template_assets"]["Row"];
+type TemplateRow = Omit<
+  Database["public"]["Tables"]["templates"]["Row"], "owner_id" | "created_at"
+>;
+type AssetRow = Pick<
+  Database["public"]["Tables"]["template_assets"]["Row"], "content_hash" | "name" | "object_path"
+>;
 
 export interface RemoteAsset {
   contentHash: string;
   name: string;
   objectPath: string;
-  byteSize: number;
 }
 
 function mapTemplate(row: TemplateRow): RemoteTemplate {
@@ -40,7 +43,6 @@ function mapAsset(row: AssetRow): RemoteAsset {
     contentHash: row.content_hash,
     name: row.name,
     objectPath: row.object_path,
-    byteSize: row.byte_size,
   };
 }
 
@@ -50,7 +52,7 @@ export async function listRemoteTemplates(): Promise<RemoteTemplate[]> {
     .select("id, document, content_hash, revision, deleted_at, updated_at")
     .order("updated_at", { ascending: true });
   if (error) throw toSupabaseUserError(error, "템플릿을 동기화하지 못했습니다.");
-  return data.map((row) => mapTemplate(row as TemplateRow));
+  return data.map(mapTemplate);
 }
 
 export async function getRemoteTemplate(id: string): Promise<RemoteTemplate | null> {
@@ -60,7 +62,7 @@ export async function getRemoteTemplate(id: string): Promise<RemoteTemplate | nu
     .eq("id", id)
     .maybeSingle();
   if (error) throw toSupabaseUserError(error, "템플릿을 동기화하지 못했습니다.");
-  return data ? mapTemplate(data as TemplateRow) : null;
+  return data ? mapTemplate(data) : null;
 }
 
 export async function putRemoteTemplate(
@@ -94,24 +96,15 @@ export async function deleteRemoteTemplate(
 export async function listRemoteAssets(): Promise<RemoteAsset[]> {
   const { data, error } = await getSupabaseClient()
     .from("template_assets")
-    .select("content_hash, name, object_path, byte_size, owner_id, created_at");
+    .select("content_hash, name, object_path");
   if (error) throw toSupabaseUserError(error, "아이콘 목록을 불러오지 못했습니다.");
   return data.map(mapAsset);
 }
 
-async function currentUserId(): Promise<string> {
-  const { data, error } = await getSupabaseClient().auth.getSession();
-  if (error) {
-    throw toSupabaseAuthError(error, "계정 정보를 불러오지 못했습니다.");
-  }
-  const userId = data.session?.user.id;
-  if (!userId) throw new UserFacingError("Google 로그인이 필요합니다.", "LOGIN_REQUIRED");
-  return userId;
-}
-
 export async function uploadRemoteAsset(asset: StoredAsset): Promise<RemoteAsset> {
   const client = getSupabaseClient();
-  const userId = await currentUserId();
+  const userId = await getGoogleAccountId();
+  if (!userId) throw new UserFacingError("Google 로그인이 필요합니다.", "LOGIN_REQUIRED");
   const objectPath = `${userId}/${asset.id}.webp`;
   const { error: uploadError } = await client.storage
     .from("template-assets")
@@ -135,12 +128,12 @@ export async function uploadRemoteAsset(asset: StoredAsset): Promise<RemoteAsset
       },
       { onConflict: "owner_id,content_hash" },
     )
-    .select("content_hash, name, object_path, byte_size, owner_id, created_at")
+    .select("content_hash, name, object_path")
     .single();
   if (error) {
     const { data: persisted, error: readbackError } = await client
       .from("template_assets")
-      .select("content_hash, name, object_path, byte_size, owner_id, created_at")
+      .select("content_hash, name, object_path")
       .eq("content_hash", asset.id)
       .maybeSingle();
     if (persisted) return mapAsset(persisted);
