@@ -29,9 +29,6 @@ const categoryColors: Record<AlertCategory, string> = {
   "국제": "bg-cyan-100 text-cyan-700",
 };
 
-// 표준 카테고리인지 확인 (학과명인 경우 false)
-const standardCategories = new Set<string>(["일반", "학사", "학생", "장학", "취창업", "국제"]);
-
 const AlertItem = ({ alert, searchQuery = "" }: AlertItemProps) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -43,27 +40,11 @@ const AlertItem = ({ alert, searchQuery = "" }: AlertItemProps) => {
 
   const handleClick = () => {
     if (!alert.url) return;
-    // category 필드가 표준 카테고리 외 값(학과명)이면 학과 공지로 분류
-    const isDept =
-      "department" in alert ||
-      ("category" in alert && !standardCategories.has(alert.category));
-    const source = isDept ? "department" : "general";
-    const category = isDept
-      ? ("category" in alert ? String(alert.category) : alert.department.name)
-      : String(alert.category);
-    sendAlertsItemOpen(alert.alertId, category, source);
+    sendAlertsItemOpen(alert.alertId, alert.category, "general");
     window.open(alert.url, "_blank");
   };
 
   const isClickable = Boolean(alert.url);
-
-  // 일반 공지인지 학과 공지인지 구분
-  const hasCategory = "category" in alert;
-  const hasDepartment = "department" in alert;
-
-  // 카테고리가 표준 카테고리인지 학과명인지 확인
-  const isStandardCategory = hasCategory && standardCategories.has(alert.category);
-  const isDepartmentFromCategory = hasCategory && !isStandardCategory;
 
   return (
     <div
@@ -74,34 +55,19 @@ const AlertItem = ({ alert, searchQuery = "" }: AlertItemProps) => {
         alert.isRead && "opacity-60"
       )}
     >
-      {/* 헤더: 카테고리 또는 학과 */}
+      {/* 헤더: 공지 카테고리 */}
       <div className="flex items-center gap-2 mb-2">
-        {isStandardCategory && (
-          <span
-            className={cn(
-              "px-2 py-1 rounded text-xs font-medium",
-              categoryColors[alert.category]
-            )}
-          >
-            <AlertSearchHighlight
-              text={categoryLabels[alert.category]}
-              query={searchQuery}
-            />
-          </span>
-        )}
-        {hasDepartment && (
-          <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
-            <AlertSearchHighlight
-              text={alert.department.name}
-              query={searchQuery}
-            />
-          </span>
-        )}
-        {isDepartmentFromCategory && (
-          <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
-            <AlertSearchHighlight text={alert.category} query={searchQuery} />
-          </span>
-        )}
+        <span
+          className={cn(
+            "px-2 py-1 rounded text-xs font-medium",
+            categoryColors[alert.category]
+          )}
+        >
+          <AlertSearchHighlight
+            text={categoryLabels[alert.category]}
+            query={searchQuery}
+          />
+        </span>
       </div>
 
       {/* 제목 */}
