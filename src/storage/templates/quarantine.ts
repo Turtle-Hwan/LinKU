@@ -9,16 +9,10 @@
 import {
   getLinkuDb,
   type QuarantinedRecord,
-  type QuarantineLocation,
   type RecordLocation,
-} from "@/storage/linkuDb";
+} from "@/storage/indexedDb/linkuDatabase";
 import { captureErrorLog } from "@/utils/logger";
-
-export interface QuarantineInput {
-  at: QuarantineLocation;
-  reason: string;
-  raw: unknown;
-}
+import { normalizeStoredTemplate } from "@/storage/templates/record";
 
 /**
  * The store is not capped. Evicting the oldest entries would destroy exactly
@@ -45,22 +39,29 @@ export async function countQuarantinedRecords(): Promise<number> {
  * recoverable copy.
  */
 export async function moveRecordToQuarantineSafely(
-  input: QuarantineInput & { at: RecordLocation },
+  at: RecordLocation,
 ): Promise<boolean> {
   try {
     const database = await getLinkuDb();
-    const record: QuarantinedRecord = {
-      ...input,
-      id: crypto.randomUUID(),
-      quarantinedAt: Date.now(),
-    };
-
     const transaction = database.transaction(
       ["templates", "quarantine"],
       "readwrite",
     );
+    const current = await transaction.objectStore("templates").get(at.key);
+    const normalized = normalizeStoredTemplate(current, { expectedTemplateId: at.key });
+    if (current === undefined || normalized.value) {
+      await transaction.done;
+      return false;
+    }
+    const record: QuarantinedRecord = {
+      at,
+      raw: current,
+      reason: normalized.reason ?? "알 수 없는 오류",
+      id: crypto.randomUUID(),
+      quarantinedAt: Date.now(),
+    };
     await transaction.objectStore("quarantine").put(record);
-    await transaction.objectStore("templates").delete(input.at.key);
+    await transaction.objectStore("templates").delete(at.key);
     await transaction.done;
 
     return true;

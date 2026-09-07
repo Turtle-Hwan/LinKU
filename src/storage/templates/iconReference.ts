@@ -1,4 +1,4 @@
-import type { Icon, TemplateIcon } from "../types/api.ts";
+import type { Icon, TemplateIcon } from "@/types/api";
 
 export function isRemoteHttpIconUrl(value: string): boolean {
   try {

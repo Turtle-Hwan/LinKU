@@ -23,6 +23,35 @@ export interface StoredAsset {
   createdAt: number;
 }
 
+export type SyncOperation = "put" | "delete";
+export type SyncResource = "asset" | "template";
+
+export interface SyncOutboxEntry {
+  key: string;
+  generation: string;
+  resource: SyncResource;
+  resourceId: string;
+  operation: SyncOperation;
+  queuedAt: number;
+  attempts: number;
+}
+
+export interface SyncMetadata {
+  key: string;
+  revision?: number;
+  contentHash?: string;
+  publicationRevision?: number;
+  publishedContentHash?: string;
+  isPublished?: boolean;
+  lastSyncedAt?: number;
+  lastError?: string;
+}
+
+export interface StoredSetting {
+  key: string;
+  value: unknown;
+}
+
 /** Where an active template record lives. */
 export type RecordLocation = { store: "templates"; key: number };
 
@@ -81,16 +110,27 @@ export interface LinkuDatabase extends DBSchema {
     key: string;
     value: QuarantinedRecord;
   };
+  settings: {
+    key: string;
+    value: StoredSetting;
+  };
+  outbox: {
+    key: string;
+    value: SyncOutboxEntry;
+    indexes: { "by-queued-at": number };
+  };
+  syncMeta: {
+    key: string;
+    value: SyncMetadata;
+  };
 }
 
 export type LinkuDb = IDBPDatabase<LinkuDatabase>;
 
 const DATABASE_NAME = "linku";
-// Pre-release unpacked/test profiles may already be at version 2 or 3 with a
-// partial store set. Version 4 forces one more additive compatibility upgrade:
-// it fills every missing stateless store while retaining existing stores and
-// their data.
-export const LINKU_DATABASE_VERSION = 4;
+// Version 4 is the shipped local-only schema. Version 5 adds account sync
+// stores without rewriting or deleting any local record.
+export const LINKU_DATABASE_VERSION = 5;
 
 function openDatabase(
   databaseName: string,
@@ -100,9 +140,8 @@ function openDatabase(
     databaseName,
     LINKU_DATABASE_VERSION,
     {
-      // Pre-release v2 profiles contain a different subset of stores. Check
-      // each one independently so the migration is additive and never deletes
-      // or recreates user data.
+      // Pre-release profiles contain different store subsets. Check each one
+      // independently so the migration remains additive.
       upgrade(database, _oldVersion, _newVersion, transaction) {
         if (!database.objectStoreNames.contains("templates")) {
           database.createObjectStore("templates");
@@ -129,6 +168,26 @@ function openDatabase(
 
         if (!database.objectStoreNames.contains("quarantine")) {
           database.createObjectStore("quarantine", { keyPath: "id" });
+        }
+
+        if (!database.objectStoreNames.contains("settings")) {
+          database.createObjectStore("settings", { keyPath: "key" });
+        }
+
+        if (!database.objectStoreNames.contains("outbox")) {
+          const outbox = database.createObjectStore("outbox", {
+            keyPath: "key",
+          });
+          outbox.createIndex("by-queued-at", "queuedAt");
+        } else {
+          const outbox = transaction.objectStore("outbox");
+          if (!outbox.indexNames.contains("by-queued-at")) {
+            outbox.createIndex("by-queued-at", "queuedAt");
+          }
+        }
+
+        if (!database.objectStoreNames.contains("syncMeta")) {
+          database.createObjectStore("syncMeta", { keyPath: "key" });
         }
       },
       blocking() {

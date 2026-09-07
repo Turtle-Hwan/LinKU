@@ -16,15 +16,19 @@
  * LinKU versions legitimately wrote.
  */
 
-import type { Template, TemplateIcon, TemplateItem } from "../types/api.ts";
-import type { StoredTemplate } from "./linkuDb.ts";
+import type {
+  Template,
+  TemplateIcon,
+  TemplateItem,
+} from "../../types/api.ts";
+import type { StoredTemplate } from "../indexedDb/linkuDatabase.ts";
 import {
   GRID_COLUMNS,
   GRID_ROWS,
   MAX_SITE_URL_LENGTH,
   MAX_TEMPLATE_ITEMS,
   MAX_TEMPLATE_NAME_LENGTH,
-} from "../constants/template.ts";
+} from "../../constants/template.ts";
 
 export interface NormalizeResult {
   /** Normalized record, or null when the record must be quarantined. */
@@ -43,21 +47,27 @@ export interface NormalizeOptions {
 }
 
 const IMPORTED_TEMPLATE_SUFFIX = " (가져옴)";
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 export function normalizeTemplateName(value: unknown): string {
   const name = typeof value === "string" ? value.trim() : "";
   return (name || "이름 없는 템플릿").slice(0, MAX_TEMPLATE_NAME_LENGTH);
 }
 
-export function formatImportedTemplateName(name: string): string {
+export function formatImportedTemplateName(
+  name: string,
+  suffix = IMPORTED_TEMPLATE_SUFFIX,
+): string {
+  const normalizedSuffix = suffix.startsWith(" ") ? suffix : ` ${suffix}`;
   const normalizedName = normalizeTemplateName(name);
-  const baseName = normalizedName.endsWith(IMPORTED_TEMPLATE_SUFFIX)
-    ? normalizedName.slice(0, -IMPORTED_TEMPLATE_SUFFIX.length)
+  const baseName = normalizedName.endsWith(normalizedSuffix)
+    ? normalizedName.slice(0, -normalizedSuffix.length)
     : normalizedName;
   return `${baseName.slice(
     0,
-    MAX_TEMPLATE_NAME_LENGTH - IMPORTED_TEMPLATE_SUFFIX.length,
-  )}${IMPORTED_TEMPLATE_SUFFIX}`;
+    MAX_TEMPLATE_NAME_LENGTH - normalizedSuffix.length,
+  )}${normalizedSuffix}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -240,11 +250,11 @@ export function normalizeStoredTemplate(
 
   const now = new Date().toISOString();
   const sourceId =
-    typeof source.id === "string" && source.id.trim().length > 0
+    typeof source.id === "string" && UUID_PATTERN.test(source.id.trim())
       ? source.id.trim()
       : null;
   if (!sourceId) {
-    repairs.push("템플릿 고유 식별자가 없어 새로 부여했습니다.");
+    repairs.push("템플릿 고유 식별자를 UUID로 정리했습니다.");
   } else if (sourceId !== source.id) {
     repairs.push("템플릿 고유 식별자의 공백을 정리했습니다.");
   }

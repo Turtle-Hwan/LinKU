@@ -13,17 +13,11 @@
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
-  error?: ApiError;
+  error?: {
+    code: string;
+    message: string;
+  };
   status?: number;
-}
-
-/**
- * API error structure
- */
-export interface ApiError {
-  code: string;
-  message: string;
-  details?: Record<string, unknown>;
 }
 
 /**
@@ -39,15 +33,6 @@ export interface Timestamps {
  */
 export interface BaseEntity extends Timestamps {
   id: string;
-}
-
-/**
- * Request configuration
- */
-export interface RequestConfig {
-  headers?: Record<string, string>;
-  params?: unknown;
-  timeout?: number;
 }
 
 // ============================================================================
@@ -160,85 +145,8 @@ export interface PreviewableItem {
 }
 
 // ============================================================================
-// Auth
-// ============================================================================
-
-/**
- * Google OAuth authorization request
- */
-export interface GoogleOAuthRequest {
-  authorizationCode: string;
-  redirectUri: string;
-}
-
-/**
- * Google OAuth authorization response
- */
-export interface GoogleOAuthResponse {
-  guestToken: string;
-  requiresSignup: boolean;
-  expiresAt: string;
-  profile: {
-    email: string;
-    name: string;
-    picture: string;
-  };
-}
-
-/**
- * Send verification code request
- * POST /auth/send-code
- */
-export interface SendCodeRequest {
-  kuMail: string; // 건국대 이메일 (@konkuk.ac.kr)
-}
-
-/**
- * Send verification code response
- * 성공 시 result: null
- */
-export type SendCodeResponse = null;
-
-/**
- * Verify code request
- * POST /auth/verify-code
- */
-export interface VerifyCodeRequest {
-  kuMail: string; // 건국대 이메일 (@konkuk.ac.kr)
-  authCode: string; // 6자리 인증 코드
-}
-
-/**
- * Verify code response
- * 성공 시 result: null
- */
-export type VerifyCodeResponse = null;
-
-/**
- * Auth error codes
- */
-export const AUTH_ERROR_CODES = {
-  INVALID_INPUT: 1005, // 입력 값이 유효하지 않습니다
-  DUPLICATE_EMAIL: 5014, // 이미 존재하는 건국대학교 이메일입니다
-  INVALID_CODE: 5015, // 인증 코드가 올바르지 않습니다
-} as const;
-
-// ============================================================================
 // Alerts
 // ============================================================================
-
-/**
- * General notice category types (departmentConfigId: 1-7)
- * Based on backend departmentConfig
- */
-export type GeneralNoticeCategory =
-  | "학사"
-  | "장학"
-  | "국제"
-  | "학생"
-  | "일반"
-  | "채용"
-  | "에너지 절약";
 
 /**
  * RSS-based alert categories
@@ -252,94 +160,17 @@ export type RSSAlertCategory = "학사" | "장학" | "국제" | "학생" | "일�
  */
 export type AlertCategory = RSSAlertCategory | "취창업";
 
-/**
- * Department category types (departmentConfigId: 8-34)
- * Based on backend departmentConfig
- */
-export type DepartmentCategory =
-  | "국어국문학과"
-  | "영어영문학과"
-  | "중어중문학과"
-  | "철학과"
-  | "사학과"
-  | "미디어커뮤니케이션학과"
-  | "문화콘텐츠학과"
-  | "정치외교학과"
-  | "경제학과"
-  | "행정학과"
-  | "국제무역학과"
-  | "응용통계학과"
-  | "융합인재학과"
-  | "수학과"
-  | "물리학과"
-  | "화학과"
-  | "전기전자공학부"
-  | "화학공학부"
-  | "컴퓨터공학부"
-  | "사회환경공학부"
-  | "기계항공공학부"
-  | "생물공학과"
-  | "산업공학과"
-  | "경영학과"
-  | "기술경영학과"
-  | "건축학부"
-  | "수의학과";
-
-/**
- * Department configuration from backend
- */
-export interface DepartmentConfig {
-  departmentConfigId: number;
-  departmentConfigName: string;
-}
-
-/**
- * Department entity
- */
-export interface Department {
-  id: number;
-  name: DepartmentCategory;
-}
-
-/**
- * Alert entity (with general notice category)
- */
 export interface GeneralAlert {
   alertId: number;
   title: string;
   content: string;
-  category: GeneralNoticeCategory | AlertCategory;
+  category: AlertCategory;
   url?: string;
   publishedAt: string;
   isRead?: boolean;
 }
 
-/**
- * Alert entity (with department)
- */
-export interface DepartmentAlert {
-  alertId: number;
-  title: string;
-  content: string;
-  department: Department;
-  url?: string;
-  publishedAt: string;
-  isRead?: boolean;
-}
-
-/**
- * Alert entity (union type for exclusive relationship)
- */
-export type Alert = GeneralAlert | DepartmentAlert;
-
-/**
- * Subscription entity
- */
-export interface Subscription {
-  subscriptionId: number;
-  department: Department;
-  createdAt: string;
-}
+export type Alert = GeneralAlert;
 
 /**
  * Alert filter parameters (external alert categories can be filtered)
