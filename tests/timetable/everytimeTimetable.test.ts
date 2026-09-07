@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createEverytimeTimetableOverride,
+  getEverytimeSubjectCourseKey,
+  getUnscheduledEverytimeCourses,
   mergeEverytimeTimetable,
 } from "../../src/utils/everytimeTimetable.ts";
 
@@ -67,4 +69,43 @@ test("새 snapshot에 사용자 override를 병합하고 원본은 변경하지 
   });
   assert.equal(snapshot.subjects[0].title, "원본 과목");
   assert.equal(merged.subjects[0].timeText, "월 09:00-10:30");
+});
+
+test("시간 좌표가 없는 이러닝 과목을 별도로 찾는다", () => {
+  const onlineCourse = {
+    id: "course-online",
+    title: "컴퓨팅적사고",
+    professor: "온라인교수",
+    timeText: "이러닝",
+    meetings: [],
+  };
+  const timetable = {
+    ...snapshot,
+    courses: [...snapshot.courses, onlineCourse],
+  };
+
+  assert.deepEqual(getUnscheduledEverytimeCourses(timetable), [onlineCourse]);
+});
+
+test("DOM fallback의 같은 과목 블록은 제목과 교수로 묶는다", () => {
+  assert.equal(
+    getEverytimeSubjectCourseKey({
+      title: "자료구조",
+      professor: "김교수",
+    }),
+    getEverytimeSubjectCourseKey({
+      title: "자료구조",
+      professor: "김교수",
+    }),
+  );
+  assert.notEqual(
+    getEverytimeSubjectCourseKey({
+      title: "자료구조",
+      professor: "김교수",
+    }),
+    getEverytimeSubjectCourseKey({
+      title: "자료구조",
+      professor: "이교수",
+    }),
+  );
 });
