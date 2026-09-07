@@ -1,9 +1,15 @@
 import React, { useMemo } from "react";
 import { EverytimeSubjectCard } from "@/components/Tabs/TimeTable/EverytimeSubjectCard";
+import { EverytimeUnscheduledCourses } from "@/components/Tabs/TimeTable/EverytimeUnscheduledCourses";
 import type {
   EverytimeSubject,
   EverytimeTimetable,
 } from "@/types/timetable";
+import { createEverytimeSubjectColorMap } from "@/utils/everytimeTimetableColor";
+import {
+  getEverytimeSubjectCourseKey,
+  getUnscheduledEverytimeCourses,
+} from "@/utils/everytimeTimetable";
 
 const GRID_INTERVAL_HEIGHT_PX = 25;
 const HOUR_HEIGHT_PX = GRID_INTERVAL_HEIGHT_PX * 2;
@@ -135,6 +141,30 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
     () => groupSubjectsByDay(timetable.subjects, visibleWeekdays.length),
     [timetable.subjects, visibleWeekdays.length],
   );
+  const unscheduledCourses = useMemo(
+    () => getUnscheduledEverytimeCourses(timetable),
+    [timetable],
+  );
+  const colorsByCourseKey = useMemo(
+    () => {
+      try {
+        return createEverytimeSubjectColorMap([
+          ...(timetable.courses ?? []).map((course) => ({
+            key: course.id,
+          })),
+          ...timetable.subjects.map((subject) => ({
+            key: getEverytimeSubjectCourseKey(subject),
+          })),
+        ]);
+      } catch (error) {
+        if (error instanceof RangeError) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    [timetable.courses, timetable.subjects],
+  );
   const timeLabels = useMemo(() => getTimeLabels(viewport), [viewport]);
   const scheduleGridStyle = useMemo(
     () => ({
@@ -143,7 +173,17 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
     [visibleWeekdays.length],
   );
 
-  if (timetable.subjects.length === 0) {
+  if (!colorsByCourseKey) {
+    return (
+      <p role="alert" className="rounded-lg border p-4 text-sm leading-relaxed">
+        과목이 50개를 넘어 색상을 중복 없이 표시할 수 없습니다.
+        에브리타임에서 과목 수를 줄인 뒤 다시 동기화해주세요.
+        저장된 시간표는 유지됩니다.
+      </p>
+    );
+  }
+
+  if (timetable.subjects.length === 0 && unscheduledCourses.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border bg-neutral-50 px-6 text-center text-sm leading-[1.5] text-muted-foreground">
         이 학기에는 표시할 수업이 없습니다.
@@ -152,71 +192,91 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-neutral-200/70 bg-white">
-      <div className="flex min-h-full w-full flex-col bg-white">
-        <div
-          className="sticky top-0 z-10 grid shrink-0 border-b border-neutral-200/70 bg-white text-sm font-medium leading-[1.5] text-neutral-700"
-          style={scheduleGridStyle}
-        >
-          <div
-            className="border-r border-neutral-200/70 px-0.5 py-1.5 text-center text-[10px] font-normal text-neutral-500"
-            aria-hidden="true"
-          >
-            시간
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex min-h-full flex-col gap-2">
+        {timetable.subjects.length === 0 ? (
+          <div className="flex min-h-32 shrink-0 items-center justify-center rounded-lg border border-neutral-200/70 bg-neutral-50 px-6 text-center text-sm leading-[1.5] text-muted-foreground">
+            정해진 요일과 시간이 있는 수업은 없습니다.
           </div>
-          {visibleWeekdays.map((weekday, dayIndex) => (
-            <div
-              key={`${weekday}:${dayIndex}`}
-              className="border-r border-neutral-200/70 px-1 py-1.5 text-center last:border-r-0"
-            >
-              {weekday}
-            </div>
-          ))}
-        </div>
-        <div
-          className="grid flex-1"
-          style={{
-            ...scheduleGridStyle,
-            minHeight: `${viewport.height}px`,
-          }}
-        >
+        ) : (
           <div
-            className="h-full border-r border-neutral-200/70 bg-neutral-50/50"
-            aria-hidden="true"
+            className="shrink-0 overflow-clip rounded-lg border border-neutral-200/70 bg-white"
+            data-everytime-schedule-grid=""
           >
-            {timeLabels.map((time) => (
+            <div className="flex min-h-full w-full flex-col bg-white">
               <div
-                key={time.hour}
-                className="border-b border-neutral-100 px-0.5 pt-1 text-center text-[10px] font-normal leading-none text-neutral-500 last:border-b-0"
-                style={{ height: `${HOUR_HEIGHT_PX}px` }}
+                className="sticky top-0 z-10 grid shrink-0 border-b border-neutral-200/70 bg-white text-sm font-medium leading-[1.5] text-neutral-700"
+                style={scheduleGridStyle}
               >
-                {time.label}
+                <div
+                  className="border-r border-neutral-200/70 px-0.5 py-1.5 text-center text-[10px] font-normal text-neutral-500"
+                  aria-hidden="true"
+                >
+                  시간
+                </div>
+                {visibleWeekdays.map((weekday, dayIndex) => (
+                  <div
+                    key={`${weekday}:${dayIndex}`}
+                    className="border-r border-neutral-200/70 px-1 py-1.5 text-center last:border-r-0"
+                  >
+                    {weekday}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {visibleWeekdays.map((weekday, dayIndex) => (
-            <div
-              key={`${weekday}:${dayIndex}`}
-              className="relative h-full border-r border-neutral-200/70 last:border-r-0"
-              style={{ backgroundImage: GRID_BACKGROUND_IMAGE }}
-            >
-              {groupedSubjects.days[dayIndex].map((subject) => (
-                <EverytimeSubjectCard
-                  key={subject.id}
-                  subject={subject}
-                  weekday={weekday}
-                  viewportStart={viewport.start}
-                />
-              ))}
+              <div
+                className="grid flex-1"
+                style={{
+                  ...scheduleGridStyle,
+                  minHeight: `${viewport.height}px`,
+                }}
+              >
+                <div
+                  className="h-full border-r border-neutral-200/70 bg-neutral-50/50"
+                  aria-hidden="true"
+                >
+                  {timeLabels.map((time) => (
+                    <div
+                      key={time.hour}
+                      className="border-b border-neutral-100 px-0.5 pt-1 text-center text-[10px] font-normal leading-none text-neutral-500 last:border-b-0"
+                      style={{ height: `${HOUR_HEIGHT_PX}px` }}
+                    >
+                      {time.label}
+                    </div>
+                  ))}
+                </div>
+                {visibleWeekdays.map((weekday, dayIndex) => (
+                  <div
+                    key={`${weekday}:${dayIndex}`}
+                    className="relative h-full border-r border-neutral-200/70 last:border-r-0"
+                    style={{ backgroundImage: GRID_BACKGROUND_IMAGE }}
+                  >
+                    {groupedSubjects.days[dayIndex].map((subject) => (
+                      <EverytimeSubjectCard
+                        key={subject.id}
+                        color={colorsByCourseKey.get(
+                          getEverytimeSubjectCourseKey(subject),
+                        )}
+                        subject={subject}
+                        weekday={weekday}
+                        viewportStart={viewport.start}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+              {groupedSubjects.invalidSubjectCount > 0 && (
+                <p className="shrink-0 border-t border-neutral-200/70 px-2 py-1 text-xs leading-[1.5] text-amber-700">
+                  요일 정보가 잘못된 수업 {groupedSubjects.invalidSubjectCount}
+                  개는 표시하지 못했습니다.
+                </p>
+              )}
             </div>
-          ))}
-        </div>
-        {groupedSubjects.invalidSubjectCount > 0 && (
-          <p className="shrink-0 border-t border-neutral-200/70 px-2 py-1 text-xs leading-[1.5] text-amber-700">
-            요일 정보가 잘못된 수업 {groupedSubjects.invalidSubjectCount}개는
-            표시하지 못했습니다.
-          </p>
+          </div>
         )}
+        <EverytimeUnscheduledCourses
+          colorsByCourseId={colorsByCourseKey}
+          courses={unscheduledCourses}
+        />
       </div>
     </div>
   );
