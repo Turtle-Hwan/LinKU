@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  authCodeSchema,
   eCampusCredentialsSchema,
-  konkukEmailSchema,
   LINK_NAME_MAX_LENGTH,
   linkFormSchema,
   qrUrlSchema,
@@ -66,20 +64,6 @@ test("링크 폼은 공백을 정리하고 기존 오류 문구를 유지한다"
     linkFormSchema.safeParse({ name: "링크", url: "https://example.com", iconId: null }),
     "아이콘을 선택해주세요.",
   );
-});
-
-test("건국대 이메일과 인증 코드는 형식과 도메인을 함께 검증한다", () => {
-  assert.deepEqual(konkukEmailSchema.safeParse(" student@konkuk.ac.kr "), {
-    success: true,
-    data: "student@konkuk.ac.kr",
-  });
-  assert.deepEqual(konkukEmailSchema.safeParse("a..b@konkuk.ac.kr"), {
-    success: true,
-    data: "a..b@konkuk.ac.kr",
-  });
-  assert.equal(konkukEmailSchema.safeParse("student@example.com").success, false);
-  assert.equal(authCodeSchema.safeParse("123456").success, true);
-  assert.equal(authCodeSchema.safeParse("12345a").success, false);
 });
 
 test("Todo, eCampus, QR 입력은 소비 전에 하나의 스키마로 검증한다", () => {

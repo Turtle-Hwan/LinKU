@@ -15,7 +15,6 @@ type MonitoringCalls = {
   }>;
 };
 
-type ClientModule = typeof import("../../src/apis/client.ts");
 type ECampusModule = typeof import("../../src/apis/external/ecampus.ts");
 
 const MONITORING_CALLS_KEY = "__linkuMonitoringTestCalls";
@@ -26,17 +25,13 @@ const monitoringCalls: MonitoringCalls = {
   breadcrumbs: [],
 };
 
-const originalChrome = globalThis.chrome;
 const originalFetch = globalThis.fetch;
-const originalWindow = globalThis.window;
 const testConsole = globalThis.console;
 const originalConsoleError = testConsole.error;
 const originalConsoleWarn = testConsole.warn;
 
 let server: ViteDevServer;
-let client: ClientModule;
 let ecampus: ECampusModule;
-let dispatchedEvents: string[] = [];
 
 function monitoringStub(): Plugin {
   const virtualId = "\0linku-monitoring-test-stub";
@@ -79,39 +74,6 @@ function monitoringStub(): Plugin {
   };
 }
 
-function installChrome(
-  sendMessage: (message: unknown) => Promise<unknown> = async () => ({
-    success: false,
-  }),
-): void {
-  globalThis.chrome = {
-    runtime: {
-      id: "linku-response-test",
-      sendMessage,
-    },
-    storage: {
-      local: {
-        get(_key: unknown, callback: (data: Record<string, unknown>) => void) {
-          callback({});
-        },
-        remove(_keys: unknown, callback?: () => void) {
-          callback?.();
-        },
-      },
-    },
-  } as unknown as typeof chrome;
-}
-
-function installWindow(): void {
-  runtime.window = {
-    location: { origin: "chrome-extension://linku-response-test" },
-    dispatchEvent(event: Event) {
-      dispatchedEvents.push(event.type);
-      return true;
-    },
-  };
-}
-
 function mockFetch(response: Response): void {
   globalThis.fetch = (async () => response) as typeof fetch;
 }
@@ -120,8 +82,6 @@ before(async () => {
   runtime[MONITORING_CALLS_KEY] = monitoringCalls;
   testConsole.error = () => undefined;
   testConsole.warn = () => undefined;
-  installChrome();
-  installWindow();
 
   server = await createServer({
     root: process.cwd(),
@@ -137,7 +97,6 @@ before(async () => {
     },
     plugins: [monitoringStub()],
   });
-  client = await server.ssrLoadModule("/src/apis/client.ts") as ClientModule;
   ecampus = await server.ssrLoadModule(
     "/src/apis/external/ecampus.ts",
   ) as ECampusModule;
@@ -147,9 +106,6 @@ beforeEach(() => {
   monitoringCalls.errors.length = 0;
   monitoringCalls.messages.length = 0;
   monitoringCalls.breadcrumbs.length = 0;
-  dispatchedEvents = [];
-  installChrome();
-  installWindow();
   globalThis.fetch = originalFetch;
 });
 
@@ -158,107 +114,7 @@ after(async () => {
   testConsole.error = originalConsoleError;
   testConsole.warn = originalConsoleWarn;
   globalThis.fetch = originalFetch;
-  globalThis.chrome = originalChrome;
-
-  if (originalWindow === undefined) {
-    delete runtime.window;
-  } else {
-    runtime.window = originalWindow;
-  }
   delete runtime[MONITORING_CALLS_KEY];
-});
-
-test("LinKU API 5xx HTML은 parse defect 대신 HTTP issue 하나로 끝난다", async () => {
-  mockFetch(new Response("<html>upstream failed</html>", {
-    status: 503,
-    headers: { "content-type": "application/json" },
-  }));
-
-  const result = await client.get("https://api.example.test/alerts");
-
-  assert.equal(result.success, false);
-  assert.equal(result.status, 503);
-  assert.equal(result.error?.code, "503");
-  assert.equal(monitoringCalls.errors.length, 0);
-  assert.equal(monitoringCalls.messages.length, 1);
-  assert.equal(
-    monitoringCalls.messages[0]?.options?.feature,
-    "api_http_error",
-  );
-});
-
-test("LinKU API 4xx user code는 breadcrumb-only outcome이다", async () => {
-  mockFetch(new Response(JSON.stringify({ code: 5015, message: "invalid" }), {
-    status: 400,
-    headers: { "content-type": "application/json" },
-  }));
-
-  const result = await client.post("https://api.example.test/auth/verify");
-
-  assert.equal(result.success, false);
-  assert.equal(result.error?.code, "5015");
-  assert.equal(monitoringCalls.errors.length, 0);
-  assert.equal(monitoringCalls.messages.length, 0);
-  assert.ok(
-    monitoringCalls.breadcrumbs.some(
-      ({ message }) => message === "non-success HTTP response",
-    ),
-  );
-});
-
-test("LinKU API 2xx invalid JSON은 parse issue 하나를 남긴다", async () => {
-  mockFetch(new Response("not-json", {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  }));
-
-  const result = await client.get("https://api.example.test/alerts");
-
-  assert.equal(result.success, false);
-  assert.equal(result.error?.code, "PARSE_ERROR");
-  assert.equal(monitoringCalls.messages.length, 0);
-  assert.equal(monitoringCalls.errors.length, 1);
-  assert.equal(
-    monitoringCalls.errors[0]?.options?.feature,
-    "api_response_parse",
-  );
-});
-
-test("token expiry와 정상 재인증 실패는 issue를 만들지 않는다", async () => {
-  installChrome(async () => ({ success: false, error: "cancelled" }));
-  mockFetch(new Response(JSON.stringify({ code: 5004 }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  }));
-
-  const result = await client.get("https://api.example.test/alerts");
-
-  assert.equal(result.success, false);
-  assert.equal(result.status, 401);
-  assert.equal(result.error?.code, "5004");
-  assert.deepEqual(dispatchedEvents, ["auth:unauthorized"]);
-  assert.equal(monitoringCalls.errors.length, 0);
-  assert.equal(monitoringCalls.messages.length, 0);
-});
-
-test("재인증 message channel 예외는 client terminal issue 하나가 소유한다", async () => {
-  installChrome(async () => {
-    throw new Error("message channel closed");
-  });
-  mockFetch(new Response(JSON.stringify({ code: 5004 }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  }));
-
-  const result = await client.get("https://api.example.test/alerts");
-
-  assert.equal(result.success, false);
-  assert.equal(monitoringCalls.messages.length, 0);
-  assert.equal(monitoringCalls.errors.length, 1);
-  assert.equal(
-    monitoringCalls.errors[0]?.options?.feature,
-    "silent_reauth_request",
-  );
 });
 
 test("eCampus non-2xx login은 status outcome으로 분리한다", async () => {

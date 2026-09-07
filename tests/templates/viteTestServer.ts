@@ -1,14 +1,15 @@
 import { createServer as createHttpServer } from "node:http";
 import path from "node:path";
-import { createServer } from "vite";
+import { createServer, type Plugin } from "vite";
 
 /** Loads browser-facing modules without starting a network listener or HMR. */
-export function createTemplateTestServer() {
+export function createTemplateTestServer(plugins: Plugin[] = []) {
   const hmrServer = createHttpServer();
   return createServer({
     appType: "custom",
     configFile: false,
     logLevel: "silent",
+    plugins,
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "../../src"),

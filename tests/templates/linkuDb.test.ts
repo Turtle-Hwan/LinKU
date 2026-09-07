@@ -5,13 +5,16 @@ import { deleteDB, openDB, type IDBPDatabase } from "idb";
 import {
   LINKU_DATABASE_VERSION,
   openLinkuDatabase,
-} from "../../src/storage/linkuDb.ts";
+} from "../../src/storage/indexedDb/linkuDatabase.ts";
 
 const expectedStores = [
   "assets",
   "drafts",
   "migrations",
+  "outbox",
   "quarantine",
+  "settings",
+  "syncMeta",
   "templates",
 ];
 
@@ -26,6 +29,15 @@ function createPreReleaseStores(database: IDBPDatabase): void {
   database.createObjectStore("syncMeta");
 }
 
+function createLocalOnlyStores(database: IDBPDatabase): void {
+  database.createObjectStore("templates");
+  database.createObjectStore("drafts");
+  const assets = database.createObjectStore("assets", { keyPath: "id" });
+  assets.createIndex("by-numeric-id", "numericId", { unique: true });
+  database.createObjectStore("migrations");
+  database.createObjectStore("quarantine", { keyPath: "id" });
+}
+
 test("새 DB는 현재 호환 버전과 stateless store를 한 번에 만든다", async () => {
   const databaseName = `linku-fresh-${Date.now()}-${Math.random()}`;
   const database = await openLinkuDatabase(databaseName);
@@ -36,6 +48,26 @@ test("새 DB는 현재 호환 버전과 stateless store를 한 번에 만든다"
       Array.from(database.objectStoreNames).sort(),
       expectedStores,
     );
+  } finally {
+    database.close();
+    await deleteDB(databaseName);
+  }
+});
+
+test("version 4 로컬 전용 DB에 동기화 store만 추가한다", async () => {
+  const databaseName = `linku-local-v4-${Date.now()}-${Math.random()}`;
+  const existingDatabase = await openDB(databaseName, 4, {
+    upgrade(database) {
+      createLocalOnlyStores(database);
+    },
+  });
+  await existingDatabase.put("templates", { source: "main-v4" }, 71);
+  existingDatabase.close();
+
+  const database = await openLinkuDatabase(databaseName);
+  try {
+    assert.deepEqual(Array.from(database.objectStoreNames).sort(), expectedStores);
+    assert.deepEqual(await database.get("templates", 71), { source: "main-v4" });
   } finally {
     database.close();
     await deleteDB(databaseName);
@@ -58,10 +90,7 @@ for (const previousVersion of [2, 3]) {
     const database = await openLinkuDatabase(databaseName);
     try {
       assert.equal(database.version, LINKU_DATABASE_VERSION);
-      assert.deepEqual(
-        Array.from(database.objectStoreNames).sort(),
-        [...expectedStores, "outbox", "settings", "syncMeta"].sort(),
-      );
+      assert.deepEqual(Array.from(database.objectStoreNames).sort(), expectedStores);
       assert.deepEqual(await database.get("templates", 42), marker);
     } finally {
       database.close();
