@@ -95,6 +95,11 @@ popup에는 override 편집 UI가 없지만 저장 경계는 원본을 덮지 �
 있습니다. LinKU는 Everytime password, cookie, session token을 읽거나 저장하지
 않습니다.
 
+시간이 지정되지 않은 과목은 `meetings: []`로 보존해 시간표 아래에 표시하고,
+DOM fallback에서는 `div.nontimes`도 수집합니다. 과목별 색상은 50색 팔레트에서
+중복 없이 배정하며, 50과목을 넘으면 기존 snapshot을 지우지 않고 가져오기를
+중단합니다.
+
 ### 공개 공지
 
 공개 공지는 학교 RSS와 HTML source별로 `chrome.storage.local`에 캐시합니다.
