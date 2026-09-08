@@ -6,6 +6,7 @@ import {
   toSupabaseUserError,
 } from "@/apis/supabase/errors";
 import { UserFacingError } from "@/errors/userFacingError";
+import { EMPTY_TEMPLATE_PUBLISH_MESSAGE } from "@/constants/template";
 import {
   clearCloudSyncState,
   getSyncMetadata,
@@ -235,11 +236,13 @@ export async function publishLocalTemplate(
 }
 
 async function publishSyncedTemplate(templateId: string): Promise<void> {
-  const activePublications = await readPublicationMetadata();
-
   const stored = await findTemplateBySyncId(templateId);
   if (!stored) throw new UserFacingError("이 기기에서 템플릿을 찾을 수 없습니다.");
   const document = await createCloudTemplateDocument(stored);
+  if (document.items.length === 0) {
+    throw new UserFacingError(EMPTY_TEMPLATE_PUBLISH_MESSAGE, "EMPTY_TEMPLATE");
+  }
+  const activePublications = await readPublicationMetadata();
   const contentHash = await hashPublishedTemplate(document);
   const previousPublication = activePublications.get(templateId);
   const previousHashes = previousPublication

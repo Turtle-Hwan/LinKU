@@ -19,6 +19,8 @@ export const GRID_ROWS = 6;
 export const MAX_TEMPLATE_ITEMS = GRID_COLUMNS * GRID_ROWS;
 export const MAX_TEMPLATE_NAME_LENGTH = 80;
 export const MAX_SITE_URL_LENGTH = 2_048;
+export const EMPTY_TEMPLATE_PUBLISH_MESSAGE =
+  "빈 템플릿은 게시할 수 없습니다. 편집 화면에서 링크를 하나 이상 추가해 주세요.";
 
 /**
  * Icon images that may be imported into local storage. SVG is excluded on

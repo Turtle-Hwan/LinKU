@@ -40,7 +40,7 @@ import {
   resolveLatestBulletin,
   subscribeLatestBulletin,
 } from '@/apis/external/bulletin';
-import { UNSAVED_TEMPLATE_ID } from '@/constants/template';
+import { EMPTY_TEMPLATE_PUBLISH_MESSAGE, UNSAVED_TEMPLATE_ID } from '@/constants/template';
 import { downloadJson } from '@/utils/download';
 import { captureErrorLog, warnLog } from '@/utils/logger';
 import { UserFacingError } from '@/errors/userFacingError';
@@ -371,6 +371,10 @@ export const TemplateListPage = () => {
 
   const handlePublish = async (template: TemplateListItem) => {
     if (!template.syncId) return;
+    if (template.itemCount === 0) {
+      toast({ title: '게시할 링크가 없습니다', description: EMPTY_TEMPLATE_PUBLISH_MESSAGE });
+      return;
+    }
     setActionLoading(template.templateId);
     try {
       if (!(await ensureAccount())) return;

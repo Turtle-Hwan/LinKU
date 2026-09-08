@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createTemplateTestServer } from "./viteTestServer.ts";
+import { EMPTY_TEMPLATE_PUBLISH_MESSAGE } from "../../src/constants/template.ts";
 
 test("손상된 게시물은 분리하되 페이지 위치와 정상 빈 템플릿을 보존한다", async () => {
   const valid = {
@@ -58,8 +59,44 @@ test("손상된 게시물은 분리하되 페이지 위치와 정상 빈 템플�
     const error = toSupabaseUserError({ code: "22023", message: "INVALID_TEMPLATE", details: "", hint: "" }, "실패");
     assert.equal(error.name, "UserFacingError");
     assert.equal(error.message, "템플릿 정보가 누락되었거나 형식이 올바르지 않아 동기화하지 못했습니다. 편집 화면에서 확인한 뒤 다시 저장해 주세요.");
+    assert.equal(toSupabaseUserError({ code: "22023", message: "EMPTY_TEMPLATE", details: "", hint: "" }, "실패").message,
+      EMPTY_TEMPLATE_PUBLISH_MESSAGE);
   } finally {
     await server.close();
     delete scope.communityValidationTest;
+  }
+});
+
+test("동기화한 빈 편집본도 게시 adapter에서 아이콘 업로드 전에 거부한다", async () => {
+  const server = await createTemplateTestServer([{
+    name: "empty-publication-boundary",
+    load(id) {
+      if (id.endsWith("/src/apis/supabase/client.ts")) return `
+        export const getSupabaseClient = () => { throw new Error("Unexpected publication request"); };
+        export const clearStoredSupabaseSession = async () => {};
+      `;
+      if (id.endsWith("/src/utils/accountSync.ts")) return `
+        export const syncAccount = async () => ({ failed: 0 });
+      `;
+      if (id.endsWith("/src/utils/accountLock.ts")) return `
+        export const withAccountLock = (operation) => operation();
+      `;
+      if (id.endsWith("/src/storage/templates/repository.ts")) return `
+        export const importTemplateCopy = async () => {};
+        export const findTemplateBySyncId = async (id) => ({
+          template: { id, templateId: 1, name: "새 템플릿", height: 1, cloned: false,
+            createdAt: "2026-09-08T00:00:00Z", updatedAt: "2026-09-08T00:00:00Z", items: [] },
+          stagingItems: [],
+        });
+      `;
+    },
+  }]);
+  try {
+    const api = await server.ssrLoadModule("/src/apis/supabase/community.ts") as typeof import("../../src/apis/supabase/community.ts");
+    await assert.rejects(api.publishLocalTemplate("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), {
+      name: "UserFacingError", code: "EMPTY_TEMPLATE", message: EMPTY_TEMPLATE_PUBLISH_MESSAGE,
+    });
+  } finally {
+    await server.close();
   }
 });

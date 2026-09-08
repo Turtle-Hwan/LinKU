@@ -33,6 +33,10 @@ test("Supabase 없이도 템플릿을 저장하고 다시 연다", async ({ exte
   await page.goto(`${popupUrl}#/templates`);
   await expect(page.getByText("오프라인 회귀 템플릿")).toBeVisible();
   await expect(page.getByText("이 기기에 저장", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "게시", exact: true }).click();
+  await expect(page.getByText("게시할 링크가 없습니다", { exact: true })).toBeVisible();
+  await expect(page.getByText("빈 템플릿은 게시할 수 없습니다. 편집 화면에서 링크를 하나 이상 추가해 주세요.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Google 로그인 필요", { exact: true })).toHaveCount(0);
   const search = page.getByRole('searchbox', { name: '내 템플릿 검색' });
   await search.fill('오프라인 회귀');
   await expect(page.locator('article')).toHaveCount(1);
