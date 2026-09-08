@@ -83,27 +83,21 @@ export type Database = {
       }
       template_assets: {
         Row: {
-          byte_size: number
           content_hash: string
           created_at: string
           name: string
-          object_path: string
           owner_id: string
         }
         Insert: {
-          byte_size: number
           content_hash: string
           created_at?: string
           name: string
-          object_path: string
           owner_id?: string
         }
         Update: {
-          byte_size?: number
           content_hash?: string
           created_at?: string
           name?: string
-          object_path?: string
           owner_id?: string
         }
         Relationships: []

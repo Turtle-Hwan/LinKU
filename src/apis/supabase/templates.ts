@@ -18,7 +18,7 @@ type TemplateRow = Omit<
   Database["public"]["Tables"]["templates"]["Row"], "owner_id" | "created_at"
 >;
 type AssetRow = Pick<
-  Database["public"]["Tables"]["template_assets"]["Row"], "content_hash" | "name" | "object_path"
+  Database["public"]["Tables"]["template_assets"]["Row"], "content_hash" | "name" | "owner_id"
 >;
 
 export interface RemoteAsset {
@@ -42,7 +42,7 @@ function mapAsset(row: AssetRow): RemoteAsset {
   return {
     contentHash: row.content_hash,
     name: row.name,
-    objectPath: row.object_path,
+    objectPath: `${row.owner_id}/${row.content_hash}.webp`,
   };
 }
 
@@ -96,7 +96,7 @@ export async function deleteRemoteTemplate(
 export async function listRemoteAssets(): Promise<RemoteAsset[]> {
   const { data, error } = await getSupabaseClient()
     .from("template_assets")
-    .select("content_hash, name, object_path");
+    .select("content_hash, name, owner_id");
   if (error) throw toSupabaseUserError(error, "아이콘 목록을 불러오지 못했습니다.");
   return data.map(mapAsset);
 }
@@ -123,17 +123,15 @@ export async function uploadRemoteAsset(asset: StoredAsset): Promise<RemoteAsset
       {
         content_hash: asset.id,
         name: asset.name,
-        object_path: objectPath,
-        byte_size: asset.blob.size,
       },
       { onConflict: "owner_id,content_hash" },
     )
-    .select("content_hash, name, object_path")
+    .select("content_hash, name, owner_id")
     .single();
   if (error) {
     const { data: persisted, error: readbackError } = await client
       .from("template_assets")
-      .select("content_hash, name, object_path")
+      .select("content_hash, name, owner_id")
       .eq("content_hash", asset.id)
       .maybeSingle();
     if (persisted) return mapAsset(persisted);

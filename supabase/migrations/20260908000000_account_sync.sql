@@ -34,16 +34,10 @@ create table public.template_assets (
   owner_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   content_hash text not null,
   name text not null,
-  object_path text not null,
-  byte_size integer not null,
   created_at timestamptz not null default now(),
   primary key (owner_id, content_hash),
   constraint template_assets_hash_format check (content_hash ~ '^[0-9a-f]{64}$'),
-  constraint template_assets_name_length check (char_length(btrim(name)) between 1 and 80),
-  constraint template_assets_path_matches_owner check (
-    object_path = owner_id::text || '/' || content_hash || '.webp'
-  ),
-  constraint template_assets_size check (byte_size between 1 and 524288)
+  constraint template_assets_name_length check (char_length(btrim(name)) between 1 and 80)
 );
 
 create table public.template_publications (
@@ -242,7 +236,9 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  perform linku_private.lock_account(new.owner_id);
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(new.owner_id::text, 0)
+  );
   if not exists (
     select 1 from public.template_assets
     where owner_id = new.owner_id and content_hash = new.content_hash
