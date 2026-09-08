@@ -10,7 +10,8 @@ LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝�
 
 정적 GitHub Pages site는 이 범위에서 의도적으로 제외합니다.
 `pnpm run build:gh-pages`가 Rollup module graph를 검사해 `src/monitoring`이나
-Sentry SDK가 Pages 산출물에 섞이면 PR과 실제 배포 빌드를 모두 실패시킵니다.
+Sentry SDK가 Pages 산출물에 섞이면 해당 빌드를 실패시킵니다. 현재 PR CI에는 Pages 빌드가
+없으므로 로컬에서 별도로 실행해야 합니다. `main`의 Pages 배포 workflow에서는 실행됩니다.
 
 ## 모듈 경계
 
@@ -51,8 +52,8 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
   `unhandledrejection` handler를 설치
 - 최대 200개 breadcrumb, stacktrace 자동 첨부, 중첩 객체 normalization depth 6
 - user, request header/cookie/body/raw query string 삭제
-- URL의 민감한 query value와 exception/message/breadcrumb/extra를 포함한 모든 중첩 문맥의
-  token·email·credential 값 비식별화
+- URL의 민감한 query value와 exception/message/breadcrumb/extra의 민감 필드·이메일·
+  `Bearer` 또는 `token=값` 형태를 비식별화
 - tracing과 session replay를 기본 활성화하지 않음
 - `MONITORING_IGNORED_ERROR_MESSAGES`의 생명주기 잡음은 수집하지 않음. 브라우저 종료
   시점의 `The browser is shutting down.`은 LinKU의 실패가 아니라 MV3 service worker가
@@ -66,16 +67,23 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 하위 함수가 로그를 남긴 뒤 다시 throw하여 같은 오류가 여러 issue가 되는 일을 막습니다.
 `debugLog`와 `infoLog`도 console 전용입니다.
 
+현재 scrubber는 이름표 없는 JWT·`sb_secret_*` 원문까지 식별하지는 않습니다.
+이를 포함한 마스킹 보강은 아직 필요하며, scrubber는 토큰을 로그 인자로 전달해도 된다는
+보장이 아닙니다. OAuth code·PKCE verifier·세션은 원천적으로 로깅하지 않고, 회귀 테스트는
+실제 비밀값 대신 합성 값으로 작성합니다.
+
 하위 저장소 함수가 오류를 다시 throw할 때는 그 자리에서 중복 수집하지 않습니다. toast나
 fallback으로 실패를 최종 처리하는 UI·runtime 경계가 원본 오류를 한 번 기록하고, 내부에서
 실패를 흡수해 계속 진행하는 repair·migration 경로만 저장소 안에서 직접 기록합니다.
 
 실패를 예외가 아니라 `{ success: false, code }`로 돌려주는 정상 결과는 breadcrumb로만
 남깁니다. 시간표의 LOGIN_REQUIRED·TAB_UNAVAILABLE·TIMETABLE_NOT_FOUND·
-NO_PREVIOUS_SEMESTERS, Supabase validation/RLS·conflict와 session 만료는 issue가 아닙니다.
-실제 exception과 2xx 응답 계약 위반만 최종 경계가 한 번 수집합니다. 응답 원문·request body·토큰·쿠키는
-수집하지 않고, API 오류는 endpoint path, HTTP method/status, error code, response shape와
-직전 breadcrumbs로 재현에 필요한 맥락을 남깁니다. background/content의
+NO_PREVIOUS_SEMESTERS와 명시적으로 `UserFacingError`로 변환한 validation·conflict·인증 오류는
+issue로 수집하지 않습니다. 알 수 없는 Postgres 권한 오류·5xx·응답 계약 위반 등 예상 밖
+실패는 최종 경계에서 수집합니다. 모든 RLS 오류가 자동으로 제외되는 것은 아닙니다.
+응답 원문·request body·토큰·쿠키는 수집하지 않습니다. Supabase adapter는 고정 사용자 문구와
+error code·가능한 status만 전달하고, 다른 API의 비민감 endpoint·응답 형태와 직전 breadcrumbs는
+재현 맥락으로 사용합니다. background/content의
 `runtime.sendResponse`는 one-shot responder로 감싸 중복 응답과 채널 종료 오류를 별도
 기록합니다.
 
@@ -103,8 +111,8 @@ source maps are not packaged" 단계는 업로드 실패를 잡아내지 못합�
 | 종류 | 이름 | 용도 |
 | --- | --- | --- |
 | Secret | `SENTRY_AUTH_TOKEN` | production release와 source map 업로드 (`org:ci`, `org:read`) |
-| Variable | `SENTRY_ORG` | `turtlehwan` |
-| Variable | `SENTRY_PROJECT` | `linku` |
+| Variable | `SENTRY_ORG` | 사용할 Sentry organization slug |
+| Variable | `SENTRY_PROJECT` | 사용할 Sentry project slug |
 | Variable | `VITE_SENTRY_DSN` | `linku` Client Key DSN |
 
 토큰은 개인 계정과 분리된 Sentry Internal Integration의 조직 토큰으로 만들고 `org:ci`와
