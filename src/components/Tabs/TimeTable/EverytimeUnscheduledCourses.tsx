@@ -1,14 +1,10 @@
-import { getEverytimeSubjectColorPresentation } from "@/components/Tabs/TimeTable/everytimeSubjectColorStyles";
-import { cn } from "@/lib/utils";
 import type { EverytimeCourse } from "@/types/timetable";
 
 interface EverytimeUnscheduledCoursesProps {
-  colorsByCourseId: ReadonlyMap<string, string>;
   courses: EverytimeCourse[];
 }
 
 export function EverytimeUnscheduledCourses({
-  colorsByCourseId,
   courses,
 }: EverytimeUnscheduledCoursesProps) {
   if (courses.length === 0) {
@@ -31,32 +27,22 @@ export function EverytimeUnscheduledCourses({
           <caption className="sr-only">
             요일과 시간이 지정되지 않은 이러닝 과목
           </caption>
-          <tbody className="divide-y divide-white/80">
-            {courses.map((course) => {
-              const colorPresentation = getEverytimeSubjectColorPresentation(
-                colorsByCourseId.get(course.id),
-              );
-
-              return (
-                <tr
-                  key={course.id}
-                  data-everytime-unscheduled-course=""
-                  className={cn(
-                    "border-t border-white/80",
-                    colorPresentation.className,
-                  )}
-                  style={colorPresentation.style}
+          <tbody className="divide-y divide-neutral-200/80">
+            {courses.map((course) => (
+              <tr
+                key={course.id}
+                data-everytime-unscheduled-course=""
+                className="border-t border-neutral-200/80 bg-neutral-50 text-neutral-900"
+              >
+                <th
+                  scope="row"
+                  className="truncate px-3 py-2 font-semibold"
+                  title={course.title}
                 >
-                  <th
-                    scope="row"
-                    className="truncate px-3 py-2 font-semibold"
-                    title={course.title}
-                  >
-                    {course.title}
-                  </th>
-                </tr>
-              );
-            })}
+                  {course.title}
+                </th>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
