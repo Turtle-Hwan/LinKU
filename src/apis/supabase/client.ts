@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
+import { assertPublicSupabaseKey } from "@/apis/supabase/config";
 import { ensureTrustedStorageAccess } from "@/utils/chromeStorageAccess";
 
 const AUTH_STORAGE_KEY = "linku.supabase.auth.v1";
@@ -55,6 +56,7 @@ export function getSupabaseClient(): SupabaseClient<Database> {
   const url = import.meta.env.VITE_SUPABASE_URL?.trim();
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
   if (!url || !publishableKey) throw new SupabaseConfigurationError();
+  assertPublicSupabaseKey(publishableKey);
 
   client = createClient<Database>(url, publishableKey, {
     auth: {

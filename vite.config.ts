@@ -1,12 +1,15 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import svgr from "vite-plugin-svgr";
 import fs from "node:fs";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
+import { assertPublicSupabaseKey } from "./src/apis/supabase/config.ts";
 
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, import.meta.dirname, "VITE_");
+  assertPublicSupabaseKey(env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim());
   const isContentScriptBuild = mode.endsWith("-content") || mode === "content";
   const isProductionBuild = mode === "production" || mode === "production-content";
   // Chrome Extension build configuration
