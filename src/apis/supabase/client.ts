@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
+import { ensureTrustedStorageAccess } from "@/utils/chromeStorageAccess";
 
 const AUTH_STORAGE_KEY = "linku.supabase.auth.v1";
 const LEGACY_AUTH_KEYS = [
@@ -23,6 +24,7 @@ export class SupabaseConfigurationError extends Error {
 const extensionStorage = {
   async getItem(key: string): Promise<string | null> {
     if (globalThis.chrome?.storage?.local) {
+      await ensureTrustedStorageAccess();
       const stored = await chrome.storage.local.get(key);
       return typeof stored[key] === "string" ? stored[key] : null;
     }
@@ -30,6 +32,7 @@ const extensionStorage = {
   },
   async setItem(key: string, value: string): Promise<void> {
     if (globalThis.chrome?.storage?.local) {
+      await ensureTrustedStorageAccess();
       await chrome.storage.local.set({ [key]: value });
       return;
     }

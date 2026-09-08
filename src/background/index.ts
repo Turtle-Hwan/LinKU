@@ -8,6 +8,7 @@
  * Note: chrome.identity API is ONLY available in background/service worker context
  */
 
+import { ensureTrustedStorageAccess } from '@/utils/chromeStorageAccess';
 import {
   BackgroundMessageType,
   isAnalyticsBatchMessage,
@@ -159,20 +160,8 @@ function runAsyncMessageHandler<Response>({
 }
 
 async function restrictLocalStorageAccess(): Promise<void> {
-  if (typeof chrome.storage.local.setAccessLevel !== "function") {
-    recordBreadcrumb(
-      "background.compatibility",
-      "storage access level API unavailable",
-      { api: "chrome.storage.local.setAccessLevel" },
-      "warning",
-    );
-    return;
-  }
-
   try {
-    await chrome.storage.local.setAccessLevel({
-      accessLevel: "TRUSTED_CONTEXTS",
-    });
+    await ensureTrustedStorageAccess();
   } catch (error) {
     reportBackgroundException(error, "storage_access_level");
     warnLog(
