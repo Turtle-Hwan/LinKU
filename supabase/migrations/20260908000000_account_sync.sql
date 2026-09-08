@@ -161,8 +161,8 @@ declare
   item jsonb;
   template_height integer;
 begin
-  if jsonb_typeof(value) <> 'object'
-    or value ->> 'version' <> '1'
+  if (jsonb_typeof(value) <> 'object'
+    or value -> 'version' <> '1'::jsonb
     or jsonb_typeof(value -> 'name') <> 'string'
     or char_length(btrim(value ->> 'name')) not between 1 and 80
     or jsonb_typeof(value -> 'height') <> 'number'
@@ -173,7 +173,7 @@ begin
     or jsonb_typeof(value -> 'updatedAt') <> 'string'
     or jsonb_array_length(value -> 'items') > 36
     or jsonb_array_length(value -> 'stagingItems') > 36
-    or (value ->> 'height')::numeric <> trunc((value ->> 'height')::numeric)
+    or (value ->> 'height')::numeric <> trunc((value ->> 'height')::numeric)) is not false
   then
     return false;
   end if;
@@ -188,7 +188,7 @@ begin
     union all
     select entry from jsonb_array_elements(value -> 'stagingItems') as entries(entry)
   loop
-    if not linku_private.is_valid_template_item(item, template_height) then
+    if linku_private.is_valid_template_item(item, template_height) is not true then
       return false;
     end if;
   end loop;
@@ -202,7 +202,7 @@ $$;
 
 alter table public.templates
   add constraint templates_document_valid
-  check (linku_private.is_valid_template_document(document));
+  check (linku_private.is_valid_template_document(document) is true);
 
 create or replace function linku_private.touch_updated_at()
 returns trigger
@@ -392,9 +392,10 @@ declare
   saved public.templates;
   stale_template_id uuid;
 begin
-  if not linku_private.is_valid_template_document(p_document)
+  if p_id is null
+    or linku_private.is_valid_template_document(p_document) is not true
     or pg_column_size(p_document) > 262144
-    or p_content_hash !~ '^[0-9a-f]{64}$'
+    or p_content_hash is null or p_content_hash !~ '^[0-9a-f]{64}$'
   then
     raise exception using errcode = '22023', message = 'INVALID_TEMPLATE';
   end if;
