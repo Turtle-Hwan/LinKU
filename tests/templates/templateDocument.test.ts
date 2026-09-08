@@ -34,6 +34,12 @@ test("클라우드 문서와 게시 snapshot의 경계를 유지한다", async (
     )) as typeof import("../../src/sync/templateDocument.ts");
 
     assert.deepEqual(module.parseCloudTemplateDocument(document), document);
+    const emptyDocument = { ...document, items: [], stagingItems: [] };
+    assert.deepEqual(module.parseCloudTemplateDocument(emptyDocument), emptyDocument);
+    assert.deepEqual(module.parsePublishedTemplateSnapshot(module.createPublishedSnapshot(emptyDocument)), {
+      version: 1, name: document.name, height: document.height, items: [],
+    });
+    assert.throws(() => module.parseCloudTemplateDocument({}));
     assert.throws(() =>
       module.parseCloudTemplateDocument({
         ...document,

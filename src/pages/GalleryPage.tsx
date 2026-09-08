@@ -131,7 +131,8 @@ export const GalleryPage = () => {
   >([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [skippedCount, setSkippedCount] = useState(0);
   const [communityUnavailable, setCommunityUnavailable] = useState(
     !isSupabaseConfigured(),
   );
@@ -149,6 +150,7 @@ export const GalleryPage = () => {
       }
       if (offset === 0) {
         setLoading(true);
+        setSkippedCount(0);
       } else {
         setLoadingMore(true);
       }
@@ -161,20 +163,23 @@ export const GalleryPage = () => {
           limit: PAGE_SIZE,
         });
         const cards = await Promise.all(
-          next.map(async (publication) => ({
+          next.publications.map(async (publication) => ({
             ...publication,
             preview: await createPublicationPreview(publication),
           })),
         );
         if (requestId !== loadRequestIdRef.current) return;
         setPublications((current) => (offset === 0 ? cards : [...current, ...cards]));
-        setHasMore(next.length === PAGE_SIZE);
+        setNextOffset(next.fetchedCount === PAGE_SIZE ? offset + next.fetchedCount : null);
         setCommunityUnavailable(false);
+        const skipped = next.fetchedCount - next.publications.length;
+        setSkippedCount((current) => (offset === 0 ? skipped : current + skipped));
       } catch (error) {
         if (requestId !== loadRequestIdRef.current) return;
         if (offset === 0) {
           setCommunityUnavailable(true);
           setPublications([]);
+          setNextOffset(null);
         } else {
           toast({
             title: "더 불러오지 못했습니다",
@@ -340,6 +345,13 @@ export const GalleryPage = () => {
         </div>
       </section>
 
+      {skippedCount > 0 && (
+        <p role="status" className="mb-6 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+          데이터 형식에 문제가 있는 게시물 {skippedCount}개를 표시하지 못했습니다.
+          다른 게시물은 계속 둘러볼 수 있습니다.
+        </p>
+      )}
+
       {communityUnavailable && publications.length === 0 && (
         <div className="mb-6 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
           커뮤니티에 연결할 수 없어 함께 제공되는 기본 템플릿을 표시합니다.
@@ -363,18 +375,18 @@ export const GalleryPage = () => {
             />
           ))}
         </div>
-      ) : !communityUnavailable ? (
+      ) : !communityUnavailable && skippedCount === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
           {query ? "검색 결과가 없습니다." : "아직 게시된 템플릿이 없습니다."}
         </div>
       ) : null}
 
-      {hasMore && (
+      {nextOffset !== null && (
         <div className="mt-6 flex justify-center">
           <Button
             variant="outline"
             disabled={loadingMore}
-            onClick={() => void load(publications.length)}
+            onClick={() => void load(nextOffset)}
           >
             {loadingMore && <Loader2 className="animate-spin" />}
             더 보기

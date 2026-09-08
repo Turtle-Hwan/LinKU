@@ -36,7 +36,7 @@ import type {
 import type { Database } from "@/types/supabase";
 import type { StoredTemplate } from "@/storage/indexedDb/linkuDatabase";
 import { syncAccount } from "@/utils/accountSync";
-import { recordBreadcrumb } from "@/monitoring";
+import { recordBreadcrumb, reportError } from "@/monitoring";
 import { deleteRemoteAsset, deleteRemoteTemplate, listRemoteAssets } from "@/apis/supabase/templates";
 
 type PublicationRow =
@@ -66,7 +66,7 @@ export async function browsePublications(options: {
   ownOnly?: boolean;
   offset?: number;
   limit?: number;
-} = {}): Promise<TemplatePublication[]> {
+} = {}): Promise<{ publications: TemplatePublication[]; fetchedCount: number }> {
   const { data, error } = await getSupabaseClient().rpc("browse_publications", {
     p_query: options.query ?? "",
     p_sort: options.sort ?? "latest",
@@ -75,7 +75,22 @@ export async function browsePublications(options: {
     p_limit: options.limit ?? 12,
   });
   if (error) throw toSupabaseUserError(error, "게시된 템플릿을 불러오지 못했습니다.");
-  return data.map(mapBrowsePublication);
+  const publications: TemplatePublication[] = [];
+  for (const row of data) {
+    try {
+      publications.push(mapBrowsePublication(row));
+    } catch {
+      // Never attach the rejected snapshot or parser error to telemetry.
+    }
+  }
+  const skippedCount = data.length - publications.length;
+  if (skippedCount > 0) {
+    reportError(new Error("Invalid publication snapshots"), {
+      feature: "community",
+      extras: { skippedCount },
+    });
+  }
+  return { publications, fetchedCount: data.length };
 }
 
 async function listOwnPublications(): Promise<PublicationRow[]> {
