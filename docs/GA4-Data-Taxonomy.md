@@ -14,7 +14,7 @@
 | 핵심 가치 행동 파악 | 어떤 행동이 LinKU의 핵심 가치를 보여주는가 | link click rate, template apply rate, alert/todo usage |
 | 기능 채택 파악 | 사용자가 어떤 기능을 실제로 쓰는가 | feature adoption by domain |
 | 템플릿 기능 성과 파악 | 템플릿 생성/저장/적용 흐름이 잘 작동하는가 | local editor conversion funnel |
-| 계정 연동 파악 | 로그인/이메일 인증이 사용성에 어떤 영향을 주는가 | login start -> success, guest -> verified |
+| 계정 연동 파악 | 선택적 Google 로그인이 사용성에 어떤 영향을 주는가 | login start -> success |
 
 ## Principles
 
@@ -90,11 +90,17 @@ tracker 차단, offline, timeout으로 전송하지 못한 이벤트는 조용�
 | `error_code` | string | 실패 코드 | `network_error`, `auth_required` |
 | `error_message` | string | 사람이 읽는 에러 설명 | `sync_failed` |
 | `is_logged_in` | boolean | 로그인 상태 | `true` |
-| `is_guest` | boolean | 게스트 회원 여부 | `false` |
+| `is_guest` | boolean | 로그인 성공 이벤트의 호환 필드, 현재 Google 로그인은 항상 false | `false` |
 
 > **구현 상태 표기**
+>
 > - `구현됨` — `analytics.ts`에 헬퍼 함수가 존재하고 call site에 연결됨
 > - `미구현` — taxonomy에 정의됐으나 아직 헬퍼/call site 없음
+> - `폐기` — 더 이상 수집하지 않는 이벤트
+
+상태는 소스 코드 기준이며 운영 GA 수신 증빙은 아닙니다. 아래 표의 논리 이벤트명과
+실제 전송 이름이 다른 경우 하단의 구현 레퍼런스를 사용합니다. QA는 전송 payload와
+Realtime/DebugView 수신을 별도로 확인하며 사용자 식별정보·템플릿 본문은 보내지 않습니다.
 
 ## Lifecycle Events
 
@@ -137,7 +143,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | --- | --- | --- | --- | --- |
 | `template_editor_open` | 구현됨 | 에디터 진입률 측정 | `template_origin`, `template_id?` | P1 |
 | `template_create_start` | 구현됨 | 새 템플릿 생성 진입 | `template_origin`=`default\|empty` | P1 |
-| `template_name_edit` | 구현됨 | 에디터 사용성 파악 | `template_id` | P3 |
+| `template_name_edit` | 폐기 | 별도 이름 편집 이벤트 없이 저장 성공에 포함 | `template_id` | P3 |
 | `template_item_add` | 구현됨 | 에디터 내 핵심 편집 행위 | `add_method`(`drag`\|`button`), `template_id?` | P1 |
 | `template_item_update` | 구현됨 | 링크/아이콘/속성 수정 | `update_type`, `template_id` | P2 |
 | `template_item_delete` | 구현됨 | 아이템 삭제 행위 | `delete_source`, `template_id` | P2 |
@@ -156,8 +162,9 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `template_clone_fail` | 미구현 | 복제 실패 | `posted_template_id`, `error_code`, `error_message?` | P2 |
 | `template_like_toggle` | 미구현 | 좋아요 사용 | `posted_template_id`, `is_liked` | P2 |
 
-동기화·게시·커뮤니티 helper와 call site는 후속 stateful PR에서 실제 기능과 함께
-추가합니다. stateless PR에서는 전송되지 않는 이벤트를 구현된 것으로 표시하지 않습니다.
+Supabase 동기화·게시·커뮤니티 기능 자체는 구현되어 있지만 위 `미구현` 이벤트의 helper와
+call site는 아직 없습니다. 기능 구현과 분석 수집 구현을 구분하며, 이 이벤트로 운영 성과를
+측정할 수 있다고 표시하지 않습니다.
 
 ## Alerts / Todo / Labs Events
 
@@ -165,7 +172,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 
 | Event Name | 상태 | 목적 | 주요 Params | 우선순위 |
 | --- | --- | --- | --- | --- |
-| `alerts_view_open` | 구현됨 | 공지 탭 사용 여부 | `view_mode`(`all`\|`my`), `category` | P2 |
+| `alerts_view_open` | 구현됨 | 공지 탭 사용 여부 | `view_mode`(=`all`), `category` | P2 |
 | `alerts_item_open` | 구현됨 | 공지 클릭률 | `alert_id`, `category`, `source`(=`general`) | P2 |
 | `todo_view_open` | 구현됨 | Todo 기능 사용 여부 | `todo_count` | P2 |
 | `todo_item_create` | 구현됨 | Todo 입력 | `source`, `has_due_date` | P2 |
@@ -184,6 +191,14 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `system_error` | 구현됨 | runtime 오류 집계 | `error_code`, `error_message`, `screen_name?` | P1 |
 
 ## Migration History
+
+### Supabase 전환
+
+- KU 이메일 인증과 학과 구독 기능 폐기에 따라 `MP_authEmailVerification_start/success`,
+  `MP_alertsSubscription_update` 수집을 종료했습니다. 과거 보고서 해석을 위한 이름만 보존합니다.
+- `MP_authLogin_success`의 `is_guest`는 이전 보고서 호환용이며 현재 값은 항상 `false`입니다.
+- `MP_alerts_view`의 `view_mode`는 `all`, `MP_alertsItem_open`의 `source`는 `general`입니다.
+- 동기화·게시·커뮤니티 이벤트의 수집 여부는 위 구현 상태 표를 기준으로 판단합니다.
 
 ### v1.5.46 → GA4-MP 브랜치 (최초 택소노미 도입)
 
@@ -290,7 +305,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `extension_open` | 팝업 열기 | 실제 사용 시작 기록 | `screen_name`, `entry_point` | `App.tsx · useEffect → sendExtensionOpen` | - |
 | `extension_session_start` | 세션 시작 | 세션 기준 정의 | `screen_name`, `entry_point` | `App.tsx · sendExtensionOpen` 내부 자동 처리 | 30분 inactivity 초과 시에만 전송 |
 | `navigation_tab_view` | 다이얼로그 탭 노출 | 실제로 표시된 실험실·설정 탭 측정 | `feature_area`, `tab_name`, `ui_location`, `view_source` | `usePersistentDialogTab.ts` | 기본값·복원·사용자 선택을 구분 |
-| `MP_alerts_view` | 공지 탭 진입 | 공지 탭 사용 여부 | `view_mode`, `category` | `Alerts.tsx · initialize()` | - |
+| `MP_alerts_view` | 공지 탭 진입 | 공지 탭 사용 여부 | `view_mode`, `category` | `Alerts.tsx · useEffect` | `view_mode=all` |
 | `MP_alertsItem_open` | 공지 클릭 | 공지 클릭률 측정 | `alert_id`, `category`, `source` | `AlertItem.tsx · handleClick` | - |
 | `MP_authLogin_fail` | 로그인 실패 | 로그인 장애 파악 | `provider`, `error_code`, `error_message` | `SettingsDialog.tsx · handleGoogleLogin` (결과·예외 분기) | - |
 | `MP_authLogin_start` | 로그인 시도 | 로그인 의도 파악 | `provider`, `ui_location` | `SettingsDialog.tsx · handleGoogleLogin` | - |
@@ -310,7 +325,7 @@ LinKU의 가장 기본 가치인 "교내외 링크를 빠르게 연다"를 측�
 | `MP_templateItem_add` | 아이템 추가 | 에디터 핵심 편집 행위 | `add_method`(`drag`\|`button`), `template_id?` | `EditorPage.tsx · handleDragEnd`, `ItemPropertiesPanel.tsx · handleMoveToCanvas` | - |
 | `MP_templateItem_delete` | 아이템 삭제 | 아이템 삭제 행위 | `delete_source`(`canvas`\|`staging`), `template_id?` | `ItemPropertiesPanel.tsx · handleDelete` | `canvas`: 임시저장 이동, `staging`: 영구삭제 |
 | `MP_templateItem_update` | 아이템 속성 수정 | 아이템 속성 수정 측정 | `update_type`, `template_id?` | `ItemPropertiesPanel.tsx · handleSave` | `update_type` 항상 `"properties"` — 향후 세분화 시 개선 가능 |
-| `MP_templateSave_fail` | 저장 실패 | 저장 실패 파악 | `template_id`, `error_code`, `error_message` | `EditorHeader.tsx · handleSave` | draft 저장 실패 시 `template_id=0` 전송 (ID 생성 전) |
+| `MP_templateSave_fail` | 저장 실패 | 저장 실패 파악 | `template_id`, `error_code`, `error_message` | `EditorHeader.tsx · handleSave` | 첫 저장 실패 시 `template_id=0` 전송 (ID 생성 전, 자동 draft 저장 아님) |
 | `MP_templateSave_success` | 저장 성공 | 로컬 저장 완료 | `template_id`, `template_origin`, `item_count` | `EditorHeader.tsx · handleSave` | - |
 | `MP_todoItem_complete` | Todo 완료 체크 | Todo 완료율 측정 | `item_type` | `TodoList.tsx · handleToggleTodo` | `custom` 타입만 전송 (eCampus todo는 완료 토글 UI 없음) |
 | `MP_todoItem_create` | Todo 추가 | Todo 입력 파악 | `source`, `has_due_date` | `TodoAddDialog.tsx · handleSubmit` | - |
