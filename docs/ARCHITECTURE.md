@@ -23,7 +23,7 @@ extension API가 필요한 작업은 background가 담당합니다. content scri
 - `src/storage/indexedDb/`: IndexedDB schema와 version upgrade
 - `src/storage/templates/`: 템플릿·아이콘·백업 repository
 - `src/storage/account/`: 동기화 outbox, 계정 binding과 sync metadata
-- `src/sync/`: 로컬 모델과 클라우드 문서 codec
+- `src/sync/`: 로컬 모델과 클라우드 문서 codec, 아이콘 revision·삭제 동기화
 - `src/utils/accountSync.ts`: outbox 처리, 원격 반영과 충돌 복구 orchestration
 - `src/apis/supabase/`: Auth, Postgres RPC/RLS와 Storage adapter
 - `src/apis/external/`: 학교·외부 서비스의 공개 연동
@@ -84,11 +84,14 @@ Sentry로 보내지 않습니다.
 - Google client ID/secret, service-role key는 extension과 저장소에 넣지 않습니다.
 - OAuth는 background의 `chrome.identity.launchWebAuthFlow`와 PKCE를 사용합니다.
 - session은 `chrome.storage.local`에 저장하며 background 시작 시 접근을
-  `TRUSTED_CONTEXTS`로 제한합니다. 현재 제한 실패는 로그만 남기므로, 인증 저장을
-  반드시 중단하는 보강은 아직 필요합니다.
+  `TRUSTED_CONTEXTS`로 제한합니다. 인증 adapter도 읽기·쓰기 전에 같은 제한의 완료를
+  기다립니다. 실패하면 해당 인증 작업을 거부하고 다음 요청에서 재검증합니다.
+- 빌드와 client 생성 시 공개 publishable/anon 키만 허용하여 비공개 키 설정을 거부합니다.
 - 사용자별 row와 object path는 RLS/Storage policy로 격리합니다.
 - account RPC와 policy는 signed JWT의 Google provider를 다시 검사합니다.
 - template document와 WebP asset은 client와 database 양쪽에서 크기·형식을 제한합니다.
+- 개인 icon mutation은 RPC의 소유권·revision·참조 검사로 제한합니다. 파일은 metadata
+  삭제 후 Storage API로 정리하며, 직접 metadata 쓰기와 등록된 파일의 삭제·덮어쓰기는 거부합니다.
 
 `supabase/migrations/`가 schema의 단일 진실 원천이고 `src/types/supabase.ts`는 그
 schema의 TypeScript contract입니다. Edge Function, Worker, Realtime과 cron은 사용하지

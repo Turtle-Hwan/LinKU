@@ -10,8 +10,8 @@ LinKU의 Sentry 연동은 Chrome Extension의 세 런타임을 같은 프로젝�
 
 정적 GitHub Pages site는 이 범위에서 의도적으로 제외합니다.
 `pnpm run build:gh-pages`가 Rollup module graph를 검사해 `src/monitoring`이나
-Sentry SDK가 Pages 산출물에 섞이면 해당 빌드를 실패시킵니다. 현재 PR CI에는 Pages 빌드가
-없으므로 로컬에서 별도로 실행해야 합니다. `main`의 Pages 배포 workflow에서는 실행됩니다.
+Sentry SDK가 Pages 산출물에 섞이면 해당 빌드를 실패시킵니다. PR CI와 `main`의 Pages
+배포 workflow 모두 이 별도 빌드를 실행합니다.
 
 ## 모듈 경계
 
@@ -67,9 +67,9 @@ DSN이 없는 개발 빌드는 collector를 초기화하지 않으므로 로컬 
 하위 함수가 로그를 남긴 뒤 다시 throw하여 같은 오류가 여러 issue가 되는 일을 막습니다.
 `debugLog`와 `infoLog`도 console 전용입니다.
 
-현재 scrubber는 이름표 없는 JWT·`sb_secret_*` 원문까지 식별하지는 않습니다.
-이를 포함한 마스킹 보강은 아직 필요하며, scrubber는 토큰을 로그 인자로 전달해도 된다는
-보장이 아닙니다. OAuth code·PKCE verifier·세션은 원천적으로 로깅하지 않고, 회귀 테스트는
+scrubber는 민감 필드뿐 아니라 이름표 없는 일반 JWT·`sb_secret_*`·Google client secret
+형식도 마스킹합니다. 모든 비밀값을 식별한다는 보장은 아니며, OAuth code·PKCE verifier·
+세션은 원천적으로 로깅하지 않습니다. 회귀 테스트는
 실제 비밀값 대신 합성 값으로 작성합니다.
 
 하위 저장소 함수가 오류를 다시 throw할 때는 그 자리에서 중복 수집하지 않습니다. toast나

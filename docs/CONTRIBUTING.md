@@ -29,6 +29,7 @@ pnpm exec supabase status
 pnpm exec supabase db reset
 pnpm exec supabase db lint --level warning
 pnpm exec supabase test db
+pnpm run test:supabase-assets
 pnpm exec supabase stop
 ```
 
@@ -50,6 +51,11 @@ Google client ID/secret은 로컬 ignored environment 또는 Supabase provider �
 두고 `VITE_` 변수, source, fixture나 문서에 값을 기록하지 않습니다.
 Google Cloud의 Authorized redirect URI에는 chromiumapp URL이 아니라 Supabase Dashboard가
 표시하는 `/auth/v1/callback` URL을 등록합니다.
+
+`test:supabase-assets`는 loopback 주소에서만 실행하며 임시 사용자와 로컬 서명 claim으로
+실제 REST/Storage API의 CRUD·소유권·참조 경합·물리 파일 삭제를 확인한 뒤 fixture를 정리합니다.
+Email provider를 켜지 않고 실행할 수 있으며 실제 Google 로그인 검증을 대신하지 않습니다.
+격리된 CLI 작업 폴더는 `--workdir <local-test-directory>`로 지정할 수 있습니다.
 
 기본 로컬 설정은 Google provider가 꺼져 있습니다. 실제 OAuth를 로컬에서 검증할 때는
 로컬 전용 Supabase 설정에서 Google provider를 켜고 CLI 실행 환경에 `GOOGLE_CLIENT_ID`,
@@ -88,9 +94,9 @@ GA의 `VITE_GA_API_SECRET`은 direct 전송을 위해 확장 번들에 포함하
 노출 위험과 실패 정책은 [GA4 Data Taxonomy](GA4-Data-Taxonomy.md)를 따릅니다.
 
 PR 전에는 변경 파일뿐 아니라 커밋 이력·빌드 산출물·PR 설명·첨부물도 검사하고,
-검사 결과에 원문 비밀값을 출력하지 않습니다. 현재 공개 키 형식에 대한 빌드 차단과
-저장소 접근 제한 실패 시 인증 중단은 자동 보장되지 않습니다. 이 보강이 완료되기 전에는
-설정·산출물을 직접 확인하고, 로그 마스킹만 믿고 토큰을 전달하지 마세요.
+검사 결과에 원문 비밀값을 출력하지 않습니다. 빌드/client는 공개 publishable/anon 키만
+허용하고, 인증 adapter는 저장소 접근 제한에 실패하면 읽기·쓰기를 중단합니다. 이 검사는
+전체 비밀값 검사를 대체하지 않으므로 설정·산출물을 확인하고 로그에 토큰을 전달하지 마세요.
 
 ## 검증
 
@@ -142,11 +148,9 @@ release workflow는 공개 갤러리 응답과 새 게시 RPC의 익명 접근 �
 이전 버전이거나 익명 쓰기가 허용되면 Web Store draft 업로드를 중단합니다.
 
 PR CI는 lint, extension build, local-first template, monitoring, analytics와 시간표 계약을
-검사합니다. Chromium 설치가 필요한 MV3 Playwright, Docker 기반 Supabase pgTAP과 전체
-기능 회귀는 관련 변경에서 로컬로 실행하고 결과를 PR에 기록합니다. 현재 PR CI에는
-Pages 빌드 단계가 없으므로 `pnpm run build:gh-pages`를 로컬에서 별도로 확인해야 합니다.
-확장과 Pages는 진입점·설정이 달라 확장 빌드로 대체할 수 없으며, PR의 사전 검사 복원이
-필요합니다. `main`의 Pages 빌드·배포는 유지됩니다.
+검사하고 Pages도 별도 진입점으로 빌드합니다. Chromium 설치가 필요한 MV3 Playwright,
+Docker 기반 Supabase pgTAP·실제 Storage API 검증과 전체 기능 회귀는 관련 변경에서
+로컬로 실행하고 결과를 PR에 기록합니다. `main`의 Pages 빌드·배포도 유지됩니다.
 
 ## PR과 릴리즈
 
