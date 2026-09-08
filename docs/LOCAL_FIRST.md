@@ -9,7 +9,7 @@ LinKU의 로컬 저장이 제품의 기본 경로이고 Supabase 계정 동기�
 | --- | --- | --- |
 | 템플릿 생성·조회·수정·적용 | IndexedDB `templates` | 정상 동작 |
 | 미게시 템플릿 삭제 | IndexedDB `templates` + outbox | 로컬 삭제 후 원격 작업 대기 |
-| 사용자 아이콘 | IndexedDB `assets` | 업로드·목록·템플릿 적용 가능 |
+| 사용자 아이콘 CRUD | IndexedDB `assets` + outbox | 생성·조회·이름 변경·미사용 삭제 가능, 원격 작업 대기 |
 | 편집 draft | IndexedDB `drafts` | 이전 draft 보관만 지원, 자동 저장 UI 미연결 |
 | 적용 중인 템플릿 ID | `chrome.storage.local` | popup 재실행 후 유지 |
 | 전체 백업·복원 | JSON file | 정상 동작 |
@@ -23,8 +23,8 @@ LinKU의 로컬 저장이 제품의 기본 경로이고 Supabase 계정 동기�
 현재 DB 이름은 `linku`, version은 5입니다. 배포된 local-only version 4에서 다음
 store만 additive하게 추가합니다.
 
-- `outbox`: template의 마지막 put/delete, asset의 put 작업
-- `syncMeta`: remote revision, content hash, 게시 snapshot 상태
+- `outbox`: template·asset의 마지막 put/delete 작업
+- `syncMeta`: remote revision, content hash, 게시 snapshot 상태, 원격 아이콘 삭제 여부
 - `settings`: 최초 연결한 account ID
 
 기존 `templates`, `drafts`, `assets`, `migrations`, `quarantine`는 다시 쓰거나
@@ -48,7 +48,8 @@ transaction입니다. 따라서 로컬 성공 뒤 동기화 항목이 사라지�
   기록합니다. 실패하면 현재 작업도 실패로 알립니다. 원본은 남기되 사용자가 템플릿을
   삭제하면 해당 legacy 원본도 제거하여 다음 실행에 되살아나지 않게 합니다.
 - 인라인 아이콘의 숫자 ID가 없거나 다른 이미지를 가리키면 실제 이미지로 재등록하여
-  편집을 복구합니다. 사용자 아이콘은 최대 256px WebP로 정규화합니다.
+  편집을 복구합니다. 단, 다른 기기에서 삭제된 아이콘은 자동 재등록하지 않습니다.
+  사용자 아이콘은 최대 256px WebP로 정규화합니다.
 - 백업은 모든 로컬 템플릿과 **그 템플릿이 참조하는 아이콘**을 담습니다. 미사용 아이콘,
   시간표, 인증 세션은 포함하지 않으며 격리 원본은 별도 복구 파일로 내보냅니다.
 - 백업 내보내기와 복원 모두 10 MiB 제한을 적용합니다. 파일 envelope·아이콘을 검증한 뒤
@@ -59,17 +60,33 @@ transaction입니다. 따라서 로컬 성공 뒤 동기화 항목이 사라지�
 
 ## 동기화 규칙
 
-1. 아이콘을 먼저 올립니다.
+1. 아이콘 생성·이름 변경을 먼저 동기화합니다. 이름 변경은 이미지 재업로드 없이 metadata만 전송합니다.
 2. 템플릿은 마지막으로 본 remote revision을 함께 전송합니다.
 3. revision이 맞으면 remote revision을 증가시키고 outbox를 지웁니다.
 4. 충돌하면 로컬 변경을 새 UUID의 복사본으로 보존하고 remote 최신본을 적용합니다.
-5. remote tombstone은 다른 기기의 로컬 항목을 삭제합니다.
+5. 템플릿 변경 뒤 아이콘 삭제를 처리합니다. 템플릿 tombstone은 다른 기기의 로컬 항목을 삭제합니다.
 
-무료 Postgres에 삭제 이력이 끝없이 쌓이지 않도록 계정별 최신 tombstone 100개를
+무료 Postgres에 템플릿 삭제 이력이 끝없이 쌓이지 않도록 계정별 최신 tombstone 100개를
 유지합니다. 그보다 오래 오프라인이었던 기기에서 이미 정리된 항목이 다시 발견되면
 원격본을 덮지 않고 새 UUID의 충돌 복사본으로 복구합니다.
 
-자동 동기화는 로그인 직후, 온라인 복귀와 로컬 템플릿 변경 때 실행합니다. 같은
+개인 아이콘은 별도 서버 tombstone 없이 전체 목록과 마지막 동기화 기록을 비교합니다.
+생성·이름 변경마다 DB sequence로 새 revision을 발급하므로, 삭제 후 같은 이미지를 다시
+올려도 오래된 기기의 rename/delete가 적용되지 않습니다. 이름 충돌은 서버 최신 이름을
+반영하며 이미지 복사본은 만들지 않습니다.
+
+편집기의 `내 아이콘 관리`는 저장 전 canvas·staging에서 사용 중인 아이콘의 삭제를 막습니다.
+repository는 저장된 template·legacy draft 참조를 같은 transaction에서 다시 검사합니다.
+서버도 계정 잠금 안에서 소유권·revision·활성 template의 canvas/staging 참조를 검사하며,
+`put_template`은 미등록 아이콘 참조를 거부합니다. 다른 기기의 참조 때문에 삭제가 거절되면
+로컬 아이콘을 복구하고 이유를 알립니다.
+
+원격 삭제는 metadata 삭제 후 Storage API로 파일을 삭제합니다. 파일 정리가 실패하면
+outbox를 유지해 재시도하며, 등록된 파일의 직접 삭제·덮어쓰기는 Storage policy가 거부합니다.
+확인된 삭제는 로컬 blob도 정리합니다. 아직 로컬 템플릿에만 참조가 남아 있다면 원본 이미지와
+삭제 표시를 보관하되 목록에서 숨기고 재업로드하지 않아, 사용자가 아이콘을 다시 선택할 수 있습니다.
+
+자동 동기화는 로그인 직후, 온라인 복귀와 로컬 템플릿·아이콘 변경 때 실행합니다. 같은
 runtime의 중복 실행은 하나의 promise로 합치고, 진행 중 추가된 요청은 다음 회차에서
 처리합니다. popup·확장 페이지·background 간에는 Web Locks로 동기화와 계정 전환을
 직렬화합니다. 모든 동기화는 현재 Google 세션과 로컬 account binding이 같은지 확인한
@@ -127,8 +144,20 @@ Google profile과 내부 account ID는 포함하지 않습니다. 원본의 공�
 유지합니다. 자체 JWT는 Supabase Google Auth로, 템플릿 API는 local-first 저장·동기화와
 공개 snapshot 게시로 대체합니다.
 
-개인 아이콘의 **이름 변경·개별 삭제는 폐기된 요구가 아니라 아직 이관하지 못한 기능**입니다.
-현재 로컬 repository와 동기화는 생성·조회만 지원하며, 동일 hash의 이름 변경이나 원격 삭제를
-다른 기기에 전파하지 않습니다. 게시용 미사용 파일 정리와 전체 클라우드 데이터 삭제는
-별도로 동작하지만 개인 아이콘 CRUD를 대신하지 않습니다. 완전한 이관에는 이름 변경,
-사용 중 삭제 차단, 오프라인 재시도·다기기 반영과 권한 테스트가 필요합니다.
+| 기존 사용자 기능 | 현재 구현 |
+| --- | --- |
+| Google 로그인·세션 갱신 | Supabase Google Auth·PKCE, KU 인증 없이 사용 |
+| 템플릿 생성·상세·수정·삭제 | IndexedDB repository + revision 기반 계정 동기화 |
+| 내가 만든/가져온 템플릿 검색·최신/오래된순 | 로컬 목록 필터·정렬 |
+| 사용자 아이콘 생성·목록·이름 변경·개별 삭제 | `내 아이콘 관리` + asset repository/outbox + 소유권·참조 검증 RPC |
+| 기본 아이콘 목록 | 확장 번들 상수, 서버 요청 없음 |
+| 게시·내 게시물·공개 검색/정렬·상세·게시 내리기 | 갤러리의 `내 게시물` 필터·snapshot 미리보기, 최신/오래된/좋아요/복제순 |
+| 게시물 복제·좋아요/취소 | 로컬 복사본 + 로그인 시 counter/like 반영 |
+
+템플릿 수정·삭제가 **개인 아이콘 전체를 자동 정리하는 것은 아닙니다.** 개인 아이콘 CRUD,
+게시용 미사용 파일 정리, 전체 클라우드 데이터 삭제는 서로 다른 수명주기입니다. 게시물은
+별도 공개 이미지 복사본을 사용하므로 개인 아이콘의 이름 변경이 게시 snapshot을 바꾸지 않습니다.
+게시 내용 hash도 라이브러리 이름이 아니라 이미지 hash를 비교하므로 이름 변경만으로 게시물
+업데이트를 요구하지 않습니다. backend의 직접 업로드 20 MiB 상한과 달리 확장 UI의 원본 5 MiB
+제한을 유지하고, 같은 이미지 bytes는 하나의 개인 아이콘으로 중복 제거합니다.
+과거 REST URL 자체의 호환성을 유지하는 방식은 아닙니다.
