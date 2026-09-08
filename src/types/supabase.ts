@@ -104,7 +104,6 @@ export type Database = {
       }
       template_publications: {
         Row: {
-          author_nickname: string
           clone_count: number
           like_count: number
           owner_id: string
@@ -117,7 +116,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          author_nickname: string
           clone_count?: number
           like_count?: number
           owner_id: string
@@ -130,7 +128,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          author_nickname?: string
           clone_count?: number
           like_count?: number
           owner_id?: string
@@ -251,7 +248,6 @@ export type Database = {
           p_template_id: string
         }
         Returns: {
-          author_nickname: string
           clone_count: number
           like_count: number
           owner_id: string
@@ -305,7 +301,6 @@ export type Database = {
       unpublish_template: {
         Args: { p_expected_revision: number; p_template_id: string }
         Returns: {
-          author_nickname: string
           clone_count: number
           like_count: number
           owner_id: string

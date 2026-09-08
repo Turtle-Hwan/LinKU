@@ -45,21 +45,6 @@ type BrowseRow =
 
 const PUBLIC_BUCKET = "published-template-assets";
 
-function mapOwnPublication(row: PublicationRow): TemplatePublication {
-  return {
-    templateId: row.template_id,
-    snapshot: parsePublishedTemplateSnapshot(row.snapshot),
-    revision: row.revision,
-    sourceContentHash: row.source_content_hash,
-    authorNickname: row.author_nickname,
-    likeCount: row.like_count,
-    cloneCount: row.clone_count,
-    publishedAt: row.published_at,
-    updatedAt: row.updated_at,
-    unpublishedAt: row.unpublished_at,
-  };
-}
-
 function mapBrowsePublication(row: BrowseRow): TemplatePublication {
   return {
     templateId: row.template_id,
@@ -90,14 +75,12 @@ export async function browsePublications(options: {
   return data.map(mapBrowsePublication);
 }
 
-export async function listOwnPublications(): Promise<TemplatePublication[]> {
+async function listOwnPublications(): Promise<PublicationRow[]> {
   const { data, error } = await getSupabaseClient()
     .from("template_publications")
-    .select(
-      "template_id, owner_id, snapshot, source_content_hash, revision, author_nickname, like_count, clone_count, published_at, updated_at, unpublished_at",
-    );
+    .select("*");
   if (error) throw toSupabaseUserError(error, "게시 상태를 불러오지 못했습니다.");
-  return data.map(mapOwnPublication);
+  return data;
 }
 
 function assetHashes(document: CloudTemplateDocumentV1 | PublishedTemplateSnapshotV1) {
@@ -181,43 +164,41 @@ async function removeUnreferencedPublicAssets(
 }
 
 async function savePublicationMetadata(
-  publication: TemplatePublication,
+  publication: PublicationRow,
   isPublished: boolean,
 ): Promise<void> {
   const accountId = await requireSyncAccount();
-  const key = syncMetadataKey(accountId, "template", publication.templateId);
+  const key = syncMetadataKey(accountId, "template", publication.template_id);
   const metadata = await getSyncMetadata(key);
   await setSyncMetadata({
     ...metadata,
     key,
     publicationRevision: publication.revision,
-    publishedContentHash: publication.sourceContentHash,
+    publishedContentHash: publication.source_content_hash,
     isPublished,
   });
 }
 
-export async function refreshPublicationMetadata(): Promise<
-  Map<string, TemplatePublication>
-> {
-  return withAccountLock(readPublicationMetadata);
+export async function refreshPublicationMetadata(): Promise<void> {
+  await withAccountLock(readPublicationMetadata);
 }
 
-async function readPublicationMetadata(): Promise<Map<string, TemplatePublication>> {
+async function readPublicationMetadata(): Promise<Map<string, PublicationRow>> {
   const accountId = await requireSyncAccount();
   const publications = await listOwnPublications();
-  const active = new Map<string, TemplatePublication>();
+  const active = new Map<string, PublicationRow>();
   for (const publication of publications) {
-    if (!publication.unpublishedAt) {
-      active.set(publication.templateId, publication);
+    if (!publication.unpublished_at) {
+      active.set(publication.template_id, publication);
     }
   }
   await replacePublicationMetadata(
     accountId,
     publications.map((publication) => ({
-      templateId: publication.templateId,
+      templateId: publication.template_id,
       revision: publication.revision,
-      contentHash: publication.sourceContentHash,
-      isPublished: !publication.unpublishedAt,
+      contentHash: publication.source_content_hash,
+      isPublished: !publication.unpublished_at,
     })),
   );
   return active;
@@ -225,7 +206,7 @@ async function readPublicationMetadata(): Promise<Map<string, TemplatePublicatio
 
 export async function publishLocalTemplate(
   templateId: string,
-): Promise<TemplatePublication> {
+): Promise<void> {
   const syncResult = await syncAccount();
   if (syncResult.failed > 0) {
     throw new UserFacingError(
@@ -235,7 +216,7 @@ export async function publishLocalTemplate(
   return withAccountLock(() => publishSyncedTemplate(templateId));
 }
 
-async function publishSyncedTemplate(templateId: string): Promise<TemplatePublication> {
+async function publishSyncedTemplate(templateId: string): Promise<void> {
   const activePublications = await readPublicationMetadata();
 
   const stored = await findTemplateBySyncId(templateId);
@@ -244,7 +225,7 @@ async function publishSyncedTemplate(templateId: string): Promise<TemplatePublic
   const contentHash = await hashPublishedTemplate(document);
   const previousPublication = activePublications.get(templateId);
   const previousHashes = previousPublication
-    ? assetHashes(previousPublication.snapshot)
+    ? assetHashes(parsePublishedTemplateSnapshot(previousPublication.snapshot))
     : new Set<string>();
 
   const accountId = await requireSyncAccount();
@@ -252,7 +233,7 @@ async function publishSyncedTemplate(templateId: string): Promise<TemplatePublic
     syncMetadataKey(accountId, "template", templateId),
   );
   let hashes: Set<string>;
-  let publication: TemplatePublication;
+  let publication: PublicationRow;
   try {
     hashes = await uploadPublishedAssets(templateId, document, previousHashes);
     const { data, error } = await getSupabaseClient().rpc("publish_template", {
@@ -261,7 +242,7 @@ async function publishSyncedTemplate(templateId: string): Promise<TemplatePublic
       p_expected_revision: metadata?.publicationRevision,
     });
     if (error) throw toSupabaseUserError(error, "템플릿을 게시하지 못했습니다.");
-    publication = mapOwnPublication(data);
+    publication = data;
   } catch (error) {
     try {
       await removeUnreferencedPublicAssets(templateId, previousHashes);
@@ -296,7 +277,6 @@ async function publishSyncedTemplate(templateId: string): Promise<TemplatePublic
       "warning",
     );
   }
-  return publication;
 }
 
 export async function unpublishLocalTemplate(
@@ -321,7 +301,7 @@ async function unpublishSyncedTemplate(templateId: string): Promise<void> {
   });
   if (error) throw toSupabaseUserError(error, "게시를 내리지 못했습니다.");
   try {
-    await savePublicationMetadata(mapOwnPublication(data), false);
+    await savePublicationMetadata(data, false);
   } catch {
     recordBreadcrumb(
       "community.unpublish",
@@ -448,9 +428,9 @@ async function clearCloudData(): Promise<void> {
 
   const publications = await listOwnPublications();
   for (const publication of publications) {
-    if (publication.unpublishedAt) continue;
+    if (publication.unpublished_at) continue;
     const { error: unpublishError } = await client.rpc("unpublish_template", {
-      p_template_id: publication.templateId,
+      p_template_id: publication.template_id,
       p_expected_revision: publication.revision,
     });
     if (unpublishError) {

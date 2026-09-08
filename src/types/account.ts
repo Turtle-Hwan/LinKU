@@ -58,13 +58,11 @@ export interface TemplatePublication {
   templateId: string;
   snapshot: PublishedTemplateSnapshotV1;
   revision: number;
-  sourceContentHash?: string;
   authorNickname: string;
   likeCount: number;
   cloneCount: number;
   publishedAt: string;
   updatedAt: string;
-  unpublishedAt?: string | null;
   isLiked?: boolean;
 }
 

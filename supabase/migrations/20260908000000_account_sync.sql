@@ -46,7 +46,6 @@ create table public.template_publications (
   snapshot jsonb not null,
   source_content_hash text not null,
   revision bigint not null default 1,
-  author_nickname text not null,
   like_count bigint not null default 0,
   clone_count bigint not null default 0,
   published_at timestamptz not null default now(),
@@ -54,9 +53,6 @@ create table public.template_publications (
   unpublished_at timestamptz,
   constraint publications_hash_format check (source_content_hash ~ '^[0-9a-f]{64}$'),
   constraint publications_revision_positive check (revision > 0),
-  constraint publications_author_length check (
-    char_length(btrim(author_nickname)) between 1 and 32
-  ),
   constraint publications_counts_nonnegative check (like_count >= 0 and clone_count >= 0),
   constraint publications_snapshot_size check (pg_column_size(snapshot) <= 262144)
 );
@@ -480,11 +476,6 @@ begin
   on conflict (user_id) do update set nickname = excluded.nickname
   returning * into updated_profile;
 
-  update public.template_publications
-  set author_nickname = normalized,
-      updated_at = now()
-  where owner_id = current_user_id and unpublished_at is null;
-
   return updated_profile;
 end;
 $$;
@@ -502,7 +493,6 @@ as $$
 declare
   current_user_id uuid := linku_private.require_user();
   source public.templates;
-  profile public.profiles;
   current_publication public.template_publications;
   public_snapshot jsonb;
   saved public.template_publications;
@@ -531,8 +521,7 @@ begin
     raise exception using errcode = '40001', message = 'LINKU_CONFLICT';
   end if;
 
-  select * into profile from public.profiles where user_id = current_user_id;
-  if not found then
+  if not exists (select 1 from public.profiles where user_id = current_user_id) then
     raise exception using errcode = 'P0002', message = 'PROFILE_NOT_FOUND';
   end if;
 
@@ -559,9 +548,9 @@ begin
     end if;
 
     insert into public.template_publications (
-      template_id, owner_id, snapshot, source_content_hash, author_nickname
+      template_id, owner_id, snapshot, source_content_hash
     ) values (
-      p_template_id, current_user_id, public_snapshot, source.content_hash, profile.nickname
+      p_template_id, current_user_id, public_snapshot, source.content_hash
     ) returning * into saved;
     return saved;
   end if;
@@ -584,7 +573,6 @@ begin
   set snapshot = public_snapshot,
       source_content_hash = source.content_hash,
       revision = revision + 1,
-      author_nickname = profile.nickname,
       updated_at = now(),
       published_at = case when unpublished_at is null then published_at else now() end,
       unpublished_at = null
@@ -668,7 +656,7 @@ begin
     publication.template_id,
     publication.snapshot,
     publication.revision,
-    publication.author_nickname,
+    profile.nickname,
     publication.like_count,
     publication.clone_count,
     publication.published_at,
@@ -679,11 +667,12 @@ begin
         and liked.user_id = auth.uid()
     ) as is_liked
   from public.template_publications publication
+  join public.profiles profile on profile.user_id = publication.owner_id
   where publication.unpublished_at is null
     and (
       search_text = ''
       or publication.snapshot ->> 'name' ilike '%' || search_text || '%'
-      or publication.author_nickname ilike '%' || search_text || '%'
+      or profile.nickname ilike '%' || search_text || '%'
     )
   order by
     case when p_sort = 'likes' then publication.like_count end desc,
