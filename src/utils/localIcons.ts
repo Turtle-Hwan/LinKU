@@ -1,4 +1,5 @@
-import { listAssets, saveAsset } from "@/storage/templates/assetRepository";
+import { deleteAsset, listAssets, renameAsset, saveAsset } from "@/storage/templates/assetRepository";
+import { listLocalTemplates } from "@/storage/templates/repository";
 import type { StoredAsset } from "@/storage/indexedDb/linkuDatabase";
 import type { Icon } from "@/types/api";
 
@@ -21,4 +22,20 @@ export async function createLocalIcon(
 
 export async function listLocalIcons(): Promise<Icon[]> {
   return (await listAssets()).map(toIcon);
+}
+
+function notifyIconChange(): void {
+  window.dispatchEvent(new Event("linku:icons-changed"));
+  window.dispatchEvent(new Event("linku:templates-changed"));
+}
+
+export async function renameLocalIcon(id: number, name: string): Promise<void> {
+  await renameAsset(id, name);
+  notifyIconChange();
+}
+
+export async function deleteLocalIcon(id: number): Promise<void> {
+  await listLocalTemplates();
+  await deleteAsset(id);
+  notifyIconChange();
 }

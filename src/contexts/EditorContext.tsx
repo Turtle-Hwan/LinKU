@@ -338,6 +338,20 @@ interface EditorProviderProps {
 export const EditorProvider = ({ children, templateId, startFrom }: EditorProviderProps) => {
   const [state, dispatch] = useReducer(editorReducer, initialState);
 
+  useEffect(() => {
+    let disposed = false;
+    const refreshIcons = () => {
+      void listLocalIcons().then((icons) => {
+        if (!disposed) dispatch({ type: 'LOAD_USER_ICONS', payload: icons });
+      }).catch((error) => captureErrorLog('[EditorContext] Failed to refresh icons:', error));
+    };
+    window.addEventListener('linku:icons-changed', refreshIcons);
+    return () => {
+      disposed = true;
+      window.removeEventListener('linku:icons-changed', refreshIcons);
+    };
+  }, []);
+
   /**
    * Load existing template
    */

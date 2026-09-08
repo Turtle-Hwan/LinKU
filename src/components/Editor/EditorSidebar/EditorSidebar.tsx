@@ -6,16 +6,18 @@ import { useState } from 'react';
 import { useEditorContext } from '@/hooks/useEditorContext';
 import { GRID_CONFIG } from '@/utils/templateGrid';
 import { Button } from '@/components/ui/button';
-import { Zap, Upload } from 'lucide-react';
+import { Zap, Upload, Images } from 'lucide-react';
 import { IconUploadDialog } from './IconUploadDialog';
 import { StagingArea } from './StagingArea';
 import { QuickAddDialog } from './QuickAddDialog';
+import { IconManagerDialog } from './IconManagerDialog';
 import type { Icon, TemplateIcon } from '@/types/api';
 
 export const EditorSidebar = () => {
   const { state, dispatch } = useEditorContext();
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showIconUpload, setShowIconUpload] = useState(false);
+  const [showIconManager, setShowIconManager] = useState(false);
 
   const handleIconUploaded = (icon: Icon) => {
     // Add uploaded icon to user icons list
@@ -83,6 +85,10 @@ export const EditorSidebar = () => {
           <Upload className="h-4 w-4 mr-2" />
           아이콘 업로드
         </Button>
+        <Button onClick={() => setShowIconManager(true)} variant="outline" size="sm" className="w-full">
+          <Images className="h-4 w-4 mr-2" />
+          내 아이콘 관리
+        </Button>
       </div>
 
       {/* Staging Area */}
@@ -101,6 +107,7 @@ export const EditorSidebar = () => {
         onOpenChange={setShowIconUpload}
         onIconUploaded={handleIconUploaded}
       />
+      {showIconManager && <IconManagerDialog onClose={() => setShowIconManager(false)} />}
     </aside>
   );
 };
