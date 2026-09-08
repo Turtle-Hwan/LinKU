@@ -3,7 +3,7 @@
  * Type definitions for communication between popup and background script
  */
 
-import type { GoogleOAuthResponse } from '../types/api';
+import type { AccountProfile } from '../types/account';
 import type {
   TimetableImportMode,
   TimetableImportResponse,
@@ -19,7 +19,6 @@ import type { AnalyticsTransportResponse } from '../utils/analyticsTransport.ts'
  */
 export enum BackgroundMessageType {
   GOOGLE_LOGIN = 'GOOGLE_LOGIN',
-  SILENT_REAUTH = 'SILENT_REAUTH',
   TIMETABLE_IMPORT = 'TIMETABLE_IMPORT',
   ANALYTICS_BATCH = 'ANALYTICS_BATCH',
 }
@@ -44,7 +43,7 @@ export interface GoogleLoginMessage extends BackgroundMessage {
  */
 export interface GoogleLoginSuccessResponse {
   success: true;
-  response: GoogleOAuthResponse;
+  profile: AccountProfile;
 }
 
 /**
@@ -67,31 +66,6 @@ export function isGoogleLoginMessage(
   message: BackgroundMessage
 ): message is GoogleLoginMessage {
   return message.type === BackgroundMessageType.GOOGLE_LOGIN;
-}
-
-/**
- * Silent Reauth Request Message
- * Used when token expires (5004 error) - triggers OAuth without user interaction
- */
-export interface SilentReauthMessage extends BackgroundMessage {
-  type: BackgroundMessageType.SILENT_REAUTH;
-}
-
-/**
- * Silent Reauth Response
- */
-export interface SilentReauthResponse {
-  success: boolean;
-  error?: string;
-}
-
-/**
- * Type guard for Silent Reauth Message
- */
-export function isSilentReauthMessage(
-  message: BackgroundMessage
-): message is SilentReauthMessage {
-  return message.type === BackgroundMessageType.SILENT_REAUTH;
 }
 
 /**

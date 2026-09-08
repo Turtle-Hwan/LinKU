@@ -8,7 +8,7 @@ import {
   prepareRestoredTemplate,
   selectReferencedBackupAssets,
   type RestoredAssetReference,
-} from "../../src/storage/templateBackup.ts";
+} from "../../src/storage/templates/backup.ts";
 import { UserFacingError } from "../../src/errors/userFacingError.ts";
 import { createTemplateTestServer } from "./viteTestServer.ts";
 
@@ -242,12 +242,12 @@ test("손상된 백업 이미지와 이미지 디코더 런타임 실패를 구�
 
   try {
     const { restoreAssetFromDataUrl } = (await server.ssrLoadModule(
-      "/src/storage/assetRepository.ts",
+      "/src/storage/templates/assetRepository.ts",
     )) as {
       restoreAssetFromDataUrl: (name: string, dataUrl: string) => Promise<unknown>;
     };
     const { isTemplateBackupValidationError: isBundledValidationError } =
-      (await server.ssrLoadModule("/src/storage/templateBackup.ts")) as {
+      (await server.ssrLoadModule("/src/storage/templates/backup.ts")) as {
         isTemplateBackupValidationError: (error: unknown) => boolean;
       };
 

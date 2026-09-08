@@ -2,7 +2,7 @@
  * The rules that define a template: what it may contain, and how an unsaved
  * one is spelled.
  *
- * Kept in a leaf module so the storage layer, the share codec and the renderer
+ * Kept in a leaf module so the storage layer, cloud codec and renderer
  * validate against the same numbers without pulling React or icon rendering
  * along with them.
  */
@@ -19,10 +19,12 @@ export const GRID_ROWS = 6;
 export const MAX_TEMPLATE_ITEMS = GRID_COLUMNS * GRID_ROWS;
 export const MAX_TEMPLATE_NAME_LENGTH = 80;
 export const MAX_SITE_URL_LENGTH = 2_048;
+export const EMPTY_TEMPLATE_PUBLISH_MESSAGE =
+  "빈 템플릿은 게시할 수 없습니다. 편집 화면에서 링크를 하나 이상 추가해 주세요.";
 
 /**
- * Icon images that may travel inside a shared template or be registered as an
- * asset. SVG is excluded on purpose: it can carry script.
+ * Icon images that may be imported into local storage. SVG is excluded on
+ * purpose because it can carry script.
  */
 export const PORTABLE_ICON_PATTERN =
   /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/u;

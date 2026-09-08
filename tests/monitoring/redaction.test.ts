@@ -23,3 +23,16 @@ test("로그와 Sentry가 같은 개인정보 제거 정책을 사용한다", ()
     "https://example.com/path?code=[REDACTED]&view=compact",
   );
 });
+
+test("필드명 없는 JWT와 비공개 API 키도 마스킹한다", () => {
+  const samples = [
+    [{ alg: 'HS256' }, { sub: 'test' }].map(value => Buffer.from(JSON.stringify(value)).toString('base64url')).join('.') + '.test_signature',
+    'sb_secret_synthetic_test_only',
+    'GOCSPX-synthetic_test_only',
+  ];
+  for (const value of samples) {
+    assert.equal(redactSensitiveString(`request failed: ${value}`).includes(value), false);
+    assert.equal(redactSensitiveUrl(`https://example.com/${value}`)?.includes(value), false);
+  }
+  assert.equal(redactSensitiveString('https://example.com/app.js:12:8'), 'https://example.com/app.js:12:8');
+});

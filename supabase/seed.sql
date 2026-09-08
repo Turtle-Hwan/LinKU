@@ -1,0 +1,1 @@
+-- Local development intentionally starts without product data.

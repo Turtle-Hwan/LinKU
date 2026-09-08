@@ -33,26 +33,6 @@ export const linkFormSchema = z.object({
   iconId: iconIdSchema,
 });
 
-const emailSchema = trimmedString().check(
-  z.minLength(1, "이메일을 입력해주세요."),
-  z.regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "올바른 이메일 형식을 입력해주세요."),
-);
-
-export const konkukEmailSchema = z.pipe(
-  emailSchema,
-  trimmedString().check(
-    z.refine(
-      (email) => email.toLowerCase().endsWith("@konkuk.ac.kr"),
-      "건국대학교 이메일(@konkuk.ac.kr)만 사용 가능합니다.",
-    ),
-  ),
-);
-
-export const authCodeSchema = trimmedString().check(
-  z.minLength(1, "인증 코드를 입력해주세요."),
-  z.regex(/^\d{6}$/, "6자리 숫자를 입력해주세요."),
-);
-
 export const todoInputSchema = z.object({
   title: trimmedString().check(z.minLength(1, "할 일 제목을 입력해주세요.")),
   subject: trimmedString(),

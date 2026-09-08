@@ -8,11 +8,12 @@
 
 LinKU는 건국대학교 학생을 위한 Manifest V3 Chrome Extension입니다.
 팝업 UI에서 학교 및 학생 서비스 링크, 공지, todo, banner, template 편집과
-공유, 도서관 좌석 현황, QR 생성 같은 Labs 기능을 제공합니다.
+게시, 도서관 좌석 현황, QR 생성 같은 Labs 기능을 제공합니다.
 
-이 저장소는 프론트엔드 확장 프로그램 코드만 포함합니다. LinKU backend와의
-통신은 `VITE_API_BASE_URL`을 기준으로 이루어지며, 학교 및 외부 사이트 접근은
-`public/manifest.json`의 `host_permissions`가 제어합니다.
+이 저장소는 확장 프로그램과 Supabase schema를 함께 포함합니다. 계정 동기화와
+커뮤니티는 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`를 사용하고,
+학교 및 외부 사이트 접근은 `public/manifest.json`의 `host_permissions`가
+제어합니다.
 
 ## 읽는 순서
 
@@ -41,6 +42,7 @@ pnpm install
 pnpm run dev
 pnpm run build:local
 pnpm run lint
+pnpm run test:templates
 pnpm run test:timetable
 ```
 
@@ -89,8 +91,10 @@ Chrome에서 확장 프로그램을 검증하기 전에는 `pnpm run build:local
 - `src/layouts/`: route layout wrapper.
 - `src/contexts/`: React Context 기반 상태 container.
 - `src/hooks/`: feature 단위 hook.
-- `src/apis/`: LinKU backend API wrapper.
+- `src/apis/supabase/`: Auth, account sync와 community adapter.
 - `src/apis/external/`: 학교 또는 외부 서비스 연동.
+- `src/storage/`: IndexedDB schema와 feature별 repository.
+- `src/sync/`: 로컬 template과 cloud document 변환.
 - `src/background/`: Manifest V3 service worker와 message handling.
 - `src/utils/`: storage, auth, analytics, template, Chrome helper utility.
 - `src/types/`: 공유 TypeScript data contract.
@@ -112,12 +116,14 @@ Chrome에서 확장 프로그램을 검증하기 전에는 `pnpm run build:local
   병합하는 side-effect 없는 도메인 로직을 담당합니다.
 - `src/utils/timetableStorage.ts`: snapshot asset과 별도 override index의 저장,
   schema migration, 삭제 시 정리를 담당합니다.
-- `src/apis/client.ts`: auth interceptor, backend response parsing,
-  silent reauth를 담당합니다.
+- `src/apis/supabase/client.ts`: publishable configuration, PKCE session과
+  `chrome.storage.local` adapter를 담당합니다.
 - `src/apis/external/`: third-party 또는 school page markup에 의존하는 parsing
   logic이 있습니다.
-- `src/utils/templateStorage.ts`: local draft persistence와 migration risk가
-  있습니다.
+- `src/storage/templates/repository.ts`: local template persistence와 migration
+  risk가 있습니다.
+- `src/storage/account/syncRepository.ts`: outbox race와 account binding을
+  담당합니다.
 
 ## 검증 기준
 

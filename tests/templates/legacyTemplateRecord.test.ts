@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   parseLegacyTemplateRecord,
-} from "../../src/storage/legacyTemplateRecord.ts";
+} from "../../src/storage/templates/legacyRecord.ts";
 
 function legacyRecord(templateId: number) {
   return {

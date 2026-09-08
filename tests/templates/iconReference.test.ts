@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   isRemoteHttpIconUrl,
   resolveBundledIconReference,
-} from "../../src/storage/iconReference.ts";
+} from "../../src/storage/templates/iconReference.ts";
 
 const bundledIcons = [
   {

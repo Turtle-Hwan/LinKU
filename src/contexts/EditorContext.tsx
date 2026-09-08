@@ -11,7 +11,7 @@ import { createDefaultLinkList } from '@/constants/LinkList';
 import { BULLETIN_FALLBACK } from '@/constants/bulletin';
 import { getBundledTemplateIcons } from '@/constants/templateIcons';
 import { convertLinkListToTemplateItems, calculateTemplateHeight } from '@/utils/template';
-import { getLocalTemplate } from '@/utils/templateStorage';
+import { getLocalTemplate } from '@/storage/templates/repository';
 import { debugLog, captureErrorLog } from '@/utils/logger';
 import { EditorContext } from './EditorContextObject';
 import { GRID_COLUMNS, UNSAVED_TEMPLATE_ID } from '@/constants/template';
@@ -337,6 +337,20 @@ interface EditorProviderProps {
  */
 export const EditorProvider = ({ children, templateId, startFrom }: EditorProviderProps) => {
   const [state, dispatch] = useReducer(editorReducer, initialState);
+
+  useEffect(() => {
+    let disposed = false;
+    const refreshIcons = () => {
+      void listLocalIcons().then((icons) => {
+        if (!disposed) dispatch({ type: 'LOAD_USER_ICONS', payload: icons });
+      }).catch((error) => captureErrorLog('[EditorContext] Failed to refresh icons:', error));
+    };
+    window.addEventListener('linku:icons-changed', refreshIcons);
+    return () => {
+      disposed = true;
+      window.removeEventListener('linku:icons-changed', refreshIcons);
+    };
+  }, []);
 
   /**
    * Load existing template
