@@ -11,7 +11,10 @@ select set_config('request.jwt.claims',
   '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated","app_metadata":{"provider":"google"}}', true);
 select public.initialize_profile('따뜻한 건구스');
 select public.put_template('dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-  '{"version":1,"name":"조인 테스트","height":1,"items":[],"stagingItems":[],"cloned":false,
+  '{"version":1,"name":"조인 테스트","height":1,
+    "items":[{"templateItemId":1,"name":"링쿠","siteUrl":"https://example.test/",
+      "position":{"x":0,"y":0},"size":{"width":1,"height":1},"icon":{"kind":"builtin","key":"link"}}],
+    "stagingItems":[],"cloned":false,
     "createdAt":"2026-09-08T00:00:00Z","updatedAt":"2026-09-08T00:00:00Z"}', repeat('d', 64));
 select public.publish_template('dddddddd-dddd-4ddd-8ddd-dddddddddddd', repeat('d', 64));
 select is((select count(*)::integer from public.browse_publications('', 'latest', 0, 12, true)), 1,

@@ -585,6 +585,9 @@ begin
   if p_expected_content_hash is distinct from source.content_hash then
     raise exception using errcode = '40001', message = 'LINKU_CONFLICT';
   end if;
+  if (jsonb_array_length(source.document -> 'items') > 0) is not true then
+    raise exception using errcode = '22023', message = 'EMPTY_TEMPLATE';
+  end if;
   if exists (
     select 1 from jsonb_array_elements(source.document -> 'items') item
     where item -> 'icon' ->> 'kind' = 'asset'

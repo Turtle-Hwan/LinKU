@@ -80,12 +80,27 @@ select throws_ok(format('select public.put_template(''aaaaaaaa-aaaa-4aaa-8aaa-aa
 
 select lives_ok(format('select public.put_template(''aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'', %L::jsonb, repeat(''a'', 64))',
   jsonb_set(document, '{items}', '[]')), 'empty canvas can be saved and synced') from valid_document;
-select lives_ok($$select public.publish_template('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('a', 64))$$,
-  'empty canvas can be published');
+select throws_ok($$select public.publish_template('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('a', 64))$$,
+  '22023', 'EMPTY_TEMPLATE', 'empty canvas cannot be published through the RPC');
+select is((select count(*)::integer from public.template_publications), 0, 'rejected publication leaves no public row');
+select lives_ok(format('select public.put_template(''aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'', %L::jsonb, repeat(''b'', 64), 1)',
+  jsonb_set(jsonb_set(document, '{stagingItems}', document -> 'items'), '{items}', '[]')),
+  'staging-only canvas can still be synced') from valid_document;
+select throws_ok($$select public.publish_template('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('b', 64))$$,
+  '22023', 'EMPTY_TEMPLATE', 'staging items are not public links');
+select lives_ok(format('select public.put_template(''aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'', %L::jsonb, repeat(''c'', 64), 2)', document),
+  'adding a public link remains possible') from valid_document;
+select lives_ok($$select public.publish_template('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('c', 64))$$,
+  'a template with a link can be published');
+select lives_ok(format('select public.put_template(''aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'', %L::jsonb, repeat(''d'', 64), 3)',
+  jsonb_set(document, '{items}', '[]')), 'published template can retain a private empty draft') from valid_document;
+select throws_ok($$select public.publish_template('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('d', 64), 1)$$,
+  '22023', 'EMPTY_TEMPLATE', 'empty draft cannot replace a published snapshot');
+select is((select revision from public.template_publications), 1::bigint, 'rejected update preserves the existing publication');
 reset role;
 set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
-select is((select snapshot -> 'items' from public.browse_publications()), '[]'::jsonb,
-  'anonymous gallery receives a complete empty snapshot, not a missing document');
+select is((select jsonb_array_length(snapshot -> 'items') from public.browse_publications()), 1,
+  'anonymous gallery still receives the previously published link');
 select * from finish();
 rollback;

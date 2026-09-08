@@ -434,7 +434,9 @@ select lives_ok(
       "cloned": false,
       "createdAt": "2026-08-31T00:00:00.000Z",
       "updatedAt": "2026-08-31T01:00:00.000Z",
-      "items": [],
+      "items": [{"templateItemId": 1, "name": "링쿠", "siteUrl": "https://example.test/",
+        "position": {"x": 0, "y": 0}, "size": {"width": 1, "height": 1},
+        "icon": {"kind": "builtin", "key": "link"}}],
       "stagingItems": []
     }'::jsonb,
     repeat('c', 64),
