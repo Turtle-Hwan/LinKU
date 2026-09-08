@@ -154,10 +154,10 @@ test("이러닝 과목을 표시하고 과목별 색을 겹치지 않게 보정�
     ...scheduledBackgroundColors,
     ...unscheduledBackgroundColors,
   ];
-  expect(new Set(backgroundColors).size).toBe(backgroundColors.length);
+  expect(new Set(scheduledBackgroundColors).size).toBe(2);
   expect(backgroundColors).toEqual([
-    "rgb(247, 161, 161)", "rgb(161, 247, 161)",
-    "rgb(161, 161, 247)", "rgb(247, 208, 161)",
+    "rgb(254, 229, 229)", "rgb(255, 239, 217)",
+    "oklch(0.985 0 none)", "oklch(0.985 0 none)",
   ]);
   expect(await popup.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await popup.emulateMedia({ reducedMotion: "reduce" });
@@ -170,15 +170,24 @@ test("이러닝 과목을 표시하고 과목별 색을 겹치지 않게 보정�
   expect(pageErrors).toEqual([]);
 });
 
-for (const courseCount of [50, 51]) {
+for (const courseCount of [10, 11]) {
   test(`저장된 ${courseCount}과목의 팔레트 경계를 안전하게 표시한다`, async ({ extension }) => {
     const { context, popupUrl, worker } = extension;
     await seedTimetable(worker);
     await worker.evaluate(async ({ storageKey, count }) => {
       const { [storageKey]: index } = await chrome.storage.local.get(storageKey);
-      index.assets[0].snapshot.subjects = [];
-      index.assets[0].snapshot.courses = Array.from({ length: count }, (_, i) => ({
-        id: `course-${i}`, title: `과목 ${i}`, meetings: [],
+      const snapshot = index.assets[0].snapshot;
+      const names = ["01 빨강", "02 주황", "03 노랑", "04 연두", "05 민트", "06 하늘", "07 파랑", "08 보라", "09 연보라", "10 회색", "11 빨강 재사용"];
+      snapshot.courses = [
+        ...snapshot.courses.filter((course: { meetings: unknown[] }) => course.meetings.length === 0),
+        ...Array.from({ length: count }, (_, i) => ({
+          id: `course-${i}`, title: names[i],
+          meetings: [{ dayIndex: i % 5, startTime: 108 + Math.floor(i / 5) * 12, endTime: 120 + Math.floor(i / 5) * 12 }],
+        })),
+      ];
+      snapshot.subjects = Array.from({ length: count }, (_, i) => ({
+        id: `subject-${i}`, subjectId: `course-${i}`, title: names[i],
+        dayIndex: i % 5, top: 450 + Math.floor(i / 5) * 50, height: 50, color: "color1",
       }));
       await chrome.storage.local.set({ [storageKey]: index });
     }, { storageKey: TIMETABLE_STORAGE_KEY, count: courseCount });
@@ -188,16 +197,18 @@ for (const courseCount of [50, 51]) {
     await popup.goto(popupUrl);
     await popup.getByRole("tab", { name: "시간표" }).focus();
     await popup.keyboard.press("Enter");
-    if (courseCount === 50) {
-      await expect(popup.getByRole("row")).toHaveCount(50);
-      const colors = await popup.locator("[data-everytime-unscheduled-course]")
-        .evaluateAll((rows) => rows.map((row) => getComputedStyle(row).backgroundColor));
-      expect(new Set(colors).size).toBe(50);
-      await popup.getByRole("row").last().scrollIntoViewIfNeeded();
-      await expect(popup.getByRole("row").last()).toBeInViewport();
-    } else {
-      await expect(popup.getByRole("alert")).toContainText("과목이 50개를 넘어");
+    const cards = popup.getByRole("article");
+    await expect(cards).toHaveCount(courseCount);
+    const colors = await cards.evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
+    expect(new Set(colors).size).toBe(10);
+    await expect(popup.getByRole("row")).toHaveCount(2);
+    await expect(popup.getByRole("alert")).toHaveCount(0);
+    if (courseCount === 11) {
+      const firstColor = await popup.getByRole("article", { name: /01 빨강/u })
+        .evaluate((node) => getComputedStyle(node).backgroundColor);
+      await expect(popup.getByRole("article", { name: /11 빨강 재사용/u })).toHaveCSS("background-color", firstColor);
     }
+    await popup.screenshot({ path: `docs/qa/pastel-${courseCount}-popup.png` });
     await expect(popup.getByRole("button", { name: "동기화", exact: true })).toBeEnabled();
     expect(pageErrors).toEqual([]);
   });

@@ -19,6 +19,11 @@ import { readTimetableImage } from "@/components/Tabs/TimeTable/timetableImage";
 import { UserFacingError } from "@/errors/userFacingError";
 import { recordBreadcrumb } from "@/monitoring";
 
+const EVERYTIME_IMPORT_ERROR_TOAST_OPTIONS = {
+  description:
+    "에브리타임 페이지 내에서 링쿠 확장을 열고 시간표 불러오기를 사용해야 할 수도 있어요.",
+};
+
 export type TimetableBusyState =
   | "loading"
   | "uploading"
@@ -124,7 +129,7 @@ export function useTimetable() {
       const result = await importTimetableFromEverytime(mode);
 
       if (!result.success) {
-        toast.error(result.error);
+        toast.error(result.error, EVERYTIME_IMPORT_ERROR_TOAST_OPTIONS);
         return;
       }
 
@@ -146,6 +151,7 @@ export function useTimetable() {
         error instanceof Error
           ? error.message
           : "에브리타임 시간표를 가져오지 못했습니다.",
+        EVERYTIME_IMPORT_ERROR_TOAST_OPTIONS,
       );
     } finally {
       setBusy(null);
