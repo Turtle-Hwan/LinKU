@@ -146,19 +146,12 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
     [timetable],
   );
   const colorsByCourseKey = useMemo(
-    () => {
-      try {
-        return createEverytimeSubjectColorMap([
-          ...(timetable.courses ?? []).map((course) => course.id),
-          ...timetable.subjects.map(getEverytimeSubjectCourseKey),
-        ]);
-      } catch (error) {
-        if (error instanceof RangeError) {
-          return null;
-        }
-        throw error;
-      }
-    },
+    () => createEverytimeSubjectColorMap([
+      ...(timetable.courses ?? [])
+        .filter((course) => course.meetings.length > 0)
+        .map((course) => course.id),
+      ...timetable.subjects.map(getEverytimeSubjectCourseKey),
+    ]),
     [timetable.courses, timetable.subjects],
   );
   const timeLabels = useMemo(() => getTimeLabels(viewport), [viewport]);
@@ -168,16 +161,6 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
     }),
     [visibleWeekdays.length],
   );
-
-  if (!colorsByCourseKey) {
-    return (
-      <p role="alert" className="rounded-lg border p-4 text-sm leading-relaxed">
-        과목이 50개를 넘어 색상을 중복 없이 표시할 수 없습니다.
-        에브리타임에서 과목 수를 줄인 뒤 다시 동기화해주세요.
-        저장된 시간표는 유지됩니다.
-      </p>
-    );
-  }
 
   if (timetable.subjects.length === 0 && unscheduledCourses.length === 0) {
     return (
@@ -270,7 +253,6 @@ function EverytimeScheduleComponent({ timetable }: EverytimeScheduleProps) {
           </div>
         )}
         <EverytimeUnscheduledCourses
-          colorsByCourseId={colorsByCourseKey}
           courses={unscheduledCourses}
         />
       </div>

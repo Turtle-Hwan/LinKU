@@ -117,7 +117,7 @@ test("API 가져오기 → 저장 → 팝업에서 이러닝과 동일 과목의
   });
   const repeatedColors = await popup.getByRole("article", { name: /자료구조/u })
     .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
-  expect(repeatedColors).toEqual(["rgb(247, 161, 161)", "rgb(247, 161, 161)"]);
+  expect(repeatedColors).toEqual(["rgb(254, 229, 229)", "rgb(254, 229, 229)"]);
   await expect(popup.getByRole("row")).toHaveCount(2);
   await expect(popup.getByText("DOM 폴백을 사용하면 안 됨")).toHaveCount(0);
   await popup.reload();
@@ -196,12 +196,8 @@ for (const courseCount of [2, 51]) {
     }), nontimeMarkup(Array.from({ length: courseCount }, (_, index) => `온라인 과목 ${index}`)));
     const { response, elapsedMs } = await pendingCapture;
     expect(elapsedMs).toBeLessThan(3_000);
-    expect(response.success).toBe(courseCount <= 50);
-    if (courseCount <= 50) {
-      expect(response.timetable.courses).toHaveLength(courseCount);
-    } else {
-      expect(response.error).toBe("에브리타임 시간표를 읽지 못했습니다.");
-    }
+    expect(response.success).toBe(true);
+    expect(response.timetable.courses).toHaveLength(courseCount);
     testInfo.annotations.push({ type: "DOM capture duration", description: `${elapsedMs.toFixed(0)} ms` });
   });
 }

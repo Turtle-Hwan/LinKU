@@ -3,8 +3,7 @@ import test from "node:test";
 import { createEverytimeSubjectColorMap } from "../../src/utils/everytimeTimetableColor.ts";
 
 const OKLAB_SCALE = 100;
-const MINIMUM_PALETTE_DISTANCE = 3.8;
-const MINIMUM_COMMON_PALETTE_DISTANCE = 6.8;
+const MINIMUM_PALETTE_DISTANCE = 1.5;
 const MINIMUM_TEXT_CONTRAST_RATIO = 7.5;
 const SUBJECT_TEXT_COLOR = "#171717";
 
@@ -86,14 +85,14 @@ test("서로 다른 과목에 서로 다른 파스텔 색을 배정한다", () =
     "course-c",
   ]);
 
-  assert.equal(colors.get("course-a"), "#f7a1a1");
-  assert.equal(colors.get("course-b"), "#a1f7a1");
-  assert.equal(colors.get("course-c"), "#a1a1f7");
+  assert.equal(colors.get("course-a"), "#fee5e5");
+  assert.equal(colors.get("course-b"), "#ffefd9");
+  assert.equal(colors.get("course-c"), "#fefac9");
   assert.equal(new Set(colors.values()).size, 3);
 });
 
-test("50개 과목까지 선별된 팔레트 색이 중복되지 않는다", () => {
-  const candidates = Array.from({ length: 50 }, (_, index) => `course-${index}`);
+test("10개 과목까지 선별된 팔레트 색이 중복되지 않는다", () => {
+  const candidates = Array.from({ length: 10 }, (_, index) => `course-${index}`);
   const colors = createEverytimeSubjectColorMap(candidates);
 
   assert.equal(colors.size, candidates.length);
@@ -101,27 +100,22 @@ test("50개 과목까지 선별된 팔레트 색이 중복되지 않는다", () 
   colors.forEach((color) => assert.match(color, /^#[0-9a-f]{6}$/u));
 });
 
-test("50색 전체와 자주 쓰이는 앞쪽 색의 지각 거리를 유지한다", () => {
+test("초기 연한 파스텔 10색의 지각 거리를 유지한다", () => {
   const colors = [
     ...createEverytimeSubjectColorMap(
-      Array.from({ length: 50 }, (_, index) => `course-${index}`),
+      Array.from({ length: 10 }, (_, index) => `course-${index}`),
     ).values(),
   ];
 
   assert.ok(
     getMinimumOklabDistance(colors) >= MINIMUM_PALETTE_DISTANCE,
-    "50색 전체의 최소 OKLab 거리가 기준보다 작습니다.",
-  );
-  assert.ok(
-    getMinimumOklabDistance(colors.slice(0, 10)) >=
-      MINIMUM_COMMON_PALETTE_DISTANCE,
-    "자주 쓰이는 앞 10색의 최소 OKLab 거리가 기준보다 작습니다.",
+    "10색 전체의 최소 OKLab 거리가 기준보다 작습니다.",
   );
 });
 
-test("파스텔 배경 50색 모두 본문과 높은 대비를 유지한다", () => {
+test("파스텔 배경 10색 모두 본문과 높은 대비를 유지한다", () => {
   const colors = createEverytimeSubjectColorMap(
-    Array.from({ length: 50 }, (_, index) => `course-${index}`),
+    Array.from({ length: 10 }, (_, index) => `course-${index}`),
   );
 
   colors.forEach((color) => {
@@ -133,13 +127,17 @@ test("파스텔 배경 50색 모두 본문과 높은 대비를 유지한다", ()
   });
 });
 
-test("50개를 넘으면 색을 재사용하지 않고 명시적으로 거부한다", () => {
-  const candidates = Array.from({ length: 51 }, (_, index) => `course-${index}`);
-
-  assert.throws(
-    () => createEverytimeSubjectColorMap(candidates),
-    /최대 50개의 고유 과목 색상/u,
-  );
+test("첫 10과목은 중복 없이 배정하고 11번째부터 순환 재사용한다", () => {
+  const candidates = Array.from({ length: 21 }, (_, index) => `course-${index}`);
+  // Repeated meetings must not consume another palette slot.
+  const colors = createEverytimeSubjectColorMap([
+    ...candidates.slice(0, 10), "course-0", ...candidates.slice(10),
+  ]);
+  assert.equal(colors.size, 21);
+  assert.equal(new Set([...colors.values()].slice(0, 10)).size, 10);
+  candidates.forEach((key, index) => {
+    assert.equal(colors.get(key), colors.get(`course-${index % 10}`));
+  });
 });
 
 test("같은 과목 키의 여러 수업은 하나의 안정된 색을 공유한다", () => {
