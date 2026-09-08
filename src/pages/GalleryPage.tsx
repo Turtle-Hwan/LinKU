@@ -102,7 +102,7 @@ function PublicationCard({
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
           <Button variant="outline" onClick={onLike} disabled={busy}>
             <Heart
               className={publication.isLiked ? "fill-current" : undefined}
@@ -346,7 +346,7 @@ export const GalleryPage = () => {
       </section>
 
       {skippedCount > 0 && (
-        <p role="status" className="mb-6 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+        <p role="status" className="mb-6 break-keep rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
           데이터 형식에 문제가 있는 게시물 {skippedCount}개를 표시하지 못했습니다.
           다른 게시물은 계속 둘러볼 수 있습니다.
         </p>

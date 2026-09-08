@@ -61,6 +61,8 @@ test("빈 템플릿은 표시하고 손상된 게시물은 안내하며 다음 �
     await expect(notice).toBeVisible();
     expect(await notice.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const clone = page.getByRole("button", { name: "내 템플릿으로 복제", exact: true });
+    expect(await clone.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`gallery-validation-${width}.png`), fullPage: true });
   }
   await page.emulateMedia({ reducedMotion: "reduce" });
