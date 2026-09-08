@@ -33,6 +33,14 @@ test("Supabase 없이도 템플릿을 저장하고 다시 연다", async ({ exte
   await page.goto(`${popupUrl}#/templates`);
   await expect(page.getByText("오프라인 회귀 템플릿")).toBeVisible();
   await expect(page.getByText("이 기기에 저장", { exact: true })).toBeVisible();
+  const search = page.getByRole('searchbox', { name: '내 템플릿 검색' });
+  await search.fill('오프라인 회귀');
+  await expect(page.locator('article')).toHaveCount(1);
+  await page.getByRole('button', { name: '최신순', exact: true }).click();
+  await expect(page.getByRole('button', { name: '오래된순', exact: true })).toBeVisible();
+  await search.fill('없는 템플릿');
+  await expect(page.getByText('검색 결과가 없습니다.')).toBeVisible();
+  await search.clear();
 
   await page.getByRole("button", { name: "둘러보기" }).click();
   await expect(page.getByText("커뮤니티에 연결할 수 없어")).toBeVisible();

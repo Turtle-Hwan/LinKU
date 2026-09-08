@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { TemplateCard } from '@/components/Editor/TemplatePreview/TemplateCard';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -126,6 +127,8 @@ export const TemplateListPage = () => {
   const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'owned' | 'cloned'>('owned');
+  const [query, setQuery] = useState('');
+  const [oldestFirst, setOldestFirst] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [accountConnected, setAccountConnected] = useState(false);
@@ -232,7 +235,14 @@ export const TemplateListPage = () => {
     () => templates.filter((template) => template.cloned),
     [templates],
   );
-  const visibleTemplates = activeTab === 'cloned' ? clonedTemplates : ownedTemplates;
+  const visibleTemplates = (activeTab === 'cloned' ? clonedTemplates : ownedTemplates)
+    .filter((template) => template.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+    .sort((left, right) => {
+      if (left.templateId === UNSAVED_TEMPLATE_ID) return -1;
+      if (right.templateId === UNSAVED_TEMPLATE_ID) return 1;
+      const byCreated = Date.parse(left.createdAt) - Date.parse(right.createdAt);
+      return oldestFirst ? byCreated : -byCreated;
+    });
 
   const handleCreateFromDefault = () => {
     sendTemplateCreateStart('default');
@@ -501,7 +511,7 @@ export const TemplateListPage = () => {
     if (visibleTemplates.length === 0) {
       return (
         <div className="flex flex-col items-center gap-4 py-12">
-          <p className="text-muted-foreground">가져온 템플릿이 없습니다.</p>
+          <p className="text-muted-foreground">{query.trim() ? '검색 결과가 없습니다.' : '가져온 템플릿이 없습니다.'}</p>
           <Button size="sm" onClick={() => navigate('/gallery')}>
             <Sparkles className="mr-2 h-4 w-4" />템플릿 둘러보기
           </Button>
@@ -669,6 +679,14 @@ export const TemplateListPage = () => {
         </div>
       )}
 
+      <div className="mb-3 flex flex-wrap gap-2">
+        <Input aria-label="내 템플릿 검색" name="template-search" autoComplete="off" type="search"
+          placeholder="템플릿 이름 검색" value={query} onChange={(event) => setQuery(event.target.value)}
+          className="min-w-0 flex-1 basis-40" maxLength={80} />
+        <Button variant="outline" aria-pressed={oldestFirst} onClick={() => setOldestFirst(!oldestFirst)}>
+          {oldestFirst ? '오래된순' : '최신순'}
+        </Button>
+      </div>
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as 'owned' | 'cloned')}
