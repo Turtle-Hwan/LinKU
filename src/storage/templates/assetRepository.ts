@@ -1,9 +1,17 @@
 import {
   getLinkuDb,
   type StoredAsset,
+  type StoredTemplate,
+  type SyncMetadata,
+  type SyncOutboxEntry,
 } from "@/storage/indexedDb/linkuDatabase";
 import { allocateMonotonicId } from "@/storage/templates/monotonicId";
-import { createSyncOutboxEntry } from "@/storage/account/syncRepository";
+import {
+  createSyncOutboxEntry,
+  getActiveSyncAccountId,
+  isCurrentOperation,
+  syncMetadataKey,
+} from "@/storage/account/syncRepository";
 import {
   MAX_TEMPLATE_NAME_LENGTH,
   PORTABLE_ICON_PATTERN,
@@ -165,7 +173,7 @@ async function assertRestorableIconBlob(source: Blob): Promise<void> {
 async function persistAsset(
   normalizedName: string,
   blob: Blob,
-  options: { expectedId?: string; queueSync?: boolean } = {},
+  options: { expectedId?: string; queueSync?: boolean; allowRestore?: boolean } = {},
 ): Promise<StoredAsset> {
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   const id = bytesToHex(new Uint8Array(digest));
@@ -175,17 +183,29 @@ async function persistAsset(
   const dataUrl = await blobToDataUrl(blob);
   const createdAt = Date.now();
   const database = await getLinkuDb();
-  const transaction = database.transaction(["assets", "outbox"], "readwrite");
+  const accountId = await getActiveSyncAccountId();
+  const transaction = database.transaction(["assets", "outbox", "syncMeta"], "readwrite");
   const store = transaction.objectStore("assets");
   const existing = await store.get(id);
+  const metadata = accountId
+    ? await transaction.objectStore("syncMeta").get(syncMetadataKey(accountId, "asset", id))
+    : undefined;
+  if (options.queueSync !== false && !options.allowRestore && (existing?.deletedAt || metadata?.deleted)) {
+    await transaction.done;
+    throw new UserFacingError("삭제된 아이콘입니다. 다른 아이콘을 선택하거나 직접 다시 업로드해 주세요.", "ASSET_DELETED");
+  }
   if (existing) {
+    const restored = existing.deletedAt && options.allowRestore
+      ? { ...existing, name: normalizedName, deletedAt: undefined }
+      : existing;
+    if (restored !== existing) await store.put(restored);
     if (options.queueSync !== false) {
       await transaction
         .objectStore("outbox")
         .put(createSyncOutboxEntry("asset", id, "put"));
     }
     await transaction.done;
-    return existing;
+    return restored;
   }
 
   const numericId = await allocateMonotonicId(store.index("by-numeric-id"));
@@ -208,13 +228,13 @@ async function persistAsset(
   return asset;
 }
 
-export async function saveAsset(name: string, source: Blob): Promise<StoredAsset> {
+export async function saveAsset(name: string, source: Blob, allowRestore = true): Promise<StoredAsset> {
   const normalizedName = normalizeAssetName(name);
   const normalized = await normalizeIconBlob(source);
   if (normalized.size > MAX_SYNCED_ICON_BYTES) {
     throw new AssetValidationError("아이콘은 변환 후 512KB 이하여야 합니다.");
   }
-  return persistAsset(normalizedName, normalized);
+  return persistAsset(normalizedName, normalized, { allowRestore });
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -234,7 +254,7 @@ export async function saveAssetFromDataUrl(
   name: string,
   dataUrl: string,
 ): Promise<StoredAsset> {
-  return saveAsset(name, dataUrlToBlob(dataUrl));
+  return saveAsset(name, dataUrlToBlob(dataUrl), false);
 }
 
 /** Restores validated WebP bytes without changing their content-addressed id. */
@@ -268,7 +288,7 @@ export async function restoreAssetFromDataUrl(
   if (blob.type !== "image/webp") {
     return saveAsset(normalizedName, blob);
   }
-  return persistAsset(normalizedName, blob);
+  return persistAsset(normalizedName, blob, { allowRestore: true });
 }
 
 export async function saveRemoteAsset(
@@ -297,7 +317,7 @@ export async function saveImportedCloudAsset(
     throw new AssetValidationError("가져온 아이콘 형식이 올바르지 않습니다.");
   }
   await assertRestorableIconBlob(source);
-  return persistAsset(normalizedName, source, { expectedId });
+  return persistAsset(normalizedName, source, { expectedId, allowRestore: true });
 }
 
 export async function getAssetById(id: string): Promise<StoredAsset | undefined> {
@@ -315,5 +335,109 @@ export async function getAssetByNumericId(
 export async function listAssets(): Promise<StoredAsset[]> {
   const database = await getLinkuDb();
   const assets = await database.getAll("assets");
-  return assets.sort((left, right) => right.createdAt - left.createdAt);
+  return assets.filter((asset) => !asset.deletedAt)
+    .sort((left, right) => right.createdAt - left.createdAt);
+}
+
+export function templateUsesAsset(stored: StoredTemplate, asset: StoredAsset): boolean {
+  return [...stored.template.items, ...stored.stagingItems].some(
+    ({ icon }) => icon.iconId === asset.numericId || icon.iconUrl === asset.dataUrl,
+  );
+}
+
+export async function renameAsset(numericId: number, name: string): Promise<StoredAsset> {
+  const normalizedName = normalizeAssetName(name);
+  const database = await getLinkuDb();
+  const transaction = database.transaction(["assets", "outbox"], "readwrite");
+  const store = transaction.objectStore("assets");
+  const asset = await store.index("by-numeric-id").get(numericId);
+  if (!asset || asset.deletedAt) {
+    await transaction.done;
+    throw new UserFacingError("아이콘을 찾을 수 없습니다.", "ASSET_NOT_FOUND");
+  }
+  const renamed = { ...asset, name: normalizedName };
+  if (asset.name !== normalizedName) {
+    await store.put(renamed);
+    await transaction.objectStore("outbox").put(createSyncOutboxEntry("asset", asset.id, "put"));
+  }
+  await transaction.done;
+  return renamed;
+}
+
+export async function deleteAsset(numericId: number): Promise<void> {
+  const accountId = await getActiveSyncAccountId();
+  const database = await getLinkuDb();
+  const transaction = database.transaction(["assets", "templates", "drafts", "outbox"], "readwrite");
+  const store = transaction.objectStore("assets");
+  const asset = await store.index("by-numeric-id").get(numericId);
+  if (!asset || asset.deletedAt) {
+    await transaction.done;
+    return;
+  }
+  const records = [
+    ...await transaction.objectStore("templates").getAll(),
+    ...await transaction.objectStore("drafts").getAll(),
+  ];
+  if (records.some((record) => templateUsesAsset(record, asset))) {
+    await transaction.done;
+    throw new UserFacingError("템플릿에서 사용 중인 아이콘입니다. 저장된 템플릿과 임시 영역에서 먼저 제거해 주세요.", "ASSET_IN_USE");
+  }
+  if (accountId) {
+    await store.put({ ...asset, deletedAt: Date.now() });
+    await transaction.objectStore("outbox").put(createSyncOutboxEntry("asset", asset.id, "delete"));
+  } else {
+    await store.delete(asset.id);
+    await transaction.objectStore("outbox").delete(`asset:${asset.id}`);
+  }
+  await transaction.done;
+}
+
+export async function applyRemoteAssetChange(
+  id: string,
+  remote: { name: string; revision: number } | null,
+  metadataKey: string,
+  expectedOperation?: SyncOutboxEntry,
+): Promise<boolean> {
+  const database = await getLinkuDb();
+  const transaction = database.transaction(["assets", "templates", "drafts", "outbox", "syncMeta"], "readwrite");
+  const outbox = transaction.objectStore("outbox");
+  const pending = await outbox.get(`asset:${id}`);
+  if (expectedOperation
+    ? !pending || !isCurrentOperation(pending, expectedOperation)
+    : pending) {
+    await transaction.done;
+    return false;
+  }
+  const store = transaction.objectStore("assets");
+  const asset = await store.get(id);
+  const previous = await transaction.objectStore("syncMeta").get(metadataKey);
+  const metadata: SyncMetadata = {
+    key: metadataKey,
+    contentHash: id,
+    revision: remote?.revision ?? previous?.revision,
+    deleted: !remote,
+  };
+  let changed = previous?.revision !== metadata.revision || previous?.deleted !== metadata.deleted;
+  if (asset) {
+    if (remote) {
+      changed ||= asset.name !== remote.name || !!asset.deletedAt;
+      await store.put({ ...asset, name: remote.name, deletedAt: undefined });
+    } else {
+      const records = [
+        ...await transaction.objectStore("templates").getAll(),
+        ...await transaction.objectStore("drafts").getAll(),
+      ];
+      if (records.some((record) => templateUsesAsset(record, asset))) {
+        changed ||= !asset.deletedAt;
+        await store.put({ ...asset, deletedAt: asset.deletedAt ?? Date.now() });
+      } else {
+        await store.delete(id);
+        changed = true;
+      }
+    }
+  }
+  if (pending) await outbox.delete(pending.key);
+  await transaction.objectStore("syncMeta").put(metadata);
+  await transaction.done;
+  return changed || !!pending;
 }

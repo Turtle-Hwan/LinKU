@@ -1,11 +1,8 @@
 import {
   deleteRemoteTemplate,
-  downloadRemoteAsset,
   getRemoteTemplate,
-  listRemoteAssets,
   listRemoteTemplates,
   putRemoteTemplate,
-  uploadRemoteAsset,
 } from "@/apis/supabase/templates";
 import { SyncConflictError } from "@/apis/supabase/errors";
 import { requireSyncAccount } from "@/apis/supabase/account";
@@ -20,10 +17,7 @@ import {
   removeSyncOutboxEntry,
   syncMetadataKey,
 } from "@/storage/account/syncRepository";
-import {
-  getAssetById,
-  saveRemoteAsset,
-} from "@/storage/templates/assetRepository";
+import { compareSyncOperations, pullAssets, pushAsset } from "@/sync/assetSync";
 import {
   applyRemoteTemplateChange,
   getPendingTemplate,
@@ -97,41 +91,6 @@ function recordFailure(
     return true;
   }
   return unexpectedAlreadyCaptured;
-}
-
-async function pullAssets(): Promise<void> {
-  const remoteAssets = await listRemoteAssets();
-  for (const remote of remoteAssets) {
-    if (await getAssetById(remote.contentHash)) continue;
-    const blob = await downloadRemoteAsset(remote);
-    await saveRemoteAsset(remote.name, blob, remote.contentHash);
-  }
-}
-
-async function pushAsset(
-  entry: SyncOutboxEntry,
-  accountId: string,
-): Promise<void> {
-  if (entry.operation === "delete") {
-    await removeSyncOutboxEntry(entry);
-    return;
-  }
-  const asset = await getAssetById(entry.resourceId);
-  if (!asset) {
-    await removeSyncOutboxEntry(entry);
-    return;
-  }
-  const metadataKey = syncMetadataKey(accountId, "asset", entry.resourceId);
-  const metadata = await getSyncMetadata(metadataKey);
-  if (metadata?.contentHash === asset.id) {
-    await removeSyncOutboxEntry(entry);
-    return;
-  }
-  const remote = await uploadRemoteAsset(asset);
-  await completeSyncOperation(entry, {
-    key: metadataKey,
-    contentHash: remote.contentHash,
-  });
 }
 
 async function applyRemoteTemplate(
@@ -284,27 +243,32 @@ async function performSync(): Promise<AccountSyncResult> {
   const result = emptyResult();
   let capturedUnexpected = false;
   try {
-    await pullAssets();
+    result.pulled += await pullAssets(accountId);
   } catch (error) {
     recordFailure(result, error, "pull", false);
     return result;
   }
 
   const outbox = await listSyncOutbox();
-  const ordered = [...outbox].sort((left, right) => {
-    if (left.resource === right.resource) return left.queuedAt - right.queuedAt;
-    return left.resource === "asset" ? -1 : 1;
-  });
+  const ordered = [...outbox].sort(compareSyncOperations);
   for (const entry of ordered) {
     try {
       if (!(await isSyncOutboxEntryCurrent(entry))) continue;
       if (entry.resource === "asset") {
-        await pushAsset(entry, accountId);
-        result.synced += 1;
+        const assetResult = await pushAsset(entry, accountId);
+        if (assetResult.conflict) result.conflicts += 1;
+        else result.synced += 1;
+        if (assetResult.blocked) {
+          result.failed += 1;
+          result.firstError ??= assetResult.blocked;
+        }
       } else {
         await pushTemplate(entry, accountId, result);
       }
     } catch (error) {
+      if (entry.resource === "asset") {
+        await markSyncAttempt(entry, syncMetadataKey(accountId, "asset", entry.resourceId), errorMessage(error));
+      }
       capturedUnexpected = recordFailure(
         result,
         error,
@@ -322,6 +286,7 @@ async function performSync(): Promise<AccountSyncResult> {
 
   if (result.synced > 0 || result.pulled > 0 || result.conflicts > 0) {
     window.dispatchEvent(new Event("linku:templates-changed"));
+    window.dispatchEvent(new Event("linku:icons-changed"));
   }
   return result;
 }

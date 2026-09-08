@@ -210,7 +210,9 @@ export async function activateSyncAccount(accountId: string): Promise<boolean> {
     );
   }
   for (const asset of assets) {
-    await outbox.put(createSyncOutboxEntry("asset", asset.id, "put", queuedAt));
+    if (!asset.deletedAt) {
+      await outbox.put(createSyncOutboxEntry("asset", asset.id, "put", queuedAt));
+    }
   }
   await transaction.objectStore("settings").put({
     key: ACTIVE_ACCOUNT_KEY,

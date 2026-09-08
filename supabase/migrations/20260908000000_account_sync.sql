@@ -30,10 +30,14 @@ create table public.templates (
 create index templates_owner_updated_idx
   on public.templates (owner_id, updated_at desc);
 
+-- Recreating the same content hash must not reuse an old revision.
+create sequence linku_private.asset_revision_seq;
+
 create table public.template_assets (
   owner_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   content_hash text not null,
   name text not null,
+  revision bigint not null default nextval('linku_private.asset_revision_seq'),
   created_at timestamptz not null default now(),
   primary key (owner_id, content_hash),
   constraint template_assets_hash_format check (content_hash ~ '^[0-9a-f]{64}$'),
@@ -226,30 +230,91 @@ as $$
   );
 $$;
 
-create or replace function linku_private.enforce_asset_limit()
-returns trigger
+create function public.put_asset(p_content_hash text, p_name text, p_expected_revision bigint default null)
+returns public.template_assets
 language plpgsql
+security definer
 set search_path = ''
 as $$
+declare
+  current_user_id uuid := linku_private.require_user();
+  current_record public.template_assets;
+  saved public.template_assets;
 begin
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(new.owner_id::text, 0)
-  );
-  if not exists (
-    select 1 from public.template_assets
-    where owner_id = new.owner_id and content_hash = new.content_hash
-  ) and (
-    select count(*) from public.template_assets where owner_id = new.owner_id
-  ) >= 100 then
-    raise exception using errcode = 'P0001', message = 'ASSET_LIMIT_REACHED';
+  if p_content_hash is null or p_content_hash !~ '^[0-9a-f]{64}$'
+    or p_name is null or char_length(btrim(p_name)) not between 1 and 80 then
+    raise exception using errcode = '22023', message = 'INVALID_ASSET';
   end if;
-  return new;
+  perform linku_private.lock_account(current_user_id);
+  select * into current_record from public.template_assets
+  where owner_id = current_user_id and content_hash = p_content_hash;
+
+  if current_record.revision is distinct from p_expected_revision then
+    raise exception using errcode = '40001', message = 'LINKU_CONFLICT';
+  end if;
+  if not exists (
+    select 1 from storage.objects
+    where bucket_id = 'template-assets'
+      and name = current_user_id::text || '/' || p_content_hash || '.webp'
+  ) then
+    raise exception using errcode = 'P0002', message = 'ASSET_NOT_FOUND';
+  end if;
+  if current_record.revision is null then
+    if (select count(*) from public.template_assets where owner_id = current_user_id) >= 100 then
+      raise exception using errcode = 'P0001', message = 'ASSET_LIMIT_REACHED';
+    end if;
+    insert into public.template_assets (owner_id, content_hash, name)
+    values (current_user_id, p_content_hash, btrim(p_name)) returning * into saved;
+  else
+    update public.template_assets
+    set name = btrim(p_name), revision = nextval('linku_private.asset_revision_seq')
+    where owner_id = current_user_id and content_hash = p_content_hash
+    returning * into saved;
+  end if;
+  return saved;
 end;
 $$;
 
-create trigger template_assets_limit
-before insert on public.template_assets
-for each row execute function linku_private.enforce_asset_limit();
+create function linku_private.asset_is_referenced(target_user uuid, target_hash text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.templates source,
+      lateral jsonb_array_elements((source.document -> 'items') || (source.document -> 'stagingItems')) item
+    where source.owner_id = target_user and source.deleted_at is null
+      and item -> 'icon' ->> 'kind' = 'asset'
+      and item -> 'icon' ->> 'hash' = target_hash
+  );
+$$;
+
+create function public.delete_asset(p_content_hash text, p_expected_revision bigint)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_user_id uuid := linku_private.require_user();
+  current_record public.template_assets;
+begin
+  perform linku_private.lock_account(current_user_id);
+  select * into current_record from public.template_assets
+  where owner_id = current_user_id and content_hash = p_content_hash;
+  if not found then return; end if;
+  if current_record.revision is distinct from p_expected_revision then
+    raise exception using errcode = '40001', message = 'LINKU_CONFLICT';
+  end if;
+  if linku_private.asset_is_referenced(current_user_id, p_content_hash) then
+    raise exception using errcode = '55000', message = 'ASSET_IN_USE';
+  end if;
+  delete from public.template_assets
+  where owner_id = current_user_id and content_hash = p_content_hash;
+end;
+$$;
 
 create or replace function linku_private.adjust_like_count()
 returns trigger
@@ -335,6 +400,16 @@ begin
   end if;
 
   perform linku_private.lock_account(current_user_id);
+
+  if exists (
+    select 1 from jsonb_array_elements((p_document -> 'items') || (p_document -> 'stagingItems')) item
+    where item -> 'icon' ->> 'kind' = 'asset' and not exists (
+      select 1 from public.template_assets
+      where owner_id = current_user_id and content_hash = item -> 'icon' ->> 'hash'
+    )
+  ) then
+    raise exception using errcode = 'P0002', message = 'ASSET_NOT_FOUND';
+  end if;
 
   select * into current_record
   from public.templates
@@ -641,7 +716,7 @@ language plpgsql
 stable
 security definer
 set search_path = ''
-as $$
+as $
 declare
   search_text text := left(btrim(coalesce(p_query, '')), 80);
   safe_offset integer := least(greatest(coalesce(p_offset, 0), 0), 1000);
@@ -682,7 +757,7 @@ begin
   offset safe_offset
   limit safe_limit;
 end;
-$$;
+$;
 
 create or replace function public.set_publication_liked(
   p_template_id uuid,
@@ -778,15 +853,6 @@ create policy assets_select_own on public.template_assets
 for select to authenticated
 using (owner_id = auth.uid() and linku_private.is_google_session());
 
-create policy assets_insert_own on public.template_assets
-for insert to authenticated
-with check (owner_id = auth.uid() and linku_private.is_google_session());
-
-create policy assets_update_own on public.template_assets
-for update to authenticated
-using (owner_id = auth.uid() and linku_private.is_google_session())
-with check (owner_id = auth.uid() and linku_private.is_google_session());
-
 create policy publications_select_own on public.template_publications
 for select to authenticated
 using (owner_id = auth.uid() and linku_private.is_google_session());
@@ -803,12 +869,14 @@ revoke all on table public.publication_likes from anon, authenticated;
 
 grant select on table public.profiles to authenticated;
 grant select on table public.templates to authenticated;
-grant select, insert, update on table public.template_assets to authenticated;
+grant select on table public.template_assets to authenticated;
 grant select on table public.template_publications to authenticated;
 grant select on table public.publication_likes to authenticated;
 
 revoke all on function public.put_template(uuid, jsonb, text, bigint) from public;
 revoke all on function public.delete_template(uuid, bigint) from public;
+revoke all on function public.put_asset(text, text, bigint) from public;
+revoke all on function public.delete_asset(text, bigint) from public;
 revoke all on function public.initialize_profile(text) from public, anon, authenticated;
 revoke all on function public.update_nickname(text) from public;
 revoke all on function public.publish_template(uuid, text, bigint) from public;
@@ -820,6 +888,8 @@ revoke all on function public.clear_linku_data() from public;
 
 grant execute on function public.put_template(uuid, jsonb, text, bigint) to authenticated;
 grant execute on function public.delete_template(uuid, bigint) to authenticated;
+grant execute on function public.put_asset(text, text, bigint) to authenticated;
+grant execute on function public.delete_asset(text, bigint) to authenticated;
 grant execute on function public.initialize_profile(text) to authenticated;
 grant execute on function public.update_nickname(text) to authenticated;
 grant execute on function public.publish_template(uuid, text, bigint) to authenticated;
@@ -908,22 +978,27 @@ with check (
   and linku_private.is_google_session()
 );
 
-create policy private_assets_update_own on storage.objects
-for update to authenticated
-using (
-  bucket_id = 'template-assets'
-  and (storage.foldername(name))[1] = auth.uid()::text
-  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
-  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
-  and linku_private.is_google_session()
-)
-with check (
-  bucket_id = 'template-assets'
-  and (storage.foldername(name))[1] = auth.uid()::text
-  and coalesce(array_length(storage.foldername(name), 1), 0) = 1
-  and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
-  and linku_private.is_google_session()
-);
+create function linku_private.can_delete_private_asset(target_name text)
+returns boolean
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  current_user_id uuid := auth.uid();
+begin
+  perform linku_private.lock_account(current_user_id);
+  return not exists (
+    select 1 from public.template_assets
+    where owner_id = current_user_id
+      and content_hash || '.webp' = storage.filename(target_name)
+  );
+end;
+$$;
+
+revoke all on function linku_private.can_delete_private_asset(text) from public;
+grant execute on function linku_private.can_delete_private_asset(text) to authenticated;
 
 create policy private_assets_delete_own on storage.objects
 for delete to authenticated
@@ -932,6 +1007,7 @@ using (
   and (storage.foldername(name))[1] = auth.uid()::text
   and coalesce(array_length(storage.foldername(name), 1), 0) = 1
   and storage.filename(name) ~ '^[0-9a-f]{64}[.]webp$'
+  and linku_private.can_delete_private_asset(name)
   and linku_private.is_google_session()
 );
 

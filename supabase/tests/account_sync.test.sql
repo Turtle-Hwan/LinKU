@@ -201,6 +201,11 @@ select throws_ok(
   'private icon paths cannot create nested or arbitrary objects'
 );
 
+insert into storage.objects (bucket_id, name, owner_id) values
+  ('template-assets', '11111111-1111-4111-8111-111111111111/' || repeat('e', 64) || '.webp',
+   '11111111-1111-4111-8111-111111111111');
+select public.put_asset(repeat('e', 64), '링쿠 아이콘');
+
 select lives_ok(
   $$select public.put_template(
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',

@@ -13,6 +13,7 @@ import { captureErrorLog } from "@/utils/logger";
 import { recordBreadcrumb } from "@/monitoring";
 import { UserFacingError } from "@/errors/userFacingError";
 import { withAccountLock } from "@/utils/accountLock";
+import { toast } from "sonner";
 
 export function useAccountSync(): void {
   useEffect(() => {
@@ -23,6 +24,11 @@ export function useAccountSync(): void {
       const boundAccountId = await getActiveSyncAccountId();
       if (!boundAccountId || !(await isLoggedIn())) return;
       const result = await syncAccount();
+      if (!disposed && result.conflicts > 0) {
+        toast.info("다른 기기의 변경을 반영했습니다.", {
+          description: result.firstError ?? "수정 중이던 템플릿의 충돌은 복사본으로 보관합니다. 아이콘은 최신 서버 상태를 확인해 주세요.",
+        });
+      }
       if (!disposed && result.failed > 0) {
         recordBreadcrumb(
           "account.sync",

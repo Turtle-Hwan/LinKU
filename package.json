@@ -27,6 +27,7 @@
     "test:sentry-bundle": "node scripts/verifySentryBundle.mjs",
     "test:credentials": "node --experimental-strip-types --test tests/credentials/*.test.ts",
     "test:templates": "node --experimental-strip-types --test tests/templates/*.test.ts",
+    "test:supabase-assets": "node scripts/testSupabaseAssets.mjs",
     "test:todo": "node --experimental-strip-types --test tests/todo/*.test.ts",
     "test:banner": "node --experimental-strip-types --test tests/banner/*.test.ts",
     "test:extension": "VITE_SUPABASE_URL=https://example.supabase.co VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_extension_test pnpm run build:local && playwright test tests/extension --workers=1",

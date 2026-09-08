@@ -21,6 +21,7 @@ export interface StoredAsset {
   blob: Blob;
   dataUrl: string;
   createdAt: number;
+  deletedAt?: number;
 }
 
 export type SyncOperation = "put" | "delete";
@@ -40,6 +41,7 @@ export interface SyncMetadata {
   key: string;
   revision?: number;
   contentHash?: string;
+  deleted?: boolean;
   publicationRevision?: number;
   publishedContentHash?: string;
   isPublished?: boolean;

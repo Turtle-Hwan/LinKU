@@ -37,6 +37,7 @@ import type { Database } from "@/types/supabase";
 import type { StoredTemplate } from "@/storage/indexedDb/linkuDatabase";
 import { syncAccount } from "@/utils/accountSync";
 import { recordBreadcrumb } from "@/monitoring";
+import { deleteRemoteAsset, deleteRemoteTemplate, listRemoteAssets } from "@/apis/supabase/templates";
 
 type PublicationRow =
   Database["public"]["Tables"]["template_publications"]["Row"];
@@ -418,7 +419,7 @@ async function clearCloudData(): Promise<void> {
 
   const { data: templates, error: templatesError } = await client
     .from("templates")
-    .select("id");
+    .select("id, revision, deleted_at");
   if (templatesError) {
     throw toSupabaseUserError(
       templatesError,
@@ -441,6 +442,12 @@ async function clearCloudData(): Promise<void> {
     }
   }
 
+  for (const template of templates) {
+    if (!template.deleted_at) await deleteRemoteTemplate(template.id, template.revision);
+  }
+  for (const asset of await listRemoteAssets()) {
+    await deleteRemoteAsset(asset.contentHash, asset.revision);
+  }
   await removeStorageFolder("template-assets", userId);
   for (const template of templates) {
     await removeStorageFolder(PUBLIC_BUCKET, template.id);

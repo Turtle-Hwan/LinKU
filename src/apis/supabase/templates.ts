@@ -3,6 +3,7 @@ import { getGoogleAccountId } from "@/apis/supabase/account";
 import {
   toSupabaseStorageError,
   toSupabaseUserError,
+  SyncConflictError,
 } from "@/apis/supabase/errors";
 import type { StoredAsset } from "@/storage/indexedDb/linkuDatabase";
 import type {
@@ -18,13 +19,14 @@ type TemplateRow = Omit<
   Database["public"]["Tables"]["templates"]["Row"], "owner_id" | "created_at"
 >;
 type AssetRow = Pick<
-  Database["public"]["Tables"]["template_assets"]["Row"], "content_hash" | "name" | "owner_id"
+  Database["public"]["Tables"]["template_assets"]["Row"], "content_hash" | "name" | "owner_id" | "revision"
 >;
 
 export interface RemoteAsset {
   contentHash: string;
   name: string;
   objectPath: string;
+  revision: number;
 }
 
 function mapTemplate(row: TemplateRow): RemoteTemplate {
@@ -43,6 +45,7 @@ function mapAsset(row: AssetRow): RemoteAsset {
     contentHash: row.content_hash,
     name: row.name,
     objectPath: `${row.owner_id}/${row.content_hash}.webp`,
+    revision: row.revision,
   };
 }
 
@@ -96,63 +99,88 @@ export async function deleteRemoteTemplate(
 export async function listRemoteAssets(): Promise<RemoteAsset[]> {
   const { data, error } = await getSupabaseClient()
     .from("template_assets")
-    .select("content_hash, name, owner_id");
+    .select("content_hash, name, owner_id, revision");
   if (error) throw toSupabaseUserError(error, "아이콘 목록을 불러오지 못했습니다.");
   return data.map(mapAsset);
+}
+
+export async function getRemoteAsset(contentHash: string): Promise<RemoteAsset | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("template_assets")
+    .select("content_hash, name, owner_id, revision")
+    .eq("content_hash", contentHash)
+    .maybeSingle();
+  if (error) throw toSupabaseUserError(error, "아이콘 정보를 불러오지 못했습니다.");
+  return data ? mapAsset(data) : null;
+}
+
+export async function putRemoteAsset(
+  contentHash: string,
+  name: string,
+  expectedRevision?: number,
+): Promise<RemoteAsset> {
+  const { data, error } = await getSupabaseClient().rpc("put_asset", {
+    p_content_hash: contentHash,
+    p_name: name,
+    p_expected_revision: expectedRevision,
+  });
+  if (error) throw toSupabaseUserError(error, "아이콘 이름을 동기화하지 못했습니다.");
+  return mapAsset(data);
 }
 
 export async function uploadRemoteAsset(asset: StoredAsset): Promise<RemoteAsset> {
   const client = getSupabaseClient();
   const userId = await getGoogleAccountId();
   if (!userId) throw new UserFacingError("Google 로그인이 필요합니다.", "LOGIN_REQUIRED");
+  if (await getRemoteAsset(asset.id)) throw new SyncConflictError();
   const objectPath = `${userId}/${asset.id}.webp`;
   const { error: uploadError } = await client.storage
     .from("template-assets")
     .upload(objectPath, asset.blob, {
       cacheControl: "31536000",
       contentType: "image/webp",
-      upsert: true,
+      upsert: false,
     });
-  if (uploadError) {
+  if (uploadError && Number(uploadError.statusCode) !== 409) {
     throw toSupabaseStorageError(uploadError, "아이콘을 동기화하지 못했습니다.");
   }
 
-  const { data, error } = await client
-    .from("template_assets")
-    .upsert(
-      {
-        content_hash: asset.id,
-        name: asset.name,
-      },
-      { onConflict: "owner_id,content_hash" },
-    )
-    .select("content_hash, name, owner_id")
-    .single();
-  if (error) {
-    const { data: persisted, error: readbackError } = await client
-      .from("template_assets")
-      .select("content_hash, name, owner_id")
-      .eq("content_hash", asset.id)
-      .maybeSingle();
-    if (persisted) return mapAsset(persisted);
-
-    if (!readbackError) {
+  try {
+    return await putRemoteAsset(asset.id, asset.name);
+  } catch (error) {
+    // Do not remove a file after an ambiguous response: another request may
+    // already have committed its metadata. Storage also enforces this guard.
+    const persisted = await getRemoteAsset(asset.id);
+    if (persisted?.name === asset.name) return persisted;
+    if (!persisted) {
       const { error: cleanupError } = await client.storage
         .from("template-assets")
         .remove([objectPath]);
-      if (!cleanupError) {
-        throw toSupabaseUserError(error, "아이콘을 동기화하지 못했습니다.");
-      }
-      recordBreadcrumb(
+      if (cleanupError) recordBreadcrumb(
         "account.sync",
         "failed private asset cleanup was unavailable",
         undefined,
         "warning",
       );
     }
-    throw toSupabaseUserError(error, "아이콘을 동기화하지 못했습니다.");
+    throw error;
   }
-  return mapAsset(data);
+}
+
+export async function deleteRemoteAsset(contentHash: string, expectedRevision: number): Promise<void> {
+  const client = getSupabaseClient();
+  const userId = await getGoogleAccountId();
+  if (!userId) throw new UserFacingError("Google 로그인이 필요합니다.", "LOGIN_REQUIRED");
+  const { error } = await client.rpc("delete_asset", {
+    p_content_hash: contentHash,
+    p_expected_revision: expectedRevision,
+  });
+  if (error) throw toSupabaseUserError(error, "아이콘을 삭제하지 못했습니다.");
+  const { error: storageError } = await client.storage
+    .from("template-assets")
+    .remove([`${userId}/${contentHash}.webp`]);
+  if (storageError) throw toSupabaseStorageError(storageError, "아이콘 파일 삭제를 다시 시도합니다.");
+  if (await getRemoteAsset(contentHash)) throw new SyncConflictError();
 }
 
 export async function downloadRemoteAsset(asset: RemoteAsset): Promise<Blob> {

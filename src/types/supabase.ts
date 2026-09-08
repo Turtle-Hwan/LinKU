@@ -87,18 +87,21 @@ export type Database = {
           created_at: string
           name: string
           owner_id: string
+          revision: number
         }
         Insert: {
           content_hash: string
           created_at?: string
           name: string
           owner_id?: string
+          revision?: number
         }
         Update: {
           content_hash?: string
           created_at?: string
           name?: string
           owner_id?: string
+          revision?: number
         }
         Relationships: []
       }
@@ -207,6 +210,10 @@ export type Database = {
         }[]
       }
       clear_linku_data: { Args: never; Returns: undefined }
+      delete_asset: {
+        Args: { p_content_hash: string; p_expected_revision: number }
+        Returns: undefined
+      }
       delete_template: {
         Args: { p_expected_revision: number; p_id: string }
         Returns: {
@@ -262,6 +269,26 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "template_publications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      put_asset: {
+        Args: {
+          p_content_hash: string
+          p_expected_revision?: number
+          p_name: string
+        }
+        Returns: {
+          content_hash: string
+          created_at: string
+          name: string
+          owner_id: string
+          revision: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "template_assets"
           isOneToOne: true
           isSetofReturn: false
         }

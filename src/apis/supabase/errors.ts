@@ -2,6 +2,9 @@ import type { AuthError, PostgrestError } from "@supabase/supabase-js";
 import { UserFacingError } from "@/errors/userFacingError";
 
 const EXPECTED_MESSAGES: Record<string, string> = {
+  ASSET_IN_USE: "다른 기기의 템플릿에서 사용 중인 아이콘입니다. 해당 템플릿에서 먼저 제거해 주세요.",
+  ASSET_NOT_FOUND: "삭제되었거나 아직 동기화되지 않은 아이콘이 있습니다. 아이콘을 다시 선택해 주세요.",
+  INVALID_ASSET: "아이콘 이름은 1자 이상 80자 이하로 입력해 주세요.",
   ASSET_LIMIT_REACHED: "계정에는 사용자 아이콘을 최대 100개까지 동기화할 수 있습니다.",
   GOOGLE_ACCOUNT_REQUIRED: "Google 계정으로 로그인해 주세요.",
   INVALID_NICKNAME: "닉네임은 1자 이상 32자 이하로 입력해 주세요.",

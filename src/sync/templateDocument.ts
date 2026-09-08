@@ -25,6 +25,7 @@ import type {
   PublishedTemplateSnapshotV1,
 } from "@/types/account";
 import type { Template, TemplateIcon, TemplateItem } from "@/types/api";
+import { UserFacingError } from "@/errors/userFacingError";
 
 export const MAX_CLOUD_TEMPLATE_BYTES = 256 * 1024;
 const HASH_PATTERN = /^[0-9a-f]{64}$/u;
@@ -136,6 +137,9 @@ async function toCloudIcon(icon: TemplateIcon): Promise<CloudTemplateIcon> {
   if (bundled) return { kind: "builtin", key: bundled.name };
 
   let asset = await getAssetByNumericId(icon.iconId);
+  if (asset?.deletedAt) {
+    throw new UserFacingError("다른 기기에서 삭제한 아이콘이 있습니다. 해당 아이콘을 다시 선택해 주세요.", "ASSET_DELETED");
+  }
   if (!asset && icon.iconUrl.startsWith("data:image/")) {
     asset = await saveAssetFromDataUrl(icon.iconName, icon.iconUrl);
   }
