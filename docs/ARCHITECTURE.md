@@ -1,6 +1,8 @@
 # 아키텍처
 
 LinKU는 Vite, React, TypeScript로 만든 Manifest V3 Chrome Extension입니다.
+실행·기여 규칙은 [Contributing](CONTRIBUTING.md), 저장·복구 계약은
+[Local-first](LOCAL_FIRST.md), 에이전트 진입점은 [AGENTS.md](../AGENTS.md)를 따릅니다.
 
 ## 런타임
 
@@ -22,6 +24,7 @@ extension API가 필요한 작업은 background가 담당합니다. content scri
 - `src/storage/templates/`: 템플릿·아이콘·백업 repository
 - `src/storage/account/`: 동기화 outbox, 계정 binding과 sync metadata
 - `src/sync/`: 로컬 모델과 클라우드 문서 codec
+- `src/utils/accountSync.ts`: outbox 처리, 원격 반영과 충돌 복구 orchestration
 - `src/apis/supabase/`: Auth, Postgres RPC/RLS와 Storage adapter
 - `src/apis/external/`: 학교·외부 서비스의 공개 연동
 - `src/background/`: MV3 message handler와 OAuth orchestration
@@ -80,7 +83,9 @@ Sentry로 보내지 않습니다.
 - Chrome에는 Supabase URL과 publishable key만 포함합니다.
 - Google client ID/secret, service-role key는 extension과 저장소에 넣지 않습니다.
 - OAuth는 background의 `chrome.identity.launchWebAuthFlow`와 PKCE를 사용합니다.
-- session은 `chrome.storage.local`의 trusted extension context에만 저장합니다.
+- session은 `chrome.storage.local`에 저장하며 background 시작 시 접근을
+  `TRUSTED_CONTEXTS`로 제한합니다. 현재 제한 실패는 로그만 남기므로, 인증 저장을
+  반드시 중단하는 보강은 아직 필요합니다.
 - 사용자별 row와 object path는 RLS/Storage policy로 격리합니다.
 - account RPC와 policy는 signed JWT의 Google provider를 다시 검사합니다.
 - template document와 WebP asset은 client와 database 양쪽에서 크기·형식을 제한합니다.
@@ -91,33 +96,58 @@ schema의 TypeScript contract입니다. Edge Function, Worker, Realtime과 cron�
 
 ## 기타 데이터 흐름
 
+### Everytime 시간표
+
 Everytime 시간표는 로그인된 탭에서 사용자가 명시적으로 요청할 때만 읽습니다. 원본
 snapshot, 사용자 override와 업로드 이미지는 분리해 저장하며 password, cookie,
 session token은 읽거나 저장하지 않습니다.
+
+background가 로그인된 Everytime 탭을 재사용하거나 임시 탭을 열고, content script의
+학기·시간표 XML API를 먼저 사용합니다. API 실패 시 렌더링된 DOM으로 대체합니다.
+최근 네 학기씩 탐색하고 묶음이 비어 있으면 이전 묶음으로 이동합니다. 수동 가져오기는
+같은 학기의 snapshot만 갱신하며 다른 학기·업로드 이미지·기존 active 선택은 유지합니다.
+사용자 override는 조회 시 원본과 병합하며, 현재 override 편집 UI는 제공하지 않습니다.
+metadata의 read-modify-write는 Web Locks로 popup과 background 사이에서 직렬화합니다.
 
 시간이 지정된 첫 10과목에는 연한 파스텔·회색 10색을 중복 없이 배정합니다.
 시간 미지정·이러닝 과목은 색상 배정에서 제외하고 시간표 아래에 공통 무채색으로 표시합니다.
 11번째 과목부터는 같은 팔레트를 순환해 재사용하며, 동일 과목의 여러 교시는 같은 색을 유지합니다.
 
+### 공개 공지와 배너
+
 공개 공지는 학교 RSS/HTML source를 직접 읽어 `chrome.storage.local`에 source별로
-캐시합니다. 갱신 실패 시 마지막 cache를 유지하고 background polling이나 개인 학과
-구독은 사용하지 않습니다.
+캐시합니다. 화면 진입 시 필요한 source만 갱신하고 실패 시 마지막 cache를 유지합니다.
+popup이 닫힌 동안 background polling은 하지 않으며 개인 학과 구독도 제공하지 않습니다.
 
 배너는 background CacheStorage의 마지막 정상 JSON·이미지 snapshot을 먼저 반환하고,
-새 snapshot이 완전히 준비된 경우에만 교체합니다.
+하루 간격으로 새 JSON과 참조 이미지가 모두 준비된 경우에만 교체합니다. 게시 기간은
+캐시 시점이 아니라 popup을 열 때 현재 시각으로 판단합니다. 정적 Pages 빌드는
+`src/assets/banners`를 `gh-pages/banners`로 복사하며 확장 빌드는 이미지를 포함하지 않습니다.
 
 ## 저장소 지도
 
-- IndexedDB `linku`: template, legacy draft, user icon blob, outbox, sync metadata,
-  settings, quarantine
-- `chrome.storage.local`: Supabase session, UI 설정, Todo, 시간표 metadata,
-  공지 cache
-- CacheStorage: 검증된 배너 snapshot
-- Supabase Postgres: profile, template document, publication, like
-- Supabase Storage: private user icon과 게시용 public icon
+| 저장소 | 데이터 |
+| --- | --- |
+| IndexedDB `linku` v5 (`idb` 라이브러리) | template, legacy draft, user icon blob, outbox, sync metadata, settings, quarantine |
+| IndexedDB `linku-timetable` v1 (브라우저 API) | 사용자가 올린 시간표 이미지 blob |
+| `chrome.storage.local` | Supabase session, eCampus 인증정보, 설정, 선택한 template ID, Todo·badge, 시간표 snapshot·override·metadata, 공지 cache, 배너 재검사 시각 |
+| `localStorage` | 비확장 환경의 시간표 fallback, 이전 template·draft 이관 원본. 새 template은 쓰지 않음 |
+| CacheStorage | 검증된 배너 JSON·이미지 snapshot |
+| Supabase Postgres | `profiles`, `templates`, `template_assets`, `template_publications`, `publication_likes` |
+| Supabase Storage | private user icon과 게시용 public icon |
+
+시간표 저장소는 계정 동기화용 `linku` DB와 별개이며 Supabase로 동기화하지 않습니다.
+Everytime content script는 `chrome.storage.local`을 사용하지 않습니다. manifest의 최소
+Chrome 버전은 `setAccessLevel()`을 지원하는 102입니다.
 
 전체 로컬 템플릿과 참조 아이콘은 `linku-backup-*.json`으로 내보내고 복원할 수
 있습니다. 단일 템플릿 URL/file 직접 공유는 제공하지 않습니다.
+
+## UI 구성
+
+Tailwind CSS, Radix 기반 공통 primitive와 Lucide icon을 재사용합니다. loading·empty·saved·
+dialog처럼 한 feature가 여러 화면 역할로 나뉘면 compound component를 사용하고,
+단일 역할 component는 불필요하게 감싸지 않습니다. 세부 규칙은 [AGENTS.md](../AGENTS.md)에 둡니다.
 
 ## 빌드와 배포
 
@@ -125,3 +155,8 @@ session token은 읽거나 저장하지 않습니다.
 빌드합니다. `main` workflow만 manifest version, Chrome Web Store draft, GitHub
 Release와 정적 Pages 배포를 관리합니다. 일반 PR에서 manifest version을 직접
 수정하지 않습니다.
+
+확장 산출물의 진입점은 `dist/index.html`, `dist/background/index.js`,
+`dist/content/everytime-timetable.js`입니다. content script는 standalone classic script로
+별도 빌드합니다. Sentry의 runtime 분리와 release별 source map 업로드·zip 제외 정책은
+[Observability](OBSERVABILITY.md)를 따릅니다.

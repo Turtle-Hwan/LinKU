@@ -8,7 +8,10 @@ LinKU의 로컬 저장이 제품의 기본 경로이고 Supabase 계정 동기�
 | 기능 | 로컬 저장 | Supabase 장애 시 |
 | --- | --- | --- |
 | 템플릿 생성·조회·수정·적용 | IndexedDB `templates` | 정상 동작 |
-| 사용자 아이콘 | IndexedDB `assets` | 업로드·편집 가능 |
+| 미게시 템플릿 삭제 | IndexedDB `templates` + outbox | 로컬 삭제 후 원격 작업 대기 |
+| 사용자 아이콘 | IndexedDB `assets` | 업로드·목록·템플릿 적용 가능 |
+| 편집 draft | IndexedDB `drafts` | 이전 draft 보관만 지원, 자동 저장 UI 미연결 |
+| 적용 중인 템플릿 ID | `chrome.storage.local` | popup 재실행 후 유지 |
 | 전체 백업·복원 | JSON file | 정상 동작 |
 | 손상 레코드 보존 | IndexedDB `quarantine` | 원본 내보내기 가능 |
 | 여러 기기 동기화 | outbox → Supabase | 로컬 변경을 대기열에 보존 |
@@ -20,7 +23,7 @@ LinKU의 로컬 저장이 제품의 기본 경로이고 Supabase 계정 동기�
 현재 DB 이름은 `linku`, version은 5입니다. 배포된 local-only version 4에서 다음
 store만 additive하게 추가합니다.
 
-- `outbox`: template/asset별 마지막 put/delete 작업
+- `outbox`: template의 마지막 put/delete, asset의 put 작업
 - `syncMeta`: remote revision, content hash, 게시 snapshot 상태
 - `settings`: 최초 연결한 account ID
 
@@ -28,8 +31,31 @@ store만 additive하게 추가합니다.
 삭제하지 않습니다. 이전 localStorage template은 fingerprint 기반 migration으로
 한 번 가져오며 읽을 수 없는 값은 삭제 대신 격리합니다.
 
+`idb` 라이브러리의 upgrade에서 store·index 존재 여부를 확인하고, 이전 연결이 upgrade를
+막으면 `blocking` callback에서 연결을 닫습니다. `drafts`는 레거시 보관 슬롯이며
+에디터 자동 저장에 연결되어 있지 않습니다. 화면의 `templateId === 0`은 기본 템플릿 또는
+저장 전 템플릿을 뜻하므로 draft 식별자로 사용하지 않습니다.
+
 템플릿 저장과 outbox 갱신, 아이콘 저장과 outbox 갱신은 각각 같은 IndexedDB
 transaction입니다. 따라서 로컬 성공 뒤 동기화 항목이 사라지는 중간 상태가 없습니다.
+
+## 로컬 데이터 무결성과 백업
+
+- 숫자 ID는 저장과 같은 transaction에서 사용 중인 최대값보다 크게 발급합니다.
+- 읽을 때 `normalizeStoredTemplate`으로 좌표·항목 ID·시각을 보정합니다. 복구 불가능한
+  값은 `quarantine`에 원본을 보존하고, 사용자에게 복구 파일 내보내기를 제공합니다.
+- 이전 localStorage 이관은 원본별 fingerprint와 처리 결과를 데이터와 같은 transaction에
+  기록합니다. 실패하면 현재 작업도 실패로 알립니다. 원본은 남기되 사용자가 템플릿을
+  삭제하면 해당 legacy 원본도 제거하여 다음 실행에 되살아나지 않게 합니다.
+- 인라인 아이콘의 숫자 ID가 없거나 다른 이미지를 가리키면 실제 이미지로 재등록하여
+  편집을 복구합니다. 사용자 아이콘은 최대 256px WebP로 정규화합니다.
+- 백업은 모든 로컬 템플릿과 **그 템플릿이 참조하는 아이콘**을 담습니다. 미사용 아이콘,
+  시간표, 인증 세션은 포함하지 않으며 격리 원본은 별도 복구 파일로 내보냅니다.
+- 백업 내보내기와 복원 모두 10 MiB 제한을 적용합니다. 파일 envelope·아이콘을 검증한 뒤
+  복원하며 템플릿의 숫자 ID와 UUID를 새로 발급해 기존 항목을 덮지 않습니다. 아이콘 참조는
+  복원된 asset으로 연결하고, 검증된 WebP bytes는 재인코딩하지 않아 같은 hash를 재사용합니다.
+- 저장 공간 부족과 그 밖의 오류는 구분해 알립니다. `unlimitedStorage` 권한은 사용하지
+  않으며, 확장 제거·로컬 데이터 손실이나 아직 동기화되지 않은 변경의 복구에는 백업이 필요합니다.
 
 ## 동기화 규칙
 
@@ -84,11 +110,25 @@ Google profile과 내부 account ID는 포함하지 않습니다. 원본의 공�
 ## 제한과 복구
 
 - 계정당 active template 100개, user icon 100개, active publication 25개
+- 계정당 게시용 public icon object 900개
 - template JSON 256 KiB 이하
+- 6×6 grid, item 최대 36개, HTTP(S) 링크만 허용
 - icon 하나당 512 KiB 이하의 WebP
+- 가져오는 인라인 이미지는 PNG·JPEG·WebP만 허용하며 실행 가능한 SVG data URL은 거부
 - publication 목록은 한 요청에 최대 24개
 
-로컬 저장 공간 부족은 동기화 실패와 별도로 안내합니다. 명시적인 전체 JSON 백업은
-계정 동기화 여부와 무관한 복구 경로로 유지합니다. 기존 Spring backend의 데이터는
-자동 이관하지 않으며 KU email 인증, 학과 구독, 공지 crawler와 단일 템플릿 직접
-공유는 폐기합니다.
+이 수치는 애플리케이션의 저장 상한이지 Supabase 무료 플랜의 전체 용량·요청량 보장이
+아닙니다. 로컬 백업은 계정 동기화 여부와 무관한 복구 경로로 유지합니다.
+
+## 기존 기능의 이관 범위
+
+기존 Spring backend 데이터는 자동 이관하지 않습니다. KU email 인증·학과 구독·backend
+공지 crawler·단일 템플릿 URL/file 직접 공유는 폐기하고, 공개 공지는 프론트 직접 조회를
+유지합니다. 자체 JWT는 Supabase Google Auth로, 템플릿 API는 local-first 저장·동기화와
+공개 snapshot 게시로 대체합니다.
+
+개인 아이콘의 **이름 변경·개별 삭제는 폐기된 요구가 아니라 아직 이관하지 못한 기능**입니다.
+현재 로컬 repository와 동기화는 생성·조회만 지원하며, 동일 hash의 이름 변경이나 원격 삭제를
+다른 기기에 전파하지 않습니다. 게시용 미사용 파일 정리와 전체 클라우드 데이터 삭제는
+별도로 동작하지만 개인 아이콘 CRUD를 대신하지 않습니다. 완전한 이관에는 이름 변경,
+사용 중 삭제 차단, 오프라인 재시도·다기기 반영과 권한 테스트가 필요합니다.
