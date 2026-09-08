@@ -137,6 +137,7 @@ async function toCloudIcon(icon: TemplateIcon): Promise<CloudTemplateIcon> {
   if (bundled) return { kind: "builtin", key: bundled.name };
 
   let asset = await getAssetByNumericId(icon.iconId);
+  if (asset?.dataUrl !== icon.iconUrl) asset = undefined;
   if (asset?.deletedAt) {
     throw new UserFacingError("다른 기기에서 삭제한 아이콘이 있습니다. 해당 아이콘을 다시 선택해 주세요.", "ASSET_DELETED");
   }
@@ -209,7 +210,15 @@ export function createPublishedSnapshot(
 export async function hashPublishedTemplate(
   document: CloudTemplateDocumentV1,
 ): Promise<string> {
-  return hashCloudTemplate(createPublishedSnapshot(document));
+  const snapshot = createPublishedSnapshot(document);
+  return hashCloudTemplate({
+    ...snapshot,
+    // Library labels can change independently; only the image identity is public content.
+    items: snapshot.items.map((item) => ({
+      ...item,
+      icon: item.icon.kind === "asset" ? { kind: "asset", hash: item.icon.hash } : item.icon,
+    })),
+  });
 }
 
 export function parseCloudTemplateDocument(value: unknown): CloudTemplateDocumentV1 {
