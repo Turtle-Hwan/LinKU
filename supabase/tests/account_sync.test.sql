@@ -11,7 +11,7 @@ select has_table('public', 'template_publications', 'publications table exists')
 select has_function(
   'public',
   'browse_publications',
-  array['text', 'text', 'integer', 'integer'],
+  array['text', 'text', 'integer', 'integer', 'boolean'],
   'anonymous gallery function exists'
 );
 

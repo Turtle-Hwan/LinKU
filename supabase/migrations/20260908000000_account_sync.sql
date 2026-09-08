@@ -699,7 +699,8 @@ create or replace function public.browse_publications(
   p_query text default '',
   p_sort text default 'latest',
   p_offset integer default 0,
-  p_limit integer default 12
+  p_limit integer default 12,
+  p_own_only boolean default false
 )
 returns table (
   template_id uuid,
@@ -716,13 +717,13 @@ language plpgsql
 stable
 security definer
 set search_path = ''
-as $
+as $$
 declare
   search_text text := left(btrim(coalesce(p_query, '')), 80);
   safe_offset integer := least(greatest(coalesce(p_offset, 0), 0), 1000);
   safe_limit integer := least(greatest(coalesce(p_limit, 12), 1), 24);
 begin
-  if p_sort not in ('latest', 'likes', 'clones') then
+  if p_sort not in ('latest', 'oldest', 'likes', 'clones') then
     raise exception using errcode = '22023', message = 'INVALID_SORT';
   end if;
 
@@ -744,12 +745,16 @@ begin
   from public.template_publications publication
   join public.profiles profile on profile.user_id = publication.owner_id
   where publication.unpublished_at is null
+    and (not coalesce(p_own_only, false) or (
+      linku_private.is_google_session() and publication.owner_id = auth.uid()
+    ))
     and (
       search_text = ''
       or publication.snapshot ->> 'name' ilike '%' || search_text || '%'
       or profile.nickname ilike '%' || search_text || '%'
     )
   order by
+    case when p_sort = 'oldest' then publication.published_at end asc,
     case when p_sort = 'likes' then publication.like_count end desc,
     case when p_sort = 'clones' then publication.clone_count end desc,
     publication.published_at desc,
@@ -757,7 +762,7 @@ begin
   offset safe_offset
   limit safe_limit;
 end;
-$;
+$$;
 
 create or replace function public.set_publication_liked(
   p_template_id uuid,
@@ -881,7 +886,7 @@ revoke all on function public.initialize_profile(text) from public, anon, authen
 revoke all on function public.update_nickname(text) from public;
 revoke all on function public.publish_template(uuid, text, bigint) from public;
 revoke all on function public.unpublish_template(uuid, bigint) from public;
-revoke all on function public.browse_publications(text, text, integer, integer) from public;
+revoke all on function public.browse_publications(text, text, integer, integer, boolean) from public;
 revoke all on function public.set_publication_liked(uuid, boolean) from public;
 revoke all on function public.record_publication_clone(uuid) from public;
 revoke all on function public.clear_linku_data() from public;
@@ -894,7 +899,7 @@ grant execute on function public.initialize_profile(text) to authenticated;
 grant execute on function public.update_nickname(text) to authenticated;
 grant execute on function public.publish_template(uuid, text, bigint) to authenticated;
 grant execute on function public.unpublish_template(uuid, bigint) to authenticated;
-grant execute on function public.browse_publications(text, text, integer, integer) to anon, authenticated;
+grant execute on function public.browse_publications(text, text, integer, integer, boolean) to anon, authenticated;
 grant execute on function public.set_publication_liked(uuid, boolean) to authenticated;
 grant execute on function public.record_publication_clone(uuid) to authenticated;
 grant execute on function public.clear_linku_data() to authenticated;

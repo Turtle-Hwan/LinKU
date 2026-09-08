@@ -80,7 +80,7 @@ jobs:
             -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
             -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
             -H "Content-Type: application/json" \
-            --data '{"p_query":"","p_sort":"latest","p_offset":0,"p_limit":1}' \
+            --data '{"p_query":"","p_sort":"latest","p_offset":0,"p_limit":1,"p_own_only":false}' \
             --output /dev/null
 
           status=$(curl --silent --show-error --max-time 10 \

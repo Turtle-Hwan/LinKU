@@ -125,6 +125,7 @@ export const GalleryPage = () => {
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<PublicationSort>("latest");
+  const [ownOnly, setOwnOnly] = useState(false);
   const [publications, setPublications] = useState<
     (TemplatePublication & { preview: Template })[]
   >([]);
@@ -155,6 +156,7 @@ export const GalleryPage = () => {
         const next = await browsePublications({
           query,
           sort,
+          ownOnly,
           offset,
           limit: PAGE_SIZE,
         });
@@ -188,7 +190,7 @@ export const GalleryPage = () => {
         }
       }
     },
-    [query, sort, toast],
+    [query, sort, ownOnly, toast],
   );
 
   useEffect(() => {
@@ -201,6 +203,22 @@ export const GalleryPage = () => {
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
     setQuery(queryInput.trim());
+  };
+
+  const handleOwnOnly = async () => {
+    try {
+      if (!ownOnly && !(await isLoggedIn())) {
+        const login = await startGoogleLogin();
+        if (!login.success) {
+          toast({ title: "Google 로그인 필요", description: login.error });
+          return;
+        }
+      }
+      setOwnOnly(!ownOnly);
+    } catch (error) {
+      reportCommunityFailure("[Gallery] Failed to select own publications", error);
+      toast({ title: "내 게시물을 불러오지 못했습니다", description: "로그인 후 다시 시도해 주세요." });
+    }
   };
 
   const handleClone = async (publication: TemplatePublication) => {
@@ -300,9 +318,12 @@ export const GalleryPage = () => {
             검색
           </Button>
         </form>
-        <div className="flex gap-1 rounded-lg border p-1">
+        <div className="flex flex-wrap gap-1 rounded-lg border p-1">
+          <Button size="sm" variant={ownOnly ? "secondary" : "ghost"} aria-pressed={ownOnly}
+            disabled={loading} onClick={() => void handleOwnOnly()}>내 게시물</Button>
           {([
             ["latest", "최신순"],
+            ["oldest", "오래된순"],
             ["likes", "좋아요순"],
             ["clones", "복제순"],
           ] as const).map(([value, label]) => (
@@ -310,6 +331,7 @@ export const GalleryPage = () => {
               key={value}
               size="sm"
               variant={sort === value ? "secondary" : "ghost"}
+              aria-pressed={sort === value}
               onClick={() => setSort(value)}
             >
               {label}

@@ -63,12 +63,14 @@ function mapBrowsePublication(row: BrowseRow): TemplatePublication {
 export async function browsePublications(options: {
   query?: string;
   sort?: PublicationSort;
+  ownOnly?: boolean;
   offset?: number;
   limit?: number;
 } = {}): Promise<TemplatePublication[]> {
   const { data, error } = await getSupabaseClient().rpc("browse_publications", {
     p_query: options.query ?? "",
     p_sort: options.sort ?? "latest",
+    p_own_only: options.ownOnly ?? false,
     p_offset: options.offset ?? 0,
     p_limit: options.limit ?? 12,
   });

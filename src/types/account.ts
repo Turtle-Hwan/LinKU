@@ -66,4 +66,4 @@ export interface TemplatePublication {
   isLiked?: boolean;
 }
 
-export type PublicationSort = "clones" | "latest" | "likes";
+export type PublicationSort = "clones" | "latest" | "oldest" | "likes";
