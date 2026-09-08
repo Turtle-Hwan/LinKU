@@ -42,5 +42,8 @@ jobs:
       - name: Test analytics transport
         run: pnpm run test:analytics
 
+      - name: Build GitHub Pages
+        run: pnpm run build:gh-pages
+
       - name: Test timetable parsing and colors
         run: pnpm run test:timetable
