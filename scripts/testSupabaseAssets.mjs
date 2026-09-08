@@ -7,6 +7,7 @@ const status = spawnSync('pnpm', ['exec', 'supabase', 'status', '-o', 'json', ..
 assert.equal(status.status, 0, 'Start the local Supabase stack first.');
 const config = JSON.parse(status.stdout);
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(config.API_URL).hostname), 'This test only runs against local Supabase.');
+assert.ok(config.JWT_SECRET && config.SERVICE_ROLE_KEY, 'Local test signing and admin configuration are required.');
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const admin = createClient(config.API_URL, config.SERVICE_ROLE_KEY, options);
 const accounts = [];
@@ -45,6 +46,8 @@ try {
   const path = `${owner.id}/${hash}.webp`;
   phase = 'upload and metadata creation';
   ok(await bucket.upload(path, bytes, { contentType: 'image/webp', upsert: false }));
+  const duplicate = await bucket.upload(path, bytes, { contentType: 'image/webp', upsert: false });
+  assert.equal(Number(duplicate.error?.statusCode), 409, 'An upload retry must recognize an existing immutable file.');
   const created = ok(await owner.client.rpc('put_asset', { p_content_hash: hash, p_name: '원래 이름' }));
   phase = 'rename without reupload';
   const renamed = ok(await owner.client.rpc('put_asset', { p_content_hash: hash, p_name: '새 이름', p_expected_revision: created.revision }));

@@ -11,6 +11,7 @@ test("아이콘 metadata CRUD는 파일 재업로드와 분리되고 삭제 실�
   let persistOnFailure = false;
   let blocked = false;
   let fileDeleteFailed = false;
+  let uploadError: { statusCode: string } | null = null;
   let uploads = 0;
   let removed = 0;
   const query = {
@@ -34,7 +35,7 @@ test("아이콘 metadata CRUD는 파일 재업로드와 분리되고 삭제 실�
     },
     storage: { from: () => ({
       upload: async (path: string, _blob: Blob, options: { upsert: boolean }) => {
-        assert.equal(path, objectPath); assert.equal(options.upsert, false); uploads++; return { error: null };
+        assert.equal(path, objectPath); assert.equal(options.upsert, false); uploads++; return { error: uploadError };
       },
       download: async (path: string) => { assert.equal(path, objectPath); return { data: blob, error: null }; },
       remove: async (paths: string[]) => {
@@ -87,8 +88,21 @@ test("아이콘 metadata CRUD는 파일 재업로드와 분리되고 삭제 실�
       assert.deepEqual(await api.uploadRemoteAsset(asset), expected);
       assert.equal(removed, 2);
     });
+    await t.test("파일만 업로드된 상태의 재시도는 metadata 등록을 마친다", async () => {
+      row = null;
+      writeFailed = false;
+      uploadError = { statusCode: "409" };
+      assert.deepEqual(await api.uploadRemoteAsset(asset), expected);
+      assert.equal(removed, 2);
+      row = null;
+      uploadError = { statusCode: "400" };
+      await assert.rejects(api.uploadRemoteAsset(asset));
+      assert.equal(row, null);
+      uploadError = null;
+    });
     await t.test("metadata가 확실히 없는 업로드 실패만 정리한다", async () => {
       row = null;
+      writeFailed = true;
       persistOnFailure = false;
       await assert.rejects(api.uploadRemoteAsset(asset));
       assert.equal(removed, 3);
