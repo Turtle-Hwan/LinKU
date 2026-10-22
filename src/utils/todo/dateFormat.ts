@@ -179,7 +179,7 @@ export function parseECampusDueDate(dueDate: string): Date {
 export function parseECampusToTimerFormat(dueDate: string): { date: string; time: string } | null {
   const match =
     /^(\d{4})\.(\d{1,2})\.(\d{1,2})\s+(오전|오후)\s+(\d{1,2}):(\d{2})$/.exec(
-      dueDate.trim(),
+      dueDate.split("~")[0].trim(),
     );
   if (!match) return null;
 
